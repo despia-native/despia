@@ -1,0 +1,99 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "list",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:42"
+    },
+    "key": {
+      "type": "string",
+      "default": "id",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:42"
+    },
+    "spacing": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:43"
+    },
+    "axis": {
+      "type": "enum(vertical|horizontal)",
+      "default": "vertical",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:44"
+    },
+    "direction": {
+      "type": "enum(vertical|horizontal)",
+      "default": "vertical",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:44 (alias of axis)"
+    },
+    "scroll": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:164 (scroll=\"false\" -> eager, content-sized)"
+    },
+    "align": {
+      "type": "enum(leading|center|trailing)",
+      "default": "leading",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:165"
+    },
+    "autoscroll": {
+      "type": "number(pts/sec)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:147 (horizontal looping marquee)"
+    },
+    "group_by": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:63"
+    },
+    "swipeLeading": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:59"
+    },
+    "swipeTrailing": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:60"
+    },
+    "swipeFullLeading": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:78"
+    },
+    "swipeFullTrailing": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:83"
+    },
+    "reorder": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:62"
+    },
+    "on:reachEnd": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:52-53 (fires when the last row appears)"
+    },
+    "on:move": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:125 (payload {from, to} — final indices)"
+    }
+  },
+  "geometry": {
+    "spacing": {
+      "value": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/List/swift/List.swift:43"
+    }
+  },
+  "colors": {
+  },
+  "notes": "Single child = the row template, rendered per row in its own item scope with write-back. Lazy only inside a scrolling viewport (List.swift:137-142). SYSTEM IDENTITY (system-defaults.md): a fully UNSTYLED vertical scrolling list uses real platform components — iOS a SwiftUI List in .insetGrouped (List.swift:79-183); Android the existing keyed LazyColumn with genuine Material 3 ListItem rows (StackSystemControls.kt SystemMaterialList/SystemMaterialListItem). Material 3 defines no list container, so Android keeps LazyColumn virtualization and does not imitate SwiftUI inset cards with hand-authored radii, padding, or separators. The gate is the SAME conservative allowlist on both platforms (List.swift systemSafeAttrs ~230-247 = Android SystemList.SYSTEM_SAFE_ATTRS, drift-pinned by StackSystemControlsTest): element attrs post-cascade AND the row template's raw root attrs must all be look-free words; horizontal / scroll=false / any authored look keep the flat pre-law path byte-identically. Under a scrolling/hugging ancestor both platforms stand down via the same signal (iOS stackInScrollContainer stamped by Scroll + the sheet fit-content slot; Android LocalInScrollContainer, same stampers — there a nested lazy list is additionally a Compose error). LIST CONSTRUCTS (group_by · swipeLeading/swipeTrailing · reorder) render inside the system list on BOTH platforms — iOS in a real SwiftUI List (List.swift:82-174), Android on one keyed LazyColumn whose ordinary and swipe foreground rows share SystemMaterialListItem (elements/ListElements.kt ConstructList); the words gate identically and `scroll=\"false\"` (fit-content) WINS over all three on both. Semantics pinned on both: group_by partitions by the stringified field value in FIRST-SEEN order for groups AND rows, the value being the section header; a GROUPED list ignores reorder and an active reorder suppresses swipe (one mode per list); on:reachEnd rides the GLOBAL last row regardless of section; a reorder drop rewrites the bound array through the bind seam and fires on:move with { from, to } as FINAL indices. A swipe button dict is { \"label\"|\"title\", \"icon\", \"role\": \"destructive\", \"color\" } plus one or both firing shapes — \"event\" fires the list's on:<event> with the ROW as scope, \"action\"+\"args\" dispatches on the bus (event first); full-swipe commits the FIRST button of that edge only when swipeFull{Leading,Trailing}=\"true\". Android divergences (declared, ListElements.kt header): no edit mode/drag handles — a reorder drag starts on LONG PRESS (Compose has neither), a full swipe springs the row closed instead of animating it out, the action-rail metrics are Android's own (out of this spec, rule 4), and an open row closes on its own button tap or a swipe back rather than on an unrelated scroll."
+}

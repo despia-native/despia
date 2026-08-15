@@ -1,0 +1,30 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "StudioPitchEditor",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioPitchEditor.swift",
+  "attributes": {
+    "musicKey": {
+      "type": "string",
+      "default": "C",
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioPitchEditor.swift:81"
+    },
+    "musicScale": {
+      "type": "string",
+      "default": "chromatic",
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioPitchEditor.swift:82"
+    },
+    "snapToKey": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioPitchEditor.swift:83"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

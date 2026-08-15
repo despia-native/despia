@@ -1,0 +1,106 @@
+{
+ "_note": "The agentic loop's own limits (local-ai-engine.md §4.6). THE LAW ENCODED HERE: (1) the loop is depth-capped at 32, mirroring the action grammar — a model that keeps calling tools forever is stopped by the runtime with a typed error, not by the battery. (2) A tool may not call the model that is running it: a tool invocation resolving to the `intelligence` scheme (or the loop's own model) is refused TYPED rather than self-deadlocking under single-flight — governor-scheduled nesting is a later relaxation, never a v1 accident. (3) Cancelling mid-loop stops the whole loop, not just the current engine turn: no tool dispatched after the cancel. (4) The loop keeps a local ring-buffered transcript — prompts, decisions, tool calls, approvals — exportable from the DevSettings drawer and NEVER transmitted; it is what makes agentic behaviour debuggable on the pillars' terms. (5) An unknown tool name coming back from the model is answered typed and fed to the model, which is how a hallucinated tool becomes a correction instead of a crash.",
+ "cases": [
+  {
+   "name": "loop: the depth cap stops a runaway tool loop typed",
+   "_note": "The mock calls the same tool on every turn forever. The runtime stops at depth 32 with `tool_depth_exceeded` and settles the request — the count is asserted exactly so an off-by-one does not silently double the work.",
+   "tools": [ { "source": "module", "name": "echo.ping", "description": "Ping.", "schema": { "type": "object", "properties": { } }, "returns": { "pong": true } } ],
+   "mock": { "models": { "m1": { "everyTurn": [ { "tool": { "id": "c", "name": "echo.ping", "arguments": { } } }, { "complete": { } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [], "tools": [ "echo.ping" ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "dispatchCount": 32,
+    "errors": [ { "req": "a", "code": "tool_depth_exceeded", "data": { "depth": 32 } } ]
+   }
+  },
+  {
+   "name": "loop: a tool may not call the model that is running it",
+   "_note": "The no-self-call law. A tool row pointing back at the `intelligence` scheme is refused with a typed error that rides back to the model as the tool result; nothing dispatches and the loop does not deadlock waiting on its own engine.",
+   "tools": [ { "source": "module", "name": "intelligence.completion", "description": "Ask the model.", "schema": { "type": "object", "properties": { "prompt": { "type": "string" } } } } ],
+   "mock": { "models": { "m1": { "turns": [
+    [ { "tool": { "id": "c0", "name": "intelligence.completion", "arguments": { "prompt": "recurse" } } }, { "complete": { } } ],
+    [ { "token": "I cannot call myself." }, { "complete": { } } ]
+   ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [], "tools": [ "intelligence.completion" ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "dispatched": [],
+    "events": [ { "req": "a", "event": "tool", "data": { "id": "c0", "status": "refused" } } ],
+    "engineRequests": [
+     { "kind": "completion" },
+     { "kind": "completion", "messages": [ { "role": "tool", "tool_call_id": "c0", "content": { "error": "tool_self_call" } } ] }
+    ]
+   }
+  },
+  {
+   "name": "loop: an unknown tool name answers typed and the model corrects",
+   "_note": "Models invent tool names. The runtime answers `tool_unknown` as the tool result instead of failing the request, and the next turn is the model's correction.",
+   "tools": [ { "source": "module", "name": "clock.now", "description": "Current time.", "schema": { "type": "object", "properties": { } }, "returns": { "t": "12:00" } } ],
+   "mock": { "models": { "m1": { "turns": [
+    [ { "tool": { "id": "c0", "name": "clock.tomorrow", "arguments": { } } }, { "complete": { } } ],
+    [ { "tool": { "id": "c1", "name": "clock.now", "arguments": { } } }, { "complete": { } } ],
+    [ { "token": "12:00" }, { "complete": { } } ]
+   ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [], "tools": [ "clock.now" ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "dispatched": [ { "name": "clock.now" } ],
+    "engineRequests": [
+     { "kind": "completion" },
+     { "kind": "completion", "messages": [ { "role": "tool", "tool_call_id": "c0", "content": { "error": "tool_unknown" } } ] },
+     { "kind": "completion", "messages": [ { "role": "tool", "tool_call_id": "c0", "content": { "error": "tool_unknown" } }, { "role": "tool", "tool_call_id": "c1", "content": { "t": "12:00" } } ] }
+    ]
+   }
+  },
+  {
+   "name": "loop: cancelling mid-loop dispatches nothing further",
+   "_note": "Cancellation is loop-wide. After the cancel the runtime does not start the next turn and does not dispatch the tool the model asked for on the turn that was already in flight.",
+   "tools": [ { "source": "module", "name": "echo.ping", "description": "Ping.", "schema": { "type": "object", "properties": { } }, "returns": { "pong": true } } ],
+   "mock": { "models": { "m1": { "turns": [
+    [ { "tool": { "id": "c0", "name": "echo.ping", "arguments": { } } }, { "pause": true }, { "complete": { } } ],
+    [ { "token": "never reached" }, { "complete": { } } ]
+   ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [], "tools": [ "echo.ping" ] }, "mode": "post", "as": "a" } },
+    { "cancel": { "target": "a" } }
+   ],
+   "expect": {
+    "dispatched": [],
+    "events": [ { "req": "a", "event": "complete", "final": true, "data": { "cancelled": true } } ],
+    "engineRequestCount": 1
+   }
+  },
+  {
+   "name": "loop: the transcript records the run and stays on the device",
+   "_note": "The audit trail the pillars require. Every prompt, tool call, approval decision and completion lands in a local ring buffer that a developer can export from DevSettings; `transmitted` is asserted false because a transcript that phones home would be the backdoor the whole program denies having.",
+   "tools": [ { "source": "module", "name": "base.write", "description": "Write a row.", "mutates": "base", "approval": "prompt", "schema": { "type": "object", "properties": { "row": { "type": "string" } } }, "returns": { "ok": true } } ],
+   "mock": { "models": { "m1": { "turns": [
+    [ { "tool": { "id": "c0", "name": "base.write", "arguments": { "row": "x" } } }, { "complete": { } } ],
+    [ { "token": "written" }, { "complete": { } } ]
+   ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [], "tools": [ "base.write" ] }, "mode": "post", "as": "a" } },
+    { "approve": { "id": "c0", "decision": "approve" } }
+   ],
+   "expect": {
+    "transcript": [
+     { "kind": "request", "model": "m1" },
+     { "kind": "tool_call", "name": "base.write", "arguments": { "row": "x" } },
+     { "kind": "approval", "id": "c0", "decision": "approve" },
+     { "kind": "tool_result", "id": "c0" },
+     { "kind": "request", "model": "m1" },
+     { "kind": "complete" }
+    ],
+    "transcriptTransmitted": false
+   }
+  }
+ ]
+}

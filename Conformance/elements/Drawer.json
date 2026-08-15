@@ -1,0 +1,60 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "Drawer",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift",
+  "attributes": {
+    "on:close": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:48 (raised past the 120pt drag threshold)"
+    }
+  },
+  "geometry": {
+    "handleWidth": {
+      "value": 36,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:34"
+    },
+    "handleHeight": {
+      "value": 5,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:34"
+    },
+    "handlePaddingV": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:35"
+    },
+    "contentSpacing": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:36"
+    },
+    "contentPaddingH": {
+      "value": 20,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:37"
+    },
+    "contentPaddingB": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:38"
+    },
+    "cornerRadius": {
+      "value": 24,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:42"
+    },
+    "dismissThreshold": {
+      "value": 120,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:48"
+    },
+    "handleOpacity": {
+      "value": 0.25,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:33"
+    }
+  },
+  "colors": {
+    "panel": {
+      "token": "#1C1C1C",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:41 (Color(white"
+    }
+  },
+  "notes": ""
+}

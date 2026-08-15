@@ -1,0 +1,12 @@
+<!-- Crate — a PREFAB (dsx-game.md G1): a component whose body is scene content, so it
+     instantiates by tag INSIDE a <scene> subtree with scene-node semantics. The
+     instance's position/rotation/scale ride the implicit expansion group; `tint` and
+     `mass` are declared params filled from the instance tag (or their defaults). One
+     declaration, spawned by data — the whole prefab story with no second concept. -->
+<box physics="dynamic" mass="{{ mass }}" bounce="0.15" friction="0.6"
+     size="0.6 0.6 0.6" color="{{ tint }}">
+  <head>
+    <attribute as="tint" default="#c2703a"/>
+    <attribute as="mass" default="1"/>
+  </head>
+</box>

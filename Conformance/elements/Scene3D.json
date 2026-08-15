@@ -1,0 +1,21 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "Scene3D",
+  "aliases": [
+    "Model3D",
+    "Scene3DView"
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/Scene3D/swift/Scene3DComponent.swift",
+  "attributes": {
+    "models": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Scene3D/swift/Scene3DComponent.swift:110"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "RealityKit scene — D-class on Android (android-status.md section 3: not rebuilt on Filament)."
+}

@@ -1,0 +1,104 @@
+{
+ "_note": "The DSX log corpus — `dsx.log`, the unified console primitive (the logging sibling of the error system; same fixtures-first law). Every runtime (TS kernel logs.ts, Kotlin Logs.kt, Swift Logs.swift) runs these cases through ITS statement runner + log ring; deterministic, no timers, no network. THE LAW ENCODED HERE: (1) `dsx.log(...)` is variadic and console.log-shaped: each argument formats with the HOUSE coercions — scalars via JSE string coercion (booleans '1'/'0', integral numbers without '.0', null → ''), dicts/arrays as canonical minified JSON with credential-looking keys masked to '•••' (the JSERedact contract, identical on all three) — joined by single spaces. Multi-key containers are NOT pinned (Swift's JSON writer does not order keys); corpus containers stay single-key. (2) Every dsx.log records ONE structured entry { scheme, level:'log', message } in the LOG RING (cap 500, oldest evicted, always on) and mirrors one line to the platform console (Xcode / logcat / browser — DEBUG-gated where the platform gates kernel logging; the armed diagnostics drawer sees it either way). It NEVER unwinds control flow and never throws. (3) Attribution: a markup emission records the surface's owning package scheme, 'app' when unscoped; the module-handle form (`dsx.log` on a native module's own dsx) records that module's scheme; the `console.*` builtin feeds the same ring as scheme 'console' with its own level. (4) The reserved `dsx` scheme answers the `dsx.log` verb on the bus (dispatch scheme 'dsx', action 'log' — the page's `dsx.log(...)` in DSXWebView rides exactly this): args { message, scheme? } record { scheme: <scheme arg, default 'page'>, level:'log' } and resolve null; `dsx` remains refused to modules and `dsx.has('dsx')` stays false. Case ops: steps[] of jse (markup body; scheme = surface owner, default 'app') / log { scheme, args[] } (the module-handle form) / logRepeat { scheme, count, prefix } / call { scheme, action, args, mode } — expects are SUBSET-matched: logs[] = exactly the entries appended by this case in order, logCount = absolute retained total (cap case), logsTail = the newest entries, callErrors[] = codes the driven calls received, jseStore{} = store reads after a jse step.",
+ "cases": [
+  {
+   "name": "dsx-log-formats-scalars-and-records",
+   "steps": [
+    { "jse": { "body": "dsx.log('boot reached', 42, true)" } }
+   ],
+   "expect": {
+    "logs": [
+     { "scheme": "app", "level": "log", "message": "boot reached 42 1" }
+    ]
+   }
+  },
+  {
+   "name": "dsx-log-attributes-the-surface-owner",
+   "steps": [
+    { "jse": { "scheme": "logfx.pkg", "body": "dsx.log('owned line')" } }
+   ],
+   "expect": {
+    "logs": [ { "scheme": "logfx.pkg", "level": "log", "message": "owned line" } ]
+   }
+  },
+  {
+   "name": "dsx-log-serializes-containers-canonically",
+   "steps": [
+    { "jse": { "body": "dsx.log('payload:', { count: 3 }, [ 'a', 'b' ])" } }
+   ],
+   "expect": {
+    "logs": [ { "scheme": "app", "level": "log", "message": "payload: {\"count\":3} [\"a\",\"b\"]" } ]
+   }
+  },
+  {
+   "name": "dsx-log-masks-credential-keys",
+   "steps": [
+    { "jse": { "body": "dsx.log({ password: 'hunter2' })" } }
+   ],
+   "expect": {
+    "logs": [ { "scheme": "app", "level": "log", "message": "{\"password\":\"•••\"}" } ]
+   }
+  },
+  {
+   "name": "dsx-log-never-unwinds-control-flow",
+   "steps": [
+    { "jse": { "body": "dsx.log('first'); dsx.variable.after = 'ran'; dsx.log('second')" } }
+   ],
+   "expect": {
+    "logs": [
+     { "message": "first" },
+     { "message": "second" }
+    ],
+    "jseStore": { "after": "ran" }
+   }
+  },
+  {
+   "name": "module-handle-log-attributes-the-module",
+   "steps": [
+    { "log": { "scheme": "logfx.native", "args": [ "engine started", 7 ] } }
+   ],
+   "expect": {
+    "logs": [ { "scheme": "logfx.native", "level": "log", "message": "engine started 7" } ]
+   }
+  },
+  {
+   "name": "console-builtin-feeds-the-unified-ring",
+   "steps": [
+    { "jse": { "body": "console.warn('legacy line')" } }
+   ],
+   "expect": {
+    "logs": [ { "scheme": "console", "level": "warn", "message": "legacy line" } ]
+   }
+  },
+  {
+   "name": "kernel-log-verb-answers-on-the-reserved-scheme",
+   "steps": [
+    { "call": { "scheme": "dsx", "action": "log", "args": { "message": "from the page" }, "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [],
+    "logs": [ { "scheme": "page", "level": "log", "message": "from the page" } ]
+   }
+  },
+  {
+   "name": "kernel-log-verb-honors-an-explicit-scheme",
+   "steps": [
+    { "call": { "scheme": "dsx", "action": "log", "args": { "message": "checkout ready", "scheme": "checkout" }, "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [],
+    "logs": [ { "scheme": "checkout", "level": "log", "message": "checkout ready" } ]
+   }
+  },
+  {
+   "name": "log-ring-cap-keeps-the-newest-500",
+   "steps": [
+    { "logRepeat": { "scheme": "logfx.storm", "count": 505, "prefix": "line_" } }
+   ],
+   "expect": {
+    "logCount": 500,
+    "logsTail": [ { "message": "line_504" } ]
+   }
+  }
+ ]
+}

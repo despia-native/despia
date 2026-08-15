@@ -1,0 +1,9 @@
+<stack>
+  <head>
+    <attribute name="legacy"/>
+    <event/>
+    <api as="9bad" url="/x"/>
+    <expects/>
+  </head>
+  <text value="ok"/>
+</stack>

@@ -1,0 +1,38 @@
+# Despia Kernel
+
+The open application kernel: the message bus and its primitives - registry, dispatch,
+reactive store, the UI engine, JSE (the total, budgeted expression tier), content, errors,
+logs. The kernel names nobody: no module, no scheme, no platform, and zero WebKit. Apache-2.0.
+
+It exists three times and the three are held identical by one shared fixture corpus:
+
+- `iOS/` - the Swift kernel, the reference implementation
+- `Android/` - the Kotlin kernel twin (see `Android/README.md`)
+- the TypeScript kernel ships separately as `@despia/kernel` on npm
+  (source: `OpenSource/Web/packages/kernel` in the monorepo)
+
+Shared by every platform, verbatim: `runtime.js` (the page-facing bridge),
+`EngineConfig.json`.
+
+## Docs
+
+- README.md: what is here, what is intentionally not, and how to lift this into a package
+- SKILL.md: the author's guide - writing a module against `dsx`
+- conformance/README.md: the fixture corpus that defines "correct" on every runtime
+
+## Checking the parity claim instead of believing it
+
+`conformance/` is not a sample of the test suite; it is the definition of correct behaviour,
+and all three kernels run the same files. A behaviour change that does not land on every
+runtime that ships it fails a gate.
+
+- conformance/jse/: expression and action semantics
+- conformance/chains/: module identity resolution (the longest-known-prefix fold)
+- conformance/defaults/tokens.json: the unstyled baseline every renderer honours
+- conformance/actions/: actions as workflows - chaining, branching, looping, budgets
+
+## Not here
+
+The proprietary module catalog, the host app shells, the build and release machinery, and
+the hosted platform. This repository is source to read, vendor and audit; a resolvable Swift
+package waits until Despia's own app imports it (the dogfood law).

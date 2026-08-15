@@ -1,0 +1,12 @@
+{
+  "name": "dsx-server-firebase",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "scripts": {
+    "build": "esbuild src-entry.ts --bundle --platform=node --format=esm --external:firebase-functions --external:pg --external:npm:pg --outfile=index.js"
+  },
+  "dependencies": { "firebase-functions": "^6.0.0", "pg": "^8.22.0" },
+  "devDependencies": { "esbuild": "^0.28.1" }
+}

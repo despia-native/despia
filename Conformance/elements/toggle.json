@@ -1,0 +1,45 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "toggle",
+  "aliases": [
+    "switch"
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift:13"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift:18"
+    }
+  },
+  "geometry": {
+    "width": {
+      "value": 51,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift:16 (native UISwitch intrinsic 51x31; Android mirrors — StackInputViews.kt"
+    },
+    "height": {
+      "value": 31,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift:16 (UISwitch metric)"
+    },
+    "thumb": {
+      "value": 27,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift:16 (UISwitch thumb ~= 27pt; StackInputViews.kt"
+    },
+    "thumbInset": {
+      "value": 2,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift:16 (UISwitch thumb inset; StackInputViews.kt"
+    }
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift:18"
+    }
+  },
+  "notes": "on:change fires from setBound's write seam on actual change only (Toggle.swift:15). SYSTEM IDENTITY (system-defaults.md, the Android M3-identity wave): iOS renders the native UISwitch always (SwiftUI Toggle, tint= compatible — Toggle.swift:16-18); web renders the real <input type=checkbox role=switch> (elements.ts toggle); Android renders the real M3 Switch when the element is FULLY unstyled (StackSystemControls.kt SystemControl.TOGGLE — bind + safe base only), at the Switch's own 52x32 metric with explicit role colors (selected onPrimary/primary, unselected outline/surfaceContainerHighest); ANY styling attr — color= included, the SystemButton word-less rule — ejects to the legacy 51x31 capsule byte-identically (the pinned geometry above IS that legacy path + the iOS metric). Android joining COMPLETES the three-renderer native-control parity for this element. Token slots: system track/thumb ride the platform's own switch roles, never re-specified here; colors.tint stays the legacy path's accent."
+}

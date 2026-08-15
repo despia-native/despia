@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DSX Canvas Editor</title>
+<style>
+  html, body { height: 100%; margin: 0; background: #1a1a1a; overflow: hidden; }
+  #canvas { position: absolute; inset: 0; }
+  #template-notice { display: none; min-height: 100%; box-sizing: border-box; padding: 48px 32px; color: #f5f5f7; background: #101114; font: 16px/1.5 system-ui, sans-serif; }
+  #template-notice article { max-width: 620px; margin: 8vh auto; padding: 28px; border: 1px solid #333640; border-radius: 16px; background: #1b1d23; }
+  #template-notice h1 { margin: 0 0 10px; font-size: 24px; }
+  #template-notice p { color: #b9bdc9; }
+  #template-notice code { color: #8ac7ff; overflow-wrap: anywhere; word-break: break-word; }
+  @media (max-width: 480px) {
+    #template-notice { padding: 24px 16px; }
+    #template-notice article { margin: 6vh auto; padding: 24px; }
+  }
+</style>
+</head>
+<body>
+  <div id="canvas"></div>
+  <main id="template-notice" role="alert">
+    <article>
+      <h1>DSX Canvas Editor template</h1>
+      <p>This source template is assembled during the build and cannot run by itself.</p>
+      <p>Open <code>../CanvasEditor.html</code> for the self-contained editor, or run <code>ruby ../../ClosedSource/scripts/build_canvas_editor.rb</code> to regenerate it.</p>
+    </article>
+  </main>
+  <script id="dsx-src" type="text/plain">
+@@SAMPLE_DECK@@
+  </script>
+
+  <script>
+    // Keep accidental direct opens useful: build markers only exist in this
+    // source template, never in the generated self-contained editor.
+    const templateSource = document.getElementById("dsx-src").textContent.includes("@@SAMPLE_DECK@@");
+    if (templateSource) {
+      document.getElementById("canvas").style.display = "none";
+      document.getElementById("template-notice").style.display = "block";
+      document.title = "DSX Canvas Editor — template source";
+    }
+  </script>
+
+  <!-- ════════ Canonical JSE (generated from the web kernel) ════════ -->
+  <script type="text/plain" data-canvas-build-script>@@CANONICAL_JSE@@</script>
+  <!-- ════════ SDK (src/canvas-editor.js, inlined verbatim by build_canvas_editor.rb) ════════ -->
+  <script type="text/plain" data-canvas-build-script>
+@@STACKCANVAS_JS@@
+  </script>
+
+  <script>
+    // Boot is LOUD: success stamps the parsed node count into the title
+    // (build_canvas_editor.rb --check greps it as the render-smoke marker);
+    // any boot failure stamps the error message instead of dying silently.
+    const DSX = document.getElementById("dsx-src").textContent;
+    if (!templateSource) try {
+      const canvas = new StackCanvas(document.getElementById("canvas"), {
+        controls: false,
+        frame: false,
+      });
+      const { tree } = canvas.loadDSX(DSX);
+      const count = (function n(t) { return t ? 1 + (t.children || []).reduce((s, c) => s + n(c), 0) : 0; })(tree);
+      document.title = "DSX Canvas Editor: " + count + " nodes";
+
+      canvas.on("*", (event, data) => console.log("[canvas]", event, data));
+      window.canvas = canvas;
+      canvas.on("editblocked", ({ id }) => canvas.startEdit(id, { force: true }));
+    } catch (e) {
+      document.title = "DSX Canvas Editor: boot-failed: " + (e && e.message);
+      throw e;
+    }
+  </script>
+</body>
+</html>

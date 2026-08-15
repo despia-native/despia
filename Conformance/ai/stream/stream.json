@@ -1,0 +1,155 @@
+{
+ "_note": "The streaming envelope (local-ai-engine.md §4.5, Appendix A7). THE LAW ENCODED HERE: (1) a completion is a DECLARED stream action — events ride the kernel envelope {id, event, final, data} and are rid-correlated, so two jobs are told apart by the envelope and never by a hand-rolled payload id. (2) `token` events carry SEQUENCE-NUMBERED DELTAS, never the cumulative text: the cumulative-snapshot-per-token wire is O(n^2) bytes over the bridge and does not become public grammar — `maxEventBytes` fails any implementation that ships it (the bound applies to incremental events; `sync` and `complete` ARE snapshots by design and are exempt). (3) `seq` is per-request and monotonic from 0, so a late joiner knows what it missed and a resync tells it. (4) `sync` answers with the full typed-block snapshot, both when the engine schedules one and on demand. (5) `complete` is the terminal event (`final: true`) carrying the final snapshot and usage; nothing follows it on that rid. (6) cancellation settles the request typed and stops the stream — no orphaned events, no silent truncation. (7) an engine-side failure is a typed error on the same rid, never a partial success. The mock drains requests deterministically in submission order: what these cases assert is ATTRIBUTION (which rid an event belongs to), never the scheduler's interleaving.",
+ "cases": [
+  {
+   "name": "stream: tokens arrive as sequenced deltas and complete is terminal",
+   "mock": { "models": { "m1": { "script": [ { "token": "Hel" }, { "token": "lo" }, { "complete": { "usage": { "out": 2 } } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [ { "role": "user", "parts": [ { "type": "text", "text": "hi" } ] } ] }, "mode": "post", "as": "a" } }
+   ],
+   "expect": {
+    "events": [
+     { "req": "a", "event": "token", "data": { "seq": 0, "delta": { "type": "text", "text": "Hel" } } },
+     { "req": "a", "event": "token", "data": { "seq": 1, "delta": { "type": "text", "text": "lo" } } },
+     { "req": "a", "event": "complete", "final": true, "data": { "snapshot": [ { "type": "text", "text": "Hello" } ], "usage": { "out": 2 } } }
+    ]
+   }
+  },
+  {
+   "name": "stream: two concurrent jobs are rid-separated",
+   "_note": "Appendix A6 verbatim. Same model, two requests: every event carries its own rid, both streams reach `final`, and no delta appears on the wrong rid.",
+   "mock": { "models": { "m1": { "script": [ { "token": "A" }, { "complete": { } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "post", "as": "a" } },
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "post", "as": "b" } }
+   ],
+   "expect": {
+    "distinctRids": [ "a", "b" ],
+    "events": [
+     { "req": "a", "event": "token", "data": { "seq": 0, "delta": { "type": "text", "text": "A" } } },
+     { "req": "a", "event": "complete", "final": true },
+     { "req": "b", "event": "token", "data": { "seq": 0, "delta": { "type": "text", "text": "A" } } },
+     { "req": "b", "event": "complete", "final": true }
+    ]
+   }
+  },
+  {
+   "name": "stream: token events carry deltas, never the cumulative snapshot",
+   "_note": "The wire-economics fixture. Twelve eight-character tokens: a delta wire keeps every token event small and flat, a cumulative wire grows to ~120 bytes of text on the last one. The bound is asserted against incremental events only.",
+   "mock": { "models": { "m1": { "script": [
+    { "token": "aaaaaaaa" }, { "token": "bbbbbbbb" }, { "token": "cccccccc" }, { "token": "dddddddd" },
+    { "token": "eeeeeeee" }, { "token": "ffffffff" }, { "token": "gggggggg" }, { "token": "hhhhhhhh" },
+    { "token": "iiiiiiii" }, { "token": "jjjjjjjj" }, { "token": "kkkkkkkk" }, { "token": "llllllll" },
+    { "complete": { } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "post", "as": "a" } }
+   ],
+   "expect": {
+    "maxEventBytes": 80,
+    "eventCounts": { "token": 12, "complete": 1 },
+    "events": [
+     { "req": "a", "event": "token", "data": { "seq": 0, "delta": { "type": "text", "text": "aaaaaaaa" } } },
+     { "req": "a", "event": "token", "data": { "seq": 11, "delta": { "type": "text", "text": "llllllll" } } }
+    ]
+   }
+  },
+  {
+   "name": "stream: an on-demand resync answers with the full snapshot",
+   "_note": "The late-joiner path: a surface that attached mid-stream asks for the state it missed and gets typed blocks, not a replay of deltas.",
+   "mock": { "models": { "m1": { "script": [ { "token": "one " }, { "token": "two" }, { "pause": true }, { "token": " three" }, { "complete": { } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "post", "as": "a" } },
+    { "resync": { "target": "a" } }
+   ],
+   "expect": {
+    "events": [
+     { "req": "a", "event": "token", "data": { "seq": 0, "delta": { "type": "text", "text": "one " } } },
+     { "req": "a", "event": "token", "data": { "seq": 1, "delta": { "type": "text", "text": "two" } } },
+     { "req": "a", "event": "sync", "data": { "seq": 1, "snapshot": [ { "type": "text", "text": "one two" } ] } },
+     { "req": "a", "event": "token", "data": { "seq": 2, "delta": { "type": "text", "text": " three" } } },
+     { "req": "a", "event": "complete", "final": true, "data": { "snapshot": [ { "type": "text", "text": "one two three" } ] } }
+    ]
+   }
+  },
+  {
+   "name": "stream: a scripted sync marker emits a snapshot mid-stream",
+   "_note": "The periodic half of the resync law — the engine may schedule a snapshot without anyone asking, and it carries the same shape as the on-demand one.",
+   "mock": { "models": { "m1": { "script": [ { "token": "x" }, { "sync": true }, { "token": "y" }, { "complete": { } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "post", "as": "a" } }
+   ],
+   "expect": {
+    "events": [
+     { "req": "a", "event": "token", "data": { "seq": 0, "delta": { "type": "text", "text": "x" } } },
+     { "req": "a", "event": "sync", "data": { "seq": 0, "snapshot": [ { "type": "text", "text": "x" } ] } },
+     { "req": "a", "event": "token", "data": { "seq": 1, "delta": { "type": "text", "text": "y" } } },
+     { "req": "a", "event": "complete", "final": true }
+    ]
+   }
+  },
+  {
+   "name": "stream: thinking rides its own block type",
+   "_note": "Reasoning models stream thought separately from answer text; a surface that renders only `text` must not concatenate them, and the final snapshot keeps both blocks distinct.",
+   "mock": { "models": { "m1": { "script": [ { "thinking": "let me count" }, { "token": "3" }, { "complete": { } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "post", "as": "a" } }
+   ],
+   "expect": {
+    "events": [
+     { "req": "a", "event": "token", "data": { "seq": 0, "delta": { "type": "thinking", "text": "let me count" } } },
+     { "req": "a", "event": "token", "data": { "seq": 1, "delta": { "type": "text", "text": "3" } } },
+     { "req": "a", "event": "complete", "final": true, "data": { "snapshot": [ { "type": "thinking", "text": "let me count" }, { "type": "text", "text": "3" } ] } }
+    ]
+   }
+  },
+  {
+   "name": "stream: cancel settles the request typed and stops the stream",
+   "mock": { "models": { "m1": { "script": [ { "token": "one" }, { "pause": true }, { "token": "two" }, { "complete": { } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "post", "as": "a" } },
+    { "cancel": { "target": "a" } }
+   ],
+   "expect": {
+    "events": [
+     { "req": "a", "event": "token", "data": { "seq": 0, "delta": { "type": "text", "text": "one" } } },
+     { "req": "a", "event": "complete", "final": true, "data": { "cancelled": true } }
+    ],
+    "eventCounts": { "token": 1 }
+   }
+  },
+  {
+   "name": "stream: an engine failure is a typed error on the same rid",
+   "_note": "A partial stream that fails does not resolve as success and does not vanish: the request settles with a typed error carrying the engine's code, and the ledger sees it.",
+   "mock": { "models": { "m1": { "script": [ { "token": "partial" }, { "error": { "code": "engine_failed", "message": "context overflow" } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "events": [
+     { "req": "a", "event": "token", "data": { "seq": 0, "delta": { "type": "text", "text": "partial" } } }
+    ],
+    "errors": [ { "req": "a", "code": "engine_failed", "message": "context overflow" } ]
+   }
+  },
+  {
+   "name": "stream: await mode resolves with the final snapshot and usage",
+   "_note": "The non-streaming caller is the same request with a different settle: one awaited result, the events still available to anyone watching.",
+   "mock": { "models": { "m1": { "script": [ { "token": "done" }, { "complete": { "usage": { "in": 4, "out": 1 } } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "results": { "a": { "snapshot": [ { "type": "text", "text": "done" } ], "usage": { "in": 4, "out": 1 } } }
+   }
+  }
+ ]
+}

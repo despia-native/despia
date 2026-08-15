@@ -1,0 +1,108 @@
+{
+  "_note": "The GLOBAL FUNCTION LIBRARY + its head block (js-core.md 'Shared logic'). Each case mounts `blocks` IN ORDER — a block with global:true registers via JSE.registerGlobalFunctions (the `<functions global=\"true\">` head block), any other via JSE.registerFunctions into the case's surface store (the plain `<functions>`/`<script>` block) — then registers `actions`, seeds `scope`, and runs `run` exactly like the actions corpus. Pinned: the shadowing order at a named call (scope lambda -> surface functions -> global -> builtins), last-write-wins re-registration, NO scope capture (free names resolve against the CALLING surface's live store), the shared fnDepth 32 guard, and global functions callable from action statements. Runners clear the global table between cases (the app-reload contract).",
+  "cases": [
+    {
+      "name": "global-block-registers-app-wide",
+      "blocks": [
+        { "global": true, "body": "function tax(n) { return n * 2 }" }
+      ],
+      "actions": {},
+      "scope": {},
+      "run": "out = tax(21)",
+      "expectStore": { "out": 42 },
+      "expectEvents": []
+    },
+    {
+      "name": "surface-block-shadows-the-global",
+      "blocks": [
+        { "global": true, "body": "function price(n) { return n * 2 }" },
+        { "body": "function price(n) { return n * 3 }" }
+      ],
+      "actions": {},
+      "scope": {},
+      "run": "out = price(5)",
+      "expectStore": { "out": 15 },
+      "expectEvents": []
+    },
+    {
+      "name": "global-shadows-the-builtin",
+      "blocks": [
+        { "global": true, "body": "function round(n) { return 999 }" }
+      ],
+      "actions": {},
+      "scope": {},
+      "run": "out = round(1.4)",
+      "expectStore": { "out": 999 },
+      "expectEvents": []
+    },
+    {
+      "name": "last-global-block-wins",
+      "blocks": [
+        { "global": true, "body": "function fee() { return 1 }" },
+        { "global": true, "body": "function fee() { return 2 }" }
+      ],
+      "actions": {},
+      "scope": {},
+      "run": "out = fee()",
+      "expectStore": { "out": 2 },
+      "expectEvents": []
+    },
+    {
+      "name": "global-reads-the-calling-surfaces-live-store",
+      "blocks": [
+        { "global": true, "body": "function label() { return prefix + '!' }" }
+      ],
+      "actions": {},
+      "scope": { "prefix": "hi" },
+      "run": "out = label(); prefix = 'yo'; out2 = label()",
+      "expectStore": { "out": "hi!", "out2": "yo!" },
+      "expectEvents": []
+    },
+    {
+      "name": "global-calls-a-global",
+      "blocks": [
+        { "global": true, "body": "function tax(n) { return n * 0.2 }\nfunction total(n) { return n + tax(n) }" }
+      ],
+      "actions": {},
+      "scope": {},
+      "run": "out = total(50)",
+      "expectStore": { "out": 60 },
+      "expectEvents": []
+    },
+    {
+      "name": "runaway-global-recursion-is-contained",
+      "blocks": [
+        { "global": true, "body": "function spin(n) { return spin(n + 1) }" }
+      ],
+      "actions": {},
+      "scope": {},
+      "run": "out = spin(0) ?? 'contained'",
+      "expectStore": { "out": "contained" },
+      "expectEvents": []
+    },
+    {
+      "name": "action-body-calls-a-global-function",
+      "blocks": [
+        { "global": true, "body": "function discount(n) { return n - 5 }" }
+      ],
+      "actions": {
+        "apply": { "body": "dsx.variable.total = discount(amount)" }
+      },
+      "scope": {},
+      "run": "dsx.action.apply({ amount: 30 })",
+      "expectStore": { "total": 25 },
+      "expectEvents": []
+    },
+    {
+      "name": "scope-lambda-shadows-the-global",
+      "blocks": [
+        { "global": true, "body": "function f(x) { return x * 100 }" }
+      ],
+      "actions": {},
+      "scope": {},
+      "run": "const f = x => x + 1; out = f(2)",
+      "expectStore": { "out": 3 },
+      "expectEvents": []
+    }
+  ]
+}

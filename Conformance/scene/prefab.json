@@ -1,0 +1,219 @@
+{
+ "_note": "The DSX Scene PREFAB corpus (dsx-game.md §2 G1): components instantiate inside <scene> subtrees — a prefab IS a <component> whose body is scene content, no second concept. THE LAWS (also in the corpus README, 'The G1 laws'): (1) THE EXPANSION-ROOT LAW — an instance tag ALWAYS expands to one implicit `group` carrying the instance's transform words (position/rotation/scale) + id; the body roots become its children, so instance transforms COMPOSE with body-authored transforms (never clobber), and the scope boundary is a node boundary. (2) THE SCOPE LAW — every non-reserved, non-transform, non-handler instance attribute enters the instance scope RAW; declared <attribute> params missing from the instance fall to their declared default string; scope values resolve at the INSTANCE SITE (the enclosing scope); body holes resolve SCOPE-FIRST (an expr that is exactly a scope key reads the per-instance value), everything else falls through to the outer plane. Reserved words never in scope: id, __css, css-owner, slot, bind, key, on:*. (3) THE SCENE-CONTENT GATE — every body root must be a scene tag or itself a prefab; otherwise ONE prefab-not-scene diagnostic and the WHOLE instance skips (Article 7). (4) THE DEPTH LAW — expansion nests at most SCENE_PREFAB_DEPTH_LIMIT = 8 levels; deeper skips with ONE prefab-depth diagnostic. (5) THE DEFINITION LAW — a definition derives from each lane's OWN component registry template: a bare scene root is the single body root; any other root is a WRAPPER whose non-declaration children are the roots and whose head/declaration <attribute as default> entries are the params (the kernel never learns a component name — the lookup is the seam, rule 18). (6) THE INSTANTIATION LAW — a spawned <group bind> row instantiates the prefab with FRESH node identities sharing the raw scope (per-instance state by construction); removing the row despawns it through the standing P5/G2 machinery. Case shape: `components` = tag → { template: markup string parsed by each runner's OWN XML parser, params?: overriding declared params (the web ComponentIR shape — absent means derive from the template) }; `markup`/`vars`/`expect`/`diagnostics` = the parse.json shapes resolved through the kernel scenePrefabResolver; `worlds` = pinned world matrices ({node: id} or {path: child-index path}, 6 decimals); `rows` = the keyed spawn leg (sceneBindRows/diff + instantiateSceneRow over a prefab template). Every number from an independent scratch derivation, never a kernel under test. (7) THE DEFINING-SCOPE LAW — a def may carry its OWN lookup (the corpus spells it as a per-component `components` sub-table): body tags resolve where the component was DECLARED, exactly as component expansion outside scenes; absent means the instance site's lookup (flat registries). (8) THE BARE-ROOT HEAD LAW — a bare scene root may carry its <head> as a child (registries that keep templates verbatim): declarations are scanned for params AND stripped from the body there too. (9) bind/key/on:* on an INSTANCE tag do nothing — ONE prefab-ignored diagnostic says so (spawning is <group bind> around the instance; handlers live inside the body). Runners: TS (per-PR) · Kotlin :core · Swift record lane.",
+ "cases": [
+  {
+   "name": "a component with a scene root expands to an implicit group",
+   "components": {
+    "enemy": { "template": "<box size=\"1 2 1\" color=\"#2563eb\"/>" }
+   },
+   "markup": "<scene><enemy id=\"e1\" position=\"0 0 -5\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "group", "id": "e1", "position": [0, 0, -5], "children": [
+     { "kind": "box", "size": [1, 2, 1], "color": "#2563eb" }
+    ] }
+   ] }
+  },
+  {
+   "name": "transform inheritance across the component boundary — pinned world",
+   "components": {
+    "turret": { "template": "<group position=\"0 1 0\"><box id=\"barrel\" position=\"0 0.5 0\"/></group>" }
+   },
+   "markup": "<scene><turret id=\"t1\" position=\"2 0 -3\" rotation=\"0 90 0\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "group", "id": "t1", "position": [2, 0, -3], "rotation": [0, 90, 0], "children": [
+     { "kind": "group", "position": [0, 1, 0], "children": [
+      { "kind": "box", "id": "barrel", "position": [0, 0.5, 0] }
+     ] }
+    ] }
+   ] },
+   "worlds": [
+    { "node": "barrel",
+      "world": [0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 2, 1.5, -3, 1],
+      "point": { "local": [1, 0, 0], "world": [2, 1.5, -4] } }
+   ]
+  },
+  {
+   "name": "attribute parameterization — holes fill from instance attrs, defaults from the declaration",
+   "components": {
+    "enemy": {
+     "template": "<sphere radius=\"0.4\" color=\"{{ tint }}\"/>",
+     "params": [ { "name": "hp", "default": "3" }, { "name": "tint", "default": "#ffffff" } ]
+    }
+   },
+   "markup": "<scene><enemy id=\"e1\" tint=\"{{ theme }}\"/><enemy id=\"e2\"/></scene>",
+   "vars": { "theme": "#ff2200" },
+   "expect": { "nodes": [
+    { "kind": "group", "id": "e1", "children": [ { "kind": "sphere", "radius": 0.4, "color": "#ff2200" } ] },
+    { "kind": "group", "id": "e2", "children": [ { "kind": "sphere", "radius": 0.4, "color": "#ffffff" } ] }
+   ] }
+  },
+  {
+   "name": "template-derived declaration — head attribute defaults scanned from the wrapper",
+   "components": {
+    "beacon": { "template": "<component><head><attribute as=\"tint\" default=\"#00ff00\"/></head><box color=\"{{ tint }}\"/></component>" }
+   },
+   "markup": "<scene><beacon id=\"b1\"/><beacon id=\"b2\" tint=\"#123456\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "group", "id": "b1", "children": [ { "kind": "box", "color": "#00ff00" } ] },
+    { "kind": "group", "id": "b2", "children": [ { "kind": "box", "color": "#123456" } ] }
+   ] }
+  },
+  {
+   "name": "multi-root body — one implicit group carries every root",
+   "components": {
+    "hud": { "template": "<component><box size=\"2 0.2 0.2\" color=\"#ff0000\"/><text3d value=\"HP\" position=\"0 0.4 0\"/></component>" }
+   },
+   "markup": "<scene><hud id=\"h\" position=\"0 3 0\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "group", "id": "h", "position": [0, 3, 0], "children": [
+     { "kind": "box", "size": [2, 0.2, 0.2], "color": "#ff0000" },
+     { "kind": "text3d", "value": "HP", "position": [0, 0.4, 0] }
+    ] }
+   ] }
+  },
+  {
+   "name": "two instances do not share scope — per-instance parameterization, pinned worlds",
+   "components": {
+    "enemy": {
+     "template": "<sphere position=\"0 0.25 0\" radius=\"{{ r }}\"/>",
+     "params": [ { "name": "r", "default": "0.5" } ]
+    }
+   },
+   "markup": "<scene><enemy id=\"a\" position=\"-1.5 0 0\" r=\"0.4\"/><enemy id=\"b\" position=\"1.5 0 0\" r=\"1.25\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "group", "id": "a", "children": [ { "kind": "sphere", "radius": 0.4 } ] },
+    { "kind": "group", "id": "b", "children": [ { "kind": "sphere", "radius": 1.25 } ] }
+   ] },
+   "worlds": [
+    { "path": [0, 0], "world": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -1.5, 0.25, 0, 1] },
+    { "path": [1, 0], "world": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1.5, 0.25, 0, 1] }
+   ]
+  },
+  {
+   "name": "scope-first resolution — a param beats an outer var of the same name, unscoped holes fall through",
+   "components": {
+    "probe": {
+     "template": "<sphere radius=\"{{ hp }}\" position=\"0 {{ lift }} 0\"/>",
+     "params": [ { "name": "hp", "default": "1" } ]
+    }
+   },
+   "markup": "<scene><probe id=\"p\" hp=\"3\"/></scene>",
+   "vars": { "hp": 99, "lift": 2 },
+   "expect": { "nodes": [
+    { "kind": "group", "id": "p", "children": [ { "kind": "sphere", "radius": 3, "position": [0, 2, 0] } ] }
+   ] }
+  },
+  {
+   "name": "nested prefabs — the inner instance resolves in the outer body's scope",
+   "components": {
+    "enemy": {
+     "template": "<sphere radius=\"{{ r }}\"/>",
+     "params": [ { "name": "r", "default": "0.5" } ]
+    },
+    "pair": {
+     "template": "<component><head><attribute as=\"size\" default=\"0.75\"/></head><enemy position=\"1 0 0\" r=\"{{ size }}\"/></component>"
+    }
+   },
+   "markup": "<scene><pair id=\"pp\" position=\"0 2 0\" size=\"0.9\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "group", "id": "pp", "position": [0, 2, 0], "children": [
+     { "kind": "group", "position": [1, 0, 0], "children": [
+      { "kind": "sphere", "radius": 0.9 }
+     ] }
+    ] }
+   ] },
+   "worlds": [
+    { "path": [0, 0, 0], "world": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 2, 0, 1] }
+   ]
+  },
+  {
+   "name": "a scaled instance transform composes through the implicit group",
+   "components": {
+    "enemy": { "template": "<box position=\"0 0.5 0\"/>" }
+   },
+   "markup": "<scene><enemy id=\"s\" position=\"0 1 0\" scale=\"2 2 2\"/></scene>",
+   "worlds": [
+    { "path": [0, 0], "world": [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 2, 0, 1] }
+   ]
+  },
+  {
+   "name": "a component whose body is not scene content skips with one prefab-not-scene diagnostic",
+   "components": {
+    "card": { "template": "<vstack><text value=\"not a scene\"/></vstack>" }
+   },
+   "markup": "<scene><box/><card/></scene>",
+   "expect": { "nodes": [ { "kind": "box" } ] },
+   "diagnostics": 1
+  },
+  {
+   "name": "self-reference caps at the depth limit with one prefab-depth diagnostic",
+   "components": {
+    "matryoshka": { "template": "<component><box/><matryoshka/></component>" }
+   },
+   "markup": "<scene><matryoshka id=\"m\"/></scene>",
+   "expect": { "nodes": [ { "kind": "group", "id": "m" } ] },
+   "diagnostics": 1
+  },
+  {
+   "name": "keyed rows of prefab instances — spawn keeps identity, despawn drops the subtree",
+   "components": {
+    "enemy": {
+     "template": "<sphere position=\"0 0.25 0\" radius=\"{{ r }}\"/>",
+     "params": [ { "name": "r", "default": "0.5" } ]
+    }
+   },
+   "markup": "<scene><group id=\"wave\" bind=\"rows\" key=\"id\"><enemy r=\"{{ item.r }}\"/></group></scene>",
+   "rows": {
+    "first": [ { "id": "a", "r": 0.4 }, { "id": "b", "r": 1.25 } ],
+    "next": [ { "id": "b", "r": 1.25 } ],
+    "expect": {
+     "firstKeys": ["a", "b"],
+     "nextRemoved": ["a"],
+     "nextRetained": ["b"],
+     "radius": [0.4, 1.25]
+    }
+   }
+  },
+  {
+   "name": "a bare scene root carries its head — params scanned, declarations stripped",
+   "components": {
+    "orb": { "template": "<sphere radius=\"{{ r }}\"><head><attribute as=\"r\" default=\"0.5\"/></head></sphere>" }
+   },
+   "markup": "<scene><orb id=\"o1\"/><orb id=\"o2\" r=\"1.25\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "group", "id": "o1", "children": [ { "kind": "sphere", "radius": 0.5, "children": [] } ] },
+    { "kind": "group", "id": "o2", "children": [ { "kind": "sphere", "radius": 1.25, "children": [] } ] }
+   ] }
+  },
+  {
+   "name": "the defining-scope law — a body's nested tags resolve where the component was declared",
+   "components": {
+    "turret": { "template": "<box size=\"2 2 2\"/>" },
+    "tank": {
+     "template": "<group><turret/></group>",
+     "components": {
+      "turret": { "template": "<sphere radius=\"0.25\"/>" }
+     }
+    }
+   },
+   "markup": "<scene><tank id=\"t\"/><turret id=\"u\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "group", "id": "t", "children": [
+     { "kind": "group", "children": [
+      { "kind": "group", "children": [ { "kind": "sphere", "radius": 0.25 } ] }
+     ] }
+    ] },
+    { "kind": "group", "id": "u", "children": [ { "kind": "box", "size": [2, 2, 2] } ] }
+   ] }
+  },
+  {
+   "name": "bind and handlers on an instance tag say so — one prefab-ignored diagnostic",
+   "components": {
+    "enemy": { "template": "<box size=\"1 1 1\"/>" }
+   },
+   "markup": "<scene><enemy id=\"e\" bind=\"{{ rows }}\" on:tap=\"hit\"/></scene>",
+   "expect": { "nodes": [ { "kind": "group", "id": "e", "children": [ { "kind": "box", "size": [1, 1, 1] } ] } ] },
+   "diagnostics": 1
+  }
+ ]
+}

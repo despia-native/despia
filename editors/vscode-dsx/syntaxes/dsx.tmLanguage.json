@@ -1,0 +1,65 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "DSX",
+  "scopeName": "text.dsx",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#interpolation" },
+    { "include": "#tag" },
+    { "include": "#entity" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.block.dsx",
+      "begin": "<!--",
+      "end": "-->",
+      "captures": { "0": { "name": "punctuation.definition.comment.dsx" } }
+    },
+    "interpolation": {
+      "begin": "\\{\\{",
+      "end": "\\}\\}",
+      "beginCaptures": { "0": { "name": "punctuation.section.embedded.begin.dsx" } },
+      "endCaptures": { "0": { "name": "punctuation.section.embedded.end.dsx" } },
+      "contentName": "meta.embedded.expression.dsx",
+      "patterns": [ { "include": "source.js" } ]
+    },
+    "tag": {
+      "begin": "(</?)([a-zA-Z_][\\w.\\-]*)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.dsx" },
+        "2": { "name": "entity.name.tag.dsx" }
+      },
+      "end": "(/?>)",
+      "endCaptures": { "1": { "name": "punctuation.definition.tag.end.dsx" } },
+      "patterns": [
+        { "include": "#interpolation" },
+        { "include": "#attribute" },
+        { "include": "#string" }
+      ]
+    },
+    "attribute": {
+      "match": "([a-zA-Z_:][\\w:.\\-]*)(?=\\s*=)",
+      "name": "entity.other.attribute-name.dsx"
+    },
+    "string": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.dsx",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [ { "include": "#interpolation" }, { "include": "#entity" } ]
+        },
+        {
+          "name": "string.quoted.single.dsx",
+          "begin": "'",
+          "end": "'",
+          "patterns": [ { "include": "#interpolation" }, { "include": "#entity" } ]
+        }
+      ]
+    },
+    "entity": {
+      "name": "constant.character.entity.dsx",
+      "match": "&(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#x[0-9a-fA-F]+);"
+    }
+  }
+}

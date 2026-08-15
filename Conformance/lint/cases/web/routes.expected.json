@@ -1,0 +1,6 @@
+[
+  { "line": 3, "level": "error", "rule": "route-duplicate-path" },
+  { "line": 4, "level": "error", "rule": "route-unsafe-redirect" },
+  { "line": 5, "level": "error", "rule": "route-empty-entry" },
+  { "line": 6, "level": "error", "rule": "route-bad-path" }
+]

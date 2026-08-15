@@ -1,0 +1,22 @@
+{
+  "format": "despia:server-providers@1",
+  "backendSetting": "data_backend",
+  "providers": [
+    {
+      "backend": "firestore",
+      "chain": "firestore",
+      "provider": "firestore-rules",
+      "residence": true,
+      "drivers": {}
+    },
+    {
+      "backend": "postgres",
+      "chain": "postgres",
+      "provider": "postgres-rls",
+      "residence": true,
+      "drivers": {
+        "pg": "^8.22.0"
+      }
+    }
+  ]
+}

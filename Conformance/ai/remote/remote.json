@@ -1,0 +1,93 @@
+{
+ "_note": "The fallback primitive (local-ai-engine.md §4.10). THE LAW ENCODED HERE: (1) `remote` is an engine id like any other — it points at THE APP'S OWN endpoint, configured by the app, and there is no Despia endpoint for it to point at. (2) Routing to it is explicit POLICY (`local` | `prefer-local` | `remote-only`), never a confidence heuristic and never silent: every hand-off is a `routing` event a surface can show. (3) `local` policy NEVER leaves the device — with no local candidate it answers typed absence rather than quietly uploading the conversation, which is the whole difference between a seam and a backdoor. (4) The endpoint's wire shape is DATA: each remote profile declares a `dialect`, so a provider changing its API is a config edit rather than an engine release. (5) No credential ships in the app: the request carries no key, the app's backend holds them, and the fixture asserts the absence.",
+ "cases": [
+  {
+   "name": "remote: policy local never leaves the device",
+   "_note": "The load-bearing negative. Nothing is installed, the policy is `local`, and a remote endpoint IS configured — the answer is still typed absence and zero outbound requests.",
+   "catalog": { "installed": [] },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ "m1" ] } }, "default": "chat", "remote": { "policy": "local", "dialect": "openai-chat", "endpoint": "https://api.example.com/v1/chat" } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "chat", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "completion", "code": "no_model_available" } ],
+    "remoteRequestCount": 0
+   }
+  },
+  {
+   "name": "remote: prefer-local falls back only when no local candidate passes",
+   "_note": "The fallback is a policy STEP, and it announces itself: the `routing` event names the remote engine and the reason, so a UI can badge the answer as off-device.",
+   "catalog": { "installed": [] },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ "m1" ] } }, "default": "chat", "remote": { "policy": "prefer-local", "dialect": "openai-chat", "endpoint": "https://api.example.com/v1/chat" } },
+   "remoteMock": { "script": [ { "token": "from the server" }, { "complete": { } } ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "chat", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "events": [
+     { "req": "a", "event": "routing", "data": { "task": "chat", "engine": "remote", "reason": "no-local-candidate" } },
+     { "req": "a", "event": "token", "data": { "delta": { "type": "text", "text": "from the server" } } }
+    ],
+    "remoteRequests": [ { "endpoint": "https://api.example.com/v1/chat", "dialect": "openai-chat" } ]
+   }
+  },
+  {
+   "name": "remote: prefer-local keeps a fitting local model and never calls out",
+   "catalog": { "installed": [ "m1" ], "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 20 } } } ], "fit_policy": { "slow_decode_tps": 8 } },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ "m1" ] } }, "default": "chat", "remote": { "policy": "prefer-local", "dialect": "openai-chat", "endpoint": "https://api.example.com/v1/chat" } },
+   "mock": { "models": { "m1": { "script": [ { "token": "on device" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "chat", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "events": [ { "req": "a", "event": "routing", "data": { "model": "m1", "reason": "preference-order" } } ],
+    "remoteRequestCount": 0
+   }
+  },
+  {
+   "name": "remote: remote-only skips local resolution entirely",
+   "_note": "Even with a perfectly good local model installed, `remote-only` does not consult it — the policy is the decision, and the reason says so.",
+   "catalog": { "installed": [ "m1" ], "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 20 } } } ], "fit_policy": { "slow_decode_tps": 8 } },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ "m1" ] } }, "default": "chat", "remote": { "policy": "remote-only", "dialect": "openai-chat", "endpoint": "https://api.example.com/v1/chat" } },
+   "mock": { "models": { "m1": { "script": [ { "token": "on device" }, { "complete": { } } ] } } },
+   "remoteMock": { "script": [ { "token": "from the server" }, { "complete": { } } ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "chat", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "events": [ { "req": "a", "event": "routing", "data": { "engine": "remote", "reason": "policy-remote-only" } } ],
+    "engineRequestCount": 0,
+    "remoteRequests": [ { "endpoint": "https://api.example.com/v1/chat" } ]
+   }
+  },
+  {
+   "name": "remote: the request carries no credential and the dialect is data",
+   "_note": "Two pillars in one assertion. The outbound request has no Authorization header and no key field — the app's backend owns credentials — and the wire shape it speaks comes from the profile's `dialect`, so a second profile with a different dialect changes the shape without touching the engine.",
+   "catalog": { "installed": [] },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ ] } }, "default": "chat", "remote": { "policy": "remote-only", "dialect": "openai-chat", "endpoint": "https://app.example.com/ai" } },
+   "remoteMock": { "script": [ { "token": "ok" }, { "complete": { } } ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "chat", "messages": [ { "role": "user", "parts": [ { "type": "text", "text": "hi" } ] } ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "remoteRequests": [ { "endpoint": "https://app.example.com/ai", "dialect": "openai-chat", "hasCredential": false } ]
+   }
+  },
+  {
+   "name": "remote: an unreachable endpoint is a typed error, not a silent local retry",
+   "_note": "Failure stays honest. The remote leg failing does not quietly fall back to a model the policy already rejected; it reports `remote_failed` and the caller decides.",
+   "catalog": { "installed": [ "m1" ], "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf" } ] },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ ] } }, "default": "chat", "remote": { "policy": "remote-only", "dialect": "openai-chat", "endpoint": "https://app.example.com/ai" } },
+   "remoteMock": { "error": { "code": "remote_failed", "message": "connection refused" } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "chat", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "errors": [ { "req": "a", "code": "remote_failed" } ],
+    "engineRequestCount": 0
+   }
+  }
+ ]
+}

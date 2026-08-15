@@ -1,0 +1,63 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "Table",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:27"
+    },
+    "columns": {
+      "type": "csv",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:24"
+    },
+    "fields": {
+      "type": "csv",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:25-26 (omitted -> lowercased column labels)"
+    },
+    "color": {
+      "type": "color",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:28"
+    }
+  },
+  "geometry": {
+    "headerFontSize": {
+      "value": 13,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:34 (.semibold, secondary)"
+    },
+    "rowFontSize": {
+      "value": 15,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:46"
+    },
+    "cellSpacing": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:31,43"
+    },
+    "headerPaddingV": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:40"
+    },
+    "rowPaddingV": {
+      "value": 9,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:52"
+    }
+  },
+  "colors": {
+    "text": {
+      "token": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:28"
+    },
+    "header": {
+      "token": "secondary",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Table.swift:35"
+    }
+  },
+  "notes": "Each data row reads as ONE a11y element; headers carry the header trait (Table.swift:37,53)."
+}

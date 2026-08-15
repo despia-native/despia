@@ -1,0 +1,159 @@
+{
+ "_note": "L2, EVERY PRONUNCIATION SAYS WHERE IT CAME FROM (g2p-pack.md). Each token carries `via`, so a caller that wants to show a confidence, log a miss, or route a sentence elsewhere has the FACT rather than a guess. Provenance is what turns L1 from 'nothing was dropped' into 'nothing was dropped and here is what each answer is worth': a `lexicon` hit is a dictionary entry, an `lts` hit is a trained guess whose accuracy the pack's META records, and `refused` is an honest nothing. This file pins one case per value, the ORDER the ladder tries them in, and the two properties a runner cannot infer from a single token: that `via` is present on every token, and that its value never leaves the set.\n\nTHE SET. g2p-pack.md L2 names six words: `lexicon`, `pos`, `stem`, `lts`, `spelled`, `refused`. The engine emits a SEVENTH, `number`, for a numeral expanded through the pack's NORM data and then looked up, which is a real rung the doc's L2 paragraph does not yet list. This corpus pins the seven the wire can carry and records the gap here rather than failing a correct build over a documentation omission: g2p-pack.md's L2 needs the `number` row. No case in this corpus can produce it, because the fixture pack carries no NORM.\n\nThe `pos` case is the one to read twice. Despia AI ships NO part-of-speech tagger, so every form-1 entry resolves to DEFAULT today, and that limit is reported PER TOKEN as `pos_default: true` rather than hidden behind a coin flip.",
+
+ "requires": [ "nothingDropped", "tilesInput", "tokens", "tokenCount", "everyTokenHasVia", "viaVocabulary", "coverage" ],
+
+ "cases": [
+  {
+   "name": "g2p: via lexicon is the pack's own declared phones, unchanged",
+   "_note": "The baseline every other provenance value is measured against. `walk` is a form-0 entry and the answer is the bytes the pack carries, with no transformation, no stress insertion, no reordering.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "walk", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "walk" ], "joined": "walk" },
+    "tilesInput": true,
+    "tokenCount": 1,
+    "tokens": [
+     { "text": "walk", "via": "lexicon", "phonemes": "p0p7p3" }
+    ]
+   }
+  },
+  {
+   "name": "g2p: via stem is the base entry plus the allomorph the rule chose",
+   "_note": "A regular derivation off a base the lexicon does hold. Both words stem from `walk`, whose last phone is `p3`, so the `-s` rule takes its `after: [p3]` variant and appends `p6` while the `-ed` rule appends `p3`. The pronunciation is therefore computable from the pack's own rows, which is what makes this case a gate rather than a description: an implementation that appends the wrong allomorph fails on the bytes.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "walks walked", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "walks", "walked" ], "joined": "walks walked" },
+    "tilesInput": true,
+    "tokenCount": 2,
+    "tokens": [
+     { "text": "walks", "via": "stem", "phonemes": "p0p7p3p6" },
+     { "text": "walked", "via": "stem", "phonemes": "p0p7p3p3" }
+    ],
+    "coverage": { "stem": 2, "total": 2, "guessed": 0 }
+   }
+  },
+  {
+   "name": "g2p: a stem derivation is not counted as a guess",
+   "_note": "`guessed` counts `lts`, `spelled` and `refused` and stops there. A derivation is a rule applied to a dictionary fact, so a sentence full of plurals does not read as a sentence full of guesses, and `defer` does not hand it to another voice for no reason.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "the walks", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "the", "walks" ], "joined": "the walks" },
+    "tilesInput": true,
+    "tokenCount": 2,
+    "coverage": { "lexicon": 1, "stem": 1, "total": 2, "guessed": 0 }
+   }
+  },
+  {
+   "name": "g2p: a lexicon entry beats the stem that would also match it",
+   "_note": "The ORDER, made falsifiable. `runs` is an entry in its own right AND a regular derivation of `run`; the entry wins and says so. A frontend that stems first would produce a plausible answer with the wrong provenance, and the phones would differ too: the entry says `p1p8p6` while the derivation would say `p1p8` plus the allomorph for a stem ending in `p8`.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "runs", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "runs" ], "joined": "runs" },
+    "tilesInput": true,
+    "tokenCount": 1,
+    "tokens": [
+     { "text": "runs", "via": "lexicon", "phonemes": "p1p8p6" }
+    ]
+   }
+  },
+  {
+   "name": "g2p: a heteronym takes DEFAULT and says that it did",
+   "_note": "`read` is a form-1 entry with a DEFAULT sense and a VBD sense. THIS BUILD SHIPS NO PART-OF-SPEECH TAGGER, so DEFAULT is the answer, and the answer is marked. `via: \"pos\"` says a POS-conditioned entry was consulted; `pos_default: true` says nothing chose between its senses. A surface can show that, a log can count it, and the day a tagger lands the flag turns false without the shape changing. The phonemes are the pack's own DEFAULT sense, so an implementation that silently picks the other sense fails on the bytes rather than on a nuance.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "read this", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "read", "this" ], "joined": "read this" },
+    "tilesInput": true,
+    "tokenCount": 2,
+    "tokens": [
+     { "text": "read", "via": "pos", "pos_default": true, "phonemes": "p1p4p9" },
+     { "text": "this", "via": "lexicon", "phonemes": "p9p2p2" }
+    ],
+    "coverage": { "lexicon": 1, "pos": 1, "total": 2, "guessed": 0 }
+   }
+  },
+  {
+   "name": "g2p: via lts is a guess, and is labelled as one",
+   "_note": "Out of the lexicon, out of reach of the morphology rules, inside the LTS alphabet: the trees answer. The value is not `lexicon` and must never be, because the whole point of the vocabulary is that a caller can tell a dictionary entry from a trained guess without asking a second question. The phonemes are `record`: the answer is a walk through the fixture's own trees, and predicting a tree traversal by hand in a fixture is how a wrong expectation gets pinned into a gate.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth" ], "joined": "Zyleth" },
+    "tilesInput": true,
+    "tokenCount": 1,
+    "tokens": [
+     { "text": "Zyleth", "via": "lts", "phonemes": "record", "phonemesNonEmpty": true }
+    ],
+    "coverage": { "lts": 1, "total": 1, "guessed": 1 }
+   }
+  },
+  {
+   "name": "g2p: via spelled is the SPEL rows of the folded text, joined by the pack's space row",
+   "_note": "The one fully derivable fallback, and therefore the one case in this corpus that pins a fallback's phonemes exactly. `Zyleth` folds to `zyleth`; the pack's rows for z, y, l, e, t, h are p1, p0, pB, p4, p7, p7; the speller puts the row for SPACE, p1, between each pair. It also proves fold-before-lookup and receipt-before-fold at the same time, because the phonemes come from the folded text and the `text` field does not.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth", "fallback": "spell" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth" ], "joined": "Zyleth" },
+    "tilesInput": true,
+    "tokenCount": 1,
+    "tokens": [
+     { "text": "Zyleth", "via": "spelled", "phonemes": "p1p1p0p1pBp1p4p1p7p1p7" }
+    ]
+   }
+  },
+  {
+   "name": "g2p: via refused carries the offending text and says the character was outside the pack",
+   "_note": "The last value, and the only one whose phonemes are pinned to empty here: the speller has no row for an emoji, so there is nothing to say and the pack says so. `unaccepted` is the separate fact that the token held a character META.accept does not list, and it rides whether or not the rest of the token could be pronounced. `refused` is an answer, not an absence of one. It is what a caller reads to decide whether to hand the sentence to another voice.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "🚀", "fallback": "refuse" },
+   "expect": {
+    "nothingDropped": { "words": [ "🚀" ], "joined": "🚀" },
+    "tilesInput": true,
+    "tokenCount": 1,
+    "tokens": [
+     { "text": "🚀", "via": "refused", "phonemes": "", "unaccepted": true }
+    ],
+    "coverage": { "refused": 1, "total": 1, "guessed": 1 }
+   }
+  },
+  {
+   "name": "g2p: every token carries a via, on one mixed sentence",
+   "_note": "One sentence exercising four values at once. `everyTokenHasVia` is the assertion a per-token expectation cannot make: it says the field is present on EVERY token including any the fixture did not bother to name, which is what stops a build from leaving `via` off the cheap path.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "we walked 3 привет", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "we", "walked", "3", "привет" ], "joined": "we walked 3 привет" },
+    "tilesInput": true,
+    "tokenCount": 4,
+    "everyTokenHasVia": true,
+    "tokens": [
+     { "text": "we", "via": "lexicon", "phonemes": "pAp4" },
+     { "text": "walked", "via": "stem", "phonemes": "p0p7p3p3" },
+     { "text": "3", "via": "spelled", "phonemes": "p6" },
+     { "text": "привет", "via": "refused", "phonemes": "", "unaccepted": true }
+    ],
+    "coverage": { "lexicon": 1, "stem": 1, "spelled": 1, "refused": 1, "total": 4, "guessed": 2 }
+   }
+  },
+  {
+   "name": "g2p: via never leaves the vocabulary, whatever the input is",
+   "_note": "The vocabulary is CLOSED, unlike a pack's section tags, which are must-ignore. An eighth value is not a newer pack talking to an older reader, it is a caller reading a field it cannot switch on. `viaVocabulary` asserts the whole emitted set is a subset of the listed words, so an implementation that invents `unknown`, `guess` or an empty string fails here rather than in someone's log a year later. `number` is listed because the engine can emit it from a NORM section; this pack has none, so it cannot appear in this case.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth read the 7 don't cafe 🚀", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": {
+     "words": [ "Zyleth", "read", "the", "7", "don't", "cafe", "🚀" ],
+     "joined": "Zyleth read the 7 don't cafe 🚀"
+    },
+    "tilesInput": true,
+    "tokenCount": 7,
+    "everyTokenHasVia": true,
+    "viaVocabulary": [ "lexicon", "pos", "stem", "number", "lts", "spelled", "refused" ]
+   }
+  }
+ ]
+}

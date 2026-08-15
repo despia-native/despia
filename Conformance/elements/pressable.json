@@ -1,0 +1,44 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "pressable",
+  "aliases": [
+    "row"
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Pressable/swift/Pressable.swift",
+  "attributes": {
+    "on:tap": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Pressable/swift/Pressable.swift:33,41"
+    },
+    "on:doubleTap": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Pressable/swift/Pressable.swift:28,42 (SIMULTANEOUS with tap — the TikTok gesture contract)"
+    },
+    "on:longPress": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Pressable/swift/Pressable.swift:29,43"
+    },
+    "on:longPressEnd": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Pressable/swift/Pressable.swift:29,44"
+    },
+    "href": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Pressable/swift/Pressable.swift:35,44 (dsx.followHref() — tap navigates the route table after on"
+    }
+  },
+  "geometry": {
+    "longPressMinDuration": {
+      "value": 0.4,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Pressable/swift/Pressable.swift:57 (onLongPressGesture(minimumDuration"
+    }
+  },
+  "colors": {
+  },
+  "notes": "Tap-only renders a borderless Button (whole area tappable, Pressable.swift:33); on:tap fires on EVERY tap-up including each tap of a double."
+}

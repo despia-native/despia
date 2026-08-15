@@ -1,0 +1,555 @@
+{
+  "version": 1,
+  "settleDeadlineMs": 10000,
+  "_note": "The NATIVE screen-readiness reporter — the renderer-neutral state machine behind a DSXView frame's `surface.viewStart` / `surface.viewFinish` (the native sibling of the web surface's private `surface.domStart` / `surface.domFinish`). One record per LIVE frame id, keyed by the Router's `nav.stack` frame id. THE LAW ENCODED HERE: (1) only a NATIVE frame is tracked — a `mount` whose `surface` is not \"native\" is ignored outright (the web surface reports through dom*, so a hybrid app never double-reports). (2) `mount` emits `surface.viewStart` exactly once per frame INSTANCE and is idempotent while the record lives; a `release` + re-`mount` of the same id is a NEW instance and starts a fresh cycle. (3) DEFAULT is auto: the frame settles on its first completed render pass — `rendered` emits `surface.viewFinish`. (4) OPT-IN is manual: a root that declares `settle=\"manual\"` registers `manual` during its first render pass (StackHead.hoist), so `rendered` emits NOTHING and the screen settles when it reports `settled` itself (`dsx.screen.settled()`). (5) A frame settles AT MOST ONCE: further `rendered`/`settled`/`manual`/`hostsWeb`/`deadline` inputs after the settle are no-ops, so a re-render, a re-entrant call, or a chatty screen can never re-fire `surface.viewFinish`. (6) An explicit `settled` always wins — it settles an auto frame early and clears BOTH a pending `manual` and a pending `hostsWeb` gate. (7) A frame RELEASED before it settled simply never settles: no late `surface.viewFinish` after the screen is gone, and a `settled`/`rendered`/`deadline` for an unknown or released frame is a silent no-op (Article 7, fail-open). (8) `manual` / `hostsWeb` for an unknown frame is a no-op — the renderer MUST register them between `mount` and the frame's first `rendered` (the render pass that hoists the head and builds the surfaces precedes the post-render `rendered` hop by construction). (9) HOSTED WEB SURFACE (the hybrid ordering law): a native frame that hosts a `<DSXWebView/>` app web surface must NOT report settled while that surface is still blank — otherwise Splash reveals over an empty web view and the page's own `surface.domStart` then re-opens the shell's phase. `hostsWeb` gates the frame exactly like `manual` does, and the surface's own settle (`webSettled`, fired from the relay's `surface.domFinish`/`surface.domFail`) releases every gated frame in ascending frame order. The gate is NOT author-opt-in: the `<DSXWebView/>` component registers it, so a hybrid app is ordered correctly with no markup change. `webStart`/`webSettled` are frameless — there is exactly ONE app web surface — and `webSettled` latches: a frame that mounts while the page is ALREADY settled does not wait for it (the content is on screen), while `webStart` re-arms the latch for the next load. `webSettled` never settles a frame that ALSO declared `manual` — an author who took ownership keeps it. (10) BOUNDED FALLBACK (Article 7, fail-open): every tracked frame carries a settle DEADLINE of `settleDeadlineMs`, armed by the machine itself at `mount` and cancelled when the frame settles or is released. When it elapses the frame settles anyway — a `settle=\"manual\"` screen that never calls `dsx.screen.settled()`, or a hosted web surface that never loads, degrades to a late reveal instead of a PERMANENT spinner on every renderer (and, on a hybrid app, on the web surface's consumers too, since there is ONE shared phase). The deadline is a `surface.viewFinish` like any other: same payload, once per frame. Every renderer arms it identically; the conformance runners stub the scheduler seam and drive the `deadline` step directly. The emitted payload is { path, surface: \"native\", frame }; the coordinator translation of these events into the unified `screen.*` vocabulary is pinned by phase.json. Executors: TS `packages/kernel/src/screen.ts` (per-PR, web-kernel lane) · Kotlin `Engine/Android :core ScreenReadinessTest` (per-PR, android-kernel lane) · Swift `Engine/iOS/DSXScreen.swift` `DSXScreenReadiness` via ConformanceHosts (the record lane).",
+  "steps": {
+    "mount": "a native frame entered the stack — { frame, path, surface }",
+    "manual": "the frame's root declared settle=\"manual\" — { frame }",
+    "hostsWeb": "the frame mounted a <DSXWebView/> app web surface — { frame } (registered by the component, never by the author)",
+    "rendered": "the frame completed its FIRST render pass — { frame }",
+    "settled": "the frame reported readiness itself (dsx.screen.settled()) — { frame }",
+    "deadline": "the frame's bounded settle deadline (settleDeadlineMs) elapsed — { frame }",
+    "release": "the frame left the stack — { frame }",
+    "webStart": "the app web surface began loading (the relay's surface.domStart) — frameless",
+    "webSettled": "the app web surface settled (the relay's surface.domFinish / surface.domFail) — frameless"
+  },
+  "cases": [
+    {
+      "name": "auto: a native frame settles on its first render",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "rendered", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "auto: re-renders never re-fire the settle",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/home", "surface": "native" },
+        { "do": "rendered", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "rendered", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/home" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/home" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "mount is idempotent while the frame lives",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "rendered", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "manual: rendering does not settle a deferred screen",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/orders", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "rendered", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/orders" }
+      ],
+      "expectPending": [1]
+    },
+    {
+      "name": "manual: the screen settles when it reports readiness itself",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/orders", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "settled", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/orders" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/orders" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "manual: a repeated settle report fires once",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/orders", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "settled", "frame": 1 },
+        { "do": "settled", "frame": 1 },
+        { "do": "settled", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/orders" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/orders" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "manual: a settle that arrives before the first render still settles",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/orders", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "settled", "frame": 1 },
+        { "do": "rendered", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/orders" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/orders" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "auto: an explicit settle wins over the pending first render",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "settled", "frame": 1 },
+        { "do": "rendered", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "manual registered after the settle never re-opens the frame",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "rendered", "frame": 1 },
+        { "do": "manual", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "settled", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "manual for an unknown frame is a silent no-op",
+      "steps": [
+        { "do": "manual", "frame": 9 },
+        { "do": "mount", "frame": 9, "path": "/late", "surface": "native" },
+        { "do": "rendered", "frame": 9 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 9, "path": "/late" },
+        { "event": "surface.viewFinish", "frame": 9, "path": "/late" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "settled for a frame that never mounted is a silent no-op",
+      "steps": [
+        { "do": "settled", "frame": 4 },
+        { "do": "rendered", "frame": 4 }
+      ],
+      "expect": [],
+      "expectPending": []
+    },
+    {
+      "name": "a web frame is never reported here — dom* owns the web surface",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "web" },
+        { "do": "rendered", "frame": 1 },
+        { "do": "settled", "frame": 1 }
+      ],
+      "expect": [],
+      "expectPending": []
+    },
+    {
+      "name": "a pushed screen reports its own start and settle after the root",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "rendered", "frame": 1 },
+        { "do": "mount", "frame": 2, "path": "/p/7", "surface": "native" },
+        { "do": "rendered", "frame": 2 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" },
+        { "event": "surface.viewStart", "frame": 2, "path": "/p/7" },
+        { "event": "surface.viewFinish", "frame": 2, "path": "/p/7" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "a deferred screen popped before it settled never settles late",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/slow", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "release", "frame": 1 },
+        { "do": "settled", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/slow" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "re-mounting a released id is a fresh instance, not a re-fire",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "rendered", "frame": 1 },
+        { "do": "release", "frame": 1 },
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "rendered", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" },
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "a synthetic module-pushed path rides both events verbatim",
+      "steps": [
+        { "do": "mount", "frame": 12, "path": "/__native/12", "surface": "native" },
+        { "do": "rendered", "frame": 12 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 12, "path": "/__native/12" },
+        { "event": "surface.viewFinish", "frame": 12, "path": "/__native/12" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "two deferred screens settle independently and in report order",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/a", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "mount", "frame": 2, "path": "/b", "surface": "native" },
+        { "do": "manual", "frame": 2 },
+        { "do": "rendered", "frame": 2 },
+        { "do": "settled", "frame": 2 },
+        { "do": "settled", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/a" },
+        { "event": "surface.viewStart", "frame": 2, "path": "/b" },
+        { "event": "surface.viewFinish", "frame": 2, "path": "/b" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/a" }
+      ],
+      "expectPending": []
+    },
+
+    {
+      "name": "hybrid: a frame hosting a web surface stays loading while the page is blank",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "hostsWeb", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "webStart" }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" }
+      ],
+      "expectPending": [1]
+    },
+    {
+      "name": "hybrid: the page settling settles the frame that hosts it",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "hostsWeb", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "webStart" },
+        { "do": "webSettled" }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "hybrid: the page settling before the first render still settles the frame once",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "hostsWeb", "frame": 1 },
+        { "do": "webSettled" },
+        { "do": "rendered", "frame": 1 },
+        { "do": "webSettled" }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "hybrid: a frame mounted while the page is ALREADY settled never waits for it",
+      "steps": [
+        { "do": "webSettled" },
+        { "do": "mount", "frame": 2, "path": "/detail", "surface": "native" },
+        { "do": "hostsWeb", "frame": 2 },
+        { "do": "rendered", "frame": 2 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 2, "path": "/detail" },
+        { "event": "surface.viewFinish", "frame": 2, "path": "/detail" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "hybrid: a new page load re-arms the gate for the next frame",
+      "steps": [
+        { "do": "webSettled" },
+        { "do": "webStart" },
+        { "do": "mount", "frame": 2, "path": "/detail", "surface": "native" },
+        { "do": "hostsWeb", "frame": 2 },
+        { "do": "rendered", "frame": 2 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 2, "path": "/detail" }
+      ],
+      "expectPending": [2]
+    },
+    {
+      "name": "hybrid: an explicit settle wins over the hosted-surface gate",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "hostsWeb", "frame": 1 },
+        { "do": "settled", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "webSettled" }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "hybrid: the page settling never settles a screen that declared settle=manual",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "hostsWeb", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "webSettled" }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" }
+      ],
+      "expectPending": [1]
+    },
+    {
+      "name": "hybrid: the authored screen owning a web surface settles on its own report",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "hostsWeb", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "webSettled" },
+        { "do": "settled", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "hybrid: the page settling releases every gated frame in ascending order",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/a", "surface": "native" },
+        { "do": "hostsWeb", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "mount", "frame": 2, "path": "/b", "surface": "native" },
+        { "do": "hostsWeb", "frame": 2 },
+        { "do": "rendered", "frame": 2 },
+        { "do": "webSettled" }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/a" },
+        { "event": "surface.viewStart", "frame": 2, "path": "/b" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/a" },
+        { "event": "surface.viewFinish", "frame": 2, "path": "/b" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "hybrid: a gated frame released before the page settles never settles late",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "hostsWeb", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "release", "frame": 1 },
+        { "do": "webSettled" }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "hostsWeb registered after the settle never re-opens the frame",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "rendered", "frame": 1 },
+        { "do": "hostsWeb", "frame": 1 },
+        { "do": "webStart" },
+        { "do": "webSettled" }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "hostsWeb for an unknown frame is a silent no-op",
+      "steps": [
+        { "do": "hostsWeb", "frame": 9 },
+        { "do": "mount", "frame": 9, "path": "/late", "surface": "native" },
+        { "do": "rendered", "frame": 9 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 9, "path": "/late" },
+        { "event": "surface.viewFinish", "frame": 9, "path": "/late" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "a web-surface report never settles a frame that never gated on it",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/orders", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "webStart" },
+        { "do": "webSettled" }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/orders" }
+      ],
+      "expectPending": [1]
+    },
+
+    {
+      "name": "deadline: a manual screen that never reports settles anyway (fail-open)",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/orders", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "deadline", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/orders" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/orders" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "deadline: a hosted web surface that never loads settles the frame anyway",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "hostsWeb", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "deadline", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "deadline: an auto frame that never rendered still settles",
+      "steps": [
+        { "do": "mount", "frame": 3, "path": "/stuck", "surface": "native" },
+        { "do": "deadline", "frame": 3 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 3, "path": "/stuck" },
+        { "event": "surface.viewFinish", "frame": 3, "path": "/stuck" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "deadline: an already-settled frame never re-fires",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/", "surface": "native" },
+        { "do": "rendered", "frame": 1 },
+        { "do": "deadline", "frame": 1 },
+        { "do": "deadline", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "deadline: a screen that reported first keeps its own single settle",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/orders", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "settled", "frame": 1 },
+        { "do": "deadline", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/orders" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/orders" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "deadline: a released frame never settles late",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/slow", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "release", "frame": 1 },
+        { "do": "deadline", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/slow" }
+      ],
+      "expectPending": []
+    },
+    {
+      "name": "deadline: an unknown frame is a silent no-op",
+      "steps": [
+        { "do": "deadline", "frame": 8 }
+      ],
+      "expect": [],
+      "expectPending": []
+    },
+    {
+      "name": "deadline: two deferred screens settle independently, each on its own deadline",
+      "steps": [
+        { "do": "mount", "frame": 1, "path": "/a", "surface": "native" },
+        { "do": "manual", "frame": 1 },
+        { "do": "rendered", "frame": 1 },
+        { "do": "mount", "frame": 2, "path": "/b", "surface": "native" },
+        { "do": "manual", "frame": 2 },
+        { "do": "rendered", "frame": 2 },
+        { "do": "deadline", "frame": 2 },
+        { "do": "deadline", "frame": 1 }
+      ],
+      "expect": [
+        { "event": "surface.viewStart", "frame": 1, "path": "/a" },
+        { "event": "surface.viewStart", "frame": 2, "path": "/b" },
+        { "event": "surface.viewFinish", "frame": 2, "path": "/b" },
+        { "event": "surface.viewFinish", "frame": 1, "path": "/a" }
+      ],
+      "expectPending": []
+    }
+  ]
+}

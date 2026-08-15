@@ -1,0 +1,258 @@
+---
+title: "Silent Push"
+description: "Wake the app in the background with a notification the user never sees, and deliver the payload to your page the moment it can run again."
+icon: "bell-slash"
+---
+
+Send a push the user never sees. The OS wakes your app in the background, native code gets a few seconds to do real work — a fetch, a cache refresh, a buffer flush — and the payload is handed to your page the moment it can actually run again.
+
+The last part is the one that trips people up: a backgrounded web view is suspended, so a silent push cannot call your JavaScript at the moment it arrives. Payloads are queued natively and delivered on return, which is why this feature is a native-side hook with a page callback rather than just a callback.
+
+***
+
+## Installation
+
+<Tabs>
+  <Tab title="Bundle">
+    <CodeGroup>
+
+    ```bash npm theme={null}
+    npm install despia-native
+    ```
+
+    ```bash pnpm theme={null}
+    pnpm add despia-native
+    ```
+
+    ```bash yarn theme={null}
+    yarn add despia-native
+    ```
+
+    </CodeGroup>
+
+    ```javascript theme={null}
+    import despia from 'despia-native';
+    ```
+  </Tab>
+  <Tab title="CDN">
+    <CodeGroup>
+
+    ```html UMD theme={null}
+    <script src="https://cdn.jsdelivr.net/npm/despia-native/index.min.js"></script>
+    ```
+
+    ```html ESM theme={null}
+    <script type="module">
+        import despia from 'https://cdn.jsdelivr.net/npm/despia-native/+esm'
+    </script>
+    ```
+
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+***
+
+## Send a silent push from your server
+
+A silent push wakes the app without showing anything. It exists so native work can happen while the app is backgrounded, a content refresh, a cache warm, a data sync, with the page told about it later. The two platforms spell the envelope differently, and your server must send the right shape to each.
+
+On APNs, set `content-available` and send no alert:
+
+```json theme={null}
+{
+    "aps": { "content-available": 1 },
+    "type": "sync",
+    "cursor": "since-1716651000"
+}
+```
+
+On FCM, send a data-only message, no `notification` block:
+
+```json theme={null}
+{
+    "message": {
+        "token": "<device token>",
+        "data": { "type": "sync", "cursor": "since-1716651000" }
+    }
+}
+```
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `aps.content-available` | Yes (APNs) | Must be `1` and the payload must carry no `alert`. A push carrying both an alert and `content-available` is a visible notification that also wakes the app, and keeps its normal tap and deeplink behaviour, it is not treated as silent. |
+| `data` | Yes (FCM) | Your custom keys. The message must carry no `notification` block, and no `url` or `custom` key, those two mark a deeplink push on Android and keep their navigation behaviour instead of queueing as silent. |
+
+Delivery is throttled by the platforms, budget a handful of silent pushes per hour, not a stream. iOS additionally requires the remote-notification background mode, which your push setup in the Despia Editor already declares.
+
+***
+
+## Receive silent pushes in the page
+
+The page cannot run while the app is backgrounded, so silent payloads are queued natively and handed over the moment the page can actually receive them: immediately when the app is active, on the next page settle otherwise. Each payload arrives as one call to `window.onSilentPush`.
+
+```javascript theme={null}
+window.onSilentPush = function (payload) {
+    if (payload.dropped > 0) {
+        // the app missed wakes: the queue overflowed while you were away
+        fullResync()
+        return
+    }
+    if (payload.type === 'sync') incrementalSync(payload.cursor)
+}
+```
+
+```json theme={null}
+{
+    "type": "sync",
+    "cursor": "since-1716651000",
+    "dropped": 0
+}
+```
+
+<ParamField path="payload" type="object">
+  Your server's custom keys, verbatim. `dropped` rides the first payload of each drain: above zero means the queue (capped at 64) overflowed while the app was away, so wakes were missed and a full resync beats trusting the incremental trail.
+</ParamField>
+
+***
+
+## What this actually gives you on a web app
+
+Be clear on what a silent push does and does not buy, because the honest answer differs by runtime and it is easy to expect too much.
+
+A silent push wakes the **native process**. Your page is a separate, suspended process, so no JavaScript of yours runs at the moment it arrives. That is how both operating systems work and no runtime can change it.
+
+| | What a silent push does |
+| --- | --- |
+| **Standard apps** | **Queued delivery.** The payload is stored natively so it is not lost, and handed to your page the moment the page can run again. Nothing of yours executes while the app is backgrounded. |
+| **Framework runtime (v4)** | **Background execution.** A native module hooks the wake and does real work — fetch, cache refresh, buffer flush — while the page is still dead. |
+
+So on a standard app, treat this as *"the message will not be lost"* rather than *"work happens while I am away."* That is genuinely useful — you get your server's payload verbatim, so on reopen you can sync exactly what changed instead of blindly refreshing everything — but it is a mailbox, not a worker.
+
+### Do the work on your server instead
+
+Because nothing of yours can run during the wake, the reliable place to do the work is the server that sent the push. Have it finish the job and store the result; the app just reads it on open.
+
+```javascript theme={null}
+// Server did the sync already. The push says WHAT changed, the app reads the result.
+window.onSilentPush = function (payload) {
+    if (payload.dropped > 0) return fullResync()   // wakes were missed
+    markDirty(payload.type, payload.cursor)        // cheap, local
+}
+
+// On open, fetch only what the pushes said changed
+async function onAppOpen() {
+    if (hasDirtyMarks()) await pullChangedSince(lastCursor())
+}
+```
+
+This pattern works identically on every runtime and needs nothing from the OS wake, which is exactly why it is the one to reach for first.
+
+<Info>
+  Silent pushes are throttled by APNs and FCM, Apple does not guarantee delivery, and an app the user force-quit on iOS receives none at all. Never make correctness depend on one arriving — treat every wake as an optimisation and keep a sync-on-open path that works without it.
+</Info>
+
+***
+
+## Do the work at wake time (v4)
+
+The page callback tells the UI what happened; it is not where background work belongs, because the page was suspended when the push arrived. On the framework runtime a **native module** hooks the wake itself and runs while the app is still backgrounded. That is the half silent push exists for.
+
+This is native module code — Swift or Kotlin inside a module, not JavaScript on your page. A page handler could not run here by definition: the web view is suspended at wake time, which is the whole reason this hook exists.
+
+<CodeGroup>
+  ```swift Swift theme={null}
+  dsx.delegate.listen("push.silent") { payload in
+      // runs at wake time, page not involved
+      try? dsx.module.content.refresh(payload)
+      return nil
+  }
+  ```
+
+  ```kotlin Kotlin theme={null}
+  dsx.delegate.listen("push.silent") { payload ->
+      // runs at wake time, page not involved
+      dsx.module["content"]["refresh"](payload)
+      null
+  }
+  ```
+</CodeGroup>
+
+***
+
+## Drain the queue on demand (v4)
+
+A page that would rather pull than be pushed can drain everything pending in one call. The queue empties either way, whichever consumer gets there first.
+
+```javascript theme={null}
+const { payloads, count, dropped } = await dsx.module.pushrouting.silent({});
+```
+
+| Field | Description |
+| --- | --- |
+| `payloads` | Every queued payload, oldest first. |
+| `count` | How many were pending. |
+| `dropped` | Overflow count since the last drain. |
+
+***
+
+## Standard silent push flow
+
+Subscribe the callback once at page setup; there is no scheme call to make, delivery is driven by your server.
+
+```javascript theme={null}
+import despia from 'despia-native';
+
+window.onSilentPush = function (payload) {
+    switch (payload.type) {
+        case 'sync':    incrementalSync(payload.cursor); break
+        case 'refresh': reloadContent();                 break
+        default:        console.log('silent push', payload)
+    }
+    if (payload.dropped > 0) fullResync()
+}
+```
+
+***
+
+## Not exposed
+
+| Capability | Reason |
+| --- | --- |
+| Waking the page itself in the background | The web view is suspended by the OS while backgrounded; no runtime can change that. Native modules hook `push.silent` for wake-time work, the page gets the queued payloads on return. |
+| Unthrottled delivery | APNs and FCM both throttle silent pushes at the platform level; the runtime cannot raise the budget. |
+
+***
+
+## Permissions
+
+Silent push needs no permission of its own — it rides the `push_notifications` field under **App → Settings → Usage Descriptions**. Clear that field and the build ships without push registration at all, so with no device token neither a visible nor a silent push can arrive: the queue stays a harmless no-op.
+
+Note the platform asymmetry silent push inherits: a user who declines the *visible*-notification prompt still receives silent pushes on iOS (they gate alerts, not background delivery), while the OS-level toggles that fully disable an app's notifications stop both.
+
+```javascript theme={null}
+if (window.permissions && !window.permissions.includes('push_notifications')) {
+  hidePushDependentUI(); // push excluded from this build
+}
+```
+
+See [Permissions](/native-features/permissions) for the full key list and the rollout rules that apply when a permission is removed.
+
+***
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="NPM Package" icon="npm" href="https://www.npmjs.com/package/despia-native">
+    despia-native
+  </Card>
+  <Card title="APNs background pushes" icon="book" href="https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app">
+    Apple's silent push documentation
+  </Card>
+  <Card title="FCM message types" icon="book" href="https://firebase.google.com/docs/cloud-messaging/concept-options">
+    Data messages vs notification messages
+  </Card>
+  <Card title="Support" icon="envelope" href="mailto:support@despia.com">
+    [support@despia.com](mailto:support@despia.com)
+  </Card>
+</CardGroup>

@@ -1,0 +1,10 @@
+{
+  "routes": [
+    { "path": "/", "component": "t.Home" },
+    { "path": "/users/:id", "component": "t.User" },
+    { "path": "/", "component": "t.HomeAgain" },
+    { "path": "/old", "redirect": "javascript:alert(1)" },
+    { "path": "/dead" },
+    { "path": "../escape", "component": "t.Home" }
+  ]
+}

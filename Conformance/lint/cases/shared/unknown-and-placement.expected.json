@@ -1,0 +1,5 @@
+[
+  { "line": 2, "level": "warning", "rule": "unknown-tag" },
+  { "line": 5, "level": "warning", "rule": "decl-outside-head" },
+  { "line": 6, "level": "warning", "rule": "bind-without-key" }
+]

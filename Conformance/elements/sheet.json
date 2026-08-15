@@ -1,0 +1,74 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "sheet",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift",
+  "attributes": {
+    "present": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:41"
+    },
+    "mode": {
+      "type": "enum(sheet|card|cover)",
+      "default": "sheet",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:42"
+    },
+    "detents": {
+      "type": "csv(content|half|full)",
+      "default": "half,full",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:43-44"
+    },
+    "inset": {
+      "type": "number",
+      "default": 14,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:79 (card mode floating gap)"
+    },
+    "background": {
+      "type": "color",
+      "default": "background",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:55 (\"system\" keeps the OS default; \"clear\" transparent)"
+    },
+    "title": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:63 (standard drawer chrome)"
+    },
+    "close": {
+      "type": "enum(leading|trailing|none)",
+      "default": "leading",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:65,69 (default leading when chrome is on)"
+    },
+    "action": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:64"
+    },
+    "actionIcon": {
+      "type": "sf-symbol",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:64"
+    },
+    "actionSide": {
+      "type": "enum(leading|trailing)",
+      "default": "trailing",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:72"
+    },
+    "on:dismiss": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:80"
+    }
+  },
+  "geometry": {
+    "cardInset": {
+      "value": 14,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Sheet/swift/Sheet.swift:79"
+    }
+  },
+  "colors": {
+  },
+  "notes": "content detent = fit-content capped at 90% of screen. Android twin: Material ModalBottomSheet / inset Card / full-screen Dialog (Sheet.swift header)."
+}

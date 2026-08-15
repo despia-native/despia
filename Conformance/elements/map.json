@@ -1,0 +1,126 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "map",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift",
+  "attributes": {
+    "lat": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:77,86"
+    },
+    "lon": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:77,87"
+    },
+    "zoom": {
+      "type": "number",
+      "default": 12,
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:77,88"
+    },
+    "pins": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:106"
+    },
+    "pinLat": {
+      "type": "string",
+      "default": "lat",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:96"
+    },
+    "pinLon": {
+      "type": "string",
+      "default": "lng",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:97"
+    },
+    "pinTitle": {
+      "type": "string",
+      "default": "title",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:102"
+    },
+    "pinSubtitle": {
+      "type": "string",
+      "default": "subtitle",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:102"
+    },
+    "pinGlyph": {
+      "type": "sf-symbol",
+      "default": "mappin.circle.fill",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:103 (iOS-only; Android default balloons — Maps.kt header)"
+    },
+    "pinColor": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:104"
+    },
+    "routeColor": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:126"
+    },
+    "routeOpacity": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:126"
+    },
+    "routeWidth": {
+      "type": "number",
+      "default": 4,
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:129"
+    },
+    "routeLineType": {
+      "type": "enum(solid|dashed|dotted)",
+      "default": "solid",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:130"
+    },
+    "interaction": {
+      "type": "enum(all|none|...)",
+      "default": "all",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:138"
+    },
+    "style": {
+      "type": "enum(standard|...)",
+      "default": "standard",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:181"
+    },
+    "regionColor": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:206"
+    },
+    "circleColor": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:211"
+    },
+    "userLocation": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:214"
+    }
+  },
+  "geometry": {
+    "zoom": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:77"
+    },
+    "routeWidth": {
+      "value": 4,
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:129"
+    }
+  },
+  "colors": {
+    "pin": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:104"
+    },
+    "route": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Core/Maps/swift/Maps.swift:126"
+    }
+  },
+  "notes": ""
+}

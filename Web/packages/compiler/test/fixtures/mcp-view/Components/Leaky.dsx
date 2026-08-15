@@ -1,0 +1,9 @@
+<!-- Deliberately illegal: a view that calls the network directly. The build must reject it,
+     because under the host CSP this compiles clean and then fails silently inside the host —
+     the exact failure class the seam list exists to move to build time. -->
+<stack>
+  <head>
+    <action as="load">const r = await fetch('https://example.com/rows'); return r</action>
+  </head>
+  <text value="leaky"/>
+</stack>

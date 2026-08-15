@@ -1,0 +1,345 @@
+{
+ "_note": "The UI MOTION retarget corpus \u2014 THE INTERRUPTION LAW for the native UI layer, the same CSS-transition model the scene kernel already implements: an in-flight value whose TARGET changes glides on from its CURRENT rendered value toward the new target over a FRESH clip. Never snap to the new target, never queue the new clip behind the old one, and no special case for retargeting to the value already being animated toward. THE FOLD each runner executes: state = {from, to, startMs}; value(t) = from + (to \u2212 from) \u00b7 motionProgress(spec, t \u2212 startMs), and done once t \u2212 startMs \u2265 the clip length (the authored duration for a curve, the SETTLE time for a spring), where value(t) = to exactly. A retarget event at time `at` replaces the state with {from: value(at), to: event.to, startMs: at}. Events apply in `at` order and a sample at exactly `at` is taken AFTER the event (the retarget instant belongs to the new clip \u2014 its value is continuous either way, which is the point). All floats 6 decimals, tolerance 1.5e-6; independent scratch derivation.",
+ "cases": [
+  {
+   "name": "no retarget \u2014 a plain linear glide completes at the clip end",
+   "anim": "linear",
+   "animDuration": "1",
+   "from": 0.0,
+   "to": 100.0,
+   "events": [],
+   "samples": [
+    {
+     "t": 0,
+     "value": 0.0,
+     "done": false
+    },
+    {
+     "t": 250,
+     "value": 25.0,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": 50.0,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": 75.0,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": 100.0,
+     "done": true
+    },
+    {
+     "t": 1200,
+     "value": 100.0,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "linear retarget at mid-flight glides from 50, never snaps",
+   "anim": "linear",
+   "animDuration": "1",
+   "from": 0.0,
+   "to": 100.0,
+   "events": [
+    {
+     "at": 500,
+     "to": 0.0
+    }
+   ],
+   "samples": [
+    {
+     "t": 0,
+     "value": 0.0,
+     "done": false
+    },
+    {
+     "t": 250,
+     "value": 25.0,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": 50.0,
+     "done": false
+    },
+    {
+     "t": 501,
+     "value": 49.95,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": 37.5,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": 25.0,
+     "done": false
+    },
+    {
+     "t": 1500,
+     "value": 0.0,
+     "done": true
+    },
+    {
+     "t": 1501,
+     "value": 0.0,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "easeInOut retarget \u2014 the new clip starts from the CURRENT eased value",
+   "anim": "easeInOut",
+   "animDuration": null,
+   "from": 0.0,
+   "to": 1.0,
+   "events": [
+    {
+     "at": 100,
+     "to": 0.5
+    }
+   ],
+   "samples": [
+    {
+     "t": 0,
+     "value": 0.0,
+     "done": false
+    },
+    {
+     "t": 50,
+     "value": 0.040904,
+     "done": false
+    },
+    {
+     "t": 100,
+     "value": 0.169702,
+     "done": false
+    },
+    {
+     "t": 200,
+     "value": 0.225754,
+     "done": false
+    },
+    {
+     "t": 300,
+     "value": 0.375005,
+     "done": false
+    },
+    {
+     "t": 450,
+     "value": 0.5,
+     "done": true
+    },
+    {
+     "t": 451,
+     "value": 0.5,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "a retarget to the SAME target still restarts the clock from the current value",
+   "anim": "linear",
+   "animDuration": "1",
+   "from": 0.0,
+   "to": 100.0,
+   "events": [
+    {
+     "at": 500,
+     "to": 100.0
+    }
+   ],
+   "samples": [
+    {
+     "t": 0,
+     "value": 0.0,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": 50.0,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": 62.5,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": 75.0,
+     "done": false
+    },
+    {
+     "t": 1499,
+     "value": 99.95,
+     "done": false
+    },
+    {
+     "t": 1500,
+     "value": 100.0,
+     "done": true
+    }
+   ],
+   "_note": "the CSS-transition model has no queue and no special case: every base change is a fresh glide"
+  },
+  {
+   "name": "two retargets in flight \u2014 each starts from where the previous one had reached",
+   "anim": "linear",
+   "animDuration": "1",
+   "from": 0.0,
+   "to": 100.0,
+   "events": [
+    {
+     "at": 250,
+     "to": 0.0
+    },
+    {
+     "at": 500,
+     "to": 100.0
+    }
+   ],
+   "samples": [
+    {
+     "t": 0,
+     "value": 0.0,
+     "done": false
+    },
+    {
+     "t": 250,
+     "value": 25.0,
+     "done": false
+    },
+    {
+     "t": 375,
+     "value": 21.875,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": 18.75,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": 39.0625,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": 59.375,
+     "done": false
+    },
+    {
+     "t": 1500,
+     "value": 100.0,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "a spring retarget picks up mid-flight (including past 1 on the overshoot)",
+   "anim": "spring",
+   "animDuration": null,
+   "from": 0.0,
+   "to": 100.0,
+   "events": [
+    {
+     "at": 200,
+     "to": 0.0
+    }
+   ],
+   "samples": [
+    {
+     "t": 0,
+     "value": 0.0,
+     "done": false
+    },
+    {
+     "t": 100,
+     "value": 52.570543,
+     "done": false
+    },
+    {
+     "t": 200,
+     "value": 92.231379,
+     "done": false
+    },
+    {
+     "t": 300,
+     "value": 43.744842,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": -1.146154,
+     "done": false
+    },
+    {
+     "t": 700,
+     "value": -0.229649,
+     "done": false
+    },
+    {
+     "t": 800,
+     "value": 0.0,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "a retarget AFTER the clip settled starts from the resting value",
+   "anim": "linear",
+   "animDuration": "0.5",
+   "from": 0.0,
+   "to": 100.0,
+   "events": [
+    {
+     "at": 800,
+     "to": 200.0
+    }
+   ],
+   "samples": [
+    {
+     "t": 0,
+     "value": 0.0,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": 100.0,
+     "done": true
+    },
+    {
+     "t": 800,
+     "value": 100.0,
+     "done": false
+    },
+    {
+     "t": 1050,
+     "value": 150.0,
+     "done": false
+    },
+    {
+     "t": 1300,
+     "value": 200.0,
+     "done": true
+    },
+    {
+     "t": 1301,
+     "value": 200.0,
+     "done": true
+    }
+   ]
+  }
+ ]
+}

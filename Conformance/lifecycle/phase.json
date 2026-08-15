@@ -1,0 +1,212 @@
+{
+  "version": 1,
+  "_note": "The COORDINATOR translation — each surface's PRIVATE readiness report → the ONE unified `screen.*` vocabulary (reference/screen-lifecycle.md). THE LAW ENCODED HERE: (1) there are exactly TWO phases — `screen.loading` and `screen.ready`; a failed load is SETTLED, so `surface.domFail` translates identically to `surface.domFinish` (no stuck spinner). (2) The web surface's siblings are `surface.domStart` / `surface.domFinish` / `surface.domFail` (payload { url, surface }); the NATIVE surface's siblings are `surface.viewStart` / `surface.viewFinish` (payload { path, surface: \"native\", frame }) — the native reporter has no `*Fail` sibling because a native frame ALWAYS settles (first render, or its own `dsx.screen.settled()`); a native screen's failure is a value on the error plane (`dsx.error`), never a lifecycle phase. (3) The APP-SURFACE guard: a report is translated only when its `surface` is the app surface — \"web\" (the composed app web view) or \"native\" (a DSXView frame). Any other tag is a BARE embedded surface (a node-owned `<WebView/>`, named by its node) and is DROPPED, so an embedded player loading a page can never flip the app's spinner/splash/analytics. An UNTAGGED payload counts as the app surface (fail-open, Article 7) — the legacy bare-string input keeps working. (4) The re-fired `screen.*` input is the plain ROUTE STRING, never the relay dict: `url` when present, else `path`, else the input itself when it is already a string, else null. Consumers read it as an optional string (PostHog reads it; Spinner et al. ignore it). (5) State rides every translation: `global.screen.frame` (the REPORTING frame id, or null when the report names none \u2014 the web relay is frameless) + `global.screen.phase` (\"loading\" | \"ready\") + `global.screen.ready` (Bool), published in THAT order and all BEFORE the `screen.*` event fires, so an event hook reads a consistent triple. `screen.frame` is the settle IDENTITY: a consumer that must know WHOSE readiness a report carries \u2014 the ROOT PLAN binds each report to the attempt that mounted the frame (root-plan.md \u00a75) \u2014 reads it instead of inferring from the level. A DROPPED report (a bare embedded surface) publishes NOTHING, identity included. All three keys are MERGED into the `screen` object that also carries the window metrics (width/height/sizeClass/orientation/breakpoint) — a rotation must never wipe `phase`/`ready`, and a phase publish must never wipe the metrics. (6) The coordinator is STATELESS and level-triggered: it never dedupes, never orders, never remembers — de-duplication is the REPORTER's job (readiness.json rule 5). Executors: Swift `Mandatory/Lifecycle/swift/Lifecycle.swift` · Kotlin `Mandatory/Lifecycle/kotlin/Lifecycle.kt` · TS `packages/kernel/src/screen.ts` (the web renderer ships no Lifecycle module — its kernel publishes `screen.*` directly from the same table, which is why this file, not the module, is the law).",
+  "surfaces": {
+    "web": "the composed app WKWebView / WebView — reports surface.domStart · surface.domFinish · surface.domFail",
+    "native": "a DSXView frame in the app's nav.stack — reports surface.viewStart · surface.viewFinish",
+    "<node name>": "a bare embedded <WebView/> — reports dom* tagged with its node name; NEVER translated"
+  },
+  "cases": [
+    {
+      "name": "a web navigation: start then finish",
+      "steps": [
+        { "fire": "surface.domStart", "input": { "url": "https://app.example/", "surface": "web" } },
+        { "fire": "surface.domFinish", "input": { "url": "https://app.example/", "surface": "web" } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "https://app.example/" },
+        { "fire": "screen.ready", "input": "https://app.example/" }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": null }
+    },
+    {
+      "name": "a failed web load is still settled",
+      "steps": [
+        { "fire": "surface.domStart", "input": { "url": "https://app.example/x", "surface": "web" } },
+        { "fire": "surface.domFail", "input": { "url": "https://app.example/x", "surface": "web", "error": "offline", "provisional": true } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "https://app.example/x" },
+        { "fire": "screen.ready", "input": "https://app.example/x" }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": null }
+    },
+    {
+      "name": "a native frame: start then settle — the same two fires, no web view involved",
+      "steps": [
+        { "fire": "surface.viewStart", "input": { "path": "/home", "surface": "native", "frame": 1 } },
+        { "fire": "surface.viewFinish", "input": { "path": "/home", "surface": "native", "frame": 1 } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "/home" },
+        { "fire": "screen.ready", "input": "/home" }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": 1 }
+    },
+    {
+      "name": "a native frame that has only started leaves the shell loading",
+      "steps": [
+        { "fire": "surface.viewStart", "input": { "path": "/orders", "surface": "native", "frame": 3 } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "/orders" }
+      ],
+      "expectState": { "screen.phase": "loading", "screen.ready": false, "screen.frame": 3 }
+    },
+    {
+      "name": "a native push after a settled screen returns the shell to loading, then ready",
+      "steps": [
+        { "fire": "surface.viewStart", "input": { "path": "/", "surface": "native", "frame": 1 } },
+        { "fire": "surface.viewFinish", "input": { "path": "/", "surface": "native", "frame": 1 } },
+        { "fire": "surface.viewStart", "input": { "path": "/p/7", "surface": "native", "frame": 2 } },
+        { "fire": "surface.viewFinish", "input": { "path": "/p/7", "surface": "native", "frame": 2 } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "/" },
+        { "fire": "screen.ready", "input": "/" },
+        { "fire": "screen.loading", "input": "/p/7" },
+        { "fire": "screen.ready", "input": "/p/7" }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": 2 }
+    },
+    {
+      "name": "a hybrid app: a native frame and a web navigation share one vocabulary",
+      "steps": [
+        { "fire": "surface.viewStart", "input": { "path": "/", "surface": "native", "frame": 1 } },
+        { "fire": "surface.viewFinish", "input": { "path": "/", "surface": "native", "frame": 1 } },
+        { "fire": "surface.domStart", "input": { "url": "https://app.example/shop", "surface": "web" } },
+        { "fire": "surface.domFinish", "input": { "url": "https://app.example/shop", "surface": "web" } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "/" },
+        { "fire": "screen.ready", "input": "/" },
+        { "fire": "screen.loading", "input": "https://app.example/shop" },
+        { "fire": "screen.ready", "input": "https://app.example/shop" }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": null }
+    },
+    {
+      "name": "an embedded bare <WebView/> never moves the app's phase",
+      "steps": [
+        { "fire": "surface.domStart", "input": { "url": "https://player.example/", "surface": "player" } },
+        { "fire": "surface.domFinish", "input": { "url": "https://player.example/", "surface": "player" } },
+        { "fire": "surface.domFail", "input": { "url": "https://player.example/", "surface": "player", "error": "offline" } }
+      ],
+      "expect": [],
+      "expectState": { "screen.phase": null, "screen.ready": null, "screen.frame": null }
+    },
+    {
+      "name": "an embedded surface loading UNDER a settled app screen leaves it settled",
+      "steps": [
+        { "fire": "surface.viewStart", "input": { "path": "/watch", "surface": "native", "frame": 1 } },
+        { "fire": "surface.viewFinish", "input": { "path": "/watch", "surface": "native", "frame": 1 } },
+        { "fire": "surface.domStart", "input": { "url": "https://player.example/", "surface": "player" } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "/watch" },
+        { "fire": "screen.ready", "input": "/watch" }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": 1 }
+    },
+    {
+      "name": "an UNTAGGED payload is the app surface — fail-open",
+      "steps": [
+        { "fire": "surface.domStart", "input": { "url": "https://app.example/" } },
+        { "fire": "surface.domFinish", "input": { "url": "https://app.example/" } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "https://app.example/" },
+        { "fire": "screen.ready", "input": "https://app.example/" }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": null }
+    },
+    {
+      "name": "a legacy BARE STRING input rides through as the route",
+      "steps": [
+        { "fire": "surface.domStart", "input": "https://app.example/legacy" },
+        { "fire": "surface.domFinish", "input": "https://app.example/legacy" }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "https://app.example/legacy" },
+        { "fire": "screen.ready", "input": "https://app.example/legacy" }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": null }
+    },
+    {
+      "name": "a routeless report still fires — the input is simply null",
+      "steps": [
+        { "fire": "surface.viewStart", "input": { "surface": "native", "frame": 5 } },
+        { "fire": "surface.viewFinish", "input": { "surface": "native", "frame": 5 } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": null },
+        { "fire": "screen.ready", "input": null }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": 5 }
+    },
+    {
+      "name": "url wins over path when a payload carries both",
+      "steps": [
+        { "fire": "surface.domFinish", "input": { "url": "https://app.example/a", "path": "/a", "surface": "web" } }
+      ],
+      "expect": [
+        { "fire": "screen.ready", "input": "https://app.example/a" }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": null }
+    },
+    {
+      "name": "the coordinator is stateless — a duplicate settle republishes without harm",
+      "steps": [
+        { "fire": "surface.viewFinish", "input": { "path": "/", "surface": "native", "frame": 1 } },
+        { "fire": "surface.viewFinish", "input": { "path": "/", "surface": "native", "frame": 1 } }
+      ],
+      "expect": [
+        { "fire": "screen.ready", "input": "/" },
+        { "fire": "screen.ready", "input": "/" }
+      ],
+      "expectState": { "screen.phase": "ready", "screen.ready": true, "screen.frame": 1 }
+    },
+    {
+      "name": "the phase publish MERGES into screen.* — window metrics survive",
+      "seedState": { "screen": { "width": 390, "height": 844, "sizeClass": "compact", "orientation": "portrait", "breakpoint": "md" } },
+      "steps": [
+        { "fire": "surface.viewStart", "input": { "path": "/", "surface": "native", "frame": 1 } },
+        { "fire": "surface.viewFinish", "input": { "path": "/", "surface": "native", "frame": 1 } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "/" },
+        { "fire": "screen.ready", "input": "/" }
+      ],
+      "expectState": {
+        "screen.phase": "ready",
+        "screen.ready": true,
+        "screen.frame": 1,
+        "screen.width": 390,
+        "screen.sizeClass": "compact",
+        "screen.breakpoint": "md"
+      }
+    },
+    {
+      "name": "a report names its frame — a LATE settle from a covered screen is identifiable",
+      "steps": [
+        { "fire": "surface.viewStart", "input": { "path": "/a", "surface": "native", "frame": 6 } },
+        { "fire": "surface.viewFinish", "input": { "path": "/a", "surface": "native", "frame": 6 } },
+        { "fire": "surface.viewStart", "input": { "path": "/b", "surface": "native", "frame": 7 } },
+        { "fire": "surface.viewFinish", "input": { "path": "/a", "surface": "native", "frame": 6 } },
+        { "fire": "surface.viewFinish", "input": { "path": "/b", "surface": "native", "frame": 7 } }
+      ],
+      "expect": [
+        { "fire": "screen.loading", "input": "/a" },
+        { "fire": "screen.ready", "input": "/a" },
+        { "fire": "screen.loading", "input": "/b" },
+        { "fire": "screen.ready", "input": "/a" },
+        { "fire": "screen.ready", "input": "/b" }
+      ],
+      "expectState": {
+        "screen.phase": "ready",
+        "screen.ready": true,
+        "screen.frame": 7
+      }
+    }
+  ]
+}

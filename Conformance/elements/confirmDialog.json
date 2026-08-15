@@ -1,0 +1,40 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "confirmDialog",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/ConfirmDialog/swift/ConfirmDialog.swift",
+  "attributes": {
+    "present": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/ConfirmDialog/swift/ConfirmDialog.swift:38"
+    },
+    "title": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/ConfirmDialog/swift/ConfirmDialog.swift:40"
+    },
+    "message": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/ConfirmDialog/swift/ConfirmDialog.swift:41"
+    },
+    "buttons": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/ConfirmDialog/swift/ConfirmDialog.swift:42 (auto-appends Cancel when the list omits role"
+    },
+    "on:dismiss": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/ConfirmDialog/swift/ConfirmDialog.swift:46"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

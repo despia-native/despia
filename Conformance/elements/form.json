@@ -1,0 +1,48 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "form",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Form/swift/Form.swift",
+  "attributes": {
+    "as": {
+      "type": "string",
+      "default": "form",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Form/swift/Form.swift:35"
+    },
+    "spacing": {
+      "type": "number",
+      "default": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Form/swift/Form.swift:39"
+    },
+    "submit": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Form/swift/Form.swift:41-42"
+    },
+    "scroll": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Form/swift/Form.swift:49"
+    },
+    "on:submit": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Form/swift/Form.swift:56 (runs only when form.valid)"
+    }
+  },
+  "geometry": {
+    "spacing": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Form/swift/Form.swift:39"
+    },
+    "invalidSubmitOpacity": {
+      "value": 0.5,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Form/swift/Form.swift:43"
+    }
+  },
+  "colors": {
+  },
+  "notes": ""
+}

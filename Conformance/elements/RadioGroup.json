@@ -1,0 +1,61 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "RadioGroup",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift:38"
+    },
+    "options": {
+      "type": "csv",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift:44"
+    },
+    "optionsKey": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift:40"
+    },
+    "valueField": {
+      "type": "string",
+      "default": "id",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift:41"
+    },
+    "labelField": {
+      "type": "string",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift:41"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift:49"
+    }
+  },
+  "geometry": {
+    "rowSpacing": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift:50"
+    },
+    "markSpacing": {
+      "value": 10,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift:56"
+    }
+  },
+  "colors": {
+    "selectedMark": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift:49,58"
+    },
+    "unselectedMark": {
+      "token": "secondary",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/RadioGroup.swift:58"
+    }
+  },
+  "notes": "Glyphs: largecircle.fill.circle / circle (RadioGroup.swift:57)."
+}

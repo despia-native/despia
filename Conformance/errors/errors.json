@@ -1,0 +1,396 @@
+{
+ "_note": "The DSX error-system corpus (architecture/proposals/error-system.md, ACCEPTED v1) — every runtime (TS kernel errors.ts, Kotlin Errors.kt, Swift Errors.swift) runs these cases through ITS bus + ledger; deterministic, no timers, no network. THE LAW ENCODED HERE: (1) `dsx.error`/`dsx.fail` on the AMBIENT hat (the module handle — a markup action is always ambient) records a DSXError and is REPEATABLE: no settle guard, every emission records. (2) The wire shape is { code, message?, recoverable, data?, scheme, origin } — code is the only required input; message defaults null, recoverable false, origin 'raised' for ambient emissions, 'call' for bus-call failures (which additionally carry `delivered`: false = fire-and-forget, the call site never saw it), and 'uncaught' for a throw that unwinds a markup action to the top with no catch. (3) Every recorded error fans out: the ledger (ring, cap 128, oldest evicted), the `module.error` hook for ambient emissions (`module.callFailed` stays the transport hook for call failures), the page channel `{scheme, event:'error', data:<wire>}` on the module's OWN scheme PLUS the reserved `dsx` scheme mirror, and the reactive keys `global.dsx.lastError` (wire shape) + `global.dsx.errorCount` (monotonic count). (4) HAT ISOLATION: inside a call, `dsx.error` still settles exactly once (first-call-wins, envelope unchanged) — a second terminal settle is swallowed and records nothing new; ambient semantics never leak into the call hat. (5) A hook's own emission mid-fan-out stays log-only (no recursion). (6) The `dsx` scheme is reserved — a module registering it is refused, `dsx.has('dsx')` stays false — yet the KERNEL answers the `dsx.error` verb on the bus (dispatch scheme 'dsx', action 'error' — the page's `dsx.error(...)` in DSXWebView rides exactly this): args { code, message?, recoverable?, data?, scheme? } run the ambient fan-out attributed to the `scheme` arg (default 'page') and resolve null; an unknown action on `dsx` answers unknown_action honestly. (7) UNCAUGHT CAPTURE: an uncaught markup throw reports through the SAME ambient fan-out with origin 'uncaught' — a thrown dict with a string `code` keeps its code/message/recoverable/data; a codeless dict with a string `message` (a JSE `new Error(…)`, the browser-parity throw) keeps the message and rides whole as data; any other dict rides as data with a null message; any other value records code 'uncaught' with the JSE string coercion as message; a throw settled by `catch` records NOTHING. Case ops: register[] fixture modules (actions: resolve:<value> | error:[code,data] | errorTwice:[c1,c2]); steps[] of emit / emitRepeat / jse (markup body; scheme = surface owner, default 'app') / call (mode await|post, optional args{}); expects are SUBSET-matched: ledger[] = exactly the entries appended by this case in order, ledgerCount = absolute retained total (cap case), events[] = page-channel deliveries in order, hooks{} = observed hook payloads, state{} = global reads after the case, stateDelta{} = numeric deltas, callErrors[] = codes the driven calls received (an awaited call that resolves records nothing), jseStore{} = store reads after a jse step, schemeAvailable{} = registry answers.",
+ "cases": [
+  {
+   "name": "ambient-error-records-and-defaults",
+   "steps": [
+    { "emit": { "scheme": "errfx.defaults", "code": "boom" } }
+   ],
+   "expect": {
+    "ledger": [
+     { "code": "boom", "message": null, "recoverable": false, "scheme": "errfx.defaults", "origin": "raised" }
+    ],
+    "hooks": { "module.error": [ { "code": "boom", "scheme": "errfx.defaults", "origin": "raised" } ] },
+    "state": { "dsx.lastError": { "code": "boom", "scheme": "errfx.defaults" } },
+    "stateDelta": { "dsx.errorCount": 1 }
+   }
+  },
+  {
+   "name": "ambient-error-is-repeatable-no-settle-guard",
+   "steps": [
+    { "emit": { "scheme": "errfx.repeat", "code": "first" } },
+    { "emit": { "scheme": "errfx.repeat", "code": "second" } }
+   ],
+   "expect": {
+    "ledger": [
+     { "code": "first", "origin": "raised" },
+     { "code": "second", "origin": "raised" }
+    ],
+    "state": { "dsx.lastError": { "code": "second" } },
+    "stateDelta": { "dsx.errorCount": 2 }
+   }
+  },
+  {
+   "name": "ambient-structured-form-keeps-full-fidelity",
+   "steps": [
+    { "emit": { "scheme": "errfx.full", "code": "model_download_failed", "message": "The model host timed out.", "recoverable": true, "data": { "model": "tiny", "attempt": 2 } } }
+   ],
+   "expect": {
+    "ledger": [
+     { "code": "model_download_failed", "message": "The model host timed out.", "recoverable": true, "data": { "model": "tiny", "attempt": 2 }, "scheme": "errfx.full", "origin": "raised" }
+    ],
+    "hooks": { "module.error": [ { "code": "model_download_failed", "recoverable": true, "data": { "model": "tiny", "attempt": 2 } } ] }
+   }
+  },
+  {
+   "name": "ambient-error-reaches-the-page-and-the-dsx-mirror",
+   "steps": [
+    { "emit": { "scheme": "errfx.page", "code": "sync_failed", "message": "push rejected" } }
+   ],
+   "expect": {
+    "events": [
+     { "scheme": "errfx.page", "event": "error", "data": { "code": "sync_failed", "message": "push rejected", "scheme": "errfx.page", "origin": "raised" } },
+     { "scheme": "dsx", "event": "error", "data": { "code": "sync_failed", "scheme": "errfx.page" } }
+    ]
+   }
+  },
+  {
+   "_note": "P3 ADOPTION (error-system.md \u00a74 P3) \u2014 the law the module migration rests on: a module whose CALL already settled can STILL report through the ambient hat. Every streaming/fire-and-forget module resolves immediately (`{ started: true }`, or a bare resolve for a job whose results ride events) and then discovers the failure later, with no caller left to settle. The settle guard is per-CALL and never gags the module handle, so the late emission records normally as origin 'raised' \u2014 and it is an AMBIENT emission, not a call failure, so `module.callFailed` stays silent. Without this the LocalAI/Vision migration would drop every out-of-band failure on the floor.",
+   "name": "ambient-emission-outlives-its-settled-call",
+   "register": [
+    { "scheme": "errfx.stream", "actions": { "start": { "resolve": { "started": true } } } }
+   ],
+   "steps": [
+    { "call": { "scheme": "errfx.stream", "action": "start", "mode": "await" } },
+    { "emit": { "scheme": "errfx.stream", "code": "job_failed", "message": "the job died after it started", "recoverable": true, "data": { "id": "job-1" } } }
+   ],
+   "expect": {
+    "callErrors": [],
+    "ledger": [
+     { "code": "job_failed", "message": "the job died after it started", "recoverable": true, "data": { "id": "job-1" }, "scheme": "errfx.stream", "origin": "raised" }
+    ],
+    "hooks": {
+     "module.error": [ { "code": "job_failed", "scheme": "errfx.stream", "origin": "raised" } ],
+     "module.callFailed": []
+    },
+    "stateDelta": { "dsx.errorCount": 1 }
+   }
+  },
+  {
+   "_note": "P3 ADOPTION \u2014 the PAGE half of the migration: a page that trades a module's bespoke error broadcast for the canonical channel must be able to read everything the bespoke payload carried. Both deliveries (the module's OWN scheme and the reserved `dsx` mirror) carry the FULL wire \u2014 code, message, recoverable, scheme, origin AND the free-form `data` the module used to flatten into custom keys (the legacy `{ id, errorCode, errorMessage }` shape rides `data` verbatim). `recoverable` is what one global error toast branches on (offer Retry or not), so the mirror carries it, not just the code.",
+   "name": "ambient-mirror-carries-the-full-wire-to-the-page",
+   "steps": [
+    { "emit": { "scheme": "errfx.mirror", "code": "model_download_failed", "message": "The model host timed out.", "recoverable": true, "data": { "id": "job-7", "errorCode": 3, "errorMessage": "the model host timed out" } } }
+   ],
+   "expect": {
+    "events": [
+     { "scheme": "errfx.mirror", "event": "error", "data": { "code": "model_download_failed", "message": "The model host timed out.", "recoverable": true, "scheme": "errfx.mirror", "origin": "raised", "data": { "id": "job-7", "errorCode": 3, "errorMessage": "the model host timed out" } } },
+     { "scheme": "dsx", "event": "error", "data": { "code": "model_download_failed", "message": "The model host timed out.", "recoverable": true, "scheme": "errfx.mirror", "origin": "raised", "data": { "id": "job-7", "errorCode": 3, "errorMessage": "the model host timed out" } } }
+    ],
+    "ledger": [
+     { "code": "model_download_failed", "recoverable": true, "scheme": "errfx.mirror", "origin": "raised" }
+    ]
+   }
+  },
+  {
+   "name": "jse-builtin-emits-ambient-from-a-markup-action",
+   "steps": [
+    { "jse": { "body": "dsx.error('markup_boom', { message: 'from markup', data: { k: 1 } })" } }
+   ],
+   "expect": {
+    "ledger": [
+     { "code": "markup_boom", "message": "from markup", "data": { "k": 1 }, "scheme": "app", "origin": "raised" }
+    ],
+    "state": { "dsx.lastError": { "code": "markup_boom", "scheme": "app" } },
+    "stateDelta": { "dsx.errorCount": 1 }
+   }
+  },
+  {
+   "name": "jse-builtin-attributes-the-surface-owner-scheme",
+   "steps": [
+    { "jse": { "scheme": "errfx.pkg", "body": "dsx.error('owned_boom')" } }
+   ],
+   "expect": {
+    "ledger": [ { "code": "owned_boom", "scheme": "errfx.pkg", "origin": "raised" } ]
+   }
+  },
+  {
+   "name": "jse-builtin-does-not-unwind-control-flow",
+   "steps": [
+    { "jse": { "body": "dsx.error('recorded'); dsx.variable.after = 'ran'" } }
+   ],
+   "expect": {
+    "ledger": [ { "code": "recorded" } ],
+    "jseStore": { "after": "ran" }
+   }
+  },
+  {
+   "name": "awaited-call-failure-feeds-the-ledger-delivered-true",
+   "register": [
+    { "scheme": "errfx.callee", "actions": { "explode": { "error": [ "kaboom", { "why": "test" } ] } } }
+   ],
+   "steps": [
+    { "call": { "scheme": "errfx.callee", "action": "explode", "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [ "kaboom" ],
+    "ledger": [
+     { "code": "kaboom", "data": { "why": "test" }, "scheme": "errfx.callee", "origin": "call", "delivered": true }
+    ],
+    "hooks": { "module.callFailed": [ { "code": "kaboom", "delivered": true } ], "module.error": [] }
+   }
+  },
+  {
+   "name": "fire-and-forget-call-failure-feeds-the-ledger-delivered-false",
+   "register": [
+    { "scheme": "errfx.postee", "actions": { "explode": { "error": [ "post_boom", null ] } } }
+   ],
+   "steps": [
+    { "call": { "scheme": "errfx.postee", "action": "explode", "mode": "post" } }
+   ],
+   "expect": {
+    "ledger": [
+     { "code": "post_boom", "scheme": "errfx.postee", "origin": "call", "delivered": false }
+    ],
+    "hooks": { "module.callFailed": [ { "code": "post_boom", "delivered": false } ] }
+   }
+  },
+  {
+   "name": "not-loaded-call-failure-feeds-the-ledger",
+   "steps": [
+    { "call": { "scheme": "errfx.ghost", "action": "anything", "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [ "not_loaded" ],
+    "ledger": [
+     { "code": "not_loaded", "scheme": "errfx.ghost", "origin": "call", "delivered": true }
+    ]
+   }
+  },
+  {
+   "name": "hat-isolation-terminal-error-settles-once-and-never-goes-ambient",
+   "register": [
+    { "scheme": "errfx.twice", "actions": { "boom": { "errorTwice": [ "first_code", "second_code" ] } } }
+   ],
+   "steps": [
+    { "call": { "scheme": "errfx.twice", "action": "boom", "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [ "first_code" ],
+    "ledger": [
+     { "code": "first_code", "origin": "call" }
+    ],
+    "hooks": { "module.error": [] }
+   }
+  },
+  {
+   "name": "hook-reentrancy-nested-emission-stays-log-only",
+   "steps": [
+    { "emit": { "scheme": "errfx.loopy", "code": "outer", "nestedEmitFromHook": { "scheme": "errfx.loopy-nested", "code": "inner" } } }
+   ],
+   "expect": {
+    "ledger": [ { "code": "outer", "scheme": "errfx.loopy" } ],
+    "hooks": { "module.error": [ { "code": "outer" } ] }
+   }
+  },
+  {
+   "name": "ledger-ring-cap-keeps-the-newest-128",
+   "steps": [
+    { "emitRepeat": { "scheme": "errfx.storm", "count": 130, "codePrefix": "storm_" } }
+   ],
+   "expect": {
+    "ledgerCount": 128,
+    "ledgerTail": [ { "code": "storm_129" } ],
+    "state": { "dsx.lastError": { "code": "storm_129" } }
+   }
+  },
+  {
+   "name": "the-dsx-scheme-is-reserved",
+   "register": [
+    { "scheme": "dsx", "actions": { "impostor": { "resolve": true } } }
+   ],
+   "steps": [],
+   "expect": {
+    "schemeAvailable": { "dsx": false }
+   }
+  },
+  {
+   "name": "uncaught-throw-in-a-markup-action-records",
+   "steps": [
+    { "jse": { "body": "throw { code: 'boom_uncaught', message: 'died mid-action', recoverable: true, data: { step: 3 } }" } }
+   ],
+   "expect": {
+    "ledger": [
+     { "code": "boom_uncaught", "message": "died mid-action", "recoverable": true, "data": { "step": 3 }, "scheme": "app", "origin": "uncaught" }
+    ],
+    "hooks": { "module.error": [ { "code": "boom_uncaught", "origin": "uncaught" } ] },
+    "state": { "dsx.lastError": { "code": "boom_uncaught", "origin": "uncaught" } },
+    "stateDelta": { "dsx.errorCount": 1 }
+   }
+  },
+  {
+   "name": "uncaught-plain-throw-coerces-to-the-uncaught-code",
+   "steps": [
+    { "jse": { "body": "throw 'wires crossed'" } }
+   ],
+   "expect": {
+    "ledger": [
+     { "code": "uncaught", "message": "wires crossed", "scheme": "app", "origin": "uncaught" }
+    ]
+   }
+  },
+  {
+   "name": "uncaught-codeless-dict-throw-rides-as-data",
+   "steps": [
+    { "jse": { "body": "throw { detail: 'no code here' }" } }
+   ],
+   "expect": {
+    "ledger": [
+     { "code": "uncaught", "message": null, "data": { "detail": "no code here" }, "scheme": "app", "origin": "uncaught" }
+    ]
+   }
+  },
+  {
+   "name": "uncaught-native-error-throw-keeps-its-message",
+   "steps": [
+    { "jse": { "body": "throw new Error('native throw')" } }
+   ],
+   "expect": {
+    "ledger": [
+     { "code": "uncaught", "message": "native throw", "data": { "name": "Error", "message": "native throw" }, "scheme": "app", "origin": "uncaught" }
+    ],
+    "state": { "dsx.lastError": { "code": "uncaught", "message": "native throw", "origin": "uncaught" } }
+   }
+  },
+  {
+   "name": "uncaught-throw-attributes-the-surface-owner",
+   "steps": [
+    { "jse": { "scheme": "errfx.own2", "body": "throw { code: 'owned_uncaught' }" } }
+   ],
+   "expect": {
+    "ledger": [ { "code": "owned_uncaught", "scheme": "errfx.own2", "origin": "uncaught" } ]
+   }
+  },
+  {
+   "name": "caught-throw-records-nothing",
+   "steps": [
+    { "jse": { "body": "try { throw 'contained' } catch (e) { dsx.variable.caught = e }" } }
+   ],
+   "expect": {
+    "ledger": [],
+    "jseStore": { "caught": "contained" }
+   }
+  },
+  {
+   "name": "kernel-error-verb-answers-on-the-reserved-scheme",
+   "steps": [
+    { "call": { "scheme": "dsx", "action": "error", "args": { "code": "page_boom", "message": "exploded in page js" }, "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [],
+    "ledger": [
+     { "code": "page_boom", "message": "exploded in page js", "scheme": "page", "origin": "raised" }
+    ],
+    "hooks": { "module.error": [ { "code": "page_boom", "scheme": "page" } ] },
+    "stateDelta": { "dsx.errorCount": 1 }
+   }
+  },
+  {
+   "name": "kernel-error-verb-honors-an-explicit-scheme",
+   "steps": [
+    { "call": { "scheme": "dsx", "action": "error", "args": { "code": "cart_stuck", "scheme": "checkout", "recoverable": true }, "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [],
+    "ledger": [ { "code": "cart_stuck", "scheme": "checkout", "recoverable": true, "origin": "raised" } ]
+   }
+  },
+  {
+   "name": "unknown-kernel-verb-answers-unknown-action",
+   "steps": [
+    { "call": { "scheme": "dsx", "action": "bogus", "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [ "unknown_action" ],
+    "ledger": [
+     { "code": "unknown_action", "scheme": "dsx", "origin": "call", "delivered": true, "data": { "action": "bogus" } }
+    ]
+   }
+  },
+  {
+   "_note": "TYPED ABSENCE (durability.md P4): the reason IS the code — the frozen absence vocabulary on the ordinary call-failure path is `excluded` (this build dropped the module — the NEW split out of not_loaded, driven by the build-excluded overlay the resolvers already carry) · `unsupported_platform` (never on this platform — pinned in Conformance/api/wire-contract.json, unchanged) · `prerequisites_missing` and `unreachable` (module/link-emitted, spellings frozen here) — all distinct from `not_loaded` (truly unknown) and `unknown_action`. New case op: `excludedOverlay` seeds the case's build-excluded overlay (chain → { reason: 'excluded' } | { reason: 'cascade', from }) — the DespiaExcluded shape, 1:1 with despia.excluded introspection; the call-failure `data` carries that entry verbatim.",
+   "name": "call-to-an-excluded-module-answers-excluded",
+   "excludedOverlay": { "errfx.gone": { "reason": "excluded" } },
+   "steps": [
+    { "call": { "scheme": "errfx.gone", "action": "anything", "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [ "excluded" ],
+    "ledger": [
+     { "code": "excluded", "scheme": "errfx.gone", "origin": "call", "delivered": true, "data": { "reason": "excluded" } }
+    ],
+    "hooks": { "module.callFailed": [ { "scheme": "errfx.gone", "code": "excluded", "delivered": true } ] },
+    "schemeAvailable": { "errfx.gone": false }
+   }
+  },
+  {
+   "name": "cascade-excluded-call-names-its-ancestor",
+   "excludedOverlay": { "errfx.parent.child": { "reason": "cascade", "from": "errfx.parent" } },
+   "steps": [
+    { "call": { "scheme": "errfx.parent.child", "action": "read", "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [ "excluded" ],
+    "ledger": [
+     { "code": "excluded", "scheme": "errfx.parent.child", "origin": "call", "delivered": true, "data": { "reason": "cascade", "from": "errfx.parent" } }
+    ]
+   }
+  },
+  {
+   "name": "post-call-to-an-excluded-module-is-undelivered",
+   "excludedOverlay": { "errfx.gonepost": { "reason": "excluded" } },
+   "steps": [
+    { "call": { "scheme": "errfx.gonepost", "action": "anything", "mode": "post" } }
+   ],
+   "expect": {
+    "callErrors": [],
+    "ledger": [
+     { "code": "excluded", "scheme": "errfx.gonepost", "origin": "call", "delivered": false, "data": { "reason": "excluded" } }
+    ]
+   }
+  },
+  {
+   "name": "absence-spellings-pass-through-prerequisites-missing-and-unreachable",
+   "register": [
+    { "scheme": "errfx.gated", "actions": {
+     "read": { "error": [ "prerequisites_missing", { "need": "entitlement" } ] },
+     "ping": { "error": [ "unreachable", null ] }
+    } }
+   ],
+   "steps": [
+    { "call": { "scheme": "errfx.gated", "action": "read", "mode": "await" } },
+    { "call": { "scheme": "errfx.gated", "action": "ping", "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [ "prerequisites_missing", "unreachable" ],
+    "ledger": [
+     { "code": "prerequisites_missing", "scheme": "errfx.gated", "origin": "call", "delivered": true, "data": { "need": "entitlement" } },
+     { "code": "unreachable", "scheme": "errfx.gated", "origin": "call", "delivered": true }
+    ]
+   }
+  },
+  {
+   "name": "truly-unknown-stays-not-loaded-beside-a-seeded-overlay",
+   "excludedOverlay": { "errfx.gone": { "reason": "excluded" } },
+   "steps": [
+    { "call": { "scheme": "errfx.neverheard", "action": "anything", "mode": "await" } }
+   ],
+   "expect": {
+    "callErrors": [ "not_loaded" ],
+    "ledger": [
+     { "code": "not_loaded", "scheme": "errfx.neverheard", "origin": "call", "delivered": true }
+    ]
+   }
+  }
+ ]
+}

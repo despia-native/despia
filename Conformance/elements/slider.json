@@ -1,0 +1,39 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "slider",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Slider/swift/Slider.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(number)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Slider/swift/Slider.swift:12"
+    },
+    "min": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Slider/swift/Slider.swift:13"
+    },
+    "max": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Slider/swift/Slider.swift:13"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Slider/swift/Slider.swift:16"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Slider/swift/Slider.swift:16"
+    }
+  },
+  "notes": "iOS renders the native UISlider; during drag the bound write is throttled ~12/s + final commit (Slider.swift:26-48). Android track/thumb metrics are internal chrome (StackInputViews.kt). SYSTEM IDENTITY (system-defaults.md, the Android M3-identity wave): iOS is the native UISlider always; web renders the real <input type=range> (elements.ts slider); Android renders the real M3 Slider when FULLY unstyled (StackSystemControls.kt SystemControl.SLIDER — bind/min/max + safe base; the degenerate range gets the iOS max(hi, lo+0.0001) epsilon), with explicit role colors (thumb/active track primary, inactive track surfaceContainerHighest); an authored color= (the track/thumb tint) EJECTS to the legacy drawn track byte-identically (pinned divergence: iOS tints its native control — the StackButtons precedent). Android joining COMPLETES the three-renderer native-control parity for this element."
+}

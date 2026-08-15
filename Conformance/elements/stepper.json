@@ -1,0 +1,49 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "stepper",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stepper/swift/Stepper.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(number)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stepper/swift/Stepper.swift:12"
+    },
+    "min": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stepper/swift/Stepper.swift:13"
+    },
+    "max": {
+      "type": "number",
+      "default": 100,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stepper/swift/Stepper.swift:14"
+    },
+    "step": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stepper/swift/Stepper.swift:15"
+    },
+    "label": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stepper/swift/Stepper.swift:19"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stepper/swift/Stepper.swift:20"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stepper/swift/Stepper.swift:20"
+    }
+  },
+  "notes": ""
+}

@@ -1,0 +1,129 @@
+{
+  "name": "@despia/dom",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "DSX web renderer \u2014 element library, binding engine, css-owner scoping, frame router. The ONLY package that touches the DOM (constitution: WebKit-only-in-Dom, inverted).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./boot": {
+      "types": "./dist/boot.d.ts",
+      "import": "./dist/boot.js",
+      "default": "./dist/boot.js"
+    },
+    "./mount": {
+      "types": "./dist/mount.d.ts",
+      "import": "./dist/mount.js",
+      "default": "./dist/mount.js"
+    },
+    "./elements": {
+      "types": "./dist/elements.d.ts",
+      "import": "./dist/elements.js",
+      "default": "./dist/elements.js"
+    },
+    "./forms": {
+      "types": "./dist/forms.d.ts",
+      "import": "./dist/forms.js",
+      "default": "./dist/forms.js"
+    },
+    "./theme": {
+      "types": "./dist/theme.d.ts",
+      "import": "./dist/theme.js",
+      "default": "./dist/theme.js"
+    },
+    "./globals": {
+      "types": "./dist/globals.d.ts",
+      "import": "./dist/globals.js",
+      "default": "./dist/globals.js"
+    },
+    "./native-controls": {
+      "types": "./dist/native-controls.d.ts",
+      "import": "./dist/native-controls.js",
+      "default": "./dist/native-controls.js"
+    },
+    "./structural-controls": {
+      "types": "./dist/structural-controls.d.ts",
+      "import": "./dist/structural-controls.js",
+      "default": "./dist/structural-controls.js"
+    },
+    "./overlay-controls": {
+      "types": "./dist/overlay-controls.d.ts",
+      "import": "./dist/overlay-controls.js",
+      "default": "./dist/overlay-controls.js"
+    },
+    "./data-controls": {
+      "types": "./dist/data-controls.d.ts",
+      "import": "./dist/data-controls.js",
+      "default": "./dist/data-controls.js"
+    },
+    "./application-controls": {
+      "types": "./dist/application-controls.d.ts",
+      "import": "./dist/application-controls.js",
+      "default": "./dist/application-controls.js"
+    },
+    "./media-surfaces": {
+      "types": "./dist/media-surfaces.d.ts",
+      "import": "./dist/media-surfaces.js",
+      "default": "./dist/media-surfaces.js"
+    },
+    "./offline": {
+      "types": "./dist/offline.d.ts",
+      "import": "./dist/offline.js",
+      "default": "./dist/offline.js"
+    },
+    "./scene": {
+      "types": "./dist/scene.d.ts",
+      "import": "./dist/scene.js",
+      "default": "./dist/scene.js"
+    },
+    "./sw/dsx-sw.js": "./sw/dsx-sw.js",
+    "./element-motion": {
+      "types": "./dist/element-motion.d.ts",
+      "import": "./dist/element-motion.js",
+      "default": "./dist/element-motion.js"
+    },
+    "./mcp-app": {
+      "types": "./dist/mcp-app.d.ts",
+      "import": "./dist/mcp-app.js",
+      "default": "./dist/mcp-app.js"
+    }
+  },
+  "files": [
+    "dist",
+    "sw",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/despia-native/despia-framework.git",
+    "directory": "OpenSource/Web/packages/dom"
+  },
+  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/dom",
+  "bugs": {
+    "url": "https://github.com/despia-native/despia-framework/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\""
+  },
+  "dependencies": {
+    "@despia/kernel": "0.0.1",
+    "@despia/compiler": "0.0.1"
+  }
+}

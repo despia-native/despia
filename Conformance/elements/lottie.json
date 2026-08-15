@@ -1,0 +1,35 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "lottie",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/Lottie/swift/LottieElement.swift",
+  "attributes": {
+    "src": {
+      "type": "url",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Lottie/swift/LottieElement.swift:27"
+    },
+    "loop": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Core/Lottie/swift/LottieElement.swift:30"
+    },
+    "speed": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Core/Lottie/swift/LottieElement.swift:31"
+    },
+    "autoplay": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Core/Lottie/swift/LottieElement.swift:32"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

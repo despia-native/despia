@@ -1,0 +1,55 @@
+# The label taxonomy for despia-native/despia. Seeded by the operator once
+# (gh label create, OPERATOR.md) and kept in sync by hand until a labeler
+# action earns its place. Grammar: "type:" what kind of work, "area:" which
+# surface, "status:" where it sits in the flow. One of each per issue.
+- name: "type: bug"
+  color: "d73a4a"
+  description: Something renders, resolves, or behaves wrong
+- name: "type: feature"
+  color: "a2eeef"
+  description: New capability
+- name: "type: question"
+  color: "d876e3"
+  description: Belongs in Discussions; converted when it reveals a bug or gap
+- name: "area: kernel"
+  color: "0e8a16"
+  description: The runtime core, all three renderers
+- name: "area: ios"
+  color: "0e8a16"
+  description: Swift renderer / native iOS
+- name: "area: android"
+  color: "0e8a16"
+  description: Kotlin renderer / native Android
+- name: "area: web"
+  color: "0e8a16"
+  description: TS renderer, SSR, browser
+- name: "area: server"
+  color: "0e8a16"
+  description: The server node - routes, workers, deploy targets
+- name: "area: cli"
+  color: "0e8a16"
+  description: dsx CLI, create-dsx, vite plugin
+- name: "area: editor"
+  color: "0e8a16"
+  description: The visual editor, canvas and logic
+- name: "area: ai"
+  color: "0e8a16"
+  description: Despia AI, Despiabase, Despia MCP packages
+- name: "area: docs"
+  color: "0075ca"
+  description: Documentation and examples
+- name: "status: triage"
+  color: "ededed"
+  description: Awaiting first maintainer look
+- name: "status: accepted"
+  color: "c2e0c6"
+  description: Triage done, on the board
+- name: "status: needs-repro"
+  color: "fbca04"
+  description: Waiting on a reproduction from the reporter
+- name: "status: importing"
+  color: "bfdadc"
+  description: PR patch being imported into the monorepo
+- name: "good first issue"
+  color: "7057ff"
+  description: Scoped, mentored, a fixture or single-leg change

@@ -1,0 +1,20 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "StudioTrim",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioTrim.swift",
+  "attributes": {
+    "clip": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioTrim.swift:17"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

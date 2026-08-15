@@ -1,0 +1,149 @@
+{
+ "_note": "The CONFIG VALIDATION grammar (D1) — the one new grammar R1 adds. A config entry may declare `pattern` (a regex the value must match), `validate` (a JSE expression returning true to pass or a string to fail with that message), and `message` (the author's words when `pattern` fails). Three planes consume this ONE vocabulary and must agree: config_schema.rb (the build gates prepare_config.rb + apply_core_config.rb), packages/kernel/src/config-validate.ts (the dashboard's live form AND the server's intake), and the Kotlin twin. A rule that passed at the form and failed at intake — or the reverse — is the class of bug this corpus exists to make impossible, because the user sees a green field and a rejected save.",
+ "_emptiness": "AN EMPTY VALUE PASSES every rule here, deliberately, and `required` is the separate word that makes emptiness fail. This is not a convenience: it is the contract packages/dom/src/forms.ts already implements (`patternPasses` returns true on an empty value) and the Swift form contract it was written against. An optional field with a pattern would otherwise be impossible to leave blank.",
+ "_redos": "A catastrophic-backtracking pattern is REFUSED rather than run — the value fails validation and the author is expected to rewrite the pattern. `reDoSProne` already exists as a tri-runtime twin (kernel/src/jse/regex.ts, Jse.kt, Stack.swift) and is REUSED here rather than reimplemented; these cases pin that the config plane calls it, not that it works.",
+ "limits": {
+  "maxPatternCharacters": 512,
+  "maxMessageCharacters": 200,
+  "_why": "The same ceiling forms.ts applies. A pattern longer than this is refused unread: a synchronous regex has no timeout on a single-threaded event loop."
+ },
+ "cases": [
+  {
+   "name": "no-rules-declared-passes-anything",
+   "_why": "The overwhelmingly common entry declares no validation at all and must stay free.",
+   "entry": {},
+   "value": "anything at all",
+   "expect": { "ok": true }
+  },
+  {
+   "name": "pattern-matches",
+   "entry": { "pattern": "^[a-z][a-z0-9-]*$" },
+   "value": "my-app",
+   "expect": { "ok": true }
+  },
+  {
+   "name": "pattern-does-not-match-fails-with-the-default-message",
+   "entry": { "pattern": "^[a-z][a-z0-9-]*$" },
+   "value": "My App",
+   "expect": { "ok": false, "message": "Invalid format" }
+  },
+  {
+   "name": "message-overrides-the-default-when-pattern-fails",
+   "_why": "The author's words are the whole point of `message`: 'Invalid format' tells a user nothing about a bundle id.",
+   "entry": { "pattern": "^[a-z][a-z0-9-]*$", "message": "Use lowercase letters, digits and hyphens" },
+   "value": "My App",
+   "expect": { "ok": false, "message": "Use lowercase letters, digits and hyphens" }
+  },
+  {
+   "name": "an-empty-value-passes-a-pattern",
+   "_why": "The emptiness contract. Pair with `required` when blank must fail.",
+   "entry": { "pattern": "^[a-z]+$", "message": "letters only" },
+   "value": "",
+   "expect": { "ok": true }
+  },
+  {
+   "name": "an-empty-value-passes-a-validate-expression-too",
+   "entry": { "validate": "value.length > 5" },
+   "value": "",
+   "expect": { "ok": true }
+  },
+  {
+   "name": "validate-returning-true-passes",
+   "entry": { "validate": "value.length > 3" },
+   "value": "abcd",
+   "expect": { "ok": true }
+  },
+  {
+   "name": "validate-returning-false-fails-with-the-default-message",
+   "entry": { "validate": "value.length > 3" },
+   "value": "ab",
+   "expect": { "ok": false, "message": "Invalid" }
+  },
+  {
+   "name": "validate-returning-a-STRING-fails-with-that-string",
+   "_why": "The reason a `validate` expression beats a pattern: it can say WHY, computed from the value.",
+   "entry": { "validate": "value.length > 3 ? true : 'Needs at least 4 characters, got ' + value.length" },
+   "value": "ab",
+   "expect": { "ok": false, "message": "Needs at least 4 characters, got 2" }
+  },
+  {
+   "name": "an-explicit-message-does-NOT-override-a-validate-string",
+   "_why": "Precedence, stated once: a computed reason is more specific than a static one, so it wins. `message` is the fallback, not an override.",
+   "entry": { "validate": "false || 'the computed reason'", "message": "the static reason" },
+   "value": "x",
+   "expect": { "ok": false, "message": "the computed reason" }
+  },
+  {
+   "name": "message-is-used-when-validate-returns-a-bare-false",
+   "entry": { "validate": "value == 'ok'", "message": "the static reason" },
+   "value": "no",
+   "expect": { "ok": false, "message": "the static reason" }
+  },
+  {
+   "name": "pattern-runs-before-validate",
+   "_why": "Deterministic order, so the message a user sees does not depend on which rule the implementation happened to check first.",
+   "entry": { "pattern": "^[0-9]+$", "message": "digits only", "validate": "Number(value) < 100 || 'too large'" },
+   "value": "abc",
+   "expect": { "ok": false, "message": "digits only" }
+  },
+  {
+   "name": "validate-runs-when-pattern-passes",
+   "entry": { "pattern": "^[0-9]+$", "message": "digits only", "validate": "Number(value) < 100 || 'too large'" },
+   "value": "500",
+   "expect": { "ok": false, "message": "too large" }
+  },
+  {
+   "name": "a-redos-prone-pattern-is-refused",
+   "_why": "Star height 2. Refused unread rather than executed: a synchronous regex has no timeout, so running it is how one hostile config entry freezes an SSR process.",
+   "entry": { "pattern": "^(a+)+$", "message": "nope" },
+   "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaa!",
+   "expect": { "ok": false, "message": "nope" }
+  },
+  {
+   "name": "an-over-long-pattern-is-refused-unread",
+   "entry": { "patternRepeat": { "unit": "a", "count": 600 } },
+   "value": "aaa",
+   "expect": { "ok": false, "message": "Invalid format" }
+  },
+  {
+   "name": "an-invalid-regex-fails-closed-rather-than-throwing",
+   "_why": "A malformed pattern is an authoring bug; it must surface as a failed field, never as an exception that takes down the form or the request.",
+   "entry": { "pattern": "^([a-z]$" },
+   "value": "abc",
+   "expect": { "ok": false, "message": "Invalid format" }
+  },
+  {
+   "name": "a-validate-expression-that-throws-fails-closed",
+   "entry": { "validate": "value.nope.deeper" },
+   "value": "abc",
+   "expect": { "ok": false, "message": "Invalid" }
+  },
+  {
+   "name": "validate-sees-the-value-and-nothing-else",
+   "_why": "The seam is one name. A validate expression is authored config, evaluated on the server at intake as well as in the browser, so it reaches `value` and no host object — JSE has no name for anything else by construction.",
+   "entry": { "validate": "typeof globalThis == 'undefined' && typeof process == 'undefined'" },
+   "value": "x",
+   "expect": { "ok": true }
+  },
+  {
+   "name": "a-non-string-value-validates-against-its-string-form",
+   "_why": "Config entries are typed (number, boolean, list), and a pattern is a string rule. Coercing once here beats each plane inventing its own coercion.",
+   "entry": { "pattern": "^[0-9]+$" },
+   "value": 42,
+   "expect": { "ok": true }
+  },
+  {
+   "name": "a-list-value-validates-every-member",
+   "_why": "A list entry with a pattern means every entry must match; one bad member fails the field.",
+   "entry": { "pattern": "^[a-z]+$", "message": "lowercase only" },
+   "value": ["alpha", "Beta"],
+   "expect": { "ok": false, "message": "lowercase only" }
+  },
+  {
+   "name": "a-list-value-passes-when-every-member-matches",
+   "entry": { "pattern": "^[a-z]+$" },
+   "value": ["alpha", "beta"],
+   "expect": { "ok": true }
+  }
+ ]
+}

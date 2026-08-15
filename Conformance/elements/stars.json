@@ -1,0 +1,60 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "stars",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(number)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:30-31"
+    },
+    "count": {
+      "type": "number",
+      "default": 5,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:32 (clamped >= 1)"
+    },
+    "size": {
+      "type": "number",
+      "default": 24,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:33"
+    },
+    "color": {
+      "type": "color",
+      "default": "#FFCC00",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:34"
+    },
+    "readonly": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:35"
+    }
+  },
+  "geometry": {
+    "count": {
+      "value": 5,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:32"
+    },
+    "size": {
+      "value": 24,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:33"
+    },
+    "spacingFraction": {
+      "value": 0.18,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:36 (HStack spacing = size * 0.18)"
+    },
+    "emptyOpacity": {
+      "value": 0.3,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:51 (tint.opacity(0.3) outline)"
+    }
+  },
+  "colors": {
+    "fill": {
+      "token": "#FFCC00",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:34"
+    }
+  },
+  "notes": "Cell fill fraction = clamp(value - index, 0, 1); tap writes i+1 via setBound (Stars.swift:38-41)."
+}

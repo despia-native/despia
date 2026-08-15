@@ -1,0 +1,9 @@
+<stack>
+  <vstak>
+    <text value="typo above"/>
+  </vstak>
+  <variable as="late" default="1"/>
+  <list bind="dsx.variable.rows">
+    <text value="{{ item.name }}"/>
+  </list>
+</stack>

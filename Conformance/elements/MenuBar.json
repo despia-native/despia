@@ -1,0 +1,35 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "MenuBar",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/MenuBar/swift/MenuBarComponent.swift",
+  "attributes": {
+    "items": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/MenuBar/swift/MenuBarComponent.swift:32 ([{ name, icon, id?, index }])"
+    },
+    "dark": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/MenuBar/swift/MenuBarComponent.swift:33"
+    },
+    "selected": {
+      "type": "expr(int)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/MenuBar/swift/MenuBarComponent.swift:34"
+    },
+    "on:select": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/MenuBar/swift/MenuBarComponent.swift header (a tap -> dsx.event(\"select\", item))"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "iOS renders real Liquid Glass with a morphing selection pill; Android renders opaque fallback (MenuBar.kt header: no glass, no pill morph)."
+}

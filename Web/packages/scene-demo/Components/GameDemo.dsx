@@ -1,0 +1,127 @@
+<!-- Crate Blaster — a COMPLETE game on the DSX engine: win/lose rules, limited shots, a
+     2D sprite HUD (shot pips despawn by data), the game-over overlay springing in on the
+     UI motion kernel, unified input (Space fires · WASD steers · R restarts), G1 prefab
+     crates, the G2 fixed-tick solver, the trigger goal, P5 tweens/transitions, fog and
+     the orbit camera. RULES: 6 shots; knock 3 scores into the goal to WIN; when the last
+     shot has flown (3 s grace) with score < 3, you LOSE. Every number underneath is
+     corpus-pinned; this page is the engine's production proof. -->
+<stack grow="true" style="gap: 0rem; background: groupedBackground">
+  <head>
+    <!-- G4 unified input: one declaration each reaches keyboard, gamepad and touch -->
+    <input as="jump" keys="Space ArrowUp" gamepad="A" touch="tap"/>
+    <input as="move" keys="WASD" gamepad="leftStick" axis="true"/>
+    <input as="again" keys="R" gamepad="Start"/>
+    <variable as="crates">return [{ id: 1, x: -0.6, y: 3.2, tint: '#c2703a' }, { id: 2, x: 0.6, y: 4.4, tint: '#8b5cf6' }]</variable>
+    <variable as="pips">return [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }, { id: 6 }]</variable>
+    <variable as="nextCrate">return 3</variable>
+    <variable as="score">return 0</variable>
+    <variable as="shots">return 6</variable>
+    <variable as="phase">return 'playing'</variable>
+    <variable as="lastShotTick">return 0</variable>
+    <variable as="ticks">return 0</variable>
+    <variable as="hits">return 0</variable>
+    <variable as="cannonX">return -2.2</variable>
+    <action as="dropCrate">
+      dsx.variable.nextCrate = dsx.variable.nextCrate + 1
+      dsx.variable.crates = dsx.variable.crates.concat([{ id: dsx.variable.nextCrate, x: ((dsx.variable.nextCrate * 37) % 20) / 10 - 1, y: 4.5, tint: '#c2703a' }])
+    </action>
+    <action as="clearCrates">
+      dsx.variable.crates = []
+    </action>
+    <action as="fire">
+      if (dsx.variable.phase !== 'playing' || dsx.variable.shots < 1) return
+      dsx.variable.shots = dsx.variable.shots - 1
+      dsx.variable.pips = dsx.variable.pips.slice(0, dsx.variable.shots)
+      dsx.variable.lastShotTick = dsx.variable.ticks
+      dsx.module.scene.set({ scene: 'game', id: 'ball', attr: 'position', value: '-2.2 1.2 0' })
+      dsx.module.scene.set({ scene: 'game', id: 'ball', attr: 'velocity', value: '6.5 4 0' })
+    </action>
+    <action as="scored">
+      dsx.variable.score = dsx.variable.score + 1
+      if (dsx.variable.phase === 'playing' && dsx.variable.score >= 3) dsx.variable.phase = 'won'
+    </action>
+    <action as="tick">
+      dsx.variable.ticks = dsx.variable.ticks + 1
+      if (dsx.variable.phase === 'playing' && dsx.variable.shots === 0 && dsx.variable.ticks - dsx.variable.lastShotTick > 180) dsx.variable.phase = 'lost'
+    </action>
+    <action as="aim">
+      dsx.variable.cannonX = dsx.variable.cannonX > -1 ? -2.2 : -0.4
+    </action>
+    <action as="steer">
+      dsx.variable.cannonX = dsx.variable.cannonX + dsx.input.move.x * 0.35
+    </action>
+    <action as="restart">
+      dsx.variable.score = 0
+      dsx.variable.shots = 6
+      dsx.variable.pips = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }, { id: 6 }]
+      dsx.variable.phase = 'playing'
+      dsx.variable.hits = 0
+      dsx.variable.crates = [{ id: 1, x: -0.6, y: 3.2, tint: '#c2703a' }, { id: 2, x: 0.6, y: 4.4, tint: '#8b5cf6' }]
+      dsx.module.scene.set({ scene: 'game', id: 'ball', attr: 'position', value: '-2.2 1.2 0' })
+      dsx.module.scene.set({ scene: 'game', id: 'ball', attr: 'velocity', value: '0 0 0' })
+    </action>
+    <action as="maybeRestart">
+      if (dsx.variable.phase !== 'playing') restart()
+    </action>
+  </head>
+
+  <NavBar title="Crate Blaster" back="true" on:back="dsx.module.route.pop()"/>
+
+  <scroll grow="true">
+    <stack style="gap: 0.875rem; padding: 1rem">
+
+      <text value="Score {{ dsx.variable.score }} / 3 · shots left {{ dsx.variable.shots }}" style="font-size: 1rem; font-weight: 800"/>
+
+      <!-- the 2D sprite HUD: one pip per remaining shot — pips DESPAWN by data (G6) -->
+      <scene id="hud" mode="2d" size="0.6" background="#0d1420"
+             a11yLabel="Shot pips: one sprite per remaining shot">
+        <group bind="dsx.variable.pips" key="id">
+          <sprite position="{{ (item.index - 2.5) * 0.5 }} 0" size="0.35 0.35" color="#f59e0b"/>
+        </group>
+      </scene>
+
+      <scene id="game" gravity="0 -9.81 0" background="#0a1020" fog="#0a1020 12 26"
+             a11yLabel="Crate Blaster: fire the ball to knock crates into the glowing goal"
+             on:tick="tick()" on:input.jump="fire()" on:input.move="steer()"
+             on:input.again="maybeRestart()">
+        <camera position="0 2.6 8" look-at="0 1 0" fov="55" controls="orbit"/>
+        <light kind="ambient" intensity="0.4"/>
+        <light kind="directional" position="4 6 3" intensity="0.75"/>
+        <light kind="point" position="0 3.2 2" color="#ffb454" intensity="2.2" range="14"/>
+        <box id="floor" physics="static" position="0 -0.5 0" size="14 1 8" color="#14532d"/>
+        <box id="backwall" physics="static" position="0 1 -2.6" size="14 4 0.4" color="#0f2231"/>
+        <box id="goal" physics="static" trigger="true" position="3.4 0.6 0" size="1.6 1.2 1.6"
+             color="#22d3ee" on:enter="scored()"/>
+        <box position="3.4 1.9 0" size="0.3 0.3 0.3" color="#22d3ee">
+          <animate target="rotation" from="0 0 0" to="0 360 0" duration="2.4s" easing="linear" loop="true"/>
+        </box>
+        <box id="cannon" position="{{ dsx.variable.cannonX }} 0.35 0" size="0.7 0.7 0.7" color="#334155"
+             transition="position 400ms ease-out" on:tap="aim()"/>
+        <sphere id="ball" physics="dynamic" mass="2" bounce="0.35" friction="0.4"
+                position="-2.2 1.2 0" radius="0.35" color="#f59e0b"
+                on:collision="dsx.variable.hits = dsx.variable.hits + 1" on:tap="fire()"/>
+        <group id="stack" bind="dsx.variable.crates" key="id">
+          <Crate position="{{ item.x }} {{ item.y }} 0" tint="{{ item.tint }}"/>
+        </group>
+      </scene>
+
+      <!-- the game-over overlay springs in on the UI MOTION KERNEL -->
+      <stack visible-if="dsx.variable.phase !== 'playing'" transition="scale" anim="spring"
+             grow="width" style="gap: 0.75rem; background: secondaryGroupedBackground; border-radius: 16px; padding: 1.25rem">
+        <text value="{{ dsx.variable.phase === 'won' ? 'YOU WIN' : 'OUT OF SHOTS' }}" style="font-size: 1.25rem; font-weight: 800"/>
+        <text value="Final score {{ dsx.variable.score }} / 3 — press R or tap Restart" style="font-size: 0.8rem; color: tertiary"/>
+        <button label="Restart" variant="prominent" anim="spring" on:tap="restart()"/>
+      </stack>
+
+      <stack grow="width" style="gap: 0.625rem; background: secondaryGroupedBackground; border-radius: 14px; padding: 0.875rem">
+        <button label="Fire the ball" variant="prominent" anim="spring" on:tap="fire()"/>
+        <button label="Drop a crate" on:tap="dropCrate()"/>
+        <button label="Clear the crates" role="destructive" on:tap="clearCrates()"/>
+        <button label="Move the cannon" on:tap="aim()"/>
+        <text value="ball hits {{ dsx.variable.hits }} · ticks {{ dsx.variable.ticks }} · axis {{ dsx.input.move.x }}, {{ dsx.input.move.y }}" style="font-size: 0.75rem; color: tertiary"/>
+        <text value="Space / ↑ / gamepad A fires (6 shots). Score 3 into the glowing goal to win. WASD or the left stick steers the cannon; R restarts after game over; drag to orbit." style="font-size: 0.75rem; color: tertiary"/>
+      </stack>
+
+    </stack>
+  </scroll>
+</stack>

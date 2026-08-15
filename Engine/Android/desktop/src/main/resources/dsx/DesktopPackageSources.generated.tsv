@@ -1,0 +1,5 @@
+# DesktopPackageSources.generated.tsv
+# Generated from enabled ClosedSource/DSX/Modules/**/kotlin/{desktop,windows,linux} facets.
+# targets<TAB>repository-relative Kotlin source directory
+windows,linux	ClosedSource/DSX/Modules/Mandatory/MultiApiCall/kotlin/desktop
+windows,linux	ClosedSource/DSX/Modules/Mandatory/State/kotlin/desktop

@@ -1,0 +1,42 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "Checkbox",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Checkbox.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Checkbox.swift:36"
+    },
+    "label": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Checkbox.swift:38"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Checkbox.swift:37"
+    }
+  },
+  "geometry": {
+    "labelSpacing": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Checkbox.swift:42"
+    }
+  },
+  "colors": {
+    "checked": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Checkbox.swift:37,44"
+    },
+    "unchecked": {
+      "token": "secondary",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Checkbox.swift:44"
+    }
+  },
+  "notes": "Glyphs: checkmark.square.fill / square (Checkbox.swift:43)."
+}

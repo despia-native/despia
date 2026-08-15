@@ -1,0 +1,956 @@
+{
+ "_note": "The DSX Scene ANIMATION corpus (dsx-scene.md P5). THE OVERRIDE LAW: an animation produces a value that OVERRIDES the authored/bound base value of ONE property while active; when it ends, the property returns to base (or holds, per fill=\"hold\"). THE TARGET SET is closed: position · rotation · scale (vec3) · color (LINEAR-RGB triple) · intensity · fov (scalars); opacity is a NAMED ABSENCE (no material opacity channel). EASING IS PINNED MATH — the constants and formulas are in the corpus README: linear; ease/ease-in/ease-out/ease-in-out as the CSS cubic-bezier constants solved by exactly 60 bisection iterations; spring(stiffness,damping) as the analytic mass-1 damped spring on the REAL clock (duration is ignored; the clip completes at the settle time T = ln(1000)/(ωn·(ζ − √max(0, ζ²−1))) where progress clamps to exactly 1). Interpolation is plain componentwise lerp on the value plane (colors linearized first). value(t) is a PURE function of the spec + start state — `tweens` cases sample sceneTweenValue at pinned times (ms since clip start; `from` defaults to the base at start), `gated` cases pin the `when` law (falsy ⇒ the property shows base; each falsy→truthy edge RESTARTS the clock; on:done does not fire on a gate stop), and `transitions` cases pin the CSS-model retarget fold (a base change starts a glide FROM THE CURRENT RENDERED VALUE toward the new base; interrupt = start from where you are, never snap, never queue; the entry's delay HOLDS the pre-change value). Loop law: delay applies ONCE; loop=true cycles (u = 0 at the exact wrap instant); loop=N completes after N cycles with on:done ONCE; pingpong samples the easing at (clip − u) on odd cycles — the same curve traversed backwards. All floats 6 decimals, tolerance 1.5e-6; every number from an independent scratch implementation. Runners: TS (per-PR). Kotlin/Swift are the NAMED P5 follow-up (dsx-scene.md P5 row).",
+ "tweens": [
+  {
+   "name": "easing linear — fov 30→60 sampled at 0/¼/½/¾/1",
+   "spec": {
+    "target": "fov",
+    "from": "30",
+    "to": "60",
+    "duration": "1000ms",
+    "easing": "linear",
+    "fill": "hold"
+   },
+   "base": "45",
+   "samples": [
+    {
+     "t": 0,
+     "value": [
+      30.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 250,
+     "value": [
+      37.5
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": [
+      45.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": [
+      52.5
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": [
+      60.0
+     ],
+     "overriding": true,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "easing ease — fov 30→60 sampled at 0/¼/½/¾/1",
+   "spec": {
+    "target": "fov",
+    "from": "30",
+    "to": "60",
+    "duration": "1000ms",
+    "easing": "ease",
+    "fill": "hold"
+   },
+   "base": "45",
+   "samples": [
+    {
+     "t": 0,
+     "value": [
+      30.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 250,
+     "value": [
+      42.255318
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": [
+      54.072102
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": [
+      58.813769
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": [
+      60.0
+     ],
+     "overriding": true,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "easing ease-in — fov 30→60 sampled at 0/¼/½/¾/1",
+   "spec": {
+    "target": "fov",
+    "from": "30",
+    "to": "60",
+    "duration": "1000ms",
+    "easing": "ease-in",
+    "fill": "hold"
+   },
+   "base": "45",
+   "samples": [
+    {
+     "t": 0,
+     "value": [
+      30.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 250,
+     "value": [
+      32.80394
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": [
+      39.460704
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": [
+      48.655856
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": [
+      60.0
+     ],
+     "overriding": true,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "easing ease-out — fov 30→60 sampled at 0/¼/½/¾/1",
+   "spec": {
+    "target": "fov",
+    "from": "30",
+    "to": "60",
+    "duration": "1000ms",
+    "easing": "ease-out",
+    "fill": "hold"
+   },
+   "base": "45",
+   "samples": [
+    {
+     "t": 0,
+     "value": [
+      30.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 250,
+     "value": [
+      41.344144
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": [
+      50.539296
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": [
+      57.19606
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": [
+      60.0
+     ],
+     "overriding": true,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "easing ease-in-out — fov 30→60 sampled at 0/¼/½/¾/1",
+   "spec": {
+    "target": "fov",
+    "from": "30",
+    "to": "60",
+    "duration": "1000ms",
+    "easing": "ease-in-out",
+    "fill": "hold"
+   },
+   "base": "45",
+   "samples": [
+    {
+     "t": 0,
+     "value": [
+      30.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 250,
+     "value": [
+      33.874858
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": [
+      45.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": [
+      56.125142
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": [
+      60.0
+     ],
+     "overriding": true,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "delay 300ms — base until the delay ends; completion returns to base (fill none)",
+   "spec": {
+    "target": "intensity",
+    "from": "0",
+    "to": "1",
+    "duration": "400ms",
+    "delay": "300ms",
+    "easing": "linear"
+   },
+   "base": "0.5",
+   "samples": [
+    {
+     "t": 0,
+     "value": [
+      0.5
+     ],
+     "overriding": false,
+     "done": false
+    },
+    {
+     "t": 200,
+     "value": [
+      0.5
+     ],
+     "overriding": false,
+     "done": false
+    },
+    {
+     "t": 300,
+     "value": [
+      0.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": [
+      0.5
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 700,
+     "value": [
+      0.5
+     ],
+     "overriding": false,
+     "done": true
+    },
+    {
+     "t": 900,
+     "value": [
+      0.5
+     ],
+     "overriding": false,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "loop=true — the wrap instant starts the new cycle at from",
+   "spec": {
+    "target": "rotation",
+    "from": "0 0 0",
+    "to": "0 360 0",
+    "duration": "1s",
+    "easing": "linear",
+    "loop": "true"
+   },
+   "base": "0 0 0",
+   "samples": [
+    {
+     "t": 500,
+     "value": [
+      0.0,
+      180.0,
+      0.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1500,
+     "value": [
+      0.0,
+      180.0,
+      0.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 2250,
+     "value": [
+      0.0,
+      90.0,
+      0.0
+     ],
+     "overriding": true,
+     "done": false
+    }
+   ]
+  },
+  {
+   "name": "pingpong — odd cycles traverse the ease-out curve backwards",
+   "spec": {
+    "target": "fov",
+    "from": "0",
+    "to": "10",
+    "duration": "1000ms",
+    "easing": "ease-out",
+    "loop": "pingpong"
+   },
+   "base": "0",
+   "samples": [
+    {
+     "t": 250,
+     "value": [
+      3.781381
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": [
+      9.065353
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1250,
+     "value": [
+      9.065353
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1750,
+     "value": [
+      3.781381
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 2250,
+     "value": [
+      3.781381
+     ],
+     "overriding": true,
+     "done": false
+    }
+   ]
+  },
+  {
+   "name": "loop=3 — completes after three cycles, on:done fires once (not per loop)",
+   "spec": {
+    "target": "fov",
+    "from": "0",
+    "to": "10",
+    "duration": "200ms",
+    "easing": "linear",
+    "loop": "3"
+   },
+   "base": "2",
+   "samples": [
+    {
+     "t": 100,
+     "value": [
+      5.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": [
+      5.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 600,
+     "value": [
+      2.0
+     ],
+     "overriding": false,
+     "done": true
+    },
+    {
+     "t": 700,
+     "value": [
+      2.0
+     ],
+     "overriding": false,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "fill=hold — the final value stays after completion",
+   "spec": {
+    "target": "position",
+    "from": "0 0 0",
+    "to": "1 2 3",
+    "duration": "100ms",
+    "easing": "linear",
+    "fill": "hold"
+   },
+   "base": "9 9 9",
+   "samples": [
+    {
+     "t": 50,
+     "value": [
+      0.5,
+      1.0,
+      1.5
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 150,
+     "value": [
+      1.0,
+      2.0,
+      3.0
+     ],
+     "overriding": true,
+     "done": true
+    },
+    {
+     "t": 1000,
+     "value": [
+      1.0,
+      2.0,
+      3.0
+     ],
+     "overriding": true,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "spring(100,10) — underdamped convergence on the real clock, exact 1 at settle",
+   "spec": {
+    "target": "intensity",
+    "from": "0",
+    "to": "1",
+    "duration": "300ms",
+    "easing": "spring(100,10)",
+    "fill": "hold"
+   },
+   "base": "0",
+   "samples": [
+    {
+     "t": 100,
+     "value": [
+      0.3403
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 300,
+     "value": [
+      1.124355
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 600,
+     "value": [
+      1.002289
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": [
+      1.00217
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1400,
+     "value": [
+      1.0
+     ],
+     "overriding": true,
+     "done": true
+    }
+   ],
+   "note": "duration is IGNORED for spring; the clip ends at settle = ln(1000)/(ζωn) = 1.381551s"
+  },
+  {
+   "name": "spring(100,20) — critically damped, no overshoot",
+   "spec": {
+    "target": "fov",
+    "from": "0",
+    "to": "100",
+    "duration": "1ms",
+    "easing": "spring(100,20)",
+    "fill": "hold"
+   },
+   "base": "0",
+   "samples": [
+    {
+     "t": 100,
+     "value": [
+      26.424112
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 300,
+     "value": [
+      80.085173
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": [
+      95.957232
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 800,
+     "value": [
+      100.0
+     ],
+     "overriding": true,
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "vector componentwise — ease-out over a position triple",
+   "spec": {
+    "target": "position",
+    "from": "0 0 0",
+    "to": "10 -4 2",
+    "duration": "1000ms",
+    "easing": "ease-out",
+    "fill": "hold"
+   },
+   "base": "0 0 0",
+   "samples": [
+    {
+     "t": 250,
+     "value": [
+      3.781381,
+      -1.512553,
+      0.756276
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": [
+      6.846432,
+      -2.738573,
+      1.369286
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 750,
+     "value": [
+      9.065353,
+      -3.626141,
+      1.813071
+     ],
+     "overriding": true,
+     "done": false
+    }
+   ]
+  },
+  {
+   "name": "color componentwise — interpolated on the LINEAR-RGB plane",
+   "spec": {
+    "target": "color",
+    "from": "#000000",
+    "to": "#ff8800",
+    "duration": "1000ms",
+    "easing": "linear",
+    "fill": "hold"
+   },
+   "base": "#ffffff",
+   "samples": [
+    {
+     "t": 0,
+     "value": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 500,
+     "value": [
+      0.5,
+      0.123101,
+      0.0
+     ],
+     "overriding": true,
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": [
+      1.0,
+      0.246201,
+      0.0
+     ],
+     "overriding": true,
+     "done": true
+    }
+   ],
+   "format": {
+    "t": 500,
+    "value": "#bc6200"
+   },
+   "note": "the value plane is linear RGB; the formatted #hex is the 8-bit last-step quantization"
+  }
+ ],
+ "gated": [
+  {
+   "name": "when gate — falsy shows base; each falsy→truthy edge restarts the clock",
+   "spec": {
+    "target": "fov",
+    "from": "0",
+    "to": "10",
+    "duration": "1000ms",
+    "easing": "linear",
+    "fill": "hold"
+   },
+   "base": "3",
+   "events": [
+    {
+     "t": 0,
+     "when": true
+    },
+    {
+     "t": 600,
+     "when": false
+    },
+    {
+     "t": 800,
+     "when": true
+    }
+   ],
+   "samples": [
+    {
+     "t": 500,
+     "value": [
+      5.0
+     ],
+     "overriding": true
+    },
+    {
+     "t": 700,
+     "value": [
+      3.0
+     ],
+     "overriding": false
+    },
+    {
+     "t": 1300,
+     "value": [
+      5.0
+     ],
+     "overriding": true
+    },
+    {
+     "t": 1900,
+     "value": [
+      10.0
+     ],
+     "overriding": true
+    }
+   ]
+  }
+ ],
+ "transitions": [
+  {
+   "name": "retarget mid-flight — the new tween starts from the pinned mid-flight value",
+   "entry": "position 400ms linear",
+   "base0": "0 0 0",
+   "events": [
+    {
+     "t": 0,
+     "base": "8 0 0"
+    },
+    {
+     "t": 200,
+     "base": "0 0 0"
+    }
+   ],
+   "samples": [
+    {
+     "t": 100,
+     "value": [
+      2.0,
+      0.0,
+      0.0
+     ],
+     "done": false
+    },
+    {
+     "t": 200,
+     "value": [
+      4.0,
+      0.0,
+      0.0
+     ],
+     "done": false
+    },
+    {
+     "t": 400,
+     "value": [
+      2.0,
+      0.0,
+      0.0
+     ],
+     "done": false
+    },
+    {
+     "t": 600,
+     "value": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "default easing is ease — a color glide on the linear-RGB plane",
+   "entry": "color 200ms",
+   "base0": "#000000",
+   "events": [
+    {
+     "t": 0,
+     "base": "#ffffff"
+    }
+   ],
+   "samples": [
+    {
+     "t": 0,
+     "value": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "done": false
+    },
+    {
+     "t": 100,
+     "value": [
+      0.802403,
+      0.802403,
+      0.802403
+     ],
+     "done": false
+    },
+    {
+     "t": 200,
+     "value": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "delay holds the pre-change value (never base, never snap)",
+   "entry": "intensity 100ms linear 200ms",
+   "base0": "0",
+   "events": [
+    {
+     "t": 0,
+     "base": "1"
+    }
+   ],
+   "samples": [
+    {
+     "t": 100,
+     "value": [
+      0.0
+     ],
+     "done": false
+    },
+    {
+     "t": 250,
+     "value": [
+      0.5
+     ],
+     "done": false
+    },
+    {
+     "t": 300,
+     "value": [
+      1.0
+     ],
+     "done": true
+    }
+   ]
+  },
+  {
+   "name": "spring transition — duration ignored, settle law ends the glide",
+   "entry": "position 300ms spring(100,10)",
+   "base0": "0 0 0",
+   "events": [
+    {
+     "t": 0,
+     "base": "10 0 0"
+    }
+   ],
+   "samples": [
+    {
+     "t": 300,
+     "value": [
+      11.243548,
+      0.0,
+      0.0
+     ],
+     "done": false
+    },
+    {
+     "t": 1000,
+     "value": [
+      10.021701,
+      0.0,
+      0.0
+     ],
+     "done": false
+    },
+    {
+     "t": 1382,
+     "value": [
+      10.0,
+      0.0,
+      0.0
+     ],
+     "done": true
+    }
+   ]
+  }
+ ]
+}

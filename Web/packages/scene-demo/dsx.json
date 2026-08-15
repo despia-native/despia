@@ -1,0 +1,14 @@
+{
+  "name": "SceneDemo",
+  "scheme": "scenedemo",
+  "_note": "The DSX Scene demo package (dsx-scene.md P1) — the web-first <scene> element demo route. Lives with the web kernel it demonstrates (the OpenSource/CanvasEditor precedent: a package may live anywhere in the monorepo); build-demo.ts folds it into the Demo registry, and the route below rides the package-contributed route plane (web-manifest.ts W4) so the application's Config/routes.json stays untouched.",
+  "web": {
+    "routes": [
+      { "path": "/scene-element", "component": "SceneDemo", "meta": { "title": "DSX Scene", "description": "The DSX-native 3D engine: reactive WebGL scene graph, corpus-pinned math." } },
+      { "path": "/game", "component": "GameDemo", "meta": { "title": "Crate Drop", "description": "A playable DSX scene: prefab crates, the fixed-tick solver, a trigger goal." } },
+      { "path": "/sprites", "component": "Sprites", "meta": { "title": "Sprite Field", "description": "The DSX 2D engine: sprites, sheet animation at a fixed fps, and z-locked 2D physics." } },
+      { "path": "/stress-2d", "component": "Stress2D", "meta": { "title": "2D Stress Certification", "description": "A deterministic 512-sprite CI workload for frame pacing, draw, memory and stability certification." } },
+      { "path": "/stress-3d", "component": "Stress3D", "meta": { "title": "3D Stress Certification", "description": "A deterministic 256-object scene with 96 fixed-tick physics bodies for CI certification." } }
+    ]
+  }
+}

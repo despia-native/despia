@@ -1,0 +1,83 @@
+{
+ "_note": "argv → an invocation. The declared shape decides the parse, which is the whole reason the command surface is declared: a boolean flag never consumes the next token, a repeatable flag accumulates, and a variadic positional takes the rest. Every case is (document, argv) → (command, inputs) or a typed refusal, so the binding is identical on any host that implements the corpus. The inputs map is what a declared <action> body receives as its named scope, which is why the names here are the declared names and nothing else — a body cannot reach an argument nobody declared.",
+ "document": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"run\">return 0</action>\n    <action as=\"one\">return 0</action>\n  </head>\n  <command as=\"run\" action=\"run\">\n    <flag as=\"project\" type=\"string\"/>\n    <flag as=\"strict\" type=\"boolean\"/>\n    <flag as=\"package\" type=\"string\" repeatable=\"true\"/>\n    <positional as=\"files\" variadic=\"true\"/>\n  </command>\n  <command as=\"one\" action=\"one\">\n    <positional as=\"target\"/>\n  </command>\n</cli>\n",
+ "cases": [
+  {
+   "name": "bare-command",
+   "argv": ["run"],
+   "expect": { "command": "run", "inputs": { "project": null, "strict": false, "package": [], "files": [] } }
+  },
+  {
+   "name": "string-flag-space-separated",
+   "argv": ["run", "--project", "app"],
+   "expect": { "command": "run", "inputs": { "project": "app", "strict": false, "package": [], "files": [] } }
+  },
+  {
+   "name": "string-flag-equals-form",
+   "argv": ["run", "--project=app"],
+   "expect": { "command": "run", "inputs": { "project": "app", "strict": false, "package": [], "files": [] } }
+  },
+  {
+   "name": "boolean-flag-never-consumes-the-next-token",
+   "_why": "The classic argv bug: --strict app parses as strict=\"app\" with no positional whenever the parser does not know the flag's type. The declared type is what makes this decidable.",
+   "argv": ["run", "--strict", "app.dsx"],
+   "expect": { "command": "run", "inputs": { "project": null, "strict": true, "package": [], "files": ["app.dsx"] } }
+  },
+  {
+   "name": "boolean-flag-accepts-an-explicit-value",
+   "argv": ["run", "--strict=false"],
+   "expect": { "command": "run", "inputs": { "project": null, "strict": false, "package": [], "files": [] } }
+  },
+  {
+   "name": "repeatable-flag-accumulates-in-order",
+   "argv": ["run", "--package", "a", "--package", "b"],
+   "expect": { "command": "run", "inputs": { "project": null, "strict": false, "package": ["a", "b"], "files": [] } }
+  },
+  {
+   "name": "non-repeatable-flag-keeps-the-last-value",
+   "argv": ["run", "--project", "a", "--project", "b"],
+   "expect": { "command": "run", "inputs": { "project": "b", "strict": false, "package": [], "files": [] } }
+  },
+  {
+   "name": "variadic-positional-takes-the-rest",
+   "argv": ["run", "a.dsx", "b.dsx", "c.dsx"],
+   "expect": { "command": "run", "inputs": { "project": null, "strict": false, "package": [], "files": ["a.dsx", "b.dsx", "c.dsx"] } }
+  },
+  {
+   "name": "double-dash-ends-flag-parsing",
+   "argv": ["run", "--", "--strict", "-x"],
+   "expect": { "command": "run", "inputs": { "project": null, "strict": false, "package": [], "files": ["--strict", "-x"] } }
+  },
+  {
+   "name": "single-non-variadic-positional-binds-one-value",
+   "argv": ["one", "target.dsx"],
+   "expect": { "command": "one", "inputs": { "target": "target.dsx" } }
+  },
+  {
+   "name": "an-undeclared-flag-is-refused-rather-than-ignored",
+   "_why": "Ignoring an unknown flag is how a user believes an option took effect. A CLI that silently drops --dry-run is worse than one that has no --dry-run.",
+   "argv": ["run", "--dry-run"],
+   "refuse": { "reason": "unknown_flag", "contains": "--dry-run" }
+  },
+  {
+   "name": "a-string-flag-with-no-value-is-refused",
+   "argv": ["run", "--project"],
+   "refuse": { "reason": "missing_value", "contains": "--project" }
+  },
+  {
+   "name": "an-unknown-command-is-refused",
+   "argv": ["nope"],
+   "refuse": { "reason": "unknown_command", "contains": "nope" }
+  },
+  {
+   "name": "extra-positionals-beyond-the-declaration-are-refused",
+   "argv": ["one", "a", "b"],
+   "refuse": { "reason": "unexpected_argument", "contains": "b" }
+  },
+  {
+   "name": "a-missing-required-positional-is-refused",
+   "argv": ["one"],
+   "refuse": { "reason": "missing_argument", "contains": "target" }
+  }
+ ]
+}

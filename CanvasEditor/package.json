@@ -1,0 +1,36 @@
+{
+  "name": "@despia/canvas-editor",
+  "version": "0.0.1",
+  "description": "Zero-dependency canvas editor SDK for DSX documents. Renders, edits, and simulates .dsx decks with the same semantics as the native DSX runtime, verified against the shared JSE conformance corpus.",
+  "license": "Apache-2.0",
+  "main": "src/canvas-editor.js",
+  "types": "index.d.ts",
+  "files": [
+    "src/canvas-editor.js",
+    "src/canonical-jse.js",
+    "src/stack-editor-element.js",
+    "index.d.ts",
+    "dsx.json",
+    "Components/",
+    "web/",
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "samples/",
+    "CanvasEditor.html",
+    "DespiaEditor.html"
+  ],
+  "scripts": {
+    "test": "node test/run-jse-conformance.mjs",
+    "build": "ruby ../../ClosedSource/scripts/build_canvas_editor.rb",
+    "check": "ruby ../../ClosedSource/scripts/build_canvas_editor.rb --check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/despia-native/canvas-editor.git"
+  },
+  "homepage": "https://github.com/despia-native/canvas-editor#readme",
+  "bugs": "https://github.com/despia-native/canvas-editor/issues",
+  "keywords": ["despia", "dsx", "canvas", "visual-editor", "editor", "preview", "headless"],
+  "sideEffects": ["dist/despia-editor.js", "src/stack-editor-element.js"]
+}

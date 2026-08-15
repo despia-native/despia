@@ -1,0 +1,1425 @@
+{
+  "version": "1.3.0",
+  "title": "DSX Stack — Style Property Catalog",
+  "description": "Machine-readable catalog of every style attribute a DSX (Stack) element can carry, with constrained control types and allowed values — built to drive a Webflow/Craft.js-style visual style panel. Derived 1:1 from the engine parser (OpenSource/Engine/iOS/Stack.swift → StackStyle.apply / styleText / color) and OpenSource/Documentation/reference/StackReference.md. Every attribute value also accepts a {{ … }} interpolation expression (JSE); a panel can expose that as a 'bind' escape hatch per field. Kept in sync by ClosedSource/scripts/check_style_catalog.rb — see OpenSource/Skills/style-catalog.md.",
+  "source": {
+    "parser": "OpenSource/Engine/iOS/Stack.swift",
+    "functions": [
+      "StackStyle.apply",
+      "StackStyle.styleText",
+      "StackStyle.color"
+    ],
+    "reference": "OpenSource/Documentation/reference/StackReference.md",
+    "maintenance": "OpenSource/Skills/style-catalog.md",
+    "check": "ruby ClosedSource/scripts/check_style_catalog.rb --strict"
+  },
+  "conventions": {
+    "units": "Lengths are in points (pt) on iOS, the same numeric value as dp on Android.",
+    "booleans": "Serialized as the strings \"true\" / \"false\".",
+    "unknownAttributes": "Ignored by the engine (graceful degradation).",
+    "interpolation": "Any value may contain {{ expr }} and bind to the store.",
+    "systemPath": "Every property carries systemPath: 'compatible' (applies ONTO the platform's system component — geometry that composes, lifecycle/motion, a11y, the variant words) or 'ejects' (paints or reshapes — authoring it moves a system-path element off the platform rendering onto the custom path; system-defaults.md 'Ejection is explicit, never silent'). Aliases inherit their property's verdict. This field is the SINGLE SOURCE OF TRUTH for the renderer ejection gates — check_style_catalog.rb cross-checks the gate word sets (iOS List allowlist, watch/wear wrist eject sets, Android SystemButton) against it, and lint_dsx.rb's ejection notice reads it. New property ⇒ classify it here (see OpenSource/Skills/style-catalog.md)."
+  },
+  "controlTypes": {
+    "number": "Numeric input. Honors unit / min / max / step / default.",
+    "length": "Numeric input that also accepts keyword tokens (see `keywords`), e.g. width can be a number or \"fit\".",
+    "enum": "Single-select from `options` (value + human label). NOT free text.",
+    "multiEnum": "Comma-separated multi-select from `options` (e.g. a11yTrait).",
+    "color": "Color picker. Accepts a named token from `colorTokens`, #RRGGBB, #AARRGGBB, rgb(…), or rgba(…).",
+    "gradient": "Ordered list (2+) of color values, serialized joined by \"|\" (e.g. \"#000|#fff\").",
+    "ratio": "Aspect ratio: \"W:H\" (e.g. \"16:9\") or a bare number (e.g. 1.33).",
+    "boolean": "Toggle, serialized as \"true\"/\"false\".",
+    "text": "Free string (used for a11y labels etc.)."
+  },
+  "colorTokens": [
+    {
+      "value": "white",
+      "label": "White",
+      "hex": "#FFFFFF",
+      "adaptive": false
+    },
+    {
+      "value": "black",
+      "label": "Black",
+      "hex": "#000000",
+      "adaptive": false
+    },
+    {
+      "value": "clear",
+      "label": "Clear (transparent)",
+      "hex": "#00000000",
+      "adaptive": false
+    },
+    {
+      "value": "accent",
+      "label": "Accent (app tint)",
+      "adaptive": true,
+      "help": "The app's own tint (the AccentColor asset — per-app, adaptive per scheme), never a fixed hex. Corpus slot: tintColor (OpenSource/Conformance/defaults/tokens.json)."
+    },
+    {
+      "value": "label",
+      "label": "Label",
+      "aliases": [
+        "text"
+      ],
+      "adaptive": true
+    },
+    {
+      "value": "secondary",
+      "label": "Secondary Label",
+      "aliases": [
+        "secondaryLabel"
+      ],
+      "adaptive": true
+    },
+    {
+      "value": "tertiary",
+      "label": "Tertiary Label",
+      "aliases": [
+        "tertiaryLabel"
+      ],
+      "adaptive": true
+    },
+    {
+      "value": "background",
+      "label": "System Background",
+      "aliases": [
+        "systemBackground"
+      ],
+      "adaptive": true
+    },
+    {
+      "value": "secondaryBackground",
+      "label": "Secondary Background",
+      "adaptive": true
+    },
+    {
+      "value": "tertiaryBackground",
+      "label": "Tertiary Background",
+      "adaptive": true
+    },
+    {
+      "value": "groupedBackground",
+      "label": "Grouped Background",
+      "adaptive": true
+    },
+    {
+      "value": "secondaryGroupedBackground",
+      "label": "Secondary Grouped Background",
+      "adaptive": true
+    },
+    {
+      "value": "fill",
+      "label": "Fill",
+      "adaptive": true,
+      "help": "Corpus slot: systemFill (system-defaults tokens.json)."
+    },
+    {
+      "value": "fillFaint",
+      "label": "Fill (faint)",
+      "adaptive": true
+    },
+    {
+      "value": "separator",
+      "label": "Separator",
+      "adaptive": true
+    },
+    {
+      "value": "destructive",
+      "label": "Destructive (danger)",
+      "adaptive": true,
+      "help": "The semantic danger color — corpus slot: systemRed (system-defaults tokens.json). Also the button role word role=\"destructive\"."
+    }
+  ],
+  "colorFormats": {
+    "named": "One of colorTokens (some adapt to light/dark).",
+    "hexRGB": "#RRGGBB — 6 digits, fully opaque (3-digit #RGB NOT supported).",
+    "hexARGB": "#AARRGGBB — 8 digits, leading alpha.",
+    "rgb": "rgb(R,G,B) — channels 0–255.",
+    "rgba": "rgba(R,G,B,A) — channels 0–255, alpha 0–1.",
+    "fallback": "Unrecognized values render as white."
+  },
+  "groups": [
+    {
+      "id": "layout",
+      "label": "Layout",
+      "appliesTo": [
+        "stack",
+        "vstack",
+        "hstack",
+        "zstack"
+      ],
+      "properties": [
+        {
+          "key": "spacing",
+          "label": "Gap (spacing)",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null,
+          "appliesTo": "stack",
+          "help": "Gap between stack children. Default = system spacing."
+        },
+        {
+          "key": "flexDirection",
+          "label": "Flex Direction",
+          "control": "enum",
+          "systemPath": "compatible",
+          "appliesTo": "stack",
+          "default": "column",
+          "help": "CSS flex-direction — the <stack> axis (authors write it in CSS; the bridge lands it here).",
+          "options": [
+            {
+              "value": "column",
+              "label": "Column",
+              "default": true
+            },
+            {
+              "value": "row",
+              "label": "Row"
+            },
+            {
+              "value": "column-reverse",
+              "label": "Column reverse (v1 renders base axis)"
+            },
+            {
+              "value": "row-reverse",
+              "label": "Row reverse (v1 renders base axis)"
+            }
+          ]
+        },
+        {
+          "key": "alignItems",
+          "label": "Align Items (CSS)",
+          "control": "enum",
+          "systemPath": "ejects",
+          "appliesTo": "stack",
+          "default": null,
+          "help": "CSS align-items — the CSS spelling of cross-axis alignment; also steers the grow-frame anchor (web-true top-leading default).",
+          "options": [
+            {
+              "value": "flex-start",
+              "label": "Start"
+            },
+            {
+              "value": "center",
+              "label": "Center"
+            },
+            {
+              "value": "flex-end",
+              "label": "End"
+            },
+            {
+              "value": "baseline",
+              "label": "Baseline (rows)"
+            },
+            {
+              "value": "stretch",
+              "label": "Stretch (Taffy phase)"
+            }
+          ]
+        },
+        {
+          "key": "align",
+          "label": "Align (cross-axis)",
+          "control": "enum",
+          "systemPath": "ejects",
+          "appliesTo": "stack",
+          "help": "Cross-axis alignment. Allowed options depend on the stack type.",
+          "optionsByElement": {
+            "stack": [
+              {
+                "value": "flex-start",
+                "label": "Start (cross axis)",
+                "default": true
+              },
+              {
+                "value": "center",
+                "label": "Center"
+              },
+              {
+                "value": "flex-end",
+                "label": "End"
+              },
+              {
+                "value": "baseline",
+                "label": "Baseline (rows)"
+              }
+            ],
+            "vstack": [
+              {
+                "value": "leading",
+                "label": "Leading",
+                "default": true
+              },
+              {
+                "value": "center",
+                "label": "Center"
+              },
+              {
+                "value": "trailing",
+                "label": "Trailing"
+              }
+            ],
+            "hstack": [
+              {
+                "value": "center",
+                "label": "Center",
+                "default": true
+              },
+              {
+                "value": "top",
+                "label": "Top"
+              },
+              {
+                "value": "bottom",
+                "label": "Bottom"
+              }
+            ],
+            "zstack": [
+              {
+                "value": "center",
+                "label": "Center",
+                "default": true
+              },
+              {
+                "value": "top",
+                "label": "Top"
+              },
+              {
+                "value": "bottom",
+                "label": "Bottom"
+              },
+              {
+                "value": "leading",
+                "label": "Leading"
+              },
+              {
+                "value": "trailing",
+                "label": "Trailing"
+              },
+              {
+                "value": "topLeading",
+                "label": "Top Leading"
+              },
+              {
+                "value": "topTrailing",
+                "label": "Top Trailing"
+              },
+              {
+                "value": "bottomLeading",
+                "label": "Bottom Leading"
+              },
+              {
+                "value": "bottomTrailing",
+                "label": "Bottom Trailing"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "size",
+      "label": "Size",
+      "appliesTo": "any",
+      "properties": [
+        {
+          "key": "width",
+          "label": "Width",
+          "control": "length",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null,
+          "keywords": [
+            {
+              "value": "fit",
+              "label": "Fit content",
+              "aliases": [
+                "fit-content"
+              ]
+            }
+          ],
+          "help": "Fixed width, or \"fit\" (hug content)."
+        },
+        {
+          "key": "height",
+          "label": "Height",
+          "control": "length",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null,
+          "keywords": [
+            {
+              "value": "fit",
+              "label": "Fit content",
+              "aliases": [
+                "fit-content"
+              ]
+            }
+          ],
+          "help": "Fixed height, or \"fit\" (hug content)."
+        },
+        {
+          "key": "minWidth",
+          "label": "Min Width",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null
+        },
+        {
+          "key": "maxWidth",
+          "label": "Max Width",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null
+        },
+        {
+          "key": "minHeight",
+          "label": "Min Height",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null
+        },
+        {
+          "key": "maxHeight",
+          "label": "Max Height",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null
+        },
+        {
+          "key": "grow",
+          "label": "Grow (fill)",
+          "control": "enum",
+          "systemPath": "compatible",
+          "default": null,
+          "help": "Fill available space on one or both axes. Mutually exclusive with width/height=fit on the same axis.",
+          "options": [
+            {
+              "value": "true",
+              "label": "Both axes"
+            },
+            {
+              "value": "both",
+              "label": "Both axes (alias)"
+            },
+            {
+              "value": "width",
+              "label": "Width only"
+            },
+            {
+              "value": "height",
+              "label": "Height only"
+            }
+          ]
+        },
+        {
+          "key": "alignY",
+          "label": "Frame anchor (vertical)",
+          "control": "enum",
+          "systemPath": "compatible",
+          "default": null,
+          "help": "Anchors content inside a flexible frame (grow / min-max size) that ends up taller than the content: top, center or bottom. Default centers — short content floats to vertical center without it.",
+          "options": [
+            {
+              "value": "top",
+              "label": "Top"
+            },
+            {
+              "value": "center",
+              "label": "Center"
+            },
+            {
+              "value": "bottom",
+              "label": "Bottom"
+            }
+          ]
+        },
+        {
+          "key": "aspectRatio",
+          "label": "Aspect Ratio",
+          "control": "ratio",
+          "systemPath": "ejects",
+          "default": null,
+          "placeholder": "16:9",
+          "help": "\"W:H\" (e.g. 16:9) or a bare number (e.g. 1.33). Fit content mode."
+        }
+      ]
+    },
+    {
+      "id": "spacing",
+      "label": "Spacing (padding)",
+      "appliesTo": "any",
+      "properties": [
+        {
+          "key": "padding",
+          "label": "Padding (all)",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": 0
+        },
+        {
+          "key": "paddingH",
+          "label": "Padding ↔",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null,
+          "aliases": [
+            "paddingX"
+          ]
+        },
+        {
+          "key": "paddingV",
+          "label": "Padding ↕",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null,
+          "aliases": [
+            "paddingY"
+          ]
+        },
+        {
+          "key": "paddingTop",
+          "label": "Padding Top",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null
+        },
+        {
+          "key": "paddingBottom",
+          "label": "Padding Bottom",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null
+        },
+        {
+          "key": "paddingLeading",
+          "label": "Padding Leading",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null,
+          "aliases": [
+            "paddingLeft"
+          ]
+        },
+        {
+          "key": "paddingTrailing",
+          "label": "Padding Trailing",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null,
+          "aliases": [
+            "paddingRight"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typography",
+      "label": "Typography",
+      "appliesTo": "any",
+      "note": "fontSize/fontWeight/fontDesign/color apply to any element (affect text & SF Symbols). The text-only set below applies to <text>/<label>.",
+      "properties": [
+        {
+          "key": "color",
+          "label": "Color",
+          "control": "color",
+          "systemPath": "ejects",
+          "default": "label",
+          "help": "Foreground / text / symbol color. Unstyled default is the semantic `label` slot (system-defaults: adaptive, owned by the OS); buttons default to `accent`, tinted controls (toggle/slider/…) keep `accent`."
+        },
+        {
+          "key": "fontSize",
+          "label": "Font Size",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "min": 1,
+          "step": 1,
+          "default": null
+        },
+        {
+          "key": "fontWeight",
+          "label": "Font Weight",
+          "control": "enum",
+          "systemPath": "ejects",
+          "default": "regular",
+          "options": [
+            {
+              "value": "regular",
+              "label": "Regular",
+              "default": true
+            },
+            {
+              "value": "medium",
+              "label": "Medium"
+            },
+            {
+              "value": "semibold",
+              "label": "Semibold"
+            },
+            {
+              "value": "bold",
+              "label": "Bold"
+            },
+            {
+              "value": "heavy",
+              "label": "Heavy"
+            }
+          ]
+        },
+        {
+          "key": "fontDesign",
+          "label": "Font Design",
+          "control": "enum",
+          "systemPath": "ejects",
+          "default": "default",
+          "options": [
+            {
+              "value": "default",
+              "label": "Default",
+              "default": true
+            },
+            {
+              "value": "rounded",
+              "label": "Rounded"
+            },
+            {
+              "value": "serif",
+              "label": "Serif"
+            },
+            {
+              "value": "monospaced",
+              "label": "Monospaced",
+              "aliases": [
+                "mono"
+              ]
+            }
+          ]
+        },
+        {
+          "key": "textAlign",
+          "label": "Text Align",
+          "control": "enum",
+          "systemPath": "ejects",
+          "default": "leading",
+          "appliesTo": "text",
+          "options": [
+            {
+              "value": "leading",
+              "label": "Leading",
+              "default": true
+            },
+            {
+              "value": "center",
+              "label": "Center"
+            },
+            {
+              "value": "trailing",
+              "label": "Trailing",
+              "aliases": [
+                "right"
+              ]
+            }
+          ]
+        },
+        {
+          "key": "textCase",
+          "label": "Text Case",
+          "control": "enum",
+          "systemPath": "ejects",
+          "default": null,
+          "appliesTo": "text",
+          "options": [
+            {
+              "value": "upper",
+              "label": "UPPERCASE"
+            },
+            {
+              "value": "lower",
+              "label": "lowercase"
+            }
+          ]
+        },
+        {
+          "key": "italic",
+          "label": "Italic",
+          "control": "boolean",
+          "systemPath": "ejects",
+          "default": false,
+          "appliesTo": "text"
+        },
+        {
+          "key": "underline",
+          "label": "Underline",
+          "control": "boolean",
+          "systemPath": "ejects",
+          "default": false,
+          "appliesTo": "text",
+          "minOS": "iOS 16"
+        },
+        {
+          "key": "strikethrough",
+          "label": "Strikethrough",
+          "control": "boolean",
+          "systemPath": "ejects",
+          "default": false,
+          "appliesTo": "text",
+          "minOS": "iOS 16"
+        },
+        {
+          "key": "tracking",
+          "label": "Letter Spacing",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "step": 0.1,
+          "default": null,
+          "appliesTo": "text",
+          "minOS": "iOS 16"
+        },
+        {
+          "key": "lineLimit",
+          "label": "Line Limit",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "lines",
+          "min": 1,
+          "step": 1,
+          "integer": true,
+          "default": null,
+          "appliesTo": "text"
+        },
+        {
+          "key": "lineSpacing",
+          "label": "Line Spacing",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null,
+          "appliesTo": "text"
+        },
+        {
+          "key": "dynamicType",
+          "label": "Dynamic Type",
+          "control": "boolean",
+          "systemPath": "ejects",
+          "default": false,
+          "help": "Scale fixed fontSize with the user's text-size setting."
+        },
+        {
+          "key": "dynamicTypeMax",
+          "label": "Dynamic Type Max",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "min": 1,
+          "step": 1,
+          "default": null,
+          "help": "Cap scaled font points."
+        }
+      ]
+    },
+    {
+      "id": "background",
+      "label": "Background & Fill",
+      "appliesTo": "any",
+      "properties": [
+        {
+          "key": "background",
+          "label": "Background",
+          "control": "color",
+          "systemPath": "ejects",
+          "default": null,
+          "help": "Solid fill behind the element (rounded by radius)."
+        },
+        {
+          "key": "gradient",
+          "label": "Gradient",
+          "control": "gradient",
+          "systemPath": "ejects",
+          "minStops": 2,
+          "default": null,
+          "help": "Linear gradient of 2+ colors, serialized \"c1|c2|…\"."
+        },
+        {
+          "key": "gradientDir",
+          "label": "Gradient Direction",
+          "control": "enum",
+          "systemPath": "ejects",
+          "default": "vertical",
+          "options": [
+            {
+              "value": "vertical",
+              "label": "Vertical",
+              "default": true
+            },
+            {
+              "value": "horizontal",
+              "label": "Horizontal"
+            },
+            {
+              "value": "diagonal",
+              "label": "Diagonal"
+            }
+          ]
+        },
+        {
+          "key": "surface",
+          "label": "Surface (material)",
+          "control": "enum",
+          "systemPath": "ejects",
+          "default": null,
+          "help": "Native blur/vibrancy material (Liquid Glass family). Pair with radius.",
+          "options": [
+            {
+              "value": "glass",
+              "label": "Glass (ultra-thin)",
+              "aliases": [
+                "ultraThin"
+              ],
+              "material": ".ultraThinMaterial"
+            },
+            {
+              "value": "thin",
+              "label": "Thin",
+              "material": ".thinMaterial"
+            },
+            {
+              "value": "regular",
+              "label": "Regular",
+              "material": ".regularMaterial"
+            },
+            {
+              "value": "thick",
+              "label": "Thick",
+              "material": ".thickMaterial"
+            },
+            {
+              "value": "sheet",
+              "label": "Sheet (default dark)",
+              "material": ".ultraThinMaterial",
+              "note": "radius defaults to 24"
+            }
+          ]
+        },
+        {
+          "key": "glassTint",
+          "label": "Glass Tint",
+          "control": "color",
+          "systemPath": "ejects",
+          "default": null,
+          "requires": [
+            "surface"
+          ],
+          "help": "Colors the Liquid Glass itself (iOS 26+) — a full-color glass button, not tinted text. Below 26 falls back to a solid fill of the tint. CSS: -dsx-glass-tint."
+        },
+        {
+          "key": "glassInteractive",
+          "label": "Glass Interactive",
+          "control": "boolean",
+          "systemPath": "ejects",
+          "default": null,
+          "requires": [
+            "surface"
+          ],
+          "help": "The system's bouncy press-stretch Liquid Glass response (iOS 26+). Defaults ON for tappable elements; set \"false\" to remove. CSS: -dsx-glass-interactive.",
+          "options": [
+            {
+              "value": "true",
+              "label": "Interactive (bouncy)"
+            },
+            {
+              "value": "false",
+              "label": "Static"
+            }
+          ]
+        },
+        {
+          "key": "opacity",
+          "label": "Opacity",
+          "control": "number",
+          "systemPath": "ejects",
+          "min": 0,
+          "max": 1,
+          "step": 0.01,
+          "default": 1,
+          "slider": true
+        },
+        {
+          "key": "theme",
+          "label": "Theme (color scheme)",
+          "control": "enum",
+          "systemPath": "ejects",
+          "default": null,
+          "help": "Pin this subtree's color scheme — semantic colors and materials follow it instead of the device setting, and a pushed frame's system chrome follows too. Web twin: element-scoped data-dsx-theme token override.",
+          "options": [
+            {
+              "value": "dark",
+              "label": "Dark"
+            },
+            {
+              "value": "light",
+              "label": "Light"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "systemVariants",
+      "label": "System Variants",
+      "appliesTo": [
+        "button",
+        "glassButton",
+        "transport"
+      ],
+      "note": "system-defaults.md: semantic words that select AMONG system renderings without ejecting. Parsed by the button element (ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift), not StackStyle.apply. The paired role words destructive/cancel live on the `role` key (accessibility group) — on button-family elements exactly those two values are the system ButtonRole; every other value stays the a11y pass-through.",
+      "properties": [
+        {
+          "key": "variant",
+          "label": "Button Variant",
+          "control": "enum",
+          "systemPath": "compatible",
+          "default": null,
+          "help": "Selects the system button rendering: bordered = the tonal system button (.bordered), prominent = the filled system button (.borderedProminent). Unset = the borderless accent text button (the system default). Author styles layer on top; same words on every renderer.",
+          "options": [
+            {
+              "value": "bordered",
+              "label": "Bordered (tonal)"
+            },
+            {
+              "value": "prominent",
+              "label": "Prominent (filled)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "border",
+      "label": "Border & Corners",
+      "appliesTo": "any",
+      "properties": [
+        {
+          "key": "radius",
+          "label": "Corner Radius",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": 0,
+          "help": "Also clips the element. Default 16 with `surface`, 24 for `sheet`."
+        },
+        {
+          "key": "borderColor",
+          "label": "Border Color",
+          "control": "color",
+          "systemPath": "ejects",
+          "default": null,
+          "help": "Stroke color (needs borderWidth)."
+        },
+        {
+          "key": "borderWidth",
+          "label": "Border Width",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": 1,
+          "requires": [
+            "borderColor"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "effects",
+      "label": "Effects & Shadow",
+      "appliesTo": "any",
+      "properties": [
+        {
+          "key": "shadow",
+          "label": "Shadow Radius",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null,
+          "help": "Drop-shadow blur radius; presence enables the shadow."
+        },
+        {
+          "key": "shadowColor",
+          "label": "Shadow Color",
+          "control": "color",
+          "systemPath": "ejects",
+          "default": "rgba(0,0,0,0.25)"
+        },
+        {
+          "key": "shadowX",
+          "label": "Shadow X",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "step": 1,
+          "default": 0
+        },
+        {
+          "key": "shadowY",
+          "label": "Shadow Y",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "step": 1,
+          "default": 2
+        },
+        {
+          "key": "blur",
+          "label": "Blur",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "min": 0,
+          "step": 1,
+          "default": null,
+          "help": "Gaussian blur radius."
+        },
+        {
+          "key": "rotation",
+          "label": "Rotation",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "deg",
+          "step": 1,
+          "default": 0
+        },
+        {
+          "key": "scale",
+          "label": "Scale",
+          "control": "number",
+          "systemPath": "ejects",
+          "min": 0,
+          "step": 0.05,
+          "default": 1
+        },
+        {
+          "key": "zIndex",
+          "label": "Z-Index",
+          "control": "number",
+          "systemPath": "ejects",
+          "step": 1,
+          "integer": true,
+          "default": 0,
+          "help": "Draw order within a stack."
+        }
+      ]
+    },
+    {
+      "id": "position",
+      "label": "Position (offset)",
+      "appliesTo": "any",
+      "note": "Offset is applied LAST — moves the fully-styled element (frame/background/border/shadow ride along), like a CSS transform. Animatable.",
+      "properties": [
+        {
+          "key": "offsetX",
+          "label": "Offset X",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "step": 1,
+          "default": 0
+        },
+        {
+          "key": "offsetY",
+          "label": "Offset Y",
+          "control": "number",
+          "systemPath": "ejects",
+          "unit": "pt",
+          "step": 1,
+          "default": 0,
+          "aliases": [
+            "offset"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "safeArea",
+      "label": "Safe Area",
+      "appliesTo": "any",
+      "properties": [
+        {
+          "key": "ignoreSafeArea",
+          "label": "Ignore Safe Area",
+          "control": "enum",
+          "systemPath": "ejects",
+          "default": null,
+          "aliases": [
+            "fullBleed"
+          ],
+          "help": "Extend past the notch / home indicator. Put on a background layer.",
+          "options": [
+            {
+              "value": "true",
+              "label": "All edges",
+              "aliases": [
+                "all"
+              ]
+            },
+            {
+              "value": "top",
+              "label": "Top"
+            },
+            {
+              "value": "bottom",
+              "label": "Bottom"
+            },
+            {
+              "value": "horizontal",
+              "label": "Horizontal",
+              "aliases": [
+                "sides"
+              ]
+            },
+            {
+              "value": "vertical",
+              "label": "Vertical"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "animation",
+      "label": "Animation",
+      "appliesTo": "any",
+      "properties": [
+        {
+          "key": "transition",
+          "label": "Transition",
+          "control": "enum",
+          "systemPath": "compatible",
+          "default": null,
+          "help": "Enter/leave animation when visible-if flips (each combines with a fade).",
+          "options": [
+            {
+              "value": "fade",
+              "label": "Fade"
+            },
+            {
+              "value": "scale",
+              "label": "Scale"
+            },
+            {
+              "value": "slide-top",
+              "label": "Slide from Top"
+            },
+            {
+              "value": "slide-bottom",
+              "label": "Slide from Bottom"
+            },
+            {
+              "value": "slide-left",
+              "label": "Slide from Left"
+            },
+            {
+              "value": "slide-right",
+              "label": "Slide from Right"
+            }
+          ]
+        },
+        {
+          "key": "enter",
+          "label": "Enter Animation",
+          "control": "enum",
+          "systemPath": "compatible",
+          "default": null,
+          "help": "Entry animation on first appear. Same options as transition.",
+          "options": [
+            {
+              "value": "fade",
+              "label": "Fade"
+            },
+            {
+              "value": "scale",
+              "label": "Scale"
+            },
+            {
+              "value": "slide-top",
+              "label": "Slide from Top"
+            },
+            {
+              "value": "slide-bottom",
+              "label": "Slide from Bottom"
+            },
+            {
+              "value": "slide-left",
+              "label": "Slide from Left"
+            },
+            {
+              "value": "slide-right",
+              "label": "Slide from Right"
+            }
+          ]
+        },
+        {
+          "key": "anim",
+          "label": "Animation Curve",
+          "control": "enum",
+          "systemPath": "compatible",
+          "default": "easeInOut",
+          "options": [
+            {
+              "value": "spring",
+              "label": "Spring"
+            },
+            {
+              "value": "linear",
+              "label": "Linear"
+            },
+            {
+              "value": "easeIn",
+              "label": "Ease In"
+            },
+            {
+              "value": "easeOut",
+              "label": "Ease Out"
+            },
+            {
+              "value": "easeInOut",
+              "label": "Ease In-Out",
+              "default": true
+            }
+          ]
+        },
+        {
+          "key": "animDuration",
+          "label": "Duration",
+          "control": "number",
+          "systemPath": "compatible",
+          "unit": "s",
+          "min": 0,
+          "step": 0.05,
+          "default": null
+        },
+        {
+          "key": "keep",
+          "label": "Keep mounted when hidden",
+          "control": "boolean",
+          "systemPath": "compatible",
+          "default": false
+        }
+      ]
+    },
+    {
+      "id": "accessibility",
+      "label": "Accessibility",
+      "appliesTo": "any",
+      "properties": [
+        {
+          "key": "a11yLabel",
+          "label": "A11y Label",
+          "control": "text",
+          "systemPath": "compatible",
+          "default": null
+        },
+        {
+          "key": "a11yHint",
+          "label": "A11y Hint",
+          "control": "text",
+          "systemPath": "compatible",
+          "default": null
+        },
+        {
+          "key": "a11yValue",
+          "label": "A11y Value",
+          "control": "text",
+          "systemPath": "compatible",
+          "default": null
+        },
+        {
+          "key": "a11yTrait",
+          "label": "A11y Traits",
+          "control": "multiEnum",
+          "systemPath": "compatible",
+          "default": null,
+          "help": "Comma-separated roles.",
+          "options": [
+            {
+              "value": "button",
+              "label": "Button"
+            },
+            {
+              "value": "header",
+              "label": "Header"
+            },
+            {
+              "value": "image",
+              "label": "Image"
+            },
+            {
+              "value": "link",
+              "label": "Link"
+            },
+            {
+              "value": "selected",
+              "label": "Selected"
+            },
+            {
+              "value": "static",
+              "label": "Static text"
+            }
+          ]
+        },
+        {
+          "key": "a11yHidden",
+          "label": "Hidden from assistive tech",
+          "control": "boolean",
+          "systemPath": "compatible",
+          "default": false
+        },
+        {
+          "key": "a11yGroup",
+          "label": "Group children as one",
+          "control": "boolean",
+          "systemPath": "compatible",
+          "default": false
+        },
+        {
+          "key": "aria-label",
+          "label": "aria-label (alias of a11yLabel)",
+          "control": "text",
+          "systemPath": "compatible",
+          "default": null,
+          "help": "Web-standard spelling; equal to a11yLabel (first present wins). The web renderer emits it verbatim; native maps to accessibilityLabel / contentDescription."
+        },
+        {
+          "key": "aria-description",
+          "label": "aria-description (alias of a11yHint)",
+          "control": "text",
+          "systemPath": "compatible",
+          "default": null
+        },
+        {
+          "key": "aria-valuetext",
+          "label": "aria-valuetext (alias of a11yValue)",
+          "control": "text",
+          "systemPath": "compatible",
+          "default": null
+        },
+        {
+          "key": "aria-hidden",
+          "label": "aria-hidden (alias of a11yHidden)",
+          "control": "boolean",
+          "systemPath": "compatible",
+          "default": false
+        },
+        {
+          "key": "role",
+          "label": "role (alias of a11yTrait; \"group\" = a11yGroup)",
+          "control": "text",
+          "systemPath": "compatible",
+          "default": null,
+          "help": "Web-standard spelling: button/header/image/link/selected — or \"group\" to combine children into one element. The web renderer passes role through verbatim. EXCEPTION (system-defaults.md): on button-family elements the two words \"destructive\" and \"cancel\" are the system BUTTON role (SwiftUI ButtonRole / the web danger-and-cancel skins) and are kept off the a11y path on every renderer."
+        }
+      ]
+    }
+  ],
+  "namedStyles": {
+    "description": "Presets applied via style=\"name\" (space-separated; later wins; explicit attributes override).",
+    "presets": {
+      "sheet": {
+        "padding": 20,
+        "background": "#121212",
+        "radius": 24,
+        "surface": "sheet"
+      },
+      "card": {
+        "padding": 16,
+        "background": "rgba(255,255,255,0.06)",
+        "radius": 16
+      },
+      "heading": {
+        "fontSize": 24,
+        "fontWeight": "bold"
+      },
+      "subheading": {
+        "fontSize": 15
+      },
+      "rowTitle": {
+        "fontSize": 17,
+        "fontWeight": "semibold"
+      },
+      "price": {
+        "fontSize": 17,
+        "fontWeight": "bold"
+      }
+    }
+  },
+  "applicationOrder": [
+    "padding",
+    "frame(width/height)",
+    "font",
+    "min/max-frame(grow)",
+    "background",
+    "surface",
+    "gradient",
+    "radius/clip",
+    "aspectRatio",
+    "ignoreSafeArea",
+    "opacity",
+    "theme",
+    "rotation",
+    "scale",
+    "blur",
+    "border",
+    "shadow",
+    "offset",
+    "zIndex"
+  ]
+}

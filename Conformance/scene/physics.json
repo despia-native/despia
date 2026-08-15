@@ -1,0 +1,2681 @@
+{
+ "_note": "The DSX Scene PHYSICS corpus (dsx-game.md §2 G2), production law. FIXED TICK: simulation advances at exactly 60 Hz (dt=1/60); rendering interpolates previous/current poses; the accumulator clamps to 5 steps and discards excess; on:tick is zero-based and on:frame remains render-rate. DETERMINISM: identical initial state and inputs produce identical 6-decimal outputs in TypeScript, Kotlin and Swift using Double precision, fixed document/pair/feature ordering, and no clock or randomness. STEP ORDER: (1) kinematics consume scene-root pose intents; linear velocity is delta-position/dt and world angular velocity is shortest-arc quaternion delta/dt; moved/rotated kinematics invalidate their cache and can wake sleepers. (2) character move intent sets normalized horizontal velocity. (3) awake dynamic/character bodies integrate linear velocity then position; dynamic bodies integrate world angular momentum L=(Iworld*omega+torque*dt)*max(0,1-damping*dt), advance normalized orientation by the world-omega exponential map, recompute omega=Iworld(new)^-1*L, and expose the nearest equivalent DSX Euler branch. (4) discover solid contacts in document pair order, layer-filtered. Sphere and OBB contacts use point velocities v+omega-cross-r. Box/box is 15-axis OBB SAT with fixed winner order: face winners clip deterministic support faces to at most four provenance-keyed points; edge winners resolve the selected support-edge closest points. Coherent cached accumulated normal/vector-friction impulses warm-start every constraint, then all constraints run 32 global sequential iterations; cache reuse requires stable feature, coherent normal and both body-local anchors. Baumgarte correction follows the velocity solve. (5) characters move-and-slide against static/kinematic bodies for at most four deepest-contact iterations and ground on up.y>0.7. (6) triggers overlap without forces. (7) enter/exit/collision events update. (8) a dynamic body sleeps after 60 ticks with both linear and angular speed below 0.05 and zero torque; writes and energetic contact-surface motion wake it. (8.5) mode=2d retains only world-Z angular inertia and planar XY contact/friction impulses, then re-pins locked pose/velocity components; stale contact cache entries evict; tick increments. CONTACT/CORRECTION: depth zero is not contact; normals point first-to-second; restitution is max bounce with the 0.5 approach-speed guard; Coulomb friction uses sqrt(frictionA*frictionB) and accumulated impulse magnitude; correction is 0.8*max(depth-0.005,0)/inverse-mass-sum. EXTRACTION: static/dynamic/kinematic/character bodies are scene-root citizens. Spheres scale by largest world basis. Boxes use a stable orthonormal root frame and half extents from projecting all eight transformed corners, conservatively containing shear. Frozen extents rotate with solver quaternion. Nested local position/rotation writes and kinematic intents convert through parent world; render poses convert back; rebuilds carry quaternion orientation. WRITES: position/rotation teleport and reset corresponding velocity; linear/angular velocity and torque writes wake and invalidate affected cache. Triggers/layers retain prior laws. Capsule collider and broad-phase acceleration remain named absences. Samples are after their named tick; writes land before it. Floats tolerate 1.5e-6. Every case runs on TypeScript per PR, Kotlin core tests, and Swift RecordMain.",
+ "_angular_law": "This field is the compact angular counterpart to the complete production operation order in _note. Dynamic bodies store a normalized quaternion orientation and integrate world angular momentum in Double precision: L = (Iworld*omega + torque*dt)*max(0,1-damping*dt), exponential-map quaternion step, then omega = Iworld(new)^-1*L. Public DSX Euler degrees choose the equivalent branch nearest the previous output. Solid-sphere and solid-box diagonal inertia derive from frozen conservative OBB extents. Box contact is 15-axis OBB SAT: face winners clip deterministic support faces to at most four provenance-keyed points; edge winners use closest selected support edges. Point impulses include angular response. A private persistent cache warm-starts accumulated normal/friction impulses only while feature, normal and both body-local anchors remain coherent; global fixed iterations are 32 and stale entries evict each tick. Kinematic omega is the shortest-arc quaternion delta and contact surface omega wakes sleepers. Rotation, angular-velocity and torque writes wake and invalidate affected cache. Sleep requires both linear and angular speed below 0.05 and zero torque. In mode=2d solver inertia is world-Z-only and contact/friction impulses are planar XY. Capsule colliders remain the named absence.",
+ "_sleep_law": "A sleeping dynamic remains in contact discovery as an immutable solver-static support: effective inverse mass and angular inertia are zero for warm-start, normal, friction and correction terms, while stored physical mass/inertia remain available after a wake. Kinematic, character and genuinely energetic awake-dynamic contact-point motion can wake it. An awake dynamic already accumulating quiet sleep ticks cannot wake a neighbour from its single pre-solve gravity step; a real impact or explicit write resets sleepCount to zero and therefore remains energetic. The staggered three-crate and five-box cases pin convergence plus bit-still poses and zero linear/angular velocity through tick 300.",
+ "constants": {
+  "dt": 0.016667,
+  "maxStepsPerFrame": 5,
+  "gravity": [
+   0,
+   -9.81,
+   0
+  ],
+  "correctionPercent": 0.8,
+  "slop": 0.005,
+  "restitutionMinSpeed": 0.5,
+  "groundNormalY": 0.7,
+  "sleepSpeed": 0.05,
+  "sleepTicks": 60,
+  "characterSlideIterations": 4,
+  "manifoldIterations": 32,
+  "defaultMass": 1,
+  "defaultBounce": 0,
+  "defaultFriction": 0.5,
+  "defaultSpeed": 5,
+  "defaultJump": 8,
+  "defaultAngularDamping": 0,
+  "radiansToDegrees": 57.29577951308232
+ },
+ "cases": [
+  {
+   "name": "world/defaults — a dynamic sphere pins every physics default",
+   "kind": "world",
+   "markup": "<scene><sphere id=\"ball\" physics=\"dynamic\" position=\"0 10 0\" radius=\"0.5\"/></scene>",
+   "expect": {
+    "gravity": [
+     0,
+     -9.81,
+     0
+    ],
+    "bodies": [
+     {
+      "id": "ball",
+      "kind": "dynamic",
+      "shape": "sphere",
+      "position": [
+       0,
+       10,
+       0
+      ],
+      "velocity": [
+       0,
+       0,
+       0
+      ],
+      "invMass": 1,
+      "bounce": 0,
+      "friction": 0.5,
+      "trigger": false,
+      "layer": "default",
+      "collides": null,
+      "speed": 5,
+      "jump": 8,
+      "radius": 0.5
+     }
+    ]
+   },
+   "diagnostics": 0
+  },
+  {
+   "name": "world/static box — auto collider is the world AABB of size/2",
+   "kind": "world",
+   "markup": "<scene gravity=\"0 -1 0\"><box id=\"ground\" physics=\"static\" position=\"0 -0.5 0\" size=\"20 1 20\"/></scene>",
+   "expect": {
+    "gravity": [
+     0,
+     -1,
+     0
+    ],
+    "bodies": [
+     {
+      "id": "ground",
+      "kind": "static",
+      "shape": "box",
+      "position": [
+       0,
+       -0.5,
+       0
+      ],
+      "velocity": [
+       0,
+       0,
+       0
+      ],
+      "invMass": 0,
+      "bounce": 0,
+      "friction": 0.5,
+      "trigger": false,
+      "layer": "default",
+      "collides": null,
+      "speed": 5,
+      "jump": 8,
+      "half": [
+       10,
+       0.5,
+       10
+      ]
+     }
+    ]
+   },
+   "diagnostics": 0
+  },
+  {
+   "name": "world/rotated box — local half extents stay local for the OBB",
+   "kind": "world",
+   "markup": "<scene><box id=\"crate\" physics=\"dynamic\" position=\"0 1 0\" rotation=\"0 45 0\" size=\"2 2 2\" mass=\"2\" bounce=\"0.25\" friction=\"0.1\"/></scene>",
+   "expect": {
+    "gravity": [
+     0,
+     -9.81,
+     0
+    ],
+    "bodies": [
+     {
+      "id": "crate",
+      "kind": "dynamic",
+      "shape": "box",
+      "position": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "velocity": [
+       0,
+       0,
+       0
+      ],
+      "invMass": 0.5,
+      "bounce": 0.25,
+      "friction": 0.1,
+      "trigger": false,
+      "layer": "default",
+      "collides": null,
+      "speed": 5,
+      "jump": 8,
+      "half": [
+       1.0,
+       1.0,
+       1.0
+      ]
+     }
+    ]
+   },
+   "diagnostics": 0
+  },
+  {
+   "name": "world/character — speed and jump attrs, box collider from size/2",
+   "kind": "world",
+   "markup": "<scene><box id=\"hero\" physics=\"character\" position=\"0 0.9 0\" size=\"0.8 1.8 0.8\" speed=\"6\" jump=\"9\"/></scene>",
+   "expect": {
+    "gravity": [
+     0,
+     -9.81,
+     0
+    ],
+    "bodies": [
+     {
+      "id": "hero",
+      "kind": "character",
+      "shape": "box",
+      "position": [
+       0,
+       0.9,
+       0
+      ],
+      "velocity": [
+       0,
+       0,
+       0
+      ],
+      "invMass": 0,
+      "bounce": 0,
+      "friction": 0.5,
+      "trigger": false,
+      "layer": "default",
+      "collides": null,
+      "speed": 6,
+      "jump": 9,
+      "half": [
+       0.4,
+       0.9,
+       0.4
+      ]
+     }
+    ]
+   },
+   "diagnostics": 0
+  },
+  {
+   "name": "world/ground plane — local half extents rotate with the OBB",
+   "kind": "world",
+   "markup": "<scene><plane id=\"ground\" physics=\"static\" position=\"0 0 0\" size=\"20 20\" rotation=\"-90 0 0\"/></scene>",
+   "expect": {
+    "gravity": [
+     0,
+     -9.81,
+     0
+    ],
+    "bodies": [
+     {
+      "id": "ground",
+      "kind": "static",
+      "shape": "box",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "velocity": [
+       0,
+       0,
+       0
+      ],
+      "invMass": 0,
+      "bounce": 0,
+      "friction": 0.5,
+      "trigger": false,
+      "layer": "default",
+      "collides": null,
+      "speed": 5,
+      "jump": 8,
+      "half": [
+       10.0,
+       10.0,
+       0.0
+      ]
+     }
+    ]
+   },
+   "diagnostics": 0
+  },
+  {
+   "name": "world/trigger + layers + explicit collider sphere override on a box",
+   "kind": "world",
+   "markup": "<scene><box id=\"coin\" physics=\"static\" trigger=\"true\" layer=\"pickups\" collides=\"player\" collider=\"sphere\" position=\"2 1 0\" size=\"2 2 2\"/></scene>",
+   "expect": {
+    "gravity": [
+     0,
+     -9.81,
+     0
+    ],
+    "bodies": [
+     {
+      "id": "coin",
+      "kind": "static",
+      "shape": "sphere",
+      "position": [
+       2,
+       1,
+       0
+      ],
+      "velocity": [
+       0,
+       0,
+       0
+      ],
+      "invMass": 0,
+      "bounce": 0,
+      "friction": 0.5,
+      "trigger": true,
+      "layer": "pickups",
+      "collides": [
+       "player"
+      ],
+      "speed": 5,
+      "jump": 8,
+      "radius": 1.732051
+     }
+    ]
+   },
+   "diagnostics": 0
+  },
+  {
+   "name": "world/malformed — unknown physics word skipped, bad mass and gravity default (Article 7)",
+   "kind": "world",
+   "markup": "<scene gravity=\"down\"><box id=\"a\" physics=\"wobbly\" size=\"1 1 1\"/><sphere id=\"b\" physics=\"dynamic\" position=\"0 2 0\" mass=\"banana\"/></scene>",
+   "expect": {
+    "gravity": [
+     0,
+     -9.81,
+     0
+    ],
+    "bodies": [
+     {
+      "id": "b",
+      "kind": "dynamic",
+      "shape": "sphere",
+      "position": [
+       0,
+       2,
+       0
+      ],
+      "velocity": [
+       0,
+       0,
+       0
+      ],
+      "invMass": 1,
+      "bounce": 0,
+      "friction": 0.5,
+      "trigger": false,
+      "layer": "default",
+      "collides": null,
+      "speed": 5,
+      "jump": 8,
+      "radius": 1
+     }
+    ]
+   },
+   "diagnostics": 3
+  },
+  {
+   "name": "world/nested under a transformed parent — root-space body, one diagnostic",
+   "kind": "world",
+   "markup": "<scene><group position=\"1 0 0\"><sphere id=\"ball\" physics=\"dynamic\" position=\"0 5 0\" radius=\"0.5\"/></group></scene>",
+   "expect": {
+    "gravity": [
+     0,
+     -9.81,
+     0
+    ],
+    "bodies": [
+     {
+      "id": "ball",
+      "kind": "dynamic",
+      "shape": "sphere",
+      "position": [
+       1,
+       5,
+       0
+      ],
+      "velocity": [
+       0,
+       0,
+       0
+      ],
+      "invMass": 1,
+      "bounce": 0,
+      "friction": 0.5,
+      "trigger": false,
+      "layer": "default",
+      "collides": null,
+      "speed": 5,
+      "jump": 8,
+      "radius": 0.5
+     }
+    ]
+   },
+   "diagnostics": 1
+  },
+  {
+   "name": "world/auto ids — bodies without an id attr get #N in extraction order",
+   "kind": "world",
+   "markup": "<scene><box physics=\"static\" position=\"0 -0.5 0\" size=\"4 1 4\"/><sphere physics=\"dynamic\" position=\"0 3 0\" radius=\"0.5\"/></scene>",
+   "expect": {
+    "gravity": [
+     0,
+     -9.81,
+     0
+    ],
+    "bodies": [
+     {
+      "id": "#1",
+      "kind": "static",
+      "shape": "box",
+      "position": [
+       0,
+       -0.5,
+       0
+      ],
+      "velocity": [
+       0,
+       0,
+       0
+      ],
+      "invMass": 0,
+      "bounce": 0,
+      "friction": 0.5,
+      "trigger": false,
+      "layer": "default",
+      "collides": null,
+      "speed": 5,
+      "jump": 8,
+      "half": [
+       2,
+       0.5,
+       2
+      ]
+     },
+     {
+      "id": "#2",
+      "kind": "dynamic",
+      "shape": "sphere",
+      "position": [
+       0,
+       3,
+       0
+      ],
+      "velocity": [
+       0,
+       0,
+       0
+      ],
+      "invMass": 1,
+      "bounce": 0,
+      "friction": 0.5,
+      "trigger": false,
+      "layer": "default",
+      "collides": null,
+      "speed": 5,
+      "jump": 8,
+      "radius": 0.5
+     }
+    ]
+   },
+   "diagnostics": 0
+  },
+  {
+   "name": "sim/free fall — semi-implicit Euler under default gravity (v then x)",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ball",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      10,
+      0
+     ]
+    }
+   ],
+   "ticks": 60,
+   "samples": [
+    {
+     "tick": 0,
+     "id": "ball",
+     "position": [
+      0.0,
+      9.997275,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -0.1635,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 29,
+     "id": "ball",
+     "position": [
+      0.0,
+      8.732875,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -4.905,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 59,
+     "id": "ball",
+     "position": [
+      0.0,
+      5.01325,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -9.81,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    }
+   ]
+  },
+  {
+   "name": "sim/custom gravity — the scene gravity vector is the integrator's",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ball",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      5,
+      0
+     ]
+    }
+   ],
+   "ticks": 30,
+   "samples": [
+    {
+     "tick": 29,
+     "id": "ball",
+     "position": [
+      0.0,
+      4.870833,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -0.5,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    }
+   ],
+   "gravity": [
+    0,
+    -1,
+    0
+   ]
+  },
+  {
+   "name": "sim/resting — penetration correction converges, then the body sleeps",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ground",
+     "kind": "static",
+     "shape": {
+      "kind": "box",
+      "half": [
+       10,
+       0.5,
+       10
+      ]
+     },
+     "position": [
+      0,
+      -0.5,
+      0
+     ]
+    },
+    {
+     "id": "ball",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      2,
+      0
+     ]
+    }
+   ],
+   "ticks": 240,
+   "samples": [
+    {
+     "tick": 90,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 91,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": true
+    },
+    {
+     "tick": 239,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": true
+    }
+   ],
+   "events": [
+    {
+     "tick": 32,
+     "name": "collision",
+     "id": "ground",
+     "other": "ball"
+    },
+    {
+     "tick": 32,
+     "name": "collision",
+     "id": "ball",
+     "other": "ground"
+    }
+   ]
+  },
+  {
+   "name": "sim/restitution ladder — bounce 0, 0.5 and 1 from the same drop",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ground",
+     "kind": "static",
+     "shape": {
+      "kind": "box",
+      "half": [
+       10,
+       0.5,
+       10
+      ]
+     },
+     "position": [
+      0,
+      -0.5,
+      0
+     ]
+    },
+    {
+     "id": "b0",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      -3,
+      3,
+      0
+     ],
+     "bounce": 0
+    },
+    {
+     "id": "b5",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      3,
+      0
+     ],
+     "bounce": 0.5
+    },
+    {
+     "id": "b1",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      3,
+      3,
+      0
+     ],
+     "bounce": 1
+    }
+   ],
+   "ticks": 240,
+   "samples": [
+    {
+     "tick": 63,
+     "id": "b0",
+     "position": [
+      -3.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 63,
+     "id": "b5",
+     "position": [
+      0.0,
+      1.081292,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.08175,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 84,
+     "id": "b1",
+     "position": [
+      3.0,
+      2.941105,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.1635,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 119,
+     "id": "b1",
+     "position": [
+      3.0,
+      1.31973,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -5.559,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 239,
+     "id": "b0",
+     "position": [
+      -3.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": true
+    },
+    {
+     "tick": 239,
+     "id": "b5",
+     "position": [
+      0.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": true
+    },
+    {
+     "tick": 239,
+     "id": "b1",
+     "position": [
+      3.0,
+      2.549067,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      1.962,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    }
+   ]
+  },
+  {
+   "name": "sim/friction — a sliding crate uses multi-point friction and collision torque",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ground",
+     "kind": "static",
+     "shape": {
+      "kind": "box",
+      "half": [
+       10,
+       0.5,
+       10
+      ]
+     },
+     "position": [
+      0,
+      -0.5,
+      0
+     ]
+    },
+    {
+     "id": "crate",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "box",
+      "half": [
+       0.5,
+       0.5,
+       0.5
+      ]
+     },
+     "position": [
+      0,
+      0.5,
+      0
+     ],
+     "velocity": [
+      5,
+      0,
+      0
+     ]
+    }
+   ],
+   "ticks": 120,
+   "samples": [
+    {
+     "tick": 9,
+     "id": "crate",
+     "position": [
+      0.772021,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      4.1825,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 29,
+     "id": "crate",
+     "position": [
+      1.907312,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      2.5475,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 59,
+     "id": "crate",
+     "position": [
+      2.588375,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.095,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 119,
+     "id": "crate",
+     "position": [
+      2.590179,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": true
+    }
+   ]
+  },
+  {
+   "name": "sim/kinematic pushes dynamic — the driven body carries its derived velocity",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "lift",
+     "kind": "kinematic",
+     "shape": {
+      "kind": "box",
+      "half": [
+       0.5,
+       0.5,
+       0.5
+      ]
+     },
+     "position": [
+      -2,
+      0,
+      0
+     ]
+    },
+    {
+     "id": "ball",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "ticks": 90,
+   "samples": [
+    {
+     "tick": 29,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 44,
+     "id": "ball",
+     "position": [
+      0.495,
+      0.0,
+      0.0
+     ],
+     "velocity": [
+      2.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 89,
+     "id": "ball",
+     "position": [
+      1.995,
+      0.0,
+      0.0
+     ],
+     "velocity": [
+      2.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    }
+   ],
+   "gravity": [
+    0,
+    0,
+    0
+   ],
+   "drives": [
+    {
+     "id": "lift",
+     "start": [
+      -2,
+      0,
+      0
+     ],
+     "velocity": [
+      2,
+      0,
+      0
+     ]
+    }
+   ],
+   "events": [
+    {
+     "tick": 30,
+     "name": "collision",
+     "id": "lift",
+     "other": "ball"
+    },
+    {
+     "tick": 30,
+     "name": "collision",
+     "id": "ball",
+     "other": "lift"
+    }
+   ]
+  },
+  {
+   "name": "sim/character move-and-slide — a wall removes the into-wall component only",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ground",
+     "kind": "static",
+     "shape": {
+      "kind": "box",
+      "half": [
+       10,
+       0.5,
+       10
+      ]
+     },
+     "position": [
+      0,
+      -0.5,
+      0
+     ]
+    },
+    {
+     "id": "wall",
+     "kind": "static",
+     "shape": {
+      "kind": "box",
+      "half": [
+       0.5,
+       2,
+       10
+      ]
+     },
+     "position": [
+      2,
+      1.5,
+      0
+     ]
+    },
+    {
+     "id": "hero",
+     "kind": "character",
+     "shape": {
+      "kind": "box",
+      "half": [
+       0.4,
+       0.9,
+       0.4
+      ]
+     },
+     "position": [
+      0,
+      0.9,
+      0
+     ]
+    }
+   ],
+   "ticks": 60,
+   "samples": [
+    {
+     "tick": 10,
+     "id": "hero",
+     "position": [
+      0.648181,
+      0.9,
+      0.648181
+     ],
+     "velocity": [
+      3.535534,
+      0.0,
+      3.535534
+     ],
+     "grounded": true,
+     "sleeping": false
+    },
+    {
+     "tick": 19,
+     "id": "hero",
+     "position": [
+      1.1,
+      0.9,
+      1.178511
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      3.535534
+     ],
+     "grounded": true,
+     "sleeping": false
+    },
+    {
+     "tick": 45,
+     "id": "hero",
+     "position": [
+      1.1,
+      0.9,
+      2.710576
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      3.535534
+     ],
+     "grounded": true,
+     "sleeping": false
+    },
+    {
+     "tick": 59,
+     "id": "hero",
+     "position": [
+      1.1,
+      0.9,
+      3.535534
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      3.535534
+     ],
+     "grounded": true,
+     "sleeping": false
+    }
+   ],
+   "moves": [
+    {
+     "id": "hero",
+     "from": 0,
+     "to": 59,
+     "move": [
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sim/character jump — a velocity write launches; apex and landing ticks pinned",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ground",
+     "kind": "static",
+     "shape": {
+      "kind": "box",
+      "half": [
+       10,
+       0.5,
+       10
+      ]
+     },
+     "position": [
+      0,
+      -0.5,
+      0
+     ]
+    },
+    {
+     "id": "hero",
+     "kind": "character",
+     "shape": {
+      "kind": "box",
+      "half": [
+       0.4,
+       0.9,
+       0.4
+      ]
+     },
+     "position": [
+      0,
+      0.9,
+      0
+     ]
+    }
+   ],
+   "ticks": 120,
+   "samples": [
+    {
+     "tick": 9,
+     "id": "hero",
+     "position": [
+      0.0,
+      0.9,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": true,
+     "sleeping": false
+    },
+    {
+     "tick": 10,
+     "id": "hero",
+     "position": [
+      0.0,
+      1.030608,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      7.8365,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 57,
+     "id": "hero",
+     "position": [
+      0.0,
+      4.0954,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.152,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 58,
+     "id": "hero",
+     "position": [
+      0.0,
+      4.095208,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -0.0115,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 105,
+     "id": "hero",
+     "position": [
+      0.0,
+      1.0124,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -7.696,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 106,
+     "id": "hero",
+     "position": [
+      0.0,
+      0.9,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": true,
+     "sleeping": false
+    }
+   ],
+   "writes": [
+    {
+     "tick": 10,
+     "id": "hero",
+     "attr": "velocity",
+     "value": [
+      0,
+      8,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sim/grounded transitions — walking off a ledge drops the flag the step contact ends",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ledge",
+     "kind": "static",
+     "shape": {
+      "kind": "box",
+      "half": [
+       1,
+       0.5,
+       10
+      ]
+     },
+     "position": [
+      0,
+      -0.5,
+      0
+     ]
+    },
+    {
+     "id": "hero",
+     "kind": "character",
+     "shape": {
+      "kind": "box",
+      "half": [
+       0.4,
+       0.9,
+       0.4
+      ]
+     },
+     "position": [
+      0,
+      0.9,
+      0
+     ]
+    }
+   ],
+   "ticks": 40,
+   "samples": [
+    {
+     "tick": 15,
+     "id": "hero",
+     "position": [
+      1.333333,
+      0.9,
+      0.0
+     ],
+     "velocity": [
+      5.0,
+      0.0,
+      0.0
+     ],
+     "grounded": true,
+     "sleeping": false
+    },
+    {
+     "tick": 16,
+     "id": "hero",
+     "position": [
+      1.416667,
+      0.897275,
+      0.0
+     ],
+     "velocity": [
+      5.0,
+      -0.1635,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 25,
+     "id": "hero",
+     "position": [
+      2.166667,
+      0.750125,
+      0.0
+     ],
+     "velocity": [
+      5.0,
+      -1.635,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    }
+   ],
+   "moves": [
+    {
+     "id": "hero",
+     "from": 0,
+     "to": 39,
+     "move": [
+      1,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sim/trigger — enter and exit tick sequence, no forces applied",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "zone",
+     "kind": "static",
+     "trigger": true,
+     "shape": {
+      "kind": "box",
+      "half": [
+       1,
+       0.5,
+       1
+      ]
+     },
+     "position": [
+      0,
+      1,
+      0
+     ]
+    },
+    {
+     "id": "ball",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      3,
+      0
+     ]
+    }
+   ],
+   "ticks": 60,
+   "samples": [
+    {
+     "tick": 35,
+     "id": "ball",
+     "position": [
+      0.0,
+      1.18515,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -5.886,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    }
+   ],
+   "events": [
+    {
+     "tick": 26,
+     "name": "enter",
+     "id": "zone",
+     "other": "ball"
+    },
+    {
+     "tick": 26,
+     "name": "enter",
+     "id": "ball",
+     "other": "zone"
+    },
+    {
+     "tick": 46,
+     "name": "exit",
+     "id": "zone",
+     "other": "ball"
+    },
+    {
+     "tick": 46,
+     "name": "exit",
+     "id": "ball",
+     "other": "zone"
+    }
+   ]
+  },
+  {
+   "name": "sim/sleep — 60 slow ticks sleep the body; a velocity write wakes it",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ground",
+     "kind": "static",
+     "shape": {
+      "kind": "box",
+      "half": [
+       10,
+       0.5,
+       10
+      ]
+     },
+     "position": [
+      0,
+      -0.5,
+      0
+     ]
+    },
+    {
+     "id": "ball",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      1,
+      0
+     ]
+    }
+   ],
+   "ticks": 200,
+   "samples": [
+    {
+     "tick": 76,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 77,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": true
+    },
+    {
+     "tick": 179,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": true
+    },
+    {
+     "tick": 180,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.541594,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      2.8365,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 190,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.864469,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      1.2015,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    }
+   ],
+   "writes": [
+    {
+     "tick": 180,
+     "id": "ball",
+     "attr": "velocity",
+     "value": [
+      0,
+      3,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sim/kinematic rest — a STATIONARY kinematic platform lets the sleeper stay asleep",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ground",
+     "kind": "kinematic",
+     "shape": {
+      "kind": "box",
+      "half": [
+       10,
+       0.5,
+       10
+      ]
+     },
+     "position": [
+      0,
+      -0.5,
+      0
+     ]
+    },
+    {
+     "id": "ball",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      2,
+      0
+     ]
+    }
+   ],
+   "ticks": 240,
+   "samples": [
+    {
+     "tick": 90,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 91,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": true
+    },
+    {
+     "tick": 239,
+     "id": "ball",
+     "position": [
+      0.0,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": true
+    }
+   ],
+   "events": [
+    {
+     "tick": 32,
+     "name": "collision",
+     "id": "ground",
+     "other": "ball"
+    },
+    {
+     "tick": 32,
+     "name": "collision",
+     "id": "ball",
+     "other": "ground"
+    }
+   ],
+   "_note": "the wake law pins ENERGETIC contact only: a kinematic with zero derived velocity never wakes a sleeper (the numbers are the resting case verbatim — with invMass 0 and a zero derived velocity the solver path is identical; only the wake branch could differ, and the tick-239 sleeping:true sample is what kills the always-wake bug)"
+  },
+  {
+   "name": "sim/trigger with spaced ids — pair keys never split on author text",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "the zone",
+     "kind": "static",
+     "trigger": true,
+     "shape": {
+      "kind": "box",
+      "half": [
+       1,
+       0.5,
+       1
+      ]
+     },
+     "position": [
+      0,
+      1,
+      0
+     ]
+    },
+    {
+     "id": "ball one",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      3,
+      0
+     ]
+    }
+   ],
+   "ticks": 60,
+   "samples": [
+    {
+     "tick": 35,
+     "id": "ball one",
+     "position": [
+      0.0,
+      1.18515,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -5.886,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    }
+   ],
+   "events": [
+    {
+     "tick": 26,
+     "name": "enter",
+     "id": "the zone",
+     "other": "ball one"
+    },
+    {
+     "tick": 26,
+     "name": "enter",
+     "id": "ball one",
+     "other": "the zone"
+    },
+    {
+     "tick": 46,
+     "name": "exit",
+     "id": "the zone",
+     "other": "ball one"
+    },
+    {
+     "tick": 46,
+     "name": "exit",
+     "id": "ball one",
+     "other": "the zone"
+    }
+   ],
+   "_note": "ids may contain spaces: the pair key separator is NUL (\\u0000) on every runner — a space separator mis-splits exit events into phantom ids"
+  },
+  {
+   "name": "sim/teleport — a position write moves the body and RESETS its velocity",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ball",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      10,
+      0
+     ]
+    }
+   ],
+   "ticks": 31,
+   "samples": [
+    {
+     "tick": 29,
+     "id": "ball",
+     "position": [
+      0.0,
+      8.732875,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -4.905,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 30,
+     "id": "ball",
+     "position": [
+      5.0,
+      9.997275,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -0.1635,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    }
+   ],
+   "writes": [
+    {
+     "tick": 30,
+     "id": "ball",
+     "attr": "position",
+     "value": [
+      5,
+      10,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sim/layers — a filtered pair passes through with no contact and no events",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ghost",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      -2,
+      0,
+      0
+     ],
+     "velocity": [
+      4,
+      0,
+      0
+     ],
+     "layer": "spirits",
+     "collides": [
+      "walls"
+     ]
+    },
+    {
+     "id": "player",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "layer": "player"
+    }
+   ],
+   "ticks": 60,
+   "samples": [
+    {
+     "tick": 59,
+     "id": "ghost",
+     "position": [
+      2.0,
+      0.0,
+      0.0
+     ],
+     "velocity": [
+      4.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 59,
+     "id": "player",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": true
+    }
+   ],
+   "gravity": [
+    0,
+    0,
+    0
+   ],
+   "events": []
+  },
+  {
+   "name": "sim/determinism replay — a 120-tick two-body scenario's exact end state",
+   "kind": "sim",
+   "bodies": [
+    {
+     "id": "ground",
+     "kind": "static",
+     "shape": {
+      "kind": "box",
+      "half": [
+       10,
+       0.5,
+       10
+      ]
+     },
+     "position": [
+      0,
+      -0.5,
+      0
+     ]
+    },
+    {
+     "id": "a",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      -0.6,
+      4,
+      0
+     ],
+     "bounce": 0.5
+    },
+    {
+     "id": "b",
+     "kind": "dynamic",
+     "shape": {
+      "kind": "sphere",
+      "radius": 0.5
+     },
+     "position": [
+      0.6,
+      2.5,
+      0
+     ],
+     "bounce": 0.5
+    }
+   ],
+   "ticks": 120,
+   "samples": [
+    {
+     "tick": 119,
+     "id": "a",
+     "position": [
+      -0.6,
+      0.60716,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      -1.103625,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    },
+    {
+     "tick": 119,
+     "id": "b",
+     "position": [
+      0.6,
+      0.494319,
+      0.0
+     ],
+     "velocity": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "grounded": false,
+     "sleeping": false
+    }
+   ],
+   "replay": true
+  },
+  {
+   "name": "accumulator/a 200 ms frame clamps to 5 steps — the excess is DISCARDED",
+   "kind": "accumulator",
+   "frames": [
+    200.0
+   ],
+   "expect": [
+    {
+     "steps": 5,
+     "alpha": 0.0
+    }
+   ]
+  },
+  {
+   "name": "accumulator/exact 60 Hz frames step once with alpha 0",
+   "kind": "accumulator",
+   "frames": [
+    16.666667,
+    16.666667,
+    16.666667
+   ],
+   "expect": [
+    {
+     "steps": 1,
+     "alpha": 0.0
+    },
+    {
+     "steps": 1,
+     "alpha": 0.0
+    },
+    {
+     "steps": 1,
+     "alpha": 0.0
+    }
+   ]
+  },
+  {
+   "name": "accumulator/mixed cadence — carry, catch-up and the cap",
+   "kind": "accumulator",
+   "frames": [
+    16.666667,
+    33.4,
+    8.0,
+    8.0,
+    200.0,
+    5.0
+   ],
+   "expect": [
+    {
+     "steps": 1,
+     "alpha": 0.0
+    },
+    {
+     "steps": 2,
+     "alpha": 0.004
+    },
+    {
+     "steps": 0,
+     "alpha": 0.484
+    },
+    {
+     "steps": 0,
+     "alpha": 0.964
+    },
+    {
+     "steps": 5,
+     "alpha": 0.0
+    },
+    {
+     "steps": 0,
+     "alpha": 0.3
+    }
+   ]
+  },
+  {
+   "name": "interpolate/rendered = prev + (curr − prev)·alpha, componentwise",
+   "kind": "interpolate",
+   "prev": [
+    0,
+    4,
+    -1
+   ],
+   "curr": [
+    1,
+    2,
+    3
+   ],
+   "alpha": 0.25,
+   "expect": [
+    0.25,
+    3.5,
+    0.0
+   ]
+  },
+  {
+   "name": "interpolate/alpha 0 is the previous step, alpha 1 the current",
+   "kind": "interpolate",
+   "prev": [
+    2,
+    0,
+    0
+   ],
+   "curr": [
+    4,
+    0,
+    0
+   ],
+   "alpha": 1,
+   "expect": [
+    4,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "parentframe/a rotated, scaled parent — root ⇄ local round-trips exactly",
+   "kind": "parentframe",
+   "_note": "THE PARENT-FRAME LAW (G2 x G1): bodies SIMULATE in scene-root space, but a node's position is LOCAL to its parent (the renderer composes parentWorld · local). The solver result converts root → local before it lands on the node; an authored/bus position write converts local → root before it teleports the body. Numbers from an independent scratch derivation of T(2,1,-3)·Ry(90)·S(2).",
+   "parent": {
+    "position": [
+     2,
+     1,
+     -3
+    ],
+    "rotation": [
+     0,
+     90,
+     0
+    ],
+    "scale": [
+     2,
+     2,
+     2
+    ]
+   },
+   "root": [
+    4,
+    3,
+    -1
+   ],
+   "local": [
+    -1,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "parentframe/a translate-only parent — the prefab-instance case a crate lands in",
+   "kind": "parentframe",
+   "_note": "the shape EVERY G1 prefab instance takes: the expansion root carries the instance transform, so a body resting at root height 0.294319 must hold -2.905681 locally under a parent at y 3.2",
+   "parent": {
+    "position": [
+     0,
+     3.2,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "root": [
+    -0.6,
+    0.294319,
+    0
+   ],
+   "local": [
+    -0.6,
+    -2.905681,
+    0
+   ]
+  },
+  {
+   "name": "parentframe/a fully rotated parent — the scene origin in the parent's frame",
+   "kind": "parentframe",
+   "parent": {
+    "position": [
+     1,
+     2,
+     3
+    ],
+    "rotation": [
+     30,
+     45,
+     60
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "root": [
+    0,
+    0,
+    0
+   ],
+   "local": [
+    0.543022,
+    -1.965835,
+    -3.136976
+   ]
+  },
+  {
+   "name": "parentframe/a degenerate parent (scale 0) passes the root value through — never NaN",
+   "kind": "parentframe",
+   "_note": "Article 7: a non-invertible parent is a value, not a crash — the body renders at its root position rather than vanishing to NaN",
+   "parent": {
+    "position": [
+     5,
+     5,
+     5
+    ],
+    "rotation": [
+     0,
+     0,
+     0
+    ],
+    "scale": [
+     0,
+     0,
+     0
+    ]
+   },
+   "root": [
+    1,
+    2,
+    3
+   ],
+   "local": [
+    1,
+    2,
+    3
+   ],
+   "noRoundTrip": true
+  },
+  {
+   "name": "parentframe/no parent (a scene-root body) is the identity fast path",
+   "kind": "parentframe",
+   "parent": null,
+   "root": [
+    1.5,
+    -2.25,
+    4
+   ],
+   "local": [
+    1.5,
+    -2.25,
+    4
+   ]
+  },
+  {
+   "name": "world/sheared parent conservatively contains every transformed box corner",
+   "kind": "world",
+   "_note": "The collider orientation is the stable Gram-Schmidt root frame, while half extents are projections of all eight transformed corners. Non-uniform parent scale plus child rotation may overbound, never underbound.",
+   "markup": "<scene><group position=\"3 2 0\" rotation=\"0 0 20\" scale=\"2 1 1\"><box id=\"shear\" physics=\"dynamic\" size=\"2 1 1\" position=\"1 0 0\" rotation=\"0 0 45\"/></group></scene>",
+   "expect": {
+    "gravity": [0, -9.81, 0],
+    "bodies": [
+     {
+      "id": "shear", "kind": "dynamic", "shape": "box",
+      "position": [4.879385241571817, 2.6840402866513373, 0],
+      "velocity": [0, 0, 0], "rotation": [0, 0, 46.565051177078],
+      "angularVelocity": [0, 0, 0], "torque": [0, 0, 0],
+      "invMass": 1, "invInertia": [4.615384615384611, 0.670391061452514, 0.6486486486486486],
+      "angularDamping": 0, "bounce": 0, "friction": 0.5,
+      "trigger": false, "layer": "default", "collides": null,
+      "speed": 5, "jump": 8,
+      "half": [2.0554804791094465, 0.6324555320336763, 0.5]
+     }
+    ]
+   },
+   "diagnostics": 1,
+   "corners": [
+    [4.577689361155105, 1.44550098742035, -0.5],
+    [4.577689361155105, 1.44550098742035, 0.5],
+    [3.00691854972978, 1.6262744865130743, -0.5],
+    [3.00691854972978, 1.6262744865130743, 0.5],
+    [6.751851933413853, 3.7418060867896004, -0.5],
+    [6.751851933413853, 3.7418060867896004, 0.5],
+    [5.181081121988528, 3.9225795858823247, -0.5],
+    [5.181081121988528, 3.9225795858823247, 0.5]
+   ]
+  },
+  {
+   "name": "orientationframe/stationary nested kinematic keeps its extracted root pose",
+   "kind": "orientationframe",
+   "_note": "Kinematic intents are node-local but solver bodies are root-space. Composing through this translated, rotated, non-uniformly-scaled parent reproduces extraction, so tick 1 derives zero false velocity/angular velocity.",
+   "parent": {"position": [3, 2, 0], "rotation": [0, 0, 20], "scale": [2, 1, 1]},
+   "localRotation": [0, 0, 45],
+   "rootRotation": [0, 0, 46.565051177078],
+   "localRoundTrip": [0, 0, 45]
+  },
+  {
+   "name": "contact/equal face overlap at 45 degrees clips to four symmetric area points",
+   "kind": "contact",
+   "bodies": [
+    {"id": "a", "kind": "static", "shape": {"kind": "box", "half": [1, 1, 0.5]}},
+    {"id": "b", "kind": "dynamic", "shape": {"kind": "box", "half": [1, 1, 0.5]}, "position": [0, 0, 0.8], "rotation": [0, 0, 45]}
+   ],
+   "expect": {"depth": 0.2, "normal": [0, 0, 1], "pointCount": 4, "centroid": [0, 0, 0.4], "symmetric": true}
+  },
+  {
+   "name": "contact/edge-axis SAT winner resolves the selected support edges",
+   "kind": "contact",
+   "bodies": [
+    {"id": "a", "kind": "static", "shape": {"kind": "box", "half": [1, 0.4, 0.3]}, "rotation": [-35, 15, 50]},
+    {"id": "b", "kind": "dynamic", "shape": {"kind": "box", "half": [0.8, 0.5, 0.25]}, "position": [1.1, 0.8, 0.6], "rotation": [45, 45, 0]}
+   ],
+   "expect": {"depth": 0.010034272428254387, "normal": [0.6682379923695819, -0.326980077539506, 0.6682379923695819], "pointCount": 1, "centroid": [0.719946273748642, 0.6215828011150417, 0.23675900831370442]}
+  },
+  {
+   "name": "world/angular body attrs and box inertia tensor",
+   "kind": "world",
+   "markup": "<scene><box id=\"spinner\" physics=\"dynamic\" size=\"2 4 6\" mass=\"6\" angular-velocity=\"1 2 3\" torque=\"4 5 6\" angular-damping=\"0.25\"/></scene>",
+   "expect": {
+    "gravity": [0, -9.81, 0],
+    "bodies": [
+     {
+      "id": "spinner",
+      "kind": "dynamic",
+      "shape": "box",
+      "position": [0, 0, 0],
+      "velocity": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "angularVelocity": [1, 2, 3],
+      "torque": [4, 5, 6],
+      "invMass": 0.16666666666666666,
+      "invInertia": [0.038461538461538464, 0.05, 0.1],
+      "angularDamping": 0.25,
+      "bounce": 0,
+      "friction": 0.5,
+      "trigger": false,
+      "layer": "default",
+      "collides": null,
+      "speed": 5,
+      "jump": 8,
+      "half": [1, 2, 3]
+     }
+    ]
+   },
+   "diagnostics": 0
+  },
+  {
+   "name": "angular/free spin integrates radians per second into DSX degrees",
+   "kind": "sim",
+   "gravity": [0, 0, 0],
+   "bodies": [
+    {
+     "id": "spin",
+     "kind": "dynamic",
+     "shape": {"kind": "sphere", "radius": 1},
+     "rotation": [0, 0, 10],
+     "angularVelocity": [0, 0, 3.141592653589793]
+    }
+   ],
+   "ticks": 60,
+   "samples": [
+    {"tick": 0, "id": "spin", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [0, 0, 13], "angularVelocity": [0, 0, 3.141592653589793], "grounded": false, "sleeping": false},
+    {"tick": 59, "id": "spin", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [0, 0, 190], "angularVelocity": [0, 0, 3.141592653589793], "grounded": false, "sleeping": false}
+   ],
+   "replay": true
+  },
+  {
+   "name": "angular/torque uses solid-sphere inertia and semi-implicit integration",
+   "kind": "sim",
+   "gravity": [0, 0, 0],
+   "bodies": [
+    {
+     "id": "torqued",
+     "kind": "dynamic",
+     "shape": {"kind": "sphere", "radius": 0.5},
+     "mass": 2,
+     "torque": [0, 0, 1]
+    }
+   ],
+   "ticks": 12,
+   "samples": [
+    {"tick": 0, "id": "torqued", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [0, 0, 0.07957747154594767], "angularVelocity": [0, 0, 0.08333333333333333], "grounded": false, "sleeping": false},
+    {"tick": 11, "id": "torqued", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [0, 0, 6.207042780583918], "angularVelocity": [0, 0, 1], "grounded": false, "sleeping": false}
+   ],
+   "replay": true
+  },
+  {
+   "name": "angular/damping is a deterministic per-step linear drag",
+   "kind": "sim",
+   "gravity": [0, 0, 0],
+   "bodies": [
+    {
+     "id": "damped",
+     "kind": "dynamic",
+     "shape": {"kind": "box", "half": [1, 1, 1]},
+     "angularVelocity": [1, 0, 0],
+     "angularDamping": 3
+    }
+   ],
+   "ticks": 10,
+   "samples": [
+    {"tick": 0, "id": "damped", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [0.9071831756238041, 0, 0], "angularVelocity": [0.95, 0, 0], "grounded": false, "sleeping": false},
+    {"tick": 9, "id": "damped", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [7.280381954445095, 0, 0], "angularVelocity": [0.5987369392383787, 0, 0], "grounded": false, "sleeping": false}
+   ],
+   "replay": true
+  },
+  {
+   "name": "angular/kinematic 179 to -179 uses the two-degree shortest quaternion arc",
+   "kind": "sim",
+   "gravity": [0, 0, 0],
+   "bodies": [
+    {"id": "bar", "kind": "kinematic", "shape": {"kind": "box", "half": [1, 0.1, 0.1]}, "rotation": [0, 0, 179]}
+   ],
+   "rotationDrives": [
+    {"tick": 0, "id": "bar", "value": [0, 0, -179]}
+   ],
+   "ticks": 1,
+   "samples": [
+    {"tick": 0, "id": "bar", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [0, 0, -179], "angularVelocity": [0, 0, 2.0943951023931864], "grounded": false, "sleeping": false}
+   ],
+   "replay": true
+  },
+  {
+   "name": "angular/pure rotating kinematic surface wakes a sleeping body",
+   "kind": "sim",
+   "bodies": [
+    {"id": "bar", "kind": "kinematic", "shape": {"kind": "box", "half": [2, 0.25, 0.5]}, "position": [0, -0.25, 0], "friction": 0.5},
+    {"id": "ball", "kind": "dynamic", "shape": {"kind": "sphere", "radius": 0.5}, "position": [1, 0.5, 0], "friction": 0.5}
+   ],
+   "rotationDrives": [
+    {"tick": 120, "id": "bar", "value": [0, 0, 10]}
+   ],
+   "ticks": 122,
+   "samples": [
+    {"tick": 119, "id": "ball", "position": [1, 0.49431875000000003, 0], "velocity": [0, 0, 0], "rotation": [0, 0, 0], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 120, "id": "bar", "position": [0, -0.25, 0], "velocity": [0, 0, 0], "rotation": [0, 0, 10], "angularVelocity": [0, 0, 10.471975511965974], "grounded": false, "sleeping": false},
+    {"tick": 120, "id": "ball", "position": [0.974211536646866, 0.640572393370507, 0], "velocity": [-3.343245500580907, 11.256849613464295, 0], "rotation": [0, 0, 0], "angularVelocity": [0, 0, -4.138414936687074], "grounded": false, "sleeping": false}
+   ],
+   "replay": true
+  },
+  {
+   "name": "angular/mode2d masks X-Y angular inertia and Z contact friction during every solve iteration",
+   "kind": "sim",
+   "mode2d": true,
+   "bodies": [
+    {"id": "ground", "kind": "static", "shape": {"kind": "box", "half": [5, 0.5, 1000]}, "position": [0, -0.5, 0], "friction": 0.5},
+    {"id": "sprite", "kind": "dynamic", "shape": {"kind": "box", "half": [0.5, 0.5, 1000]}, "position": [0.35, 0.55, 0], "velocity": [2, -1, 7], "angularVelocity": [5, 6, 0], "friction": 0.5}
+   ],
+   "ticks": 20,
+   "samples": [
+    {"tick": 0, "id": "sprite", "position": [0.3833333333333333, 0.5306083333333333, 0], "velocity": [2, -1.1635, 7], "rotation": [0, 0, 0], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": false},
+    {"tick": 19, "id": "sprite", "position": [0.6210999999892796, 0.4943187499999979, 0], "velocity": [-6.918570282649084e-10, -3.469446951953614e-18, 7], "rotation": [0, 0, 6.49957917145473e-17], "angularVelocity": [0, 0, 1.2695743365224062e-18], "grounded": false, "sleeping": false}
+   ],
+   "replay": true
+  },
+  {
+   "name": "angular/Euler render branch stays continuous while pitch crosses ninety degrees",
+   "kind": "sim",
+   "gravity": [0, 0, 0],
+   "bodies": [
+    {"id": "pitch", "kind": "dynamic", "shape": {"kind": "sphere", "radius": 1}, "rotation": [0, 89, 0], "angularVelocity": [0, 3.141592653589793, 0]}
+   ],
+   "ticks": 4,
+   "samples": [
+    {"tick": 0, "id": "pitch", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [0, 91.99999999999994, 0], "angularVelocity": [0, 3.141592653589793, 0], "grounded": false, "sleeping": false},
+    {"tick": 3, "id": "pitch", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [0, 100.99999999999999, 0], "angularVelocity": [0, 3.141592653589793, 0], "grounded": false, "sleeping": false}
+   ],
+   "replay": true
+  },
+  {
+   "name": "angular/asymmetric torque-free box preserves world angular momentum",
+   "kind": "sim",
+   "gravity": [0, 0, 0],
+   "bodies": [
+    {"id": "free", "kind": "dynamic", "shape": {"kind": "box", "half": [1, 2, 3]}, "mass": 2, "rotation": [15, 25, 35], "angularVelocity": [1, 2, 3]}
+   ],
+   "ticks": 120,
+   "samples": [
+    {"tick": 0, "id": "free", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [17.115690928189206, 25.95435685379696, 38.77530413677541], "angularVelocity": [1.0446943595705016, 2.00332054091772, 2.9871201103933585], "angularMomentum": [2.354863801295066, 13.635321009243155, 10.363501599777452], "grounded": false, "sleeping": false},
+    {"tick": 119, "id": "free", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [394.1133994974227, 27.594749449642194, 196.62515392843017], "angularVelocity": [-0.913813354873539, 2.737394036888694, 2.731963903775041], "angularMomentum": [2.354863801295066, 13.635321009243155, 10.363501599777452], "grounded": false, "sleeping": false}
+   ],
+   "replay": true
+  },
+  {
+   "name": "angular/rotated thin OBB rejects an AABB-only corner",
+   "kind": "sim",
+   "gravity": [0, 0, 0],
+   "bodies": [
+    {"id": "thin", "kind": "dynamic", "shape": {"kind": "box", "half": [2, 0.1, 0.5]}, "rotation": [0, 0, 45]},
+    {"id": "probe", "kind": "static", "shape": {"kind": "sphere", "radius": 0.15}, "position": [1.3, -1.3, 0]}
+   ],
+   "ticks": 1,
+   "samples": [
+    {"tick": 0, "id": "thin", "position": [0, 0, 0], "velocity": [0, 0, 0], "rotation": [0, 0, 45], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": false}
+   ],
+   "events": [],
+   "replay": true
+  },
+  {
+   "name": "angular/rotated sphere-box contact resolves along the OBB face and spins from friction",
+   "kind": "sim",
+   "gravity": [0, 0, 0],
+   "bodies": [
+    {"id": "wall", "kind": "static", "shape": {"kind": "box", "half": [1, 1, 1]}, "rotation": [0, 0, 45], "friction": 0.5},
+    {"id": "ball", "kind": "dynamic", "shape": {"kind": "sphere", "radius": 0.5}, "position": [-2, 0.7, 0], "velocity": [5, 0, 0], "friction": 0.5}
+   ],
+   "ticks": 20,
+   "samples": [
+    {"tick": 19, "id": "ball", "position": [-1.031225883290596, 1.0854407833760706, 0], "velocity": [1.7789574617357065, 1.7789574617357078, 0], "rotation": [0, 0, -62.87716576289932], "angularVelocity": [0, 0, -5.064985693314676], "grounded": false, "sleeping": false}
+   ],
+   "events": [
+    {"tick": 6, "name": "collision", "id": "wall", "other": "ball"},
+    {"tick": 6, "name": "collision", "id": "ball", "other": "wall"}
+   ],
+   "replay": true
+  },
+  {
+   "name": "angular/box-box partial face manifold applies an off-center angular impulse",
+   "kind": "sim",
+   "gravity": [0, 0, 0],
+   "bodies": [
+    {"id": "wall", "kind": "static", "shape": {"kind": "box", "half": [0.3, 1, 1]}, "friction": 0.2},
+    {"id": "mover", "kind": "dynamic", "shape": {"kind": "box", "half": [0.5, 0.5, 0.5]}, "position": [-2, 1.1, 0], "velocity": [6, 0, 0], "friction": 0.2}
+   ],
+   "ticks": 20,
+   "samples": [
+    {"tick": 19, "id": "mover", "position": [-0.7812499999991424, 1.1937499999969732, 8.197732874470899e-11], "velocity": [0.1406250000064271, 0.7031249999772924, 6.148299655853173e-10], "rotation": [2.677660837996843e-9, 2.517756423373065e-10, -10.742958659193922], "angularVelocity": [3.5256726379008144e-10, 9.008841268562487e-16, -1.4062500000642695], "grounded": false, "sleeping": false}
+   ],
+   "events": [
+    {"tick": 11, "name": "collision", "id": "wall", "other": "mover"},
+    {"tick": 11, "name": "collision", "id": "mover", "other": "wall"}
+   ],
+   "replay": true
+  },
+  {
+   "name": "angular/kinematic rotation invalidates stale contact impulses",
+   "kind": "sim",
+   "gravity": [0, 0, 0],
+   "bodies": [
+    {"id": "bar", "kind": "kinematic", "shape": {"kind": "box", "half": [2, 0.15, 0.5]}},
+    {"id": "ball", "kind": "dynamic", "shape": {"kind": "sphere", "radius": 0.4}, "position": [1.5, 0.45, 0]}
+   ],
+   "writes": [
+    {"tick": 3, "id": "bar", "attr": "rotation", "value": [0, 0, 90]},
+    {"tick": 6, "id": "bar", "attr": "rotation", "value": [0, 0, 0]}
+   ],
+   "ticks": 10,
+   "samples": [
+    {"tick": 9, "id": "ball", "position": [1.5, 0.544998784, 0], "velocity": [0, 0, 0], "rotation": [0, 0, 0], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": false}
+   ],
+   "events": [
+    {"tick": 0, "name": "collision", "id": "bar", "other": "ball"},
+    {"tick": 0, "name": "collision", "id": "ball", "other": "bar"},
+    {"tick": 6, "name": "collision", "id": "bar", "other": "ball"},
+    {"tick": 6, "name": "collision", "id": "ball", "other": "bar"}
+   ],
+   "replay": true
+  },
+  {
+   "name": "warm-start/five-box pile sleeps by tick 200 and stays exactly still",
+   "kind": "sim",
+   "bodies": [
+    {"id": "ground", "kind": "static", "shape": {"kind": "box", "half": [5, 0.5, 5]}, "position": [0, -0.5, 0], "friction": 0.7},
+    {"id": "b0", "kind": "dynamic", "shape": {"kind": "box", "half": [0.5, 0.5, 0.5]}, "position": [0, 0.5, 0], "friction": 0.7},
+    {"id": "b1", "kind": "dynamic", "shape": {"kind": "box", "half": [0.5, 0.5, 0.5]}, "position": [0, 1.5, 0], "friction": 0.7},
+    {"id": "b2", "kind": "dynamic", "shape": {"kind": "box", "half": [0.5, 0.5, 0.5]}, "position": [0, 2.5, 0], "friction": 0.7},
+    {"id": "b3", "kind": "dynamic", "shape": {"kind": "box", "half": [0.5, 0.5, 0.5]}, "position": [0, 3.5, 0], "friction": 0.7},
+    {"id": "b4", "kind": "dynamic", "shape": {"kind": "box", "half": [0.5, 0.5, 0.5]}, "position": [0, 4.5, 0], "friction": 0.7}
+   ],
+   "ticks": 301,
+   "samples": [
+    {"tick": 200, "id": "b0", "position": [0.01566766778418648, 0.4845583228001586, 0.002531021625482642], "velocity": [0, 0, 0], "rotation": [-0.12058729407780334, 0.008894232514616157, 0.4416708702612656], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 200, "id": "b1", "position": [-0.013873004794285571, 1.4512968481990212, -0.0406910763181323], "velocity": [0, 0, 0], "rotation": [0.001985134206297306, 0.9584218582402264, 0.4224071676707622], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 200, "id": "b2", "position": [0.010701476123109508, 2.449176577215082, 0.034104661158878224], "velocity": [0, 0, 0], "rotation": [1.6268454219409154, 1.7181825612048922, 0.025546100010333618], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 200, "id": "b3", "position": [-0.019956505823721812, 3.4460758890743985, 0.06805043498087188], "velocity": [0, 0, 0], "rotation": [1.813379061367311, 1.9373624357353236, 0.7305103557661343], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 200, "id": "b4", "position": [-0.038236775813749145, 4.441780603433294, 0.10091309705460255], "velocity": [0, 0, 0], "rotation": [1.6214681227635177, 1.9225320607917535, 0.6824823633632431], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 300, "id": "b0", "position": [0.01566766778418648, 0.4845583228001586, 0.002531021625482642], "velocity": [0, 0, 0], "rotation": [-0.12058729407780334, 0.008894232514616157, 0.4416708702612656], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 300, "id": "b4", "position": [-0.038236775813749145, 4.441780603433294, 0.10091309705460255], "velocity": [0, 0, 0], "rotation": [1.6214681227635177, 1.9225320607917535, 0.6824823633632431], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true}
+   ],
+   "replay": true
+  },
+  {
+   "name": "warm-start/staggered tilted pile sleepers remain immutable and converge together",
+   "kind": "sim",
+   "bodies": [
+    {"id": "ground", "kind": "static", "shape": {"kind": "box", "half": [7, 0.5, 4]}, "position": [0, -0.5, 0], "friction": 0.5},
+    {"id": "a", "kind": "dynamic", "shape": {"kind": "box", "half": [0.3, 0.3, 0.3]}, "position": [-0.6, 3.2, 0], "friction": 0.6, "bounce": 0.15},
+    {"id": "b", "kind": "dynamic", "shape": {"kind": "box", "half": [0.3, 0.3, 0.3]}, "position": [0.6, 4.4, 0], "friction": 0.6, "bounce": 0.15},
+    {"id": "c", "kind": "dynamic", "shape": {"kind": "box", "half": [0.3, 0.3, 0.3]}, "position": [-0.2, 4.5, 0], "friction": 0.6, "bounce": 0.15}
+   ],
+   "ticks": 301,
+   "samples": [
+    {"tick": 200, "id": "a", "position": [-0.6499192587901901, 0.31767459851722585, 0.00012917950532934935], "velocity": [0, 0, 0], "rotation": [0.01979961266449362, -0.017132514405654723, -4.634693324694876], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 200, "id": "b", "position": [0.8035759236342137, 0.29816273961388445, 0.0010336735996423563], "velocity": [0, 0, 0], "rotation": [0.04180593588775241, 0.17614422389280343, -0.6944558012500922], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 200, "id": "c", "position": [0.08613853741653135, 0.41899816943640567, 0.005309307257658272], "velocity": [0, 0, 0], "rotation": [0.09482537888079436, 0.19171216165192467, -41.89706267735183], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 300, "id": "a", "position": [-0.6499192587901901, 0.31767459851722585, 0.00012917950532934935], "velocity": [0, 0, 0], "rotation": [0.01979961266449362, -0.017132514405654723, -4.634693324694876], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 300, "id": "b", "position": [0.8035759236342137, 0.29816273961388445, 0.0010336735996423563], "velocity": [0, 0, 0], "rotation": [0.04180593588775241, 0.17614422389280343, -0.6944558012500922], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true},
+    {"tick": 300, "id": "c", "position": [0.08613853741653135, 0.41899816943640567, 0.005309307257658272], "velocity": [0, 0, 0], "rotation": [0.09482537888079436, 0.19171216165192467, -41.89706267735183], "angularVelocity": [0, 0, 0], "grounded": false, "sleeping": true}
+   ],
+   "replay": true
+  }
+ ]
+}

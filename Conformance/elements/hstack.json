@@ -1,0 +1,29 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "hstack",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/HStack/swift/HStack.swift",
+  "attributes": {
+    "spacing": {
+      "type": "number",
+      "default": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/HStack/swift/HStack.swift:11 (nil -> SwiftUI system spacing ~= 8pt; Android pins 8dp)"
+    },
+    "align": {
+      "type": "enum(top|center|bottom)",
+      "default": "center",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/HStack/swift/HStack.swift:12 via OpenSource/Engine/iOS/Stack.swift"
+    }
+  },
+  "geometry": {
+    "spacing": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/HStack/swift/HStack.swift:11 (unset -> platform default spacing, pinned 8)"
+    }
+  },
+  "colors": {
+  },
+  "notes": ""
+}

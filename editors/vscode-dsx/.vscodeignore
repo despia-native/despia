@@ -1,0 +1,4 @@
+# Excluded from the packaged .vsix (everything else ships).
+.gitignore
+mirror.json
+*.vsix

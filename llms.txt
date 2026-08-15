@@ -1,0 +1,59 @@
+# Despia
+
+The open application framework for the AI era. Describe an application once in DespiaScript
+(DSX): XML-style markup + JavaScript expressions + JSON, plain text in your own repository,
+and run it as a real product on every node that matters. A fully dynamic kernel provides
+primitives; modules provide everything else; surfaces consume. The kernel names no platform,
+no editor, no model and no cloud. Apache-2.0, version 0.0.1, maintained daily by the Despia
+team; issues and PRs live on this repository.
+
+## Five nodes, one application model
+
+- iOS: real SwiftUI (Engine/iOS)
+- Android: real Jetpack Compose (Engine/Android)
+- Web: real DOM with SSR (Web, @despia/* on npm)
+- Server: backend logic authored in DSX
+  (Documentation/architecture/proposals/backend-authoring.md)
+- CLI: a command-line program is a .dsx document
+  (Documentation/architecture/proposals/cli-authoring.md)
+
+## Start here
+
+- README.md: what Despia is, where it comes from, how to start
+- Documentation/guides/quickstart.md: a DSX app from nothing (npm create dsx)
+- Documentation/guides/getting-started.md: add native capability to an existing web app
+- Documentation/reference/dsx-anatomy.md: the .dsx document anatomy (head = contract +
+  state + logic, body = pure markup)
+- Documentation/reference/StackReference.md: every element, attribute, value
+- Skills/despiascript.md: the language pattern itself
+- Skills/runtime-api.md: the full dsx surface and web contract
+
+## The law and the proof
+
+- Documentation/architecture/constitution.md: the architecture law
+- Conformance/: the platform-neutral fixture corpus all kernels run; parity between the
+  Swift, Kotlin and TypeScript kernels is falsifiable here, not asserted
+- Documentation/RELEASING.md: versioning and release rules (0.0.x ladder, signed tags)
+
+## The packages
+
+- Engine/: the native kernel (Swift + Kotlin + shared runtime files); mirrored standalone
+  to github.com/despia-native/despia-kernel
+- Web/: the TypeScript kernel, compiler, DOM renderer, SSR server, CLI and scaffolder;
+  ships to npm as @despia/kernel, @despia/compiler, @despia/dom, @despia/element,
+  @despia/server, @despia/cli, @despia/vite-plugin and create-dsx
+- AI/: on-device inference (completions, embeddings, speech, vision, tools); standalone at
+  github.com/despia-native/despia-ai
+- Base/: Despiabase, the on-device data plane (SQLite with vectors, snapshots); standalone
+  at github.com/despia-native/despiabase
+- MCP/: Model Context Protocol for apps, client and server; standalone at
+  github.com/despia-native/despia-mcp
+- CanvasEditor/: the visual editor SDK; the node-tree rendering of a .dsx document
+- editors/: the VS Code grammar and editor integrations
+
+## Contributing
+
+- CONTRIBUTING.md: the workflow (issues and PRs here; patches land in the monorepo with
+  authorship preserved), the fixtures-first rule, DCO sign-off
+- SECURITY.md: private vulnerability reporting
+- CODE_OF_CONDUCT.md: Contributor Covenant 2.1

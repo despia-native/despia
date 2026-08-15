@@ -1,0 +1,20 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "Scene360",
+  "aliases": [
+    "Panorama"
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/Scene3D/swift/Scene360Component.swift",
+  "attributes": {
+    "src": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Scene3D/swift/Scene360Component.swift:104 (attr OR mounted attribute)"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "360-degree panorama viewer — D-class on Android with Scene3D."
+}

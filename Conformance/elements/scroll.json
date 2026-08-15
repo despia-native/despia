@@ -1,0 +1,25 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "scroll",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Scroll/swift/Scroll.swift",
+  "attributes": {
+    "axis": {
+      "type": "enum(vertical|horizontal)",
+      "default": "vertical",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Scroll/swift/Scroll.swift:14"
+    },
+    "direction": {
+      "type": "enum(vertical|horizontal)",
+      "default": "vertical",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Scroll/swift/Scroll.swift:14 (alias of axis)"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "Scroll indicators hidden on both platforms (Scroll.swift:17 showsIndicators: false)."
+}

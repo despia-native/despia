@@ -1,0 +1,53 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "grid",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Grid/swift/Grid.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Grid/swift/Grid.swift:13"
+    },
+    "key": {
+      "type": "string",
+      "default": "id",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Grid/swift/Grid.swift:13"
+    },
+    "columns": {
+      "type": "number",
+      "default": 3,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Grid/swift/Grid.swift:14 (clamped >= 1)"
+    },
+    "spacing": {
+      "type": "number",
+      "default": 10,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Grid/swift/Grid.swift:15 (both axes)"
+    },
+    "scroll": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Grid/swift/Grid.swift:23 (scroll=\"false\" -> eager chunked rows)"
+    },
+    "on:reachEnd": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Grid/swift/Grid.swift:16,47"
+    }
+  },
+  "geometry": {
+    "columns": {
+      "value": 3,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Grid/swift/Grid.swift:14"
+    },
+    "spacing": {
+      "value": 10,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Grid/swift/Grid.swift:15"
+    }
+  },
+  "colors": {
+  },
+  "notes": "Single child = the cell template, rendered per row in its own item scope with write-back (the <list> data model), flowing into `columns` flexible columns (default 3, clamped >=1). Lazy ONLY inside a scrolling viewport (LazyVGrid — a Lazy*Grid reports ~zero ideal height before cells materialize, so an embedded grid collapses); `scroll=\"false\"`/measuring = the EAGER chunked grid (a VStack of HStacks with equal flexible columns, zero-height fillers squaring the last partial row). on:reachEnd fires when the LAST cell appears (pagination). NO LIST-CONSTRUCTS: unlike <list>, <grid> carries no group_by / swipeLeading / swipeTrailing / reorder — DECLARED PARITY, not a gap. The iOS twin (Grid.swift) is deliberately construct-free and those are List-only on every renderer, so no renderer implements them for <grid>; adding them to one renderer alone would violate the unified-codebase law (swipe-to-dismiss has no honest grid analogue anyway — cells share a row). Android: BoundGrid header + android-status.md carry the same ratification."
+}

@@ -1,0 +1,614 @@
+{
+  "_note": "JSE conformance corpus — {scope, expression, expected} triples every runtime must satisfy identically (Swift = reference, Kotlin :core runs these via ConformanceTest, TS joins per /web/10 W0). Numbers are the JSE number model: all values Double, integral doubles print as ints, /0 -> 0 (and %0 -> 0), NaN truthy, one coercion table for == and ===. String x string relationals compare lexicographically (JS); mixed pairs stay numeric. Plain dicts/arrays compare structurally (deep, key-order-insensitive); string-coercible value objects (Date/URL/params) keep coerced-string equality. typeof reports 'undefined' for both null and undefined (JSE does not split them — the one deliberate JS divergence). Seeded from the pinned Kotlin twin of JSE.swift; the Codemagic `conformance-record` lane (the record-mode Swift run — see this folder's README) regenerates and authoritates this corpus.",
+  "cases": [
+    {
+      "name": "add-int",
+      "scope": {},
+      "expression": "1 + 2",
+      "expected": 3
+    },
+    {
+      "name": "precedence",
+      "scope": {},
+      "expression": "2 + 3 * 4",
+      "expected": 14
+    },
+    {
+      "name": "parens",
+      "scope": {},
+      "expression": "(2 + 3) * 4",
+      "expected": 20
+    },
+    {
+      "name": "div-zero-is-zero",
+      "scope": {},
+      "expression": "5 / 0",
+      "expected": 0
+    },
+    {
+      "name": "unary-minus",
+      "scope": {},
+      "expression": "-(3 + 4)",
+      "expected": -7
+    },
+    {
+      "name": "string-concat-num",
+      "scope": {},
+      "expression": "'v' + 2",
+      "expected": "v2"
+    },
+    {
+      "name": "integral-double-prints-int",
+      "scope": {},
+      "expression": "'' + 2.0",
+      "expected": "2"
+    },
+    {
+      "name": "eq-coerce-num-string",
+      "scope": {},
+      "expression": "1 == '1'",
+      "expected": true
+    },
+    {
+      "name": "strict-eq-shares-coercion",
+      "scope": {},
+      "expression": "1 === '1'",
+      "expected": true
+    },
+    {
+      "name": "null-eq-empty-string",
+      "scope": {},
+      "expression": "null == ''",
+      "expected": true
+    },
+    {
+      "name": "lt-coerces-null-to-zero",
+      "scope": {},
+      "expression": "null < 1",
+      "expected": true
+    },
+    {
+      "name": "truthy-zero-string",
+      "scope": {},
+      "expression": "'0' ? 'y' : 'n'",
+      "expected": "y"
+    },
+    {
+      "name": "falsy-empty-string",
+      "scope": {},
+      "expression": "'' ? 'y' : 'n'",
+      "expected": "n"
+    },
+    {
+      "name": "falsy-zero",
+      "scope": {},
+      "expression": "0 ? 'y' : 'n'",
+      "expected": "n"
+    },
+    {
+      "name": "and-returns-last",
+      "scope": {},
+      "expression": "1 && 'x'",
+      "expected": "x"
+    },
+    {
+      "name": "or-returns-first-truthy",
+      "scope": {},
+      "expression": "0 || 'fallback'",
+      "expected": "fallback"
+    },
+    {
+      "name": "not",
+      "scope": {},
+      "expression": "!0",
+      "expected": true
+    },
+    {
+      "name": "ternary-nested-scope",
+      "scope": {
+        "a": 5
+      },
+      "expression": "a > 3 ? 'big' : 'small'",
+      "expected": "big"
+    },
+    {
+      "name": "scope-read",
+      "scope": {
+        "count": 41
+      },
+      "expression": "count + 1",
+      "expected": 42
+    },
+    {
+      "name": "scope-missing-is-null",
+      "scope": {},
+      "expression": "missing == null",
+      "expected": true
+    },
+    {
+      "name": "member-access",
+      "scope": {
+        "user": {
+          "name": "amy"
+        }
+      },
+      "expression": "user.name",
+      "expected": "amy"
+    },
+    {
+      "name": "index-access",
+      "scope": {
+        "xs": [
+          10,
+          20,
+          30
+        ]
+      },
+      "expression": "xs[1]",
+      "expected": 20
+    },
+    {
+      "name": "array-length",
+      "scope": {
+        "xs": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expression": "xs.length",
+      "expected": 3
+    },
+    {
+      "name": "string-length",
+      "scope": {},
+      "expression": "'héllo'.length",
+      "expected": 5
+    },
+    {
+      "name": "upper",
+      "scope": {},
+      "expression": "upper('abc')",
+      "expected": "ABC"
+    },
+    {
+      "name": "includes",
+      "scope": {
+        "xs": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expression": "xs.includes(2)",
+      "expected": true
+    },
+    {
+      "name": "join",
+      "scope": {
+        "xs": [
+          "a",
+          "b"
+        ]
+      },
+      "expression": "xs.join('-')",
+      "expected": "a-b"
+    },
+    {
+      "name": "split",
+      "scope": {},
+      "expression": "'a,b,c'.split(',').length",
+      "expected": 3
+    },
+    {
+      "name": "map-paren-lambda",
+      "scope": {
+        "xs": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expression": "xs.map((x) => x * 2).join(',')",
+      "expected": "2,4,6"
+    },
+    {
+      "name": "filter-paren-lambda",
+      "scope": {
+        "xs": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "expression": "xs.filter((x) => x > 2).length",
+      "expected": 2
+    },
+    {
+      "name": "reduce",
+      "scope": {
+        "xs": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "expression": "xs.reduce((a, b) => a + b, 0)",
+      "expected": 10
+    },
+    {
+      "name": "find",
+      "scope": {
+        "xs": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "expression": "xs.find((x) => x.id == 2).id",
+      "expected": 2
+    },
+    {
+      "name": "object-literal-member",
+      "scope": {},
+      "expression": "({ a: 1, b: 2 }).b",
+      "expected": 2
+    },
+    {
+      "name": "math-round-half-up",
+      "scope": {},
+      "expression": "Math.round(2.5)",
+      "expected": 3
+    },
+    {
+      "name": "math-min",
+      "scope": {},
+      "expression": "Math.min(3, 1, 2)",
+      "expected": 1
+    },
+    {
+      "name": "gt-strings-lexicographic",
+      "scope": {},
+      "expression": "'b' > 'a'",
+      "expected": true
+    },
+    {
+      "name": "bool-stringifies-one-zero",
+      "scope": {},
+      "expression": "'' + true",
+      "expected": "1"
+    },
+    {
+      "name": "div-zero-zero-is-falsy",
+      "scope": {},
+      "expression": "(0/0) ? 'y' : 'n'",
+      "expected": "n"
+    },
+    {
+      "name": "ident-arrow-map",
+      "scope": {
+        "xs": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expression": "xs.map(x => x * 2).join(',')",
+      "expected": "2,4,6"
+    },
+    {
+      "name": "arrow-captures-enclosing-param",
+      "scope": {},
+      "expression": "[1,2].map(x => [10,20].map(y => x + y).join('-')).join(',')",
+      "expected": "11-21,12-22"
+    },
+    {
+      "name": "arrow-captures-row-scope",
+      "scope": {
+        "prices": [
+          1,
+          2
+        ],
+        "qty": 2
+      },
+      "expression": "prices.reduce((s, p) => s + p * qty, 0)",
+      "expected": 6
+    },
+    {
+      "name": "mod",
+      "scope": {},
+      "expression": "10 % 3",
+      "expected": 1
+    },
+    {
+      "name": "mod-truncates-dividend-sign",
+      "scope": {},
+      "expression": "-7 % 3",
+      "expected": -1
+    },
+    {
+      "name": "mod-zero-is-zero",
+      "scope": {},
+      "expression": "7 % 0",
+      "expected": 0
+    },
+    {
+      "name": "mod-precedence-multiplicative",
+      "scope": {},
+      "expression": "1 + 6 % 4",
+      "expected": 3
+    },
+    {
+      "name": "lt-strings-lexicographic",
+      "scope": {},
+      "expression": "'10' < '9'",
+      "expected": true
+    },
+    {
+      "name": "lt-mixed-stays-numeric",
+      "scope": {},
+      "expression": "'5' < 10",
+      "expected": true
+    },
+    {
+      "name": "eq-dict-structural",
+      "scope": {
+        "a": {
+          "x": 1,
+          "y": 2
+        },
+        "b": {
+          "x": 1,
+          "y": 2
+        }
+      },
+      "expression": "a == b",
+      "expected": true
+    },
+    {
+      "name": "eq-dict-structural-differs",
+      "scope": {
+        "a": {
+          "x": 1
+        },
+        "b": {
+          "x": 2
+        }
+      },
+      "expression": "a == b",
+      "expected": false
+    },
+    {
+      "name": "eq-array-structural",
+      "scope": {},
+      "expression": "[1, 2] == [1, 2]",
+      "expected": true
+    },
+    {
+      "name": "eq-array-order-matters",
+      "scope": {},
+      "expression": "[1, 2] == [2, 1]",
+      "expected": false
+    },
+    {
+      "name": "typeof-number",
+      "scope": {},
+      "expression": "typeof 1",
+      "expected": "number"
+    },
+    {
+      "name": "typeof-string",
+      "scope": {},
+      "expression": "typeof 'a'",
+      "expected": "string"
+    },
+    {
+      "name": "typeof-boolean",
+      "scope": {},
+      "expression": "typeof true",
+      "expected": "boolean"
+    },
+    {
+      "name": "typeof-missing-is-undefined",
+      "scope": {},
+      "expression": "typeof missing",
+      "expected": "undefined"
+    },
+    {
+      "name": "typeof-array-is-object",
+      "scope": {},
+      "expression": "typeof [1]",
+      "expected": "object"
+    },
+    {
+      "name": "range-n",
+      "scope": {},
+      "expression": "range(3).join(',')",
+      "expected": "0,1,2"
+    },
+    {
+      "name": "range-lo-hi",
+      "scope": {},
+      "expression": "range(1, 4).join(',')",
+      "expected": "1,2,3"
+    },
+    {
+      "name": "range-negative-step",
+      "scope": {},
+      "expression": "range(6, 0, -2).join(',')",
+      "expected": "6,4,2"
+    },
+    {
+      "name": "array-isarray",
+      "scope": {},
+      "expression": "Array.isArray([1])",
+      "expected": true
+    },
+    {
+      "name": "string-indexof",
+      "scope": {},
+      "expression": "'hello'.indexOf('ll')",
+      "expected": 2
+    },
+    {
+      "name": "string-indexof-missing",
+      "scope": {},
+      "expression": "'hello'.indexOf('z')",
+      "expected": -1
+    },
+    {
+      "name": "starts-with",
+      "scope": {},
+      "expression": "'despia'.startsWith('des')",
+      "expected": true
+    },
+    {
+      "name": "ends-with",
+      "scope": {},
+      "expression": "'despia'.endsWith('ia')",
+      "expected": true
+    },
+    {
+      "name": "slice-negative-start",
+      "scope": {},
+      "expression": "'despia'.slice(-3)",
+      "expected": "pia"
+    },
+    {
+      "name": "slice-negative-end",
+      "scope": {},
+      "expression": "'despia'.slice(0, -3)",
+      "expected": "des"
+    },
+    {
+      "name": "slice-start-end-array",
+      "scope": {
+        "xs": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "expression": "xs.slice(1, 3).join(',')",
+      "expected": "2,3"
+    },
+    {
+      "name": "group-by",
+      "scope": {
+        "xs": [
+          {
+            "t": "a",
+            "v": 1
+          },
+          {
+            "t": "b",
+            "v": 2
+          },
+          {
+            "t": "a",
+            "v": 3
+          }
+        ]
+      },
+      "expression": "groupBy(xs, x => x.t)['a'].length",
+      "expected": 2
+    },
+    {
+      "name": "key-by",
+      "scope": {
+        "xs": [
+          {
+            "t": "a",
+            "v": 1
+          },
+          {
+            "t": "b",
+            "v": 2
+          }
+        ]
+      },
+      "expression": "keyBy(xs, x => x.t)['b'].v",
+      "expected": 2
+    },
+    {
+      "name": "sort-by-desc",
+      "scope": {},
+      "expression": "sortBy([2, 3, 1], x => x, 'desc').join(',')",
+      "expected": "3,2,1"
+    },
+    {
+      "name": "object-groupby-es2024",
+      "scope": {
+        "xs": [
+          {
+            "t": "a",
+            "v": 1
+          },
+          {
+            "t": "b",
+            "v": 2
+          },
+          {
+            "t": "a",
+            "v": 3
+          }
+        ]
+      },
+      "expression": "Object.groupBy(xs, x => x.t)['a'].length",
+      "expected": 2
+    },
+    {
+      "name": "array-from-length-mapfn",
+      "scope": {},
+      "expression": "Array.from({ length: 3 }, (_, i) => i).join(',')",
+      "expected": "0,1,2"
+    },
+    {
+      "name": "array-from-array-mapfn",
+      "scope": {},
+      "expression": "Array.from([1, 2], x => x * 2).join(',')",
+      "expected": "2,4"
+    },
+    {
+      "name": "keyby-via-fromentries",
+      "scope": {
+        "xs": [
+          {
+            "t": "a",
+            "v": 1
+          },
+          {
+            "t": "b",
+            "v": 2
+          }
+        ]
+      },
+      "expression": "Object.fromEntries(xs.map(x => [x.t, x]))['b'].v",
+      "expected": 2
+    },
+    {
+      "name": "regex-redos-rejected",
+      "scope": {},
+      "expression": "regex('aaaa', '(a+)+')",
+      "expected": false
+    },
+    {
+      "name": "regex-safe-still-matches",
+      "scope": {},
+      "expression": "regex('aaaa', 'a+')",
+      "expected": true
+    },
+    {
+      "name": "regex-redos-star-height-rejected",
+      "scope": {},
+      "expression": "regex('abcabc', '(abc)+')",
+      "expected": true
+    }
+  ]
+}

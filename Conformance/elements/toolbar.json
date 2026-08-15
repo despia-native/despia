@@ -1,0 +1,41 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "toolbar",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Toolbar/swift/Toolbar.swift",
+  "attributes": {
+    "position": {
+      "type": "enum(bottom|top)",
+      "default": "bottom",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Toolbar/swift/Toolbar.swift:26"
+    },
+    "spacing": {
+      "type": "number",
+      "default": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Toolbar/swift/Toolbar.swift:27"
+    }
+  },
+  "geometry": {
+    "spacing": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Toolbar/swift/Toolbar.swift:27"
+    },
+    "paddingH": {
+      "value": 16,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Toolbar/swift/Toolbar.swift:30"
+    },
+    "paddingV": {
+      "value": 10,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Toolbar/swift/Toolbar.swift:31"
+    },
+    "hairlineThickness": {
+      "value": 0.5,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Toolbar/swift/Toolbar.swift:37"
+    }
+  },
+  "colors": {
+  },
+  "notes": "Bar material (.bar) + a Color(white:0.5).opacity(0.35) hairline on the content-facing edge (Toolbar.swift:33-37)."
+}

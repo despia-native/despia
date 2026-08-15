@@ -1,0 +1,13 @@
+<stack>
+  <head>
+    <attribute as="title"/>
+    <event as="done"/>
+    <api as="orders" url="/api/orders"/>
+    <variable as="count" default="0"/>
+    <variable as="doubled" computed="true" value="dsx.variable.count * 2"/>
+    <action as="bump">count = count + 1</action>
+  </head>
+  <list bind="dsx.variable.rows" key="id">
+    <text value="{{ item.name }}"/>
+  </list>
+</stack>

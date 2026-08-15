@@ -1,0 +1,106 @@
+{
+ "_note": "THE FIXTURE PACK: declarations, not cases (`cases` is empty on purpose and this file drives nothing). Every case in `g2p/` names a pack from here by id, and a malformed case names one plus a mutation recipe. THE PACK IS A DESCRIPTION OF BYTES, NEVER BYTES: a runner builds a real `.dspg` from this declaration (the layout is g2p-pack.md, 'The file'), applies the case's mutations, writes it somewhere, and loads it as an ordinary catalog entry, `{ \"id\": \"fixture-en-1\", \"engine\": \"g2p\", \"format\": \"dspg\", \"path\": \"<built file>\" }`. The corpus therefore ships no binary, stays diffable, and a mutation reads as one line of English instead of a hex blob.\n\nTHE PHONE ALPHABET IS DELIBERATELY NOT IPA. The PHON lines are `p0` through `p9` plus `pA` and `pB`, so nothing here can be mistaken for a pronunciation reference and no expectation in this corpus can be a guess about English. They are two characters wide on purpose: the wire renders a pronunciation by CONCATENATING phone names with no separator, so a fixed width keeps every expected string unambiguous. A pack declares phone SEQUENCES as id arrays because that is what the file holds; expectations quote the rendered string because that is what the envelope carries.\n\nTHE PACK CARRIES NO NORM SECTION, which is itself a fixture: number words are OPTIONAL, so a digit must still come back as a token (spelled) rather than vanish, 'absent, not wrong'. Real-pack accuracy is not a fixture question either: it is measured on a held-out split by the offline trainer and recorded in a shipped pack's own META, the same way real-model inference lives in the nightly smoke lane rather than in `ai/`.",
+
+ "packs": {
+  "fixture-en-1": {
+   "_note": "The one base pack. Small enough to read, complete enough to load: META declares an `accept` set, SPEL names every code point in it (L3's proof), PHON has exactly `phone_count` lines, the lexicon carries plain entries plus one heteronym plus one plural that is its OWN entry (so the lexicon-beats-stem order is testable), the morphology rules carry two allomorphs (so a derivation is a rule and not a suffix), and the LTS trees are valid, with every child index strictly greater than its own node and one leaf emitting ZERO phones because a silent letter is correct rather than a dropped output.",
+   "magic": "DSPG",
+   "format_version": 1,
+   "reserved": 0,
+
+   "meta": {
+    "schema_version": 1,
+    "id": "fixture-en-1",
+    "name": "Corpus fixture (not a language)",
+    "languages": [ "en" ],
+    "letters": "abcdefghijklmnopqrstuvwxyz'",
+    "accept": "abcdefghijklmnopqrstuvwxyz'0123456789 .,;:!?-",
+    "_note_boundaries": "`separators`, `punctuation` and `sentence_end` are the pack's, not the engine's, and the fixture states all three rather than leaning on a default. A pack that declares no `punctuation` keeps a comma inside the word it follows, which is correct for a script that punctuates differently and wrong for this one. `sentence_end` is what makes `defer` granular.",
+    "separators": " \t\n\r",
+    "punctuation": ".,;:!?-",
+    "sentence_end": ".!?",
+    "_note_fold": "`fold` runs before anything else. ASCII case folding is expressed HERE and nowhere else, because `accept` carries no uppercase: a pack that forgets a pair refuses that letter, which is exactly the kind of gap L3 exists to make loud. The receipt is unaffected: a token's `text` is the input's own bytes, BEFORE folding.",
+    "fold": {
+     "A": "a", "B": "b", "C": "c", "D": "d", "E": "e", "F": "f", "G": "g", "H": "h", "I": "i",
+     "J": "j", "K": "k", "L": "l", "M": "m", "N": "n", "O": "o", "P": "p", "Q": "q", "R": "r",
+     "S": "s", "T": "t", "U": "u", "V": "v", "W": "w", "X": "x", "Y": "y", "Z": "z",
+     "é": "e", "É": "e", "’": "'", "‘": "'"
+    },
+    "phone_count": 12,
+    "stress": [],
+    "pos_tags": [ "DEFAULT", "NOUN", "VERB", "ADJ", "VBD" ],
+    "_note_morphology": "Two rules, and the `-s` rule carries TWO allomorphs so a derivation is visibly a rule applied to a dictionary fact rather than a suffix glued on. `after` names the stem's last phone: `walk` ends in `p3` and takes `p6`, `build` ends in `p9` and takes `pA`. The `-ed` rule undoubles, which is what lets `shipped` reach `ship`. Every derived pronunciation in this corpus is therefore computable from these rows plus the lexicon, so the stem cases pin exact strings rather than recording them.",
+    "morphology": [
+     { "suffix": "s", "variants": [ { "after": [ "p3" ], "phones": "p6" }, { "phones": "pA" } ] },
+     { "suffix": "ed", "undouble": true, "variants": [ { "phones": "p3" } ] }
+    ],
+    "sources": [
+     { "name": "despia corpus fixture", "spdx": "CC0-1.0", "url": "https://example.invalid/fixture",
+       "sha256": "1111111111111111111111111111111111111111111111111111111111111111" }
+    ]
+   },
+
+   "_note_phon": "PHON: one phone per line, phone id IS the line index. Twelve lines, and META.phone_count says twelve. An integer here instead of a list means 'generate this many', which one validation case needs and nothing else uses.",
+   "phones": [ "p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "pA", "pB" ],
+
+   "_note_lexicon": "LEXK/LEXI/LEXV as one map. `form` 0 is one pronunciation; `form` 1 is POS-conditioned and its `senses` carry `pos` indices into META.pos_tags, where 0 is DEFAULT and must come first. `runs` is a lexicon entry in its own right even though `run` is one too. That is what makes 'lexicon before stem' a testable order rather than a claim. `builds`, `walks`, `walked` and `shipped` deliberately are NOT entries, so they must arrive via stem.",
+   "lexicon": {
+    "walk":  { "form": 0, "phones": [ 0, 7, 3 ] },
+    "run":   { "form": 0, "phones": [ 1, 8 ] },
+    "runs":  { "form": 0, "phones": [ 1, 8, 6 ] },
+    "build": { "form": 0, "phones": [ 1, 2, 6, 9 ] },
+    "ship":  { "form": 0, "phones": [ 4, 2, 11 ] },
+    "is":    { "form": 0, "phones": [ 2, 9 ] },
+    "here":  { "form": 0, "phones": [ 3, 4, 5 ] },
+    "null":  { "form": 0, "phones": [ 6, 1, 2 ] },
+    "state": { "form": 0, "phones": [ 7, 0, 3 ] },
+    "of":    { "form": 0, "phones": [ 8, 5 ] },
+    "the":   { "form": 0, "phones": [ 9, 4 ] },
+    "art":   { "form": 0, "phones": [ 0, 10, 3 ] },
+    "today": { "form": 0, "phones": [ 3, 8, 9, 0 ] },
+    "he":    { "form": 0, "phones": [ 5, 4 ] },
+    "said":  { "form": 0, "phones": [ 2, 0, 9 ] },
+    "twice": { "form": 0, "phones": [ 3, 10, 2 ] },
+    "up":    { "form": 0, "phones": [ 8, 11 ] },
+    "we":    { "form": 0, "phones": [ 10, 4 ] },
+    "this":  { "form": 0, "phones": [ 9, 2, 2 ] },
+    "a":     { "form": 0, "phones": [ 0 ] },
+    "cafe":  { "form": 0, "phones": [ 6, 0, 5, 4 ] },
+    "don't": { "form": 0, "phones": [ 9, 8, 3 ] },
+    "read":  { "form": 1, "senses": [
+     { "pos": 0, "phones": [ 1, 4, 9 ] },
+     { "pos": 4, "phones": [ 1, 7, 9 ] }
+    ] }
+   },
+
+   "_note_lts": "`LTS `. `chr` is a LETTER ID (an index into META.letters), `pos` runs 0 to 2 × window with `window` itself being the letter being pronounced, and an out-of-range position answers with the padding id `letter_count`. Node 4 is a leaf of length ZERO, the silent letter, which is correct output and not a dropped one. Every child index here is strictly greater than its own node index; that is the property the infinite-walk guard checks and the property `validation.json` mutates. `roots` maps a letter to its starting node, and `*` is the root for every letter not named.",
+   "lts": {
+    "window": 2,
+    "letter_count": 27,
+    "roots": { "*": 0, "e": 2, "'": 3 },
+    "nodes": [
+     { "kind": "branch", "pos": 2, "chr": 0,  "yes": 1, "no": 2 },
+     { "kind": "leaf",   "len": 1, "out_off": 0 },
+     { "kind": "branch", "pos": 3, "chr": 4,  "yes": 4, "no": 5 },
+     { "kind": "branch", "pos": 1, "chr": 26, "yes": 4, "no": 5 },
+     { "kind": "leaf",   "len": 0, "out_off": 0 },
+     { "kind": "leaf",   "len": 2, "out_off": 1 }
+    ],
+    "out": [ 3, 5, 8 ]
+   },
+
+   "_note_spel": "SPEL, and L3's whole point: one row per code point in META.accept, all 45 of them, or the pack does not load. The file stores them sorted by code point; the builder sorts, the declaration is a map so a mutation can name one row. The row for SPACE is also the JOINER the speller puts between characters, so a spelled word's rendered phonemes are the rows for its characters interleaved with `p1`. That is what makes `spelled` expectations in this corpus concrete rather than recorded.",
+   "spel": {
+    "a": [ 0 ], "b": [ 1 ], "c": [ 2 ], "d": [ 3 ], "e": [ 4 ], "f": [ 5 ], "g": [ 6 ],
+    "h": [ 7 ], "i": [ 8 ], "j": [ 9 ], "k": [ 10 ], "l": [ 11 ], "m": [ 0 ], "n": [ 1 ],
+    "o": [ 2 ], "p": [ 3 ], "q": [ 4 ], "r": [ 5 ], "s": [ 6 ], "t": [ 7 ], "u": [ 8 ],
+    "v": [ 9 ], "w": [ 10 ], "x": [ 11 ], "y": [ 0 ], "z": [ 1 ], "'": [ 2 ],
+    "0": [ 3 ], "1": [ 4 ], "2": [ 5 ], "3": [ 6 ], "4": [ 7 ], "5": [ 8 ], "6": [ 9 ],
+    "7": [ 10 ], "8": [ 11 ], "9": [ 0 ],
+    " ": [ 1 ], ".": [ 2 ], ",": [ 3 ], ";": [ 4 ], ":": [ 5 ], "!": [ 6 ], "?": [ 7 ], "-": [ 8 ]
+   }
+  }
+ },
+
+ "cases": []
+}

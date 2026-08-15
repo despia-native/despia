@@ -1,0 +1,20 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "Godot",
+  "aliases": [
+    "GodotView"
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/Godot/swift/GodotComponent.swift",
+  "attributes": {
+    "src": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Godot/swift/GodotComponent.swift:188 (attr OR mounted dsx.attribute.src)"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "Embedded Godot runtime surface; content delivered via dsx.content."
+}

@@ -1,0 +1,124 @@
+{
+ "_note": "The open modality grammar (local-ai-engine.md §4.14). THE LAW ENCODED HERE: (1) inputs are TYPED PARTS — `text` inline, `image`/`audio`/`file` as REFERENCES (a URL, a content handle, a Base file) — and never inline bytes. (2) Outputs are TYPED BLOCKS — `text`, `thinking`, `tool`, `json`, and the reference blocks `audio`, `image`, `file`, `embedding` — where BINARY NEVER RIDES JSON: a reference block carries a loopback or content URL and the native side owns the bytes. This is the voice law of §4.9 generalized to every modality, and it is why a 30-second audio answer does not become a 40 MB base64 string crossing the bridge. (3) The vocabulary is OPEN and versioned: a runtime receiving a block type it has never heard of IGNORES it and SAYS SO with a typed notice — never crashes, never drops it silently. That must-ignore rule is the whole reason a model kind nobody has shipped yet is a data change instead of a refactor. (4) A catalog entry declares its `inputs`/`outputs` from this vocabulary, so a request the model cannot serve is refused typed before the engine is touched.",
+ "cases": [
+  {
+   "name": "modality: image input rides as a reference part, never as bytes",
+   "_note": "The request that reaches the ABI carries a URL. An implementation that base64s the image into the JSON envelope fails `noInlineBytes`.",
+   "catalog": { "installed": [ "vlm" ], "entries": [ { "id": "vlm", "engine": "gguf", "format": "gguf", "inputs": [ "text", "image" ], "outputs": [ "text-stream" ] } ] },
+   "mock": { "models": { "vlm": { "script": [ { "token": "a falcon" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "vlm", "messages": [ { "role": "user", "parts": [ { "type": "text", "text": "what is this?" }, { "type": "image", "url": "content:///photos/1.jpg" } ] } ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "engineRequests": [ { "kind": "completion", "model": "vlm", "messages": [ { "role": "user", "parts": [ { "type": "text", "text": "what is this?" }, { "type": "image", "url": "content:///photos/1.jpg" } ] } ] } ],
+    "noInlineBytes": true
+   }
+  },
+  {
+   "name": "modality: an audio answer streams as reference blocks",
+   "_note": "Streaming speech: each chunk is a reference the native side already holds, and the loop that plays it never parses PCM out of JSON.",
+   "providers": [ { "chain": "intelligence.voice", "modality": "speech", "serves": "synthesize", "engine": "tts" } ],
+   "engine": { "capabilities": { "engines": [ "gguf", "mock", "tts" ] } },
+   "catalog": { "installed": [ "voice-en" ], "entries": [ { "id": "voice-en", "engine": "tts", "languages": [ "en" ], "inputs": [ "text" ], "outputs": [ "audio-stream" ] } ] },
+   "mock": { "models": { "voice-en": { "script": [
+    { "block": { "type": "audio", "url": "loopback:///utt/1/0.pcm", "seq": 0 } },
+    { "block": { "type": "audio", "url": "loopback:///utt/1/1.pcm", "seq": 1 } },
+    { "complete": { } }
+   ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence.voice", "action": "synthesize", "args": { "model": "voice-en", "text": "hello there" }, "mode": "post", "as": "a" } }
+   ],
+   "expect": {
+    "events": [
+     { "req": "a", "event": "token", "data": { "seq": 0, "delta": { "type": "audio", "url": "loopback:///utt/1/0.pcm" } } },
+     { "req": "a", "event": "token", "data": { "seq": 1, "delta": { "type": "audio", "url": "loopback:///utt/1/1.pcm" } } },
+     { "req": "a", "event": "complete", "final": true }
+    ],
+    "noInlineBytes": true,
+    "maxEventBytes": 120
+   }
+  },
+  {
+   "name": "modality: a file output is a reference with its type and size",
+   "_note": "Whatever an artifact is, the wire shape is the same: where it lives, what it is, how big. A surface can offer a download without the bytes ever entering the bridge.",
+   "providers": [ { "chain": "custom.reporter", "modality": "document", "serves": "render", "engine": "custom-doc" } ],
+   "engine": { "capabilities": { "engines": [ "gguf", "mock", "custom-doc" ] } },
+   "catalog": { "installed": [ "doc-1" ], "entries": [ { "id": "doc-1", "engine": "custom-doc", "inputs": [ "text" ], "outputs": [ "file" ] } ] },
+   "mock": { "models": { "doc-1": { "script": [ { "block": { "type": "file", "url": "content:///out/report.pdf", "mime": "application/pdf", "bytes": 240122 } }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "custom.reporter", "action": "render", "args": { "model": "doc-1", "prompt": "q3 summary" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "results": { "a": { "snapshot": [ { "type": "file", "url": "content:///out/report.pdf", "mime": "application/pdf", "bytes": 240122 } ] } },
+    "noInlineBytes": true
+   }
+  },
+  {
+   "name": "modality: an embedding is a typed block carrying its provenance",
+   "_note": "Vectors are useless without knowing which model made them at what dimension — the block carries both, which is what Base stores and what makes the drift check in the vector corpus possible.",
+   "catalog": { "installed": [ "emb" ], "entries": [ { "id": "emb", "engine": "gguf", "format": "gguf", "inputs": [ "text" ], "outputs": [ "embedding" ] } ] },
+   "mock": { "models": { "emb": { "script": [ { "block": { "type": "embedding", "dimension": 4, "values": [ 0.1, 0.2, 0.3, 0.4 ] } }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "embed", "args": { "model": "emb", "text": "hello" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "results": { "a": { "snapshot": [ { "type": "embedding", "dimension": 4, "values": [ 0.1, 0.2, 0.3, 0.4 ], "model": "emb" } ] } }
+   }
+  },
+  {
+   "name": "modality: an unknown block type is ignored with a typed notice",
+   "_note": "The must-ignore fixture, and the reason the grammar can grow OTA. A newer engine emits a block this runtime has never heard of: the known blocks still arrive, the request still completes, and the notice records exactly what was dropped so a developer can see it in the log ring rather than guessing.",
+   "catalog": { "installed": [ "future" ], "entries": [ { "id": "future", "engine": "gguf", "format": "gguf" } ] },
+   "mock": { "models": { "future": { "script": [
+    { "token": "before" },
+    { "block": { "type": "hologram", "url": "content:///out/1.holo" } },
+    { "token": " after" },
+    { "complete": { } }
+   ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "future", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "results": { "a": { "snapshot": [ { "type": "text", "text": "before after" } ] } },
+    "notices": [ { "code": "unknown_block_ignored", "data": { "type": "hologram" } } ],
+    "noErrors": true
+   }
+  },
+  {
+   "name": "modality: an input the model does not declare is refused before the engine",
+   "_note": "The declared `inputs` list is a contract. Sending an image to a text-only model is answered typed above the seam — no wasted load, no engine-level surprise.",
+   "catalog": { "installed": [ "textonly" ], "entries": [ { "id": "textonly", "engine": "gguf", "format": "gguf", "inputs": [ "text" ], "outputs": [ "text-stream" ] } ] },
+   "mock": { "models": { "textonly": { "script": [ { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "textonly", "messages": [ { "role": "user", "parts": [ { "type": "image", "url": "content:///photos/1.jpg" } ] } ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "completion", "code": "unsupported_input", "data": { "type": "image", "model": "textonly" } } ],
+    "engineRequestCount": 0
+   }
+  },
+  {
+   "name": "modality: a mixed-block answer keeps every block distinct in the snapshot",
+   "_note": "One answer, four kinds of content — the snapshot is an ordered list of typed blocks, not a flattened string, so a renderer can lay out text, a chart and a caption correctly.",
+   "catalog": { "installed": [ "multi" ], "entries": [ { "id": "multi", "engine": "gguf", "format": "gguf", "outputs": [ "text-stream", "json", "image" ] } ] },
+   "mock": { "models": { "multi": { "script": [
+    { "token": "Here is the chart:" },
+    { "block": { "type": "image", "url": "content:///out/chart.png", "mime": "image/png" } },
+    { "block": { "type": "json", "value": { "points": 12 } } },
+    { "token": " Caption below." },
+    { "complete": { } }
+   ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "multi", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "results": { "a": { "snapshot": [
+     { "type": "text", "text": "Here is the chart:" },
+     { "type": "image", "url": "content:///out/chart.png", "mime": "image/png" },
+     { "type": "json", "value": { "points": 12 } },
+     { "type": "text", "text": " Caption below." }
+    ] } }
+   }
+  }
+ ]
+}

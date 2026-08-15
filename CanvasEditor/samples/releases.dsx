@@ -1,0 +1,110 @@
+<!--
+  releases.dsx — a release browser.
+
+  Exercises the modern document anatomy: a full head carrying the contract
+  (attribute), remote data (api), local state (variable), reusable reactive
+  functions with named inputs (formula), behaviour (action) and a reaction
+  (watch) — with a body underneath that is pure markup. Apache-2.0, like the rest of
+  OpenSource/.
+-->
+<vstack grow="true">
+  <head>
+    <attribute as="owner" default="'despia-native'"/>
+    <attribute as="repo" default="'despia-framework'"/>
+
+    <variable as="query">return ''</variable>
+    <variable as="withPrereleases">return false</variable>
+    <variable as="openTag">return ''</variable>
+
+    <api as="releases"
+         url="https://api.github.com/repos/{{ dsx.attribute.owner }}/{{ dsx.attribute.repo }}/releases"
+         headers="{ accept: 'application/vnd.github+json' }"/>
+
+    <!-- Each attribute is an input evaluated where the formula is READ, so the same
+         formula works at screen scope here and at row scope below. -->
+    <formula as="visible"
+             rows="releases.data"
+             term="dsx.variable.query"
+             pre="dsx.variable.withPrereleases">
+      const all = rows || [];
+      const kept = pre ? all : all.filter(r => r.prerelease !== true);
+      if (term == '') { return kept; }
+      const needle = term.toLowerCase();
+      return kept.filter(r => ((r.name || r.tag_name) || '').toLowerCase().includes(needle));
+    </formula>
+
+    <formula as="day" iso="dsx.item.published_at">
+      return typeof iso == 'string' ? iso.slice(0, 10) : '';
+    </formula>
+
+    <formula as="notes" body="dsx.item.body">
+      const text = body || '';
+      return text == '' ? 'No release notes.' : text.slice(0, 400);
+    </formula>
+
+    <action as="toggleOpen" tag="dsx.this.tag">
+      dsx.variable.openTag = dsx.variable.openTag == tag ? '' : tag;
+    </action>
+
+    <action as="clearFilters">
+      dsx.variable.query = '';
+      dsx.variable.withPrereleases = false;
+    </action>
+
+    <!-- Narrowing the list must not leave a row expanded that is no longer on screen. -->
+    <watch value="dsx.variable.query" on:change="dsx.variable.openTag = ''"/>
+  </head>
+
+  <vstack padding="20" spacing="4">
+    <text value="Releases" style="font-size: 1.75rem; font-weight: 700; color: label"/>
+    <text value="{{ dsx.attribute.owner }}/{{ dsx.attribute.repo }}"
+          style="font-size: 0.9rem; color: secondary"/>
+  </vstack>
+
+  <hstack spacing="10" padding="20" paddingTop="0" paddingBottom="12" align="center">
+    <stack grow="width">
+      <textfield bind="query" placeholder="Filter by name or tag…" a11yLabel="Filter releases"/>
+    </stack>
+    <toggle bind="withPrereleases" label="Pre-releases"/>
+  </hstack>
+
+  <stack visible-if="releases.loading" padding="40" align="center">
+    <spinner/>
+  </stack>
+
+  <vstack visible-if="releases.error != null" padding="20" spacing="8" align="center">
+    <text value="Could not load releases" style="font-weight: 600; color: label"/>
+    <text value="{{ releases.error.message }}" style="font-size: 0.85rem; color: secondary"/>
+    <button label="Try again" on:tap="releases.refresh()"/>
+  </vstack>
+
+  <scroll visible-if="releases.ok">
+    <vstack padding="20" paddingTop="0" spacing="10">
+      <list bind="dsx.formula.visible" key="id" spacing="10" appearance="custom">
+        <row>
+          <vstack padding="16" spacing="10" radius="12" background="fillFaint"
+                  on:tap="toggleOpen({ tag: dsx.item.tag_name })">
+            <hstack align="center" spacing="10">
+              <vstack spacing="2" grow="width" align="leading">
+                <text value="{{ dsx.item.name || dsx.item.tag_name }}"
+                      style="font-size: 1rem; font-weight: 600; color: label"/>
+                <text value="{{ day }}" style="font-size: 0.8rem; color: secondary"/>
+              </vstack>
+              <text value="{{ dsx.item.tag_name }}"
+                    style="font-size: 0.8rem; font-weight: 600; color: accent"/>
+            </hstack>
+
+            <text visible-if="dsx.variable.openTag == dsx.item.tag_name"
+                  value="{{ notes }}"
+                  style="font-size: 0.85rem; color: secondary"/>
+          </vstack>
+        </row>
+      </list>
+
+      <vstack visible-if="dsx.formula.visible.length == 0" padding="32" spacing="10" align="center">
+        <text value="Nothing matches that filter" style="color: secondary"/>
+        <button label="Clear filters" on:tap="clearFilters()"/>
+      </vstack>
+    </vstack>
+  </scroll>
+</vstack>

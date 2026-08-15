@@ -1,0 +1,59 @@
+DSX DESKTOP MEDIA — THIRD-PARTY NOTICES
+=======================================
+
+This directory is packaged inside the DSX desktop runtime JAR. It records the
+additional libraries introduced by the first-party desktop audio/video/Lottie
+renderers and carries their release-matched license and required notice text.
+
+OpenJFX 21.0.8 (source release tag 21.0.8+2)
+------------------------------------------------
+Modules: javafx-base, javafx-graphics, javafx-media, javafx-swing
+License: GNU General Public License version 2 with the Classpath Exception.
+Source: https://github.com/openjdk/jfx21u/tree/21.0.8%2B2
+Binary origin: Maven Central org.openjfx, pinned by SHA-256 in
+OpenSource/Engine/Android/gradle/verification-metadata.xml.
+
+The target-classified javafx-media binaries contain target-native media
+components. Their exact upstream notices and license texts are included here:
+
+- OpenJFX-LICENSE.txt
+- OpenJFX-ADDITIONAL_LICENSE_INFO.txt
+- OpenJFX-ASSEMBLY_EXCEPTION.txt
+- OpenJFX-javafx.media-directshow.md
+- OpenJFX-javafx.media-glib.md
+- OpenJFX-javafx.media-gstreamer.md
+- OpenJFX-javafx.media-libffi.md
+
+DSX redistributes the Maven artifacts unmodified. The GStreamer notice names
+the corresponding modified-library source location and removal instructions.
+
+Compottie 2.1.0
+---------------
+Modules: compottie, compottie-core, compottie-dot (desktop variants)
+License: MIT
+Source: https://github.com/alexzhirkevich/compottie/tree/2.1.0
+License copy: Compottie-LICENSE.txt
+
+Keight 0.0.04
+-------------
+Modules: keight, keight-core (JVM variants), transitively used by Compottie.
+License: MIT
+Source: https://github.com/alexzhirkevich/keight/tree/0.0.04
+License copy: Keight-LICENSE.txt
+
+Apache-2.0 transitive runtime components
+----------------------------------------
+
+- Okio 3.16.4 — https://github.com/square/okio/tree/parent-3.16.4
+  License copy: Okio-LICENSE.txt
+- kotlinx-datetime 0.7.1 — https://github.com/Kotlin/kotlinx-datetime/tree/v0.7.1
+  License copy: Kotlinx-Datetime-LICENSE.txt
+- kotlinx-serialization 1.9.0 — https://github.com/Kotlin/kotlinx.serialization/tree/v1.9.0
+  License copy: Kotlinx-Serialization-LICENSE.txt
+- kotlinx-coroutines 1.10.2 — https://github.com/Kotlin/kotlinx.coroutines/tree/1.10.2
+  License copy: Kotlinx-Coroutines-LICENSE.txt
+
+Other transitive artifacts (Kotlin, Compose, AndroidX) retain
+their upstream license metadata and are already members of the DSX desktop
+runtime dependency graph. This notice does not replace any notice required by
+those projects or the application developer's own dependency set.

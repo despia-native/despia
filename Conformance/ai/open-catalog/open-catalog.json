@@ -1,0 +1,869 @@
+{
+ "_note": "THE OPEN CATALOG: adding a model at RUNTIME (`models.add`), and refusing a download this device cannot use. The shipped catalog is eleven curated rows; this is the other half of the same promise — any model the app's allowlist admits, resolved from a registry reference and turned into an ORDINARY entry that flows through every existing mechanism unchanged (download, the four locks, pre-flight, fit, the governor, load). THE LAW ENCODED HERE: the registry's answer is UNTRUSTED INPUT, not a fact. (1) The APP declares where to ask — `catalog.sources` carries URL TEMPLATES, so a response can never say where the next request goes; an undeclared registry is refused, which is the same fail-closed default `allowed_model_hosts` has. (2) BOTH LEGS are origin-checked: the metadata call and the file, each before a byte is sent, and NOTHING in a response may widen the allowlist — a resolved file URL on a host the app never named is refused by name. (3) A revision must be an IMMUTABLE COMMIT; `main` names different bytes on different days and never reaches a stored entry. (4) The DIGEST is a claim: well-formed it rides into the entry and the download verifies against it, malformed it is DROPPED and the device pins what it actually downloaded — a digest that can never match is worse than no digest. (5) The FILE OUTRANKS THE REGISTRY on anything the bytes can answer: context length, architecture and parameter count come from the GGUF header when it can be read, and the entry records the tier every field came from, because an API that is wrong about a context length produces a model that truncates silently. (6) A LICENCE THE REPO DID NOT STATE IS NOT ONE ANYBODY INVENTS — the entry records `unknown` and the surface refuses if it wants to. (7) An added entry is MARKED FOREVER (`origin.added`, and `added: true` on every row) and lives in its own overlay, so an OTA catalog cannot delete what a user chose and a shipped id can never be shadowed. (8) Its requirements were DERIVED, not measured, so every verdict computed from them says `predicted`. Also pinned here: a download is refused BEFORE the bytes move when the device cannot run the model, with the verdict, the reason, and the best alternative that does run — or the explicit statement that there is none.",
+ "cases": [
+  {
+   "name": "open-catalog: a Hugging Face reference becomes a commit-pinned entry that downloads",
+   "_note": "The whole path, end to end. `models.add` resolves, synthesises and installs an entry; `download` then treats it like any other row and the four locks run unchanged. The URL carries the COMMIT the registry resolved to, never the branch that was asked for.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "sources": {
+     "hf": {
+      "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+      "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}",
+      "page": "https://huggingface.co/{repo}",
+      "default_revision": "main"
+     }
+    }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 4096, "free_disk_mb": 20000 },
+   "origins": {
+    "https://huggingface.co/api/models/acme/tiny-gguf/revision/main?blobs=true": {
+     "repo": {
+      "sha": "1111111111111111111111111111111111111111",
+      "cardData": { "license": "apache-2.0", "language": [ "en" ] },
+      "siblings": [
+       { "rfilename": "README.md", "size": 4096 },
+       { "rfilename": "tiny-Q4_K_M.gguf", "size": 639150592,
+         "lfs": { "sha256": "aaaa000000000000000000000000000000000000000000000000000000000001", "size": 639150592 } }
+      ]
+     }
+    },
+    "https://huggingface.co/acme/tiny-gguf/resolve/1111111111111111111111111111111111111111/tiny-Q4_K_M.gguf": {
+     "sha256": "aaaa000000000000000000000000000000000000000000000000000000000001",
+     "gguf": true,
+     "header": {
+      "general.architecture": "qwen3",
+      "general.parameter_count": 596049920,
+      "qwen3.context_length": 8192,
+      "qwen3.block_count": 28,
+      "qwen3.embedding_length": 1024,
+      "qwen3.attention.head_count": 16,
+      "qwen3.attention.head_count_kv": 8,
+      "qwen3.attention.key_length": 128
+     }
+    }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add",
+                "args": { "source": "hf:acme/tiny-gguf/tiny-Q4_K_M.gguf" }, "mode": "await", "as": "a" } },
+    { "call": { "scheme": "intelligence", "action": "download",
+                "args": { "model": "tiny-gguf-tiny-q4-k-m" }, "mode": "await", "as": "d" } },
+    { "call": { "scheme": "intelligence", "action": "models.installed", "args": { }, "mode": "await", "as": "m" } }
+   ],
+   "expect": {
+    "results": {
+     "a": {
+      "added": true,
+      "entry": {
+       "schema_version": 1,
+       "id": "tiny-gguf-tiny-q4-k-m",
+       "family": "qwen3",
+       "engine": "gguf",
+       "format": "gguf",
+       "status": "active",
+       "requires": { "abi": 1 },
+       "files": [ { "name": "tiny-Q4_K_M.gguf", "bytes": 639150592,
+                    "sha256": "aaaa000000000000000000000000000000000000000000000000000000000001",
+                    "urls": [ "https://huggingface.co/acme/tiny-gguf/resolve/1111111111111111111111111111111111111111/tiny-Q4_K_M.gguf" ] } ],
+       "license": { "id": "apache-2.0", "url": "https://huggingface.co/acme/tiny-gguf" },
+       "languages": [ "en" ],
+       "context_length": 4096,
+       "context_length_max": 8192,
+       "parameters": 596049920,
+       "requirements": { "footprint_mb": 960, "mapped_mb": 610, "disk_mb": 610 },
+       "origin": { "added": true, "registry": "hf", "repo": "acme/tiny-gguf",
+                   "revision": "1111111111111111111111111111111111111111" }
+      },
+      "verdict": { "verdict": "runs_well", "predicted": true }
+     },
+     "d": { "ok": true },
+     "m": { "rows": [ { "id": "tiny-gguf-tiny-q4-k-m", "added": true, "verdict": "runs_well" } ] }
+    },
+    "resolveAttempts": [
+     { "url": "https://huggingface.co/api/models/acme/tiny-gguf/revision/main?blobs=true", "leg": "registry" },
+     { "url": "https://huggingface.co/acme/tiny-gguf/resolve/1111111111111111111111111111111111111111/tiny-Q4_K_M.gguf", "leg": "file" }
+    ],
+    "downloaded": [ { "model": "tiny-gguf-tiny-q4-k-m", "verified": true } ],
+    "downloadCount": 1
+   }
+  },
+  {
+   "name": "open-catalog: a quant preference picks one file, deterministically",
+   "_note": "`prefer` is how a developer says Q4_K_M without knowing the repo's filename convention. The choice must not depend on the order the API happened to list its files: a repo that reorders would otherwise silently change which model an app installs. Shortest matching name wins, then lexicographic.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [], "entries": [],
+    "sources": { "hf": {
+     "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+     "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}",
+     "default_revision": "main" } }
+   },
+   "origins": {
+    "https://huggingface.co/api/models/acme/many/revision/main?blobs=true": {
+     "repo": {
+      "sha": "2222222222222222222222222222222222222222",
+      "cardData": { "license": "mit" },
+      "siblings": [
+       { "rfilename": "many-Q8_0.gguf", "size": 1000, "lfs": { "sha256": "bbbb000000000000000000000000000000000000000000000000000000000001", "size": 1000 } },
+       { "rfilename": "many-Q4_K_M-imatrix.gguf", "size": 1000, "lfs": { "sha256": "bbbb000000000000000000000000000000000000000000000000000000000002", "size": 1000 } },
+       { "rfilename": "many-Q4_K_M.gguf", "size": 1000, "lfs": { "sha256": "bbbb000000000000000000000000000000000000000000000000000000000003", "size": 1000 } }
+      ]
+     }
+    }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add",
+                "args": { "source": "hf:acme/many", "prefer": "Q4_K_M" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "results": { "a": { "entry": { "id": "many-many-q4-k-m", "files": [ { "name": "many-Q4_K_M.gguf" } ] } } }
+   }
+  },
+  {
+   "name": "open-catalog: a repository that publishes several GGUFs asks which one",
+   "_note": "Guessing is the wrong answer: two quants of the same model differ by gigabytes and by quality, and picking one silently is picking for the developer.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/many/revision/main?blobs=true": {
+     "repo": { "sha": "2222222222222222222222222222222222222222", "cardData": { "license": "mit" },
+      "siblings": [ { "rfilename": "many-Q8_0.gguf", "size": 1000 }, { "rfilename": "many-Q4_K_M.gguf", "size": 1000 } ] }
+    }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/many" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "models.add", "code": "ambiguous_file",
+                  "data": { "available": [ "many-Q8_0.gguf", "many-Q4_K_M.gguf" ] } } ]
+   }
+  },
+  {
+   "name": "open-catalog: a moving revision never reaches a stored entry",
+   "_note": "The registry answered, but not with a commit. `main` names different bytes on different days, and a digest cannot catch a change it would simply be recomputed for — so the add fails rather than pinning hope.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/moving/revision/main?blobs=true": {
+     "repo": { "sha": "main", "cardData": { "license": "mit" },
+               "siblings": [ { "rfilename": "m.gguf", "size": 1000 } ] }
+    }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/moving/m.gguf" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "models.add", "code": "revision_not_immutable", "data": { "repo": "acme/moving" } } ],
+    "resolveAttemptCount": 1
+   }
+  },
+  {
+   "name": "open-catalog: nothing in a registry's answer may widen the allowlist",
+   "_note": "THE CENTRAL CASE. The app allows huggingface.co and the resolved file URL lands somewhere else. The add is refused BY HOST, the file is never contacted, and the only way that host becomes reachable is a developer adding it to `allowed_model_hosts` deliberately. A response that could widen its own allowlist would not be an allowlist.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://mirror.attacker.example/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/elsewhere/revision/main?blobs=true": {
+     "repo": { "sha": "3333333333333333333333333333333333333333", "cardData": { "license": "mit" },
+               "siblings": [ { "rfilename": "m.gguf", "size": 1000 } ] }
+    }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/elsewhere/m.gguf" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "models.add", "code": "origin_not_allowed",
+                  "data": { "host": "mirror.attacker.example", "leg": "file" } } ],
+    "resolveAttempts": [ { "leg": "registry" } ],
+    "resolveAttemptCount": 1,
+    "downloadAttemptCount": 0
+   }
+  },
+  {
+   "name": "open-catalog: a registry on a host the app never allowed is not contacted at all",
+   "_note": "The allowlist covers the METADATA leg too. A refusal that has already made the request has told that host the app exists, which is most of what an unwanted origin wanted — so the count of attempts is zero, and that is the assertion.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://registry.attacker.example/api/models/{repo}?rev={revision}",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/x/m.gguf" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "models.add", "code": "origin_not_allowed",
+                  "data": { "host": "registry.attacker.example", "leg": "registry" } } ],
+    "resolveAttemptCount": 0
+   }
+  },
+  {
+   "name": "open-catalog: an app that declared no registry adds nothing",
+   "_note": "Fail closed, the same default the origin allowlist has. An app that has not said which registries it resolves against has not opted into resolving against any, and the answer names what IS declared so the message is actionable.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/x/m.gguf" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "models.add", "code": "source_unsupported",
+                  "reason": "registry_not_declared", "data": { "registry": "hf", "declared": [] } } ],
+    "resolveAttemptCount": 0
+   }
+  },
+  {
+   "name": "open-catalog: the FILE outranks the registry on context length",
+   "_note": "The registry claims 999999 and the header says 8192. The entry serves 4096 (the context the engine sizes its KV cache to), records 8192 as the maximum a device could be asked to pay for, and states that both came from the FILE. An API that is wrong about a context length produces a model that truncates silently, which is a defect nobody can see.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/liar/revision/main?blobs=true": {
+     "repo": { "sha": "4444444444444444444444444444444444444444", "cardData": { "license": "mit" },
+               "config": { "model_type": "not-really" },
+               "gguf": { "architecture": "not-really", "context_length": 999999 },
+               "siblings": [ { "rfilename": "m.gguf", "size": 639150592,
+                               "lfs": { "sha256": "cccc000000000000000000000000000000000000000000000000000000000001", "size": 639150592 } } ] }
+    },
+    "https://huggingface.co/acme/liar/resolve/4444444444444444444444444444444444444444/m.gguf": {
+     "sha256": "cccc000000000000000000000000000000000000000000000000000000000001", "gguf": true,
+     "header": { "general.architecture": "qwen3", "qwen3.context_length": 8192, "qwen3.block_count": 28,
+                 "qwen3.embedding_length": 1024, "qwen3.attention.head_count": 16,
+                 "qwen3.attention.head_count_kv": 8, "qwen3.attention.key_length": 128 }
+    }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/liar/m.gguf" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "results": { "a": { "entry": {
+     "family": "qwen3",
+     "context_length": 4096,
+     "context_length_max": 8192,
+     "requirements": { "footprint_mb": 960, "mapped_mb": 610, "disk_mb": 610 },
+     "origin": { "provenance": { "context_length": "file", "family": "file",
+                                 "requirements": "derived_from_header" } }
+    } } }
+   }
+  },
+  {
+   "name": "open-catalog: with no header to read, the entry says the numbers are estimates",
+   "_note": "The origin served no header, so nothing about the file's shape is known and the KV cache is not computable. The estimate takes the TOP of the range the eleven measured rows show rather than assuming the cache is free — refusing a model that would have run is recoverable, an out-of-memory kill is not — and the provenance says `estimated_from_size` so nobody reads it as a measurement.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/blind/revision/main?blobs=true": {
+     "repo": { "sha": "5555555555555555555555555555555555555555", "cardData": { "license": "mit" },
+               "siblings": [ { "rfilename": "m.gguf", "size": 639150592,
+                               "lfs": { "sha256": "dddd000000000000000000000000000000000000000000000000000000000001", "size": 639150592 } } ] }
+    }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/blind/m.gguf" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "results": { "a": { "entry": {
+     "context_length": 4096,
+     "category": "unknown",
+     "requirements": { "footprint_mb": 928, "mapped_mb": 610, "disk_mb": 610 },
+     "origin": { "provenance": { "context_length": "default", "family": "unknown",
+                                 "category": "unknown", "requirements": "estimated_from_size" } }
+    } } }
+   }
+  },
+  {
+   "name": "open-catalog: an embedding model is not a chat model",
+   "_note": "`category` used to be the literal \"text\" on every synthesised entry, which made an embedding model a chat model as far as everything downstream could tell. It is derived from the bytes now, and this is the case the architecture alone CANNOT decide: the shipped catalog has three `family: \"qwen3\"` rows and one of them is `category: \"embedding\"`. What separates them is `<arch>.pooling_type` — a model that pools its hidden states into one vector is an embedding model — verified against the real files, where Qwen3-Embedding-0.6B-Q8_0 declares `qwen3.pooling_type = 3` and Qwen3-0.6B-Q8_0 declares no pooling key at all. The declared `outputs` follow, because an entry whose modality contradicted its category would be refused at the seam for this file's mistake.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}",
+    "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/vectors/revision/main?blobs=true": {
+     "repo": { "sha": "6161616161616161616161616161616161616161", "cardData": { "license": "apache-2.0" },
+               "siblings": [ { "rfilename": "e.gguf", "size": 639150592,
+                               "lfs": { "sha256": "e100000000000000000000000000000000000000000000000000000000000001", "size": 639150592 } } ] } },
+    "https://huggingface.co/acme/vectors/resolve/6161616161616161616161616161616161616161/e.gguf": {
+     "sha256": "e100000000000000000000000000000000000000000000000000000000000001", "gguf": true,
+     "header": { "general.architecture": "qwen3", "qwen3.context_length": 32768, "qwen3.block_count": 28,
+                 "qwen3.embedding_length": 1024, "qwen3.attention.head_count": 16,
+                 "qwen3.attention.head_count_kv": 8, "qwen3.attention.key_length": 128,
+                 "qwen3.pooling_type": 3 } }
+   },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/vectors/e.gguf" }, "mode": "await", "as": "a" } } ],
+   "expect": {
+    "results": { "a": { "entry": {
+     "family": "qwen3",
+     "category": "embedding",
+     "inputs": [ "text" ],
+     "outputs": [ "embedding" ],
+     "origin": { "provenance": { "family": "file", "category": "pooling" } }
+    } } }
+   }
+  },
+  {
+   "name": "open-catalog: a pooling type of zero is the file saying it does NOT pool",
+   "_note": "Zero is the vocabulary's own \"no pooling\", so it is read as absence rather than as a value. A qwen3 file that explicitly declares no pooling falls through to the architecture, which the shipped catalog's five text rows answer. Treating the key's PRESENCE as the signal would turn every such file into an embedding model.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}",
+    "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/unpooled/revision/main?blobs=true": {
+     "repo": { "sha": "6262626262626262626262626262626262626262", "cardData": { "license": "apache-2.0" },
+               "siblings": [ { "rfilename": "u.gguf", "size": 639150592,
+                               "lfs": { "sha256": "e200000000000000000000000000000000000000000000000000000000000001", "size": 639150592 } } ] } },
+    "https://huggingface.co/acme/unpooled/resolve/6262626262626262626262626262626262626262/u.gguf": {
+     "sha256": "e200000000000000000000000000000000000000000000000000000000000001", "gguf": true,
+     "header": { "general.architecture": "qwen3", "qwen3.context_length": 32768, "qwen3.block_count": 28,
+                 "qwen3.embedding_length": 1024, "qwen3.attention.head_count": 16,
+                 "qwen3.attention.head_count_kv": 8, "qwen3.attention.key_length": 128,
+                 "qwen3.pooling_type": 0 } }
+   },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/unpooled/u.gguf" }, "mode": "await", "as": "a" } } ],
+   "expect": {
+    "results": { "a": { "entry": {
+     "category": "text",
+     "outputs": [ "text-stream" ],
+     "origin": { "provenance": { "category": "architecture" } }
+    } } }
+   }
+  },
+  {
+   "name": "open-catalog: a speech model is categorised from its architecture, and eats audio",
+   "_note": "The other half of the mis-categorisation. The four `family: \"whisper\"` rows in the shipped catalog are all `category: \"asr\"`, and `family` IS the architecture slot — synthesis fills it from `general.architecture` — so those rows are an architecture table somebody measured and shipped. A header this build can read the architecture out of and nothing else still answers the question, which is why the category is derived before any of the KV-cache facts.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}",
+    "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/ears/revision/main?blobs=true": {
+     "repo": { "sha": "6363636363636363636363636363636363636363", "cardData": { "license": "mit" },
+               "siblings": [ { "rfilename": "w.gguf", "size": 487601967,
+                               "lfs": { "sha256": "e300000000000000000000000000000000000000000000000000000000000001", "size": 487601967 } } ] } },
+    "https://huggingface.co/acme/ears/resolve/6363636363636363636363636363636363636363/w.gguf": {
+     "sha256": "e300000000000000000000000000000000000000000000000000000000000001", "gguf": true,
+     "header": { "general.architecture": "whisper" } }
+   },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/ears/w.gguf" }, "mode": "await", "as": "a" } } ],
+   "expect": {
+    "results": { "a": { "entry": {
+     "family": "whisper",
+     "category": "asr",
+     "inputs": [ "audio" ],
+     "outputs": [ "text-stream" ],
+     "requirements": { "footprint_mb": 704, "mapped_mb": 466, "disk_mb": 466 },
+     "origin": { "provenance": { "family": "file", "category": "architecture",
+                                 "requirements": "estimated_from_size" } }
+    } } }
+   }
+  },
+  {
+   "name": "open-catalog: an architecture this build has no evidence about is unknown, never \"text\"",
+   "_note": "The table is exactly what the shipped catalog's eleven rows say and nothing else. Filling it out from memory — llama, phi3, bert and friends — would be the same class of mistake as the footprint coefficient: a plausible value nobody measured, which the rest of the system then treats as a fact. `unknown` is a real recorded value, so a surface can say \"we do not know what this is\" and the fallback matcher knows not to guess.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}",
+    "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/liquid/revision/main?blobs=true": {
+     "repo": { "sha": "6464646464646464646464646464646464646464", "cardData": { "license": "other" },
+               "siblings": [ { "rfilename": "l.gguf", "size": 229309376,
+                               "lfs": { "sha256": "e400000000000000000000000000000000000000000000000000000000000001", "size": 229309376 } } ] } },
+    "https://huggingface.co/acme/liquid/resolve/6464646464646464646464646464646464646464/l.gguf": {
+     "sha256": "e400000000000000000000000000000000000000000000000000000000000001", "gguf": true,
+     "header": { "general.architecture": "lfm2", "lfm2.context_length": 128000 } }
+   },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/liquid/l.gguf" }, "mode": "await", "as": "a" } } ],
+   "expect": {
+    "results": { "a": { "entry": {
+     "family": "lfm2",
+     "category": "unknown",
+     "origin": { "provenance": { "family": "file", "category": "unknown" } }
+    } } }
+   }
+  },
+  {
+   "name": "open-catalog: a licence the repository did not state is recorded as unknown, never invented",
+   "_note": "Engine is not weights. This package is Apache-2.0 and a model is whatever its authors said it is, so an unlicensed repo produces an entry that SAYS it is unlicensed plus an audible notice — and a surface that refuses to serve unlicensed weights has the field it needs to do that. The authoring tool refuses outright instead, because a human is standing there who can go and fix it.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/nolicence/revision/main?blobs=true": {
+     "repo": { "sha": "6666666666666666666666666666666666666666", "cardData": { },
+               "siblings": [ { "rfilename": "m.gguf", "size": 1000 } ] }
+    }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/nolicence/m.gguf" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "results": { "a": { "entry": { "license": { "id": "unknown" },
+                                   "origin": { "provenance": { "license": "unknown" } } } } },
+    "notices": [ { "code": "license_unknown", "data": { "model": "nolicence-m", "repo": "acme/nolicence" } } ]
+   }
+  },
+  {
+   "name": "open-catalog: a malformed digest is dropped, and the device pins what it downloaded",
+   "_note": "A digest that can never match is worse than no digest, because the pin-on-first-download path is the one that would have been safe. The registry's 12-character 'sha256' is discarded, the entry says so, and delivery's arbitrary-origin half takes over: the first download pins the real digest and every later fetch is verified against it forever.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "sources": { "hf": {
+     "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+     "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "device": { "class": "phone-mid", "available_memory_mb": 4096, "free_disk_mb": 20000 },
+   "origins": {
+    "https://huggingface.co/api/models/acme/badhash/revision/main?blobs=true": {
+     "repo": { "sha": "7777777777777777777777777777777777777777", "cardData": { "license": "mit" },
+               "siblings": [ { "rfilename": "m.gguf", "size": 1000, "lfs": { "sha256": "not-a-digest", "size": 1000 } } ] }
+    },
+    "https://huggingface.co/acme/badhash/resolve/7777777777777777777777777777777777777777/m.gguf": {
+     "sha256": "eeee000000000000000000000000000000000000000000000000000000000001", "gguf": true }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/badhash/m.gguf" }, "mode": "await", "as": "a" } },
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "badhash-m" }, "mode": "await", "as": "d" } }
+   ],
+   "expect": {
+    "results": { "a": { "entry": { "origin": { "provenance": { "sha256": "discarded_malformed" } } } } },
+    "downloaded": [ { "model": "badhash-m", "verified": true } ],
+    "pinnedDigests": { "badhash-m": "eeee000000000000000000000000000000000000000000000000000000000001" }
+   }
+  },
+  {
+   "name": "open-catalog: an added model may not take a shipped model's id",
+   "_note": "The catalog is the fleet's document and this overlay is one device's. A device-local addition that could shadow a shipped id would quietly change what every task routes to, on that device only, which is the worst kind of bug to be told about over support.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "acme-m", "engine": "gguf", "format": "gguf" } ],
+    "sources": { "hf": {
+     "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+     "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } }
+   },
+   "origins": {
+    "https://huggingface.co/api/models/acme/x/revision/main?blobs=true": {
+     "repo": { "sha": "8888888888888888888888888888888888888888", "cardData": { "license": "mit" },
+               "siblings": [ { "rfilename": "m.gguf", "size": 1000 } ] }
+    }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add",
+                "args": { "source": "hf:acme/x/m.gguf", "id": "acme-m" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "models.add", "code": "id_conflict",
+                  "data": { "model": "acme-m", "origin": "catalog" } } ]
+   }
+  },
+  {
+   "name": "open-catalog: an added model survives a restart and stays distinguishable",
+   "_note": "The overlay is read back at construction — a new host is a new launch — and the restored entry is a full citizen: it lists, it fits, it downloads. It is also permanently marked, on the row a surface renders and inside the entry, so nothing can present a model the user chose as one the app shipped. A shipped row of the same id always wins, and the collision is audible rather than silent.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "entries": [ { "id": "shipped", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 200, "mapped_mb": 200, "disk_mb": 200 } } ],
+    "added": [
+     { "id": "restored", "engine": "gguf", "format": "gguf",
+       "requirements": { "footprint_mb": 300, "mapped_mb": 610, "disk_mb": 610 },
+       "origin": { "added": true, "registry": "hf", "repo": "acme/restored" } },
+     { "id": "shipped", "engine": "gguf", "format": "gguf",
+       "origin": { "added": true, "registry": "hf", "repo": "acme/impostor" } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 4096, "free_disk_mb": 20000 },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.available", "args": { }, "mode": "await", "as": "m" } },
+    { "call": { "scheme": "intelligence", "action": "models.added", "args": { }, "mode": "await", "as": "u" } }
+   ],
+   "expect": {
+    "results": {
+     "m": { "rows": [ { "id": "shipped", "verdict": "runs_well" }, { "id": "restored", "added": true } ] },
+     "u": { "rows": [ { "id": "restored", "added": true, "predicted": true } ] }
+    },
+    "catalogNotices": [ { "code": "added_entry_skipped", "reason": "id_shadows_catalog", "entry": "shipped" } ]
+   }
+  },
+  {
+   "name": "open-catalog: a split model is refused rather than half-installed",
+   "_note": "`model-00001-of-00003.gguf` is one shard. An entry names a single file, and half a model that passes every lock is still half a model — so it is refused when it is added, not discovered at load time.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/split/revision/main?blobs=true": {
+     "repo": { "sha": "9999999999999999999999999999999999999999", "cardData": { "license": "mit" },
+               "siblings": [ { "rfilename": "big-00001-of-00003.gguf", "size": 1000 },
+                             { "rfilename": "big-00002-of-00003.gguf", "size": 1000 },
+                             { "rfilename": "big-00003-of-00003.gguf", "size": 1000 } ] }
+    }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/split/big-00001-of-00003.gguf" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "models.add", "code": "unsupported", "data": { "reason": "sharded_model" } } ]
+   }
+  },
+  {
+   "name": "open-catalog: a source that is not a registry reference is refused before anything resolves",
+   "_note": "The reference is caller input and ends up inside a URL. A path segment that is not a plain name never gets there, and the refusal costs no request.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/../../etc/passwd" }, "mode": "await", "as": "a" } },
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "just-a-name" }, "mode": "await", "as": "b" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "models.add", "code": "source_malformed" },
+                { "action": "models.add", "code": "source_malformed" } ],
+    "resolveAttemptCount": 0
+   }
+  },
+  {
+   "name": "open-catalog: a registry that does not answer is a typed failure, not a half-added model",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": { "installed": [], "entries": [], "sources": { "hf": {
+    "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+    "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}", "default_revision": "main" } } },
+   "origins": {
+    "https://huggingface.co/api/models/acme/down/revision/main?blobs=true": { "unreachable": true }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/down/m.gguf" }, "mode": "await", "as": "a" } },
+    { "call": { "scheme": "intelligence", "action": "models.available", "args": { }, "mode": "await", "as": "m" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "models.add", "code": "resolve_failed", "data": { "repo": "acme/down" } } ],
+    "results": { "m": { "rows": [] } }
+   }
+  },
+  {
+   "name": "download: a model this device cannot hold is refused before the bytes move",
+   "_note": "THE ORDERING THAT MATTERS. Fit used to run only on the REQUEST path, so a device with plenty of disk and no memory would download gigabytes and discover at load time that it could not run them — the user paying the wait, the data and the battery for an error. The refusal names the verdict AND the reason, because 'too big for memory' and 'too big for disk' send a person to two completely different remedies, and nothing is fetched.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "entries": [ { "id": "huge", "engine": "gguf", "format": "gguf", "category": "text",
+                   "requirements": { "footprint_mb": 6000, "mapped_mb": 4000, "disk_mb": 4000 },
+                   "files": [ { "name": "huge.gguf", "bytes": 4194304000,
+                                "sha256": "1010000000000000000000000000000000000000000000000000000000000001",
+                                "urls": [ "https://huggingface.co/acme/huge/resolve/1111111111111111111111111111111111111111/huge.gguf" ] } ] } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "huge" }, "mode": "await", "as": "d" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "model_too_big", "reason": "memory",
+                  "data": { "model": "huge", "verdict": "too_big", "reason": "memory",
+                            "fallback": { "none": true, "reason": "no_model_of_this_kind_runs_here" } } } ],
+    "downloadAttemptCount": 0,
+    "downloadCount": 0
+   }
+  },
+  {
+   "name": "download: the refusal names the best model that DOES run on this device",
+   "_note": "A refusal that only says no is half an answer. The fallback is the largest model of the same kind that runs here, because the biggest model that runs is the best quality this device can have — and `runs_well` beats `runs_slow` before size is considered at all. A speech model is never offered to someone who asked for a text one: the category has to match.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "entries": [
+     { "id": "huge", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 6000, "mapped_mb": 4000, "disk_mb": 4000 } },
+     { "id": "small", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 300, "mapped_mb": 300, "disk_mb": 300 } },
+     { "id": "medium", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 900, "mapped_mb": 1200, "disk_mb": 1200 } },
+     { "id": "voice", "engine": "gguf", "format": "gguf", "category": "asr",
+       "requirements": { "footprint_mb": 100, "mapped_mb": 100, "disk_mb": 3000 } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "huge" }, "mode": "await", "as": "d" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "model_too_big",
+                  "data": { "fallback": { "model": "medium", "installed": false, "download_mb": 1200,
+                                          "verdict": { "verdict": "runs_well" } } } } ],
+    "downloadAttemptCount": 0
+   }
+  },
+  {
+   "name": "download: when nothing of that kind runs here, the refusal says so",
+   "_note": "An absent field reads as 'we did not look'. 'There is no model of this kind that runs on this device' is a real and useful answer, and a UI can act on it — hide the feature, offer the cloud, say the phone is too old — where a missing key leaves it guessing.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [
+     { "id": "big-a", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 6000, "mapped_mb": 4000, "disk_mb": 4000 } },
+     { "id": "big-b", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 5000, "mapped_mb": 4000, "disk_mb": 4000 } },
+     { "id": "tiny-voice", "engine": "gguf", "format": "gguf", "category": "asr",
+       "requirements": { "footprint_mb": 100, "mapped_mb": 100, "disk_mb": 100 } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "big-a" }, "mode": "await", "as": "d" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "model_too_big",
+                  "data": { "fallback": { "none": true, "reason": "no_model_of_this_kind_runs_here",
+                                          "category": "text" } } } ]
+   }
+  },
+  {
+   "name": "download: a refused speech model is never answered with a chat model",
+   "_note": "THE MIS-TARGETING. With `category` hardcoded to \"text\" on every synthesised entry, refusing a runtime-added Whisper GGUF offered the largest TEXT model that runs — a chat model, to someone who asked for something that can hear. Derived, the entry is `asr` and the fallback is the speech model, even though the chat model is bigger and would win the size tie if the category filter were doing nothing. The catalog here is built so that the two answers differ: if this case ever goes green with `chatty` in it, the derivation has regressed.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "sources": { "hf": {
+     "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+     "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}",
+     "default_revision": "main" } },
+    "entries": [
+     { "id": "chatty", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 900, "mapped_mb": 1200, "disk_mb": 1200 } },
+     { "id": "voice-small", "engine": "gguf", "format": "gguf", "category": "asr",
+       "requirements": { "footprint_mb": 700, "mapped_mb": 466, "disk_mb": 466 } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "origins": {
+    "https://huggingface.co/api/models/acme/bigears/revision/main?blobs=true": {
+     "repo": { "sha": "6565656565656565656565656565656565656565", "cardData": { "license": "mit" },
+               "siblings": [ { "rfilename": "big.gguf", "size": 1624555275,
+                               "lfs": { "sha256": "e500000000000000000000000000000000000000000000000000000000000001", "size": 1624555275 } } ] } },
+    "https://huggingface.co/acme/bigears/resolve/6565656565656565656565656565656565656565/big.gguf": {
+     "sha256": "e500000000000000000000000000000000000000000000000000000000000001", "gguf": true,
+     "header": { "general.architecture": "whisper" } }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/bigears/big.gguf", "id": "added-voice" }, "mode": "await", "as": "a" } },
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "added-voice" }, "mode": "await", "as": "d" } }
+   ],
+   "expect": {
+    "results": { "a": { "entry": { "category": "asr" } } },
+    "absent": [ { "action": "download", "code": "model_too_big",
+                  "data": { "model": "added-voice",
+                            "fallback": { "model": "voice-small", "download_mb": 466,
+                                          "verdict": { "verdict": "runs_well" } } } } ],
+    "downloadAttemptCount": 0
+   }
+  },
+  {
+   "name": "download: the fallback declines to substitute across an unknown category",
+   "_note": "The offer means \"another model of the same kind\", so it is only sound when the kind is known on BOTH sides. This build could not classify an lfm2 file from any evidence it has, so it suggests nothing rather than the largest thing that happens to run — and the refusal says which of the two it is, because \"no model of this kind runs here\" and \"we could not tell what kind this is\" send a developer to completely different places. A model of unknown category is also never offered as a replacement for something else.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "sources": { "hf": {
+     "api": "https://huggingface.co/api/models/{repo}/revision/{revision}?blobs=true",
+     "file": "https://huggingface.co/{repo}/resolve/{commit}/{path}",
+     "default_revision": "main" } },
+    "entries": [
+     { "id": "chatty", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 900, "mapped_mb": 1200, "disk_mb": 1200 } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "origins": {
+    "https://huggingface.co/api/models/acme/bigliquid/revision/main?blobs=true": {
+     "repo": { "sha": "6666666666666666666666666666666666666666", "cardData": { "license": "other" },
+               "siblings": [ { "rfilename": "big.gguf", "size": 2489757856,
+                               "lfs": { "sha256": "e600000000000000000000000000000000000000000000000000000000000001", "size": 2489757856 } } ] } },
+    "https://huggingface.co/acme/bigliquid/resolve/6666666666666666666666666666666666666666/big.gguf": {
+     "sha256": "e600000000000000000000000000000000000000000000000000000000000001", "gguf": true,
+     "header": { "general.architecture": "lfm2" } }
+   },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.add", "args": { "source": "hf:acme/bigliquid/big.gguf", "id": "added-liquid" }, "mode": "await", "as": "a" } },
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "added-liquid" }, "mode": "await", "as": "d" } }
+   ],
+   "expect": {
+    "results": { "a": { "entry": { "category": "unknown" } } },
+    "absent": [ { "action": "download", "code": "model_too_big",
+                  "data": { "model": "added-liquid",
+                            "fallback": { "none": true, "reason": "category_unknown",
+                                          "category": "unknown" } } } ],
+    "downloadAttemptCount": 0
+   }
+  },
+  {
+   "name": "download: a quarantined model is not downloaded again either",
+   "_note": "The crash marker survived a launch, so the model is held back until the user clears it. Re-downloading it would be the same crash loop with a data bill attached.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "entries": [
+     { "id": "crashy", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 300, "mapped_mb": 300, "disk_mb": 300 } },
+     { "id": "safe", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 300, "mapped_mb": 300, "disk_mb": 300 } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 4000, "free_disk_mb": 20000, "quarantined": [ "crashy" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "crashy" }, "mode": "await", "as": "d" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "model_quarantined",
+                  "data": { "verdict": "quarantined", "fallback": { "model": "safe" } } } ],
+    "downloadAttemptCount": 0
+   }
+  },
+  {
+   "name": "best: the router's declared preference order decides what to download",
+   "_note": "`models.best` is the question a developer asks BEFORE `models` has anything in it: what should this device install for this job. It is `route` over the whole catalog rather than the installed subset — the app's declared preference order IS its ranking, and no size heuristic overrides it — with stickiness off, because a resident model cannot be the answer to what to install. It returns the verdict with the id so a surface can show 'runs well, 1.2 GB' instead of a bare name.",
+   "router": {
+    "tasks": { "chat": { "prefer": [ "premium", "medium", "small" ], "min_verdict": "runs_well" } },
+    "default": "chat"
+   },
+   "catalog": {
+    "installed": [],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "entries": [
+     { "id": "premium", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 6000, "mapped_mb": 4000, "disk_mb": 4000 } },
+     { "id": "medium", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 900, "mapped_mb": 1200, "disk_mb": 1200 } },
+     { "id": "small", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 300, "mapped_mb": 300, "disk_mb": 300 } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.best", "args": { "task": "chat" }, "mode": "await", "as": "b" } }
+   ],
+   "expect": {
+    "results": { "b": { "model": "medium", "installed": false, "download_mb": 1200,
+                        "verdict": { "verdict": "runs_well" }, "reason": "preference-order" } }
+   }
+  },
+  {
+   "name": "best: with no router opinion, the largest model that runs wins",
+   "_note": "The same ranking the fallback uses, and deliberately the same function: `runs_well` before `runs_slow`, then the biggest, because the biggest model that runs is the best quality this device can have. A category narrows it, so asking for speech never answers with a chat model.",
+   "catalog": {
+    "installed": [],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "entries": [
+     { "id": "huge", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 6000, "mapped_mb": 4000, "disk_mb": 4000 } },
+     { "id": "small", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 300, "mapped_mb": 300, "disk_mb": 300 } },
+     { "id": "medium", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 900, "mapped_mb": 1200, "disk_mb": 1200 } },
+     { "id": "voice-big", "engine": "gguf", "format": "gguf", "category": "asr",
+       "requirements": { "footprint_mb": 400, "mapped_mb": 900, "disk_mb": 900 } },
+     { "id": "voice-small", "engine": "gguf", "format": "gguf", "category": "asr",
+       "requirements": { "footprint_mb": 100, "mapped_mb": 100, "disk_mb": 100 } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.best", "args": { "category": "text" }, "mode": "await", "as": "t" } },
+    { "call": { "scheme": "intelligence", "action": "models.best", "args": { "category": "asr" }, "mode": "await", "as": "v" } }
+   ],
+   "expect": {
+    "results": {
+     "t": { "model": "medium", "download_mb": 1200, "reason": "best-that-runs" },
+     "v": { "model": "voice-big", "download_mb": 900, "reason": "best-that-runs" }
+    }
+   }
+  },
+  {
+   "name": "best: a model of unknown kind is never recommended, however big it is",
+   "_note": "The other side of the same rule. Asked with NO category the ranking sees the whole catalog, and the biggest thing that runs would be a model this build could not classify — which is exactly what \"the best model for you\" must not mean. Declining across an unknown is symmetric: nothing is offered FOR an unknown, and an unknown is offered for nothing.",
+   "catalog": {
+    "installed": [],
+    "entries": [
+     { "id": "mystery", "engine": "gguf", "format": "gguf", "category": "unknown",
+       "requirements": { "footprint_mb": 900, "mapped_mb": 3000, "disk_mb": 3000 } },
+     { "id": "plain", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 900, "mapped_mb": 1200, "disk_mb": 1200 } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.best", "args": { }, "mode": "await", "as": "b" } }
+   ],
+   "expect": {
+    "results": { "b": { "model": "plain", "download_mb": 1200, "reason": "best-that-runs" } }
+   }
+  },
+  {
+   "name": "best: a device that can run nothing in the catalog is told so, typed",
+   "_note": "Not an empty answer and not a bare id: the same typed absence every other 'nothing to serve' answer uses, so a surface handles it with the code it already handles.",
+   "catalog": {
+    "installed": [],
+    "entries": [
+     { "id": "huge", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 6000, "mapped_mb": 4000, "disk_mb": 4000 } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 1000, "free_disk_mb": 20000 },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.best", "args": { "category": "text" }, "mode": "await", "as": "b" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "models.best", "code": "no_model_available",
+                  "reason": "no_model_of_this_kind_runs_here", "data": { "category": "text" } } ]
+   }
+  },
+  {
+   "name": "best: a runtime-added model is a candidate like any other, and says it is predicted",
+   "_note": "The open catalog and the recommendation are the same catalog. A model the user added competes on the same fit function as a shipped one — and wins here, because it is the biggest that runs — while carrying `predicted` so the surface can say the numbers are derived rather than measured.",
+   "delivery": { "allowed_model_hosts": [ "huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "entries": [
+     { "id": "shipped-small", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 300, "mapped_mb": 300, "disk_mb": 300 } }
+    ],
+    "added": [
+     { "id": "chosen", "engine": "gguf", "format": "gguf", "category": "text",
+       "requirements": { "footprint_mb": 900, "mapped_mb": 1200, "disk_mb": 1200 },
+       "origin": { "added": true, "registry": "hf", "repo": "acme/chosen" } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.best", "args": { "category": "text" }, "mode": "await", "as": "b" } }
+   ],
+   "expect": {
+    "results": { "b": { "model": "chosen", "download_mb": 1200,
+                        "verdict": { "verdict": "runs_well", "predicted": true } } }
+   }
+  }
+ ]
+}

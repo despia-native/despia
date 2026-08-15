@@ -1,0 +1,154 @@
+{
+ "_note": "Savepoints, snapshots and restore (local-ai-engine.md §4.6, §4.7). THE LAW ENCODED HERE: (1) two mechanisms, two jobs — a SAVEPOINT is the cheap transactional scope a single tool call runs inside, and a SNAPSHOT is the durable pre-agent backup taken before an agent is let near the data. (2) A tool that fails rolls its savepoint back atomically: no half-applied write, ever. (3) The marketing sentence is a fixture, not a promise — 'an agent can edit your local data, and there is always a backup from before it touched anything' means a snapshot exists BEFORE the first mutating dispatch and a restore returns the store to it exactly. (4) A snapshot is a point-in-time copy: writes after it do not leak into it, and restoring does not resurrect rows that were already gone before it was taken. (5) An open savepoint does not survive a crash, while everything committed before it does — which is the difference between a scope and a backup. (6) Snapshots are listable and exportable, because a backup nobody can find is not a backup.",
+ "cases": [
+  {
+   "name": "snapshot: a savepoint rolls back atomically on failure",
+   "seed": { "notes": [ { "key": "a", "value": { "v": 1 } } ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "savepoint", "args": { "name": "tool" }, "mode": "await", "as": "sp" } },
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "a", "value": { "v": 2 } }, "mode": "await", "as": "w1" } },
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "b", "value": { "v": 9 } }, "mode": "await", "as": "w2" } },
+    { "call": { "scheme": "base", "action": "rollback", "args": { "name": "tool" }, "mode": "await", "as": "rb" } }
+   ],
+   "expect": {
+    "store": { "notes": [ { "key": "a", "value": { "v": 1 } } ] }
+   }
+  },
+  {
+   "name": "snapshot: releasing a savepoint keeps the writes",
+   "seed": { "notes": [ { "key": "a", "value": { "v": 1 } } ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "savepoint", "args": { "name": "tool" }, "mode": "await", "as": "sp" } },
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "a", "value": { "v": 2 } }, "mode": "await", "as": "w" } },
+    { "call": { "scheme": "base", "action": "release", "args": { "name": "tool" }, "mode": "await", "as": "rel" } }
+   ],
+   "expect": { "store": { "notes": [ { "key": "a", "value": { "v": 2 } } ] } }
+  },
+  {
+   "name": "snapshot: nested savepoints unwind to the named one only",
+   "_note": "A tool loop nests scopes. Rolling back the inner one leaves the outer one's writes standing, which is what lets one failed tool call inside a successful sequence undo only itself.",
+   "seed": { "notes": [] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "savepoint", "args": { "name": "outer" }, "mode": "await", "as": "s1" } },
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "a", "value": { "v": 1 } }, "mode": "await", "as": "w1" } },
+    { "call": { "scheme": "base", "action": "savepoint", "args": { "name": "inner" }, "mode": "await", "as": "s2" } },
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "b", "value": { "v": 2 } }, "mode": "await", "as": "w2" } },
+    { "call": { "scheme": "base", "action": "rollback", "args": { "name": "inner" }, "mode": "await", "as": "rb" } },
+    { "call": { "scheme": "base", "action": "release", "args": { "name": "outer" }, "mode": "await", "as": "rel" } }
+   ],
+   "expect": { "store": { "notes": [ { "key": "a", "value": { "v": 1 } } ] } }
+  },
+  {
+   "name": "snapshot: a snapshot is a point in time that later writes do not touch",
+   "seed": { "notes": [ { "key": "a", "value": { "v": 1 } } ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "snapshot", "args": { "label": "before-agent" }, "mode": "await", "as": "snap" } },
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "a", "value": { "v": 99 } }, "mode": "await", "as": "w" } },
+    { "call": { "scheme": "base", "action": "snapshots", "args": { }, "mode": "await", "as": "list" } }
+   ],
+   "expect": {
+    "results": { "list": { "snapshots": [ { "label": "before-agent" } ] } },
+    "store": { "notes": [ { "key": "a", "value": { "v": 99 } } ] }
+   }
+  },
+  {
+   "name": "snapshot: restore returns the store to exactly the snapshot",
+   "_note": "The guarantee, executed. Rows added after the snapshot are gone, rows changed are back, and rows deleted before it was taken do NOT come back — a restore is not an undo of all history.",
+   "seed": { "notes": [ { "key": "a", "value": { "v": 1 } }, { "key": "gone", "value": { "v": 0 } } ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "delete", "args": { "store": "notes", "key": "gone" }, "mode": "await", "as": "d" } },
+    { "call": { "scheme": "base", "action": "snapshot", "args": { "label": "before-agent" }, "mode": "await", "as": "snap" } },
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "a", "value": { "v": 99 } }, "mode": "await", "as": "w1" } },
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "new", "value": { "v": 5 } }, "mode": "await", "as": "w2" } },
+    { "call": { "scheme": "base", "action": "restore", "args": { "label": "before-agent" }, "mode": "await", "as": "r" } }
+   ],
+   "expect": {
+    "store": { "notes": [ { "key": "a", "value": { "v": 1 } } ] }
+   }
+  },
+  {
+   "name": "snapshot: the agent's pre-write backup exists before the first mutating dispatch",
+   "_note": "Ordering is the assertion. The snapshot is taken BEFORE the tool runs, so the backup is of a state the agent never touched — taking it after the first write would satisfy the word 'backup' and violate the promise.",
+   "seed": { "notes": [ { "key": "a", "value": { "v": 1 } } ] },
+   "tools": [ { "source": "module", "name": "base.write", "description": "Write a row.", "mutates": "base", "approval": "auto", "schema": { "type": "object", "properties": { "key": { "type": "string" }, "v": { "type": "number" } } } } ],
+   "mock": { "models": { "m1": { "turns": [
+    [ { "tool": { "id": "c0", "name": "base.write", "arguments": { "key": "a", "v": 2 } } }, { "complete": { } } ],
+    [ { "token": "written" }, { "complete": { } } ]
+   ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [], "tools": [ "base.write" ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "snapshotBeforeFirstWrite": true,
+    "store": { "notes": [ { "key": "a", "value": { "v": 2 } } ] },
+    "results": { }
+   }
+  },
+  {
+   "name": "snapshot: a failed tool leaves the store exactly as it was",
+   "_note": "The rollback path end to end: the tool errors mid-write, its savepoint unwinds, and the model is told — the store never shows the partial state.",
+   "seed": { "notes": [ { "key": "a", "value": { "v": 1 } } ] },
+   "tools": [ { "source": "module", "name": "base.write", "description": "Write a row.", "mutates": "base", "approval": "auto", "fails": true, "schema": { "type": "object", "properties": { "key": { "type": "string" } } } } ],
+   "mock": { "models": { "m1": { "turns": [
+    [ { "tool": { "id": "c0", "name": "base.write", "arguments": { "key": "a" } } }, { "complete": { } } ],
+    [ { "token": "that failed" }, { "complete": { } } ]
+   ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [], "tools": [ "base.write" ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "store": { "notes": [ { "key": "a", "value": { "v": 1 } } ] },
+    "engineRequests": [
+     { "kind": "completion" },
+     { "kind": "completion", "messages": [ { "role": "tool", "tool_call_id": "c0", "content": { "error": "tool_failed" } } ] }
+    ]
+   }
+  },
+  {
+   "name": "snapshot: an open savepoint does not survive a crash, committed data does",
+   "_note": "The line between a scope and a backup, drawn by a crash: the committed write is there on reopen and the uncommitted savepoint's write is not.",
+   "seed": { "notes": [] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "committed", "value": { "v": 1 } }, "mode": "await", "as": "w1" } },
+    { "call": { "scheme": "base", "action": "savepoint", "args": { "name": "tool" }, "mode": "await", "as": "sp" } },
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "pending", "value": { "v": 2 } }, "mode": "await", "as": "w2" } },
+    { "crash": { } }
+   ],
+   "expect": {
+    "store": { "notes": [ { "key": "committed", "value": { "v": 1 } } ] }
+   }
+  },
+  {
+   "name": "snapshot: snapshots are listable and exportable",
+   "_note": "A backup nobody can find is not a backup. The list carries labels and sizes, and export hands back a file reference rather than the bytes.",
+   "seed": { "notes": [ { "key": "a", "value": { "v": 1 } } ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "snapshot", "args": { "label": "one" }, "mode": "await", "as": "s1" } },
+    { "call": { "scheme": "base", "action": "snapshot", "args": { "label": "two" }, "mode": "await", "as": "s2" } },
+    { "call": { "scheme": "base", "action": "snapshots", "args": { }, "mode": "await", "as": "list" } },
+    { "call": { "scheme": "base", "action": "export", "args": { "label": "one" }, "mode": "await", "as": "x" } }
+   ],
+   "expect": {
+    "results": {
+     "list": { "snapshots": [ { "label": "one" }, { "label": "two" } ] },
+     "x": { "url": "file:///snapshots/one.db" }
+    },
+    "snapshotsCarrySize": true,
+    "noInlineBytes": true
+   }
+  },
+  {
+   "name": "snapshot: restoring an unknown label is a typed error and changes nothing",
+   "seed": { "notes": [ { "key": "a", "value": { "v": 1 } } ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "restore", "args": { "label": "does-not-exist" }, "mode": "await", "as": "r" } }
+   ],
+   "expect": {
+    "errors": [ { "req": "r", "code": "unknown_snapshot", "data": { "label": "does-not-exist" } } ],
+    "store": { "notes": [ { "key": "a", "value": { "v": 1 } } ] }
+   }
+  }
+ ]
+}

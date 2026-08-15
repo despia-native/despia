@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Despia MCP collects nothing and identifies nobody. It has two network
+       behaviours, both of them the app's own explicit choice: an outbound
+       Streamable-HTTP connection to a server the APP declared, and an inbound
+       loopback listener bound to 127.0.0.1. Neither is a tracking domain and
+       neither carries a user identifier this package invents.
+
+       ai_package_gate.rb enforces the absence of analytics symbols and of URL
+       literals in the sources with a static scan, so the claim above fails a
+       gate when it stops being true rather than merely aging badly in a
+       README. -->
+  <key>NSPrivacyTracking</key>
+  <false/>
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array/>
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array>
+    <dict>
+      <!-- The discovery file is written into the app's own container and its
+           modification time is read to detect a stale pairing record. -->
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array><string>C617.1</string></array>
+    </dict>
+    <dict>
+      <!-- The session and pairing tokens are held in UserDefaults for the
+           lifetime of a run so a relaunch does not silently invalidate a
+           paired external host mid-session. -->
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array><string>CA92.1</string></array>
+    </dict>
+  </array>
+</dict>
+</plist>

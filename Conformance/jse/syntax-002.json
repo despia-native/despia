@@ -1,0 +1,146 @@
+{
+  "_note": "JSE syntax-completeness wave 2 — declaration & call grammar. Pins: spread in array/object literals (sources: array, string→graphemes, Set→values, Map→entries; object spread merges dict keys last-wins), stored-lambda calls (`const f = x => …; f(2)` — a scope value that IS a lambda is callable; shadows builtins, 32-frame guard shared with user functions), destructuring declarations (`const {a, b: r} = o` / `const [x, y] = arr` — flat patterns, no defaults) and multi-declarators (`let a = 1, b = 2`) in bounded `{ }` blocks, and the `in` operator (dict key / array index membership; relational precedence). Statement-level twins (do…while, for…of over strings/Set/Map + destructured loop vars, ??= &&= ||= sugar) live in the actions corpus.",
+  "cases": [
+    {
+      "name": "spread-array-literal",
+      "scope": {},
+      "expression": "[...[1, 2], 3].join(',')",
+      "expected": "1,2,3"
+    },
+    {
+      "name": "spread-array-middle",
+      "scope": {},
+      "expression": "[0, ...[1, 2], 3].length",
+      "expected": 4
+    },
+    {
+      "name": "spread-string-graphemes",
+      "scope": {},
+      "expression": "[...'ab'].join('-')",
+      "expected": "a-b"
+    },
+    {
+      "name": "spread-set-dedupes",
+      "scope": {},
+      "expression": "[...new Set([1, 1, 2])].length",
+      "expected": 2
+    },
+    {
+      "name": "spread-map-entries",
+      "scope": {},
+      "expression": "[...new Map([['a', 1], ['b', 2]])].length",
+      "expected": 2
+    },
+    {
+      "name": "spread-scope-array",
+      "scope": {
+        "xs": [
+          4,
+          5
+        ]
+      },
+      "expression": "[...xs, 6].join('')",
+      "expected": "456"
+    },
+    {
+      "name": "spread-object-merge-last-wins",
+      "scope": {},
+      "expression": "({ ...{ a: 1, b: 2 }, b: 3 }).b",
+      "expected": 3
+    },
+    {
+      "name": "spread-object-under-existing",
+      "scope": {
+        "cfg": {
+          "keep": 1
+        }
+      },
+      "expression": "({ ...cfg, extra: 2 }).keep",
+      "expected": 1
+    },
+    {
+      "name": "spread-non-iterable-is-empty",
+      "scope": {},
+      "expression": "[...5, 9].length",
+      "expected": 1
+    },
+    {
+      "name": "lambda-call-stored-in-block",
+      "scope": {},
+      "expression": "[2].map(x => { const f = (y) => y + 1\nreturn f(x) })[0]",
+      "expected": 3
+    },
+    {
+      "name": "lambda-call-shadows-builtin",
+      "scope": {},
+      "expression": "[0].map(z => { const upper = (s) => s + '!'\nreturn upper('hi') })[0]",
+      "expected": "hi!"
+    },
+    {
+      "name": "destructure-object-in-block",
+      "scope": {},
+      "expression": "[{ a: 1, b: 2 }].map(x => { const { a, b } = x\nreturn a + b })[0]",
+      "expected": 3
+    },
+    {
+      "name": "destructure-object-rename",
+      "scope": {},
+      "expression": "[{ a: 5 }].map(x => { const { a: v } = x\nreturn v })[0]",
+      "expected": 5
+    },
+    {
+      "name": "destructure-array-in-block",
+      "scope": {},
+      "expression": "[[1, 2]].map(p => { const [x, y] = p\nreturn x * 10 + y })[0]",
+      "expected": 12
+    },
+    {
+      "name": "destructure-array-hole",
+      "scope": {},
+      "expression": "[[1, 2, 3]].map(p => { const [, , z] = p\nreturn z })[0]",
+      "expected": 3
+    },
+    {
+      "name": "multi-declarator-in-block",
+      "scope": {},
+      "expression": "[0].map(z => { let m = 1, n = 2\nreturn m + n })[0]",
+      "expected": 3
+    },
+    {
+      "name": "multi-declarator-object-values-protected",
+      "scope": {},
+      "expression": "[0].map(z => { const p = { a: 1, b: 2 }, q = 3\nreturn p.b + q })[0]",
+      "expected": 5
+    },
+    {
+      "name": "in-dict-present",
+      "scope": {},
+      "expression": "'a' in { a: 1 }",
+      "expected": true
+    },
+    {
+      "name": "in-dict-missing",
+      "scope": {},
+      "expression": "'q' in { a: 1 }",
+      "expected": false
+    },
+    {
+      "name": "in-array-index",
+      "scope": {},
+      "expression": "1 in [7, 8]",
+      "expected": true
+    },
+    {
+      "name": "in-array-out-of-range",
+      "scope": {},
+      "expression": "5 in [7, 8]",
+      "expected": false
+    },
+    {
+      "name": "in-binds-below-equality",
+      "scope": {},
+      "expression": "('a' in { a: 1 }) == true",
+      "expected": true
+    }
+  ]
+}

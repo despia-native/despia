@@ -1,0 +1,69 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "textfield",
+  "aliases": [
+    "input"
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:29"
+    },
+    "secure": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:34"
+    },
+    "placeholder": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:32"
+    },
+    "color": {
+      "type": "color",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:40 — system-defaults.md base pass: default rides the semantic token (was the pinned `white`)"
+    },
+    "contentType": {
+      "type": "enum",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:41 (semantic autofill; emailAddress/password/oneTimeCode/...)"
+    },
+    "keyboard": {
+      "type": "enum(email|number|decimal|phone|url|ascii|twitter|websearch)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:49 (token map :78-90)"
+    },
+    "on:change": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:31 (via setBound seam)"
+    },
+    "on:submit": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:50 (return key `.onSubmit`; SwiftUI then ends editing, so blur FOLLOWS submit)"
+    },
+    "on:focus": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:51-53 (@FocusState change — never the initial attach)"
+    },
+    "on:blur": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:51-53 (@FocusState change — never the initial attach)"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+    "text": {
+      "token": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextField/swift/TextField.swift:40 — system-defaults.md base pass: default rides the semantic token (was the pinned `white`)"
+    }
+  },
+  "notes": "Android placeholder renders at text color alpha 0.3 (StackInputViews.kt) — iOS uses the native prompt styling. Android submit rides the IME action (Done; keyboard= url→Go, websearch→Search — the iOS return-key presentation for the mapped UIKeyboardType), firing on:submit then ending editing so on:blur follows — the SwiftUI return-key order, and editing ends even with no on:submit authored. Pinned Android divergences: twitter/websearch have no Compose keyboard layout (KeyboardType.Text; websearch's identity rides the IME action), and contentType (semantic autofill) is deferred."
+}

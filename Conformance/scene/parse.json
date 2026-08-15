@@ -1,0 +1,125 @@
+{
+ "_note": "The DSX Scene PARSE corpus (dsx-scene.md P1): markup → the typed scene IR. THE LAW: the <scene> subtree is owned by the scene element — its children parse into typed nodes (camera · light · group · box · sphere · plane · model · text3d · anchor), attribute VALUES keep their JSE holes verbatim (the IR is store-agnostic; a resolver interpolates at use time), and every default is pinned HERE so three renderers cannot drift: scene mode '3d', background '#000000'; camera position '0 0 5', look-at '0 0 0', fov 60, near 0.1, far 1000, size 5 (the 2d half-extent); light kind 'ambient', intensity 1, color '#ffffff', position '0 0 0' (a directional light's position is its direction toward the origin); geometry position '0 0 0', rotation '0 0 0', scale '1 1 1'; box size '1 1 1'; sphere radius 1; plane size '1 1' (width height, facing +Z); color '#ffffff'. FAILURE IS A VALUE (Article 7): a malformed scalar/triple falls back to its default with one diagnostic; an unknown tag inside <scene> is SKIPPED with one diagnostic (never a crash, never a phantom node); an unknown light kind falls back to 'ambient' with one diagnostic. Case shape: `markup` = the .dsx snippet (parsed by each runner's own XML parser — StackXML twins); `vars` = the hole resolver map (default empty); `expect` = the resolved IR subset asserted structurally — `mode`/`background` for the root, `nodes` = recursive {kind, id?, and any resolved typed props: position/rotation/scale (triples), size (box triple / plane pair), radius/fov/near/far/intensity (scalars), kind, color, raw (the UNresolved authored string when a case pins hole retention)}; `diagnostics` = expected count (absent = 0). Runners: TS (per-PR); Kotlin/Swift are the P2 row of dsx-scene.md.",
+ "cases": [
+  {
+   "name": "empty scene — root defaults",
+   "markup": "<scene/>",
+   "expect": { "mode": "3d", "background": "#000000", "nodes": [] }
+  },
+  {
+   "name": "scene mode and background words",
+   "markup": "<scene mode=\"2d\" background=\"#0b1020\"/>",
+   "expect": { "mode": "2d", "background": "#0b1020", "nodes": [] }
+  },
+  {
+   "name": "camera defaults — fov 60, near 0.1, far 1000",
+   "markup": "<scene><camera/></scene>",
+   "expect": { "nodes": [
+    { "kind": "camera", "position": [0, 0, 5], "lookAt": [0, 0, 0], "fov": 60, "near": 0.1, "far": 1000, "size": 5 }
+   ] }
+  },
+  {
+   "name": "authored camera overrides every default",
+   "markup": "<scene><camera position=\"0 1.5 4\" look-at=\"0 1 0\" fov=\"45\" near=\"0.5\" far=\"200\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "camera", "position": [0, 1.5, 4], "lookAt": [0, 1, 0], "fov": 45, "near": 0.5, "far": 200 }
+   ] }
+  },
+  {
+   "name": "light defaults — ambient, intensity 1",
+   "markup": "<scene><light/></scene>",
+   "expect": { "nodes": [
+    { "kind": "light", "lightKind": "ambient", "intensity": 1, "color": "#ffffff" }
+   ] }
+  },
+  {
+   "name": "directional light — position is the direction toward the origin",
+   "markup": "<scene><light kind=\"directional\" position=\"3 5 2\" intensity=\"0.8\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "light", "lightKind": "directional", "position": [3, 5, 2], "intensity": 0.8 }
+   ] }
+  },
+  {
+   "name": "geometry defaults — box, sphere, plane",
+   "markup": "<scene><box/><sphere/><plane/></scene>",
+   "expect": { "nodes": [
+    { "kind": "box", "position": [0, 0, 0], "rotation": [0, 0, 0], "scale": [1, 1, 1], "size": [1, 1, 1], "color": "#ffffff" },
+    { "kind": "sphere", "radius": 1, "color": "#ffffff" },
+    { "kind": "plane", "size": [1, 1], "color": "#ffffff" }
+   ] }
+  },
+  {
+   "name": "the proposal's ground plane — authored size, rotation, color",
+   "markup": "<scene><plane position=\"0 -0.5 0\" size=\"10 10\" rotation=\"-90 0 0\" color=\"#1e293b\"/></scene>",
+   "expect": { "nodes": [
+    { "kind": "plane", "position": [0, -0.5, 0], "rotation": [-90, 0, 0], "size": [10, 10], "color": "#1e293b" }
+   ] }
+  },
+  {
+   "name": "nested groups keep structure and ids",
+   "markup": "<scene><group id=\"rig\"><group id=\"arm\"><box id=\"hand\" position=\"1 0 0\"/></group></group></scene>",
+   "expect": { "nodes": [
+    { "kind": "group", "id": "rig", "children": [
+     { "kind": "group", "id": "arm", "children": [
+      { "kind": "box", "id": "hand", "position": [1, 0, 0] }
+     ] }
+    ] }
+   ] }
+  },
+  {
+   "name": "holes stay verbatim in the IR and resolve through the supplied map",
+   "markup": "<scene><group rotation=\"0 {{ spin }} 0\"><box color=\"#2563eb\"/></group></scene>",
+   "vars": { "spin": 45 },
+   "expect": { "nodes": [
+    { "kind": "group", "raw": { "rotation": "0 {{ spin }} 0" }, "rotation": [0, 45, 0], "children": [
+     { "kind": "box", "color": "#2563eb" }
+    ] }
+   ] }
+  },
+  {
+   "name": "malformed triple falls back with one diagnostic",
+   "markup": "<scene><box size=\"a b c\"/></scene>",
+   "expect": { "nodes": [ { "kind": "box", "size": [1, 1, 1] } ] },
+   "diagnostics": 1
+  },
+  {
+   "name": "malformed scalar falls back with one diagnostic",
+   "markup": "<scene><sphere radius=\"big\"/></scene>",
+   "expect": { "nodes": [ { "kind": "sphere", "radius": 1 } ] },
+   "diagnostics": 1
+  },
+  {
+   "name": "unknown light kind falls back to ambient with one diagnostic",
+   "markup": "<scene><light kind=\"laser\"/></scene>",
+   "expect": { "nodes": [ { "kind": "light", "lightKind": "ambient" } ] },
+   "diagnostics": 1
+  },
+  {
+   "name": "an unknown tag inside the scene is skipped with one diagnostic — never a phantom node",
+   "markup": "<scene><box/><text value=\"hi\"/></scene>",
+   "expect": { "nodes": [ { "kind": "box" } ] },
+   "diagnostics": 1
+  },
+  {
+   "name": "the scheduled kinds parse honestly — model, text3d, anchor (P3/P4 render as placeholders)",
+   "markup": "<scene mode=\"ar\"><model src=\"widget.glb\" scale=\"0.5 0.5 0.5\"/><text3d value=\"{{ label }}\"/><anchor kind=\"plane\"><box/></anchor></scene>",
+   "vars": { "label": "hello" },
+   "expect": { "mode": "ar", "nodes": [
+    { "kind": "model", "src": "widget.glb", "scale": [0.5, 0.5, 0.5] },
+    { "kind": "text3d", "raw": { "value": "{{ label }}" } },
+    { "kind": "anchor", "anchorKind": "plane", "children": [ { "kind": "box" } ] }
+   ] }
+  },
+  {
+   "name": "the number law — a Java-style f suffix is malformed on EVERY runner (JS Number is the reference)",
+   "markup": "<scene><sphere radius=\"1.5f\"/></scene>",
+   "expect": { "nodes": [ { "kind": "sphere", "radius": 1 } ] },
+   "diagnostics": 1
+  },
+  {
+   "name": "the number law — an unsigned 0x hex integer parses on EVERY runner (JS Number is the reference)",
+   "markup": "<scene><box position=\"0x10 0 0\"/></scene>",
+   "expect": { "nodes": [ { "kind": "box", "position": [16, 0, 0] } ] }
+  }
+ ]
+}

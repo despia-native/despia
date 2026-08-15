@@ -1,0 +1,80 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "otp",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:29"
+    },
+    "length": {
+      "type": "number",
+      "default": 6,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:30"
+    },
+    "boxSize": {
+      "type": "number",
+      "default": 48,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:31"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:32 (active-box highlight)"
+    },
+    "on:complete": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:38"
+    }
+  },
+  "geometry": {
+    "length": {
+      "value": 6,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:30"
+    },
+    "boxSize": {
+      "value": 48,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:31"
+    },
+    "boxSpacing": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:51"
+    },
+    "cornerRadius": {
+      "value": 10,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:55"
+    },
+    "digitFontFraction": {
+      "value": 0.42,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:59 (fontSize = boxSize * 0.42, semibold rounded)"
+    },
+    "idleBorderWidth": {
+      "value": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:57"
+    },
+    "activeBorderWidth": {
+      "value": 2,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:57"
+    }
+  },
+  "colors": {
+    "activeBorder": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:32,56"
+    },
+    "idleBorder": {
+      "token": "separator",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:56 — system-defaults.md base pass: the idle box border rides the semantic `separator` (was Color.white.opacity(0.2), invisible on light; the geometry.idleBorderOpacity pin retired with the flip, landing on iOS and Android in the same wave)"
+    },
+    "digit": {
+      "token": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/OTP/swift/OTP.swift:60 — system-defaults.md base pass: default rides the semantic token (was the pinned `white`)"
+    }
+  },
+  "notes": ""
+}

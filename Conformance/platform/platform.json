@@ -1,0 +1,132 @@
+{
+ "_note": "The platform-identity + attribute-suffix-fold corpus (architecture/proposals/desktop-platforms.md; /web/14-platform-detection.md). THE LAW ENCODED HERE: (1) identity is the DEPLOY TARGET — dsx.platform.os is a kernel constant, never a module, never null; a Catalyst Mac build reports 'macos', the wrist is a NODE of the phone deployment and never an os value; form factor stays environment (device metadata), posture is a web BUILD fact, neither is identity. (2) dsx.platform.native == (os != 'web'); dsx.platform.desktop == (os in {macos, windows, linux}); dsx.platform.embed is the web separate-artifact seam. (3) the attribute-suffix fold: a recognized suffix after the LAST colon is a platform tag; precedence exact target > :desktop > :native > bare, most-specific wins, resolved once at parse/compile, never per frame; group suffixes fold to their member targets; suffixed keys never survive resolution; unrecognized suffixes pass through untouched (on:tap / arg:rate / data:custom are namespaces, not platform tags — and on:tap:ios IS a platform tag on base on:tap). (4) every runtime resolves THIS file with its own pure fold: TS packages/{compiler,kernel}/test/platform-conformance.test.ts (full target matrix — the web compiler is resolve(attrs,'web')), Kotlin :core PlatformConformanceTest.kt (PlatformAttrs.resolve), Swift Stack.swift StackNodeView.resolvePlatform (reference; target fixed at compile — the record lane pins it). A vocabulary change here without a spec change is drift.",
+ "targets": {
+  "exact": ["ios", "android", "web", "watch", "wear", "macos", "windows", "linux"],
+  "groups": {
+   "native": ["ios", "android", "watch", "wear", "macos", "windows", "linux"],
+   "desktop": ["macos", "windows", "linux"]
+  },
+  "precedence": ["exact", "desktop", "native", "bare"]
+ },
+ "fold": [
+  {
+   "name": "bare attributes pass through on every target",
+   "attrs": { "label": "Save", "style": "padding: 12px" },
+   "expect": {
+    "ios": { "label": "Save", "style": "padding: 12px" },
+    "android": { "label": "Save", "style": "padding: 12px" },
+    "web": { "label": "Save", "style": "padding: 12px" },
+    "macos": { "label": "Save", "style": "padding: 12px" },
+    "windows": { "label": "Save", "style": "padding: 12px" },
+    "linux": { "label": "Save", "style": "padding: 12px" }
+   }
+  },
+  {
+   "name": "exact target wins; other exacts drop",
+   "attrs": { "label": "Settings", "label:ios": "Settings (iOS)", "label:web": "Settings (web)", "label:macos": "Preferences…" },
+   "expect": {
+    "ios": { "label": "Settings (iOS)" },
+    "android": { "label": "Settings" },
+    "web": { "label": "Settings (web)" },
+    "macos": { "label": "Preferences…" },
+    "windows": { "label": "Settings" },
+    "linux": { "label": "Settings" }
+   }
+  },
+  {
+   "name": ":native applies on every non-web target, dead on web",
+   "attrs": { "style": "color: accent", "style:native": "color: separator" },
+   "expect": {
+    "ios": { "style": "color: separator" },
+    "android": { "style": "color: separator" },
+    "watch": { "style": "color: separator" },
+    "wear": { "style": "color: separator" },
+    "macos": { "style": "color: separator" },
+    "windows": { "style": "color: separator" },
+    "linux": { "style": "color: separator" },
+    "web": { "style": "color: accent" }
+   }
+  },
+  {
+   "name": ":desktop beats :native; exact beats :desktop",
+   "attrs": { "padding": "16", "padding:native": "12", "padding:desktop": "8", "padding:macos": "6" },
+   "expect": {
+    "ios": { "padding": "12" },
+    "android": { "padding": "12" },
+    "web": { "padding": "16" },
+    "macos": { "padding": "6" },
+    "windows": { "padding": "8" },
+    "linux": { "padding": "8" }
+   }
+  },
+  {
+   "name": "exact desktop OS beats the :desktop group on that OS only",
+   "attrs": { "label": "Quit", "label:desktop": "Exit", "label:windows": "Exit app" },
+   "expect": {
+    "windows": { "label": "Exit app" },
+    "linux": { "label": "Exit" },
+    "macos": { "label": "Exit" },
+    "ios": { "label": "Quit" },
+    "web": { "label": "Quit" }
+   }
+  },
+  {
+   "name": "namespace colons are not platform tags; suffixed handlers are",
+   "attrs": { "on:tap": "x = 1", "arg:rate": "2", "data:custom": "v", "on:tap:ios": "x = 2" },
+   "expect": {
+    "ios": { "on:tap": "x = 2", "arg:rate": "2", "data:custom": "v" },
+    "android": { "on:tap": "x = 1", "arg:rate": "2", "data:custom": "v" },
+    "web": { "on:tap": "x = 1", "arg:rate": "2", "data:custom": "v" },
+    "windows": { "on:tap": "x = 1", "arg:rate": "2", "data:custom": "v" }
+   }
+  },
+  {
+   "name": "hover lifecycle names survive the fold; desktop override stays paired",
+   "attrs": { "on:hoverStart": "hovered = true", "on:hoverEnd": "hovered = false", "on:hoverStart:desktop": "desktopHovered = true", "on:hoverEnd:desktop": "desktopHovered = false" },
+   "expect": {
+    "ios": { "on:hoverStart": "hovered = true", "on:hoverEnd": "hovered = false" },
+    "android": { "on:hoverStart": "hovered = true", "on:hoverEnd": "hovered = false" },
+    "web": { "on:hoverStart": "hovered = true", "on:hoverEnd": "hovered = false" },
+    "macos": { "on:hoverStart": "desktopHovered = true", "on:hoverEnd": "desktopHovered = false" },
+    "windows": { "on:hoverStart": "desktopHovered = true", "on:hoverEnd": "desktopHovered = false" },
+    "linux": { "on:hoverStart": "desktopHovered = true", "on:hoverEnd": "desktopHovered = false" }
+   }
+  },
+  {
+   "name": "a suffixed key with no bare base appears only on its target",
+   "attrs": { "style:ios": "padding: 1px", "class:android": "m3-chip" },
+   "expect": {
+    "ios": { "style": "padding: 1px" },
+    "android": { "class": "m3-chip" },
+    "web": {},
+    "macos": {},
+    "linux": {}
+   }
+  },
+  {
+   "name": "watch and wear are exact targets in the fold vocabulary",
+   "attrs": { "style": "font: body", "style:watch": "font: caption", "style:wear": "font: caption2" },
+   "expect": {
+    "watch": { "style": "font: caption" },
+    "wear": { "style": "font: caption2" },
+    "ios": { "style": "font: body" },
+    "macos": { "style": "font: body" },
+    "web": { "style": "font: body" }
+   }
+  }
+ ],
+ "nodes": [
+  { "os": "ios", "node": null, "attributeTarget": "ios" },
+  { "os": "ios", "node": "watch", "attributeTarget": "watch" },
+  { "os": "android", "node": null, "attributeTarget": "android" },
+  { "os": "android", "node": "wear", "attributeTarget": "wear" }
+ ],
+ "identity": [
+  { "os": "ios", "expect": { "native": true, "desktop": false } },
+  { "os": "android", "expect": { "native": true, "desktop": false } },
+  { "os": "web", "expect": { "native": false, "desktop": false } },
+  { "os": "macos", "expect": { "native": true, "desktop": true } },
+  { "os": "windows", "expect": { "native": true, "desktop": true } },
+  { "os": "linux", "expect": { "native": true, "desktop": true } }
+ ]
+}

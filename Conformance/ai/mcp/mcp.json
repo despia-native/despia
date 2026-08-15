@@ -1,0 +1,146 @@
+{
+ "_note": "Despia MCP, both directions (local-ai-engine.md §4.8). THE LAW ENCODED HERE: (1) CLIENT — tools discovered from a remote server join the ONE tool registry NAMESPACED by server (`mcp.<server>.<tool>`), so two servers offering `search` never collide, and they carry their JSON Schema through verbatim. (2) A server the app never declared is not reachable, and a declared server that is down degrades to typed absence with its own tools missing — the rest of the registry keeps working. (3) SERVER — what the app serves is DECLARED, not coded: `facets.mcp` rows map manifest actions and Base queries into MCP tools, the same derivation as module tools, one grammar and two protocols. (4) The local server is LOOPBACK-ONLY with a per-session token, and the token is the boundary, not the interface: a request without it is refused, and the token never appears in a URL (on-device loopback is reachable by co-resident apps). (5) External hosts pair through a 0600 discovery file carrying the current port and a pairing token DISTINCT from in-app session tokens, written only while consent stands and removed when it is withdrawn. (6) A mutating served tool inherits the same approve-before-execute flow and the same Base snapshot as any other mutating tool — the protocol changes nothing about the safety story.",
+ "cases": [
+  {
+   "name": "mcp: discovered tools join the registry namespaced by server",
+   "_note": "Two servers both offer `search`; both are usable because the namespace is the server id, and the model sees two distinct tools with their own schemas.",
+   "mcpServers": [
+    { "name": "notes", "tools": [ { "name": "search", "description": "Search notes.", "schema": { "type": "object", "properties": { "q": { "type": "string" } }, "required": [ "q" ] } } ] },
+    { "name": "docs", "tools": [ { "name": "search", "description": "Search docs.", "schema": { "type": "object", "properties": { "query": { "type": "string" }, "top_k": { "type": "integer" } } } } ] }
+   ],
+   "mock": { "models": { "m1": { "script": [ { "complete": { } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "mcp", "action": "connect", "args": { "server": "notes" }, "mode": "await", "as": "c1" } },
+    { "call": { "scheme": "mcp", "action": "connect", "args": { "server": "docs" }, "mode": "await", "as": "c2" } },
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [], "tools": [ "mcp.notes.search", "mcp.docs.search" ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "engineRequests": [ { "kind": "completion", "tools": [
+     { "name": "mcp.notes.search", "description": "Search notes.", "parameters": { "type": "object", "properties": { "q": { "type": "string" } }, "required": [ "q" ] } },
+     { "name": "mcp.docs.search", "description": "Search docs.", "parameters": { "type": "object", "properties": { "query": { "type": "string" }, "top_k": { "type": "integer" } } } }
+    ] } ]
+   }
+  },
+  {
+   "name": "mcp: a client tool round-trips through the loop",
+   "mcpServers": [ { "name": "notes", "tools": [ { "name": "search", "description": "Search notes.", "schema": { "type": "object", "properties": { "q": { "type": "string" } } }, "returns": { "hits": [ "note-7" ] } } ] } ],
+   "mock": { "models": { "m1": { "turns": [
+    [ { "tool": { "id": "c0", "name": "mcp.notes.search", "arguments": { "q": "invoice" } } }, { "complete": { } } ],
+    [ { "token": "I found note-7." }, { "complete": { } } ]
+   ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "mcp", "action": "connect", "args": { "server": "notes" }, "mode": "await", "as": "c" } },
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [], "tools": [ "mcp.notes.search" ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "dispatched": [ { "name": "mcp.notes.search", "arguments": { "q": "invoice" }, "source": "mcp" } ],
+    "engineRequests": [
+     { "kind": "completion" },
+     { "kind": "completion", "messages": [ { "role": "tool", "tool_call_id": "c0", "content": { "hits": [ "note-7" ] } } ] }
+    ]
+   }
+  },
+  {
+   "name": "mcp: an undeclared server is not reachable",
+   "_note": "The app's manifest and config are the allowlist. Connecting to a server nobody declared is refused typed — a model cannot talk the app into a new network peer.",
+   "mcpServers": [ { "name": "notes", "tools": [] } ],
+   "steps": [
+    { "call": { "scheme": "mcp", "action": "connect", "args": { "server": "attacker" }, "mode": "await", "as": "c" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "connect", "code": "server_not_declared", "data": { "server": "attacker" } } ],
+    "mcpConnectCount": 0
+   }
+  },
+  {
+   "name": "mcp: a server that is down removes only its own tools",
+   "_note": "Degradation is per-server. The unreachable server's tools vanish from the registry with a typed reason; the working server's tools are untouched and the completion still runs.",
+   "mcpServers": [
+    { "name": "notes", "tools": [ { "name": "search", "description": "Search notes.", "schema": { "type": "object" }, "returns": { "hits": [] } } ] },
+    { "name": "remote", "unreachable": true, "tools": [ { "name": "fetch", "description": "Fetch.", "schema": { "type": "object" } } ] }
+   ],
+   "mock": { "models": { "m1": { "script": [ { "complete": { } } ] } } },
+   "catalog": { "installed": [ "m1" ] },
+   "steps": [
+    { "call": { "scheme": "mcp", "action": "connect", "args": { "server": "notes" }, "mode": "await", "as": "c1" } },
+    { "call": { "scheme": "mcp", "action": "connect", "args": { "server": "remote" }, "mode": "await", "as": "c2" } },
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [], "tools": [ "mcp.notes.search", "mcp.remote.fetch" ] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "errors": [ { "req": "c2", "code": "server_unreachable", "data": { "server": "remote" } } ],
+    "engineRequests": [ { "kind": "completion", "tools": [ { "name": "mcp.notes.search" } ] } ]
+   }
+  },
+  {
+   "name": "mcp: served tools are derived from declared rows, not written by hand",
+   "_note": "The local server's tool list comes from `facets.mcp` rows exactly the way the loop's module tools come from `facets.tools` — one derivation, two protocols. A row naming an action gets that action's declared args as its schema.",
+   "servedRows": [
+    { "action": "notes.search", "description": "Search the user's notes.", "fromArgs": { "q": { "type": "string", "required": true } } },
+    { "action": "notes.add", "description": "Add a note.", "mutates": "base", "fromArgs": { "text": { "type": "string", "required": true } } }
+   ],
+   "steps": [
+    { "call": { "scheme": "mcp", "action": "server.tools", "args": { }, "mode": "await", "as": "t" } }
+   ],
+   "expect": {
+    "results": { "t": { "tools": [
+     { "name": "notes.search", "description": "Search the user's notes.", "inputSchema": { "type": "object", "properties": { "q": { "type": "string" } }, "required": [ "q" ] } },
+     { "name": "notes.add", "description": "Add a note.", "inputSchema": { "type": "object", "properties": { "text": { "type": "string" } }, "required": [ "text" ] }, "mutates": "base" }
+    ] } }
+   }
+  },
+  {
+   "name": "mcp: the local server refuses a request without its session token",
+   "_note": "The boundary, asserted. Loopback is reachable by every co-resident app on the device, so an unauthenticated request is refused — and a wrong token is refused the same way, with no hint about which part was wrong.",
+   "servedRows": [ { "action": "notes.search", "description": "Search notes.", "fromArgs": { "q": { "type": "string" } } } ],
+   "steps": [
+    { "call": { "scheme": "mcp", "action": "server.start", "args": { }, "mode": "await", "as": "s" } },
+    { "serverRequest": { "tool": "notes.search", "arguments": { "q": "x" }, "token": null, "as": "r1" } },
+    { "serverRequest": { "tool": "notes.search", "arguments": { "q": "x" }, "token": "wrong", "as": "r2" } }
+   ],
+   "expect": {
+    "serverResponses": [
+     { "req": "r1", "code": "unauthorized" },
+     { "req": "r2", "code": "unauthorized" }
+    ],
+    "boundLoopbackOnly": true,
+    "tokenInUrl": false
+   }
+  },
+  {
+   "name": "mcp: an external host pairs through the discovery file only while consent stands",
+   "_note": "Static host configs versus our dynamic port: the discovery file carries the current port and a pairing token that is NOT the in-app session token, it is written 0600, and withdrawing consent removes it. An external host that cached the old token is refused after withdrawal.",
+   "servedRows": [ { "action": "notes.search", "description": "Search notes.", "fromArgs": { "q": { "type": "string" } } } ],
+   "steps": [
+    { "call": { "scheme": "mcp", "action": "server.start", "args": { }, "mode": "await", "as": "s" } },
+    { "call": { "scheme": "mcp", "action": "server.consent", "args": { "external": true }, "mode": "await", "as": "y" } },
+    { "serverRequest": { "tool": "notes.search", "arguments": { "q": "x" }, "token": "$discovery.token", "as": "r1" } },
+    { "call": { "scheme": "mcp", "action": "server.consent", "args": { "external": false }, "mode": "await", "as": "n" } },
+    { "serverRequest": { "tool": "notes.search", "arguments": { "q": "x" }, "token": "$discovery.token", "as": "r2" } }
+   ],
+   "expect": {
+    "discoveryFile": { "mode": "0600", "hasPort": true, "tokenDistinctFromSession": true, "removedAfterWithdrawal": true },
+    "serverResponses": [
+     { "req": "r1", "ok": true },
+     { "req": "r2", "code": "unauthorized" }
+    ]
+   }
+  },
+  {
+   "name": "mcp: a mutating served tool takes the same approval and snapshot path",
+   "_note": "The protocol is not a bypass. A write requested over MCP waits for approval before it executes and runs inside a snapshot, exactly like a write requested by the in-app loop — the fixture is here so the local server can never become the soft path into the user's data.",
+   "servedRows": [ { "action": "notes.add", "description": "Add a note.", "mutates": "base", "approval": "prompt", "fromArgs": { "text": { "type": "string" } } } ],
+   "steps": [
+    { "call": { "scheme": "mcp", "action": "server.start", "args": { }, "mode": "await", "as": "s" } },
+    { "serverRequest": { "tool": "notes.add", "arguments": { "text": "hello" }, "token": "$session.token", "as": "r1" } },
+    { "approve": { "id": "r1", "decision": "approve" } }
+   ],
+   "expect": {
+    "snapshotBeforeWrite": true,
+    "dispatchedAfterApproval": true,
+    "serverResponses": [ { "req": "r1", "ok": true } ]
+   }
+  }
+ ]
+}

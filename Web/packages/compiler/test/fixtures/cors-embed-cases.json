@@ -1,0 +1,77 @@
+{
+  "_note": "The embed CORS decision table (/web/13 §32, S-06). web.embed.origins is a package's per-embed CORS allowlist; corsDecision(origins, requestOrigin) is the pure enforcement serve.ts applies to every /embed asset. Every row pins one (origins, Origin) -> expected response headers. This gates the DENY branch and the EXACT-MATCH branch that the G10 Playwright walk (an origins:['*'] package) never reaches. CORS is web-only embed-server infrastructure (no native twin — the SSR/bundling exemption of the tri-renderer law), so this corpus is web-local, not under OpenSource/Conformance.",
+  "cases": [
+    {
+      "name": "star allowlist echoes * for a foreign origin (the public embed — G10's ALLOW branch)",
+      "origins": ["*"],
+      "requestOrigin": "https://partner.example",
+      "expect": { "access-control-allow-origin": "*" }
+    },
+    {
+      "name": "star allowlist echoes * even with NO Origin header (a same-origin/opaque fetch)",
+      "origins": ["*"],
+      "requestOrigin": null,
+      "expect": { "access-control-allow-origin": "*" }
+    },
+    {
+      "name": "star wins even when listed alongside exact origins",
+      "origins": ["https://a.example", "*", "https://b.example"],
+      "requestOrigin": "https://c.example",
+      "expect": { "access-control-allow-origin": "*" }
+    },
+    {
+      "name": "EXACT match echoes that origin + vary:origin (the exact-match branch)",
+      "origins": ["https://partner.example", "https://studio.example"],
+      "requestOrigin": "https://partner.example",
+      "expect": { "access-control-allow-origin": "https://partner.example", "vary": "origin" }
+    },
+    {
+      "name": "EXACT match of the second listed origin also echoes it + vary:origin",
+      "origins": ["https://partner.example", "https://studio.example"],
+      "requestOrigin": "https://studio.example",
+      "expect": { "access-control-allow-origin": "https://studio.example", "vary": "origin" }
+    },
+    {
+      "name": "DENY: a foreign origin not on a non-star allowlist gets NO header",
+      "origins": ["https://partner.example"],
+      "requestOrigin": "https://evil.example",
+      "expect": {}
+    },
+    {
+      "name": "DENY: no Origin header against a non-star allowlist gets NO header (cannot echo a request origin)",
+      "origins": ["https://partner.example"],
+      "requestOrigin": null,
+      "expect": {}
+    },
+    {
+      "name": "DENY: the default empty allowlist ([] = embeds OFF for third parties) denies every origin",
+      "origins": [],
+      "requestOrigin": "https://partner.example",
+      "expect": {}
+    },
+    {
+      "name": "DENY: scheme mismatch is not a match (http vs the listed https)",
+      "origins": ["https://partner.example"],
+      "requestOrigin": "http://partner.example",
+      "expect": {}
+    },
+    {
+      "name": "DENY: a trailing slash / path makes it a different origin string (exact string match only)",
+      "origins": ["https://partner.example"],
+      "requestOrigin": "https://partner.example/",
+      "expect": {}
+    },
+    {
+      "name": "DENY: a subdomain is not the registered origin (no wildcard subdomain matching)",
+      "origins": ["https://example.com"],
+      "requestOrigin": "https://app.example.com",
+      "expect": {}
+    },
+    {
+      "name": "DENY: a differing port is a different origin",
+      "origins": ["https://partner.example:8443"],
+      "requestOrigin": "https://partner.example",
+      "expect": {}
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "zstack",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/ZStack/swift/ZStack.swift",
+  "attributes": {
+    "align": {
+      "type": "enum(center|top|bottom|leading|trailing|topLeading|topTrailing|bottomLeading|bottomTrailing)",
+      "default": "center",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/ZStack/swift/ZStack.swift:12 via OpenSource/Engine/iOS/Stack.swift"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

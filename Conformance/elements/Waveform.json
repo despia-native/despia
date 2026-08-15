@@ -1,0 +1,35 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "Waveform",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/Waveform.swift",
+  "attributes": {
+    "peaks": {
+      "type": "csv(numbers)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/Waveform.swift:19"
+    },
+    "muted": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/Waveform.swift:16"
+    },
+    "selected": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/Waveform.swift:17"
+    },
+    "seed": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/Waveform.swift:25"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

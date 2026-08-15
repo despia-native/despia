@@ -1,0 +1,22 @@
+{
+  "format": "despia:server-schema-lock@1",
+  "_note": "The last emitted schema. prepare_server.rb compares the declaration against this and ABORTS on a destructive change (removed/retyped field, removed entity, changed ownership), because no generated SQL can make those safe. COMMIT THIS FILE — without it the emitter has no way to know a field ever existed. Re-run with --accept-schema-change after you have migrated the data yourself.",
+  "entities": {
+    "note": {
+      "fields": {
+        "title": "text",
+        "body": "text",
+        "pinned": "boolean"
+      },
+      "ownership": "owner"
+    },
+    "webhook_events": {
+      "fields": {
+        "source": "text",
+        "payload": "jsonb",
+        "received_at": "timestamptz"
+      },
+      "ownership": "service"
+    }
+  }
+}

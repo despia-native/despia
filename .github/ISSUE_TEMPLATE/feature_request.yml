@@ -1,0 +1,45 @@
+name: Feature request
+description: Something Despia should be able to do
+title: "[feature]: "
+labels: ["type: feature", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the outcome you need, not only the mechanism you imagine. New authoring
+        surface ships on all three renderers, fixtures first, so requests are mapped onto
+        the architecture before they are scheduled.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: The outcome
+      description: What should be possible when this exists? Who needs it and when does it come up?
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today
+      description: The workaround or the wall you hit without it
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      multiple: true
+      options:
+        - iOS (native rendering)
+        - Android (native rendering)
+        - Web
+        - Server
+        - CLI / tooling
+        - Editor
+        - Documentation
+        - Not sure
+  - type: textarea
+    id: sketch
+    attributes:
+      label: API sketch (optional)
+      description: If you have a shape in mind, sketch it. Markup, module call, CLI flag.
+      render: text

@@ -1,0 +1,398 @@
+{
+ "_note": "The DSX Scene COLLIDE corpus (dsx-scene.md P5): opt-in collisions as data. collide=\"sphere\" uses the node's bounding sphere (the picking-sphere law verbatim: center = world origin, radius scaled by the largest world basis column); collide=\"box\" uses the world AABB of the node's local half extents (box: size/2 · sphere: radius · plane: [w/2, h/2, 0]) — the 8 corners transformed and folded to min/max. THE DEPTH LAWS: sphere↔sphere depth = ra + rb − |ca − cb|; box↔box needs every axis overlap > 0, depth = min axis overlap; sphere↔box clamps the center to the box — outside: depth = r − dist, center inside: depth = r + nearest-face distance. A pair overlaps only when depth > 0 — exact touch is NOT a contact. THE ENTER LAW (track cases): on:collide fires when a pair STARTS overlapping (both directions: {id, other, depth}) and fires again only after the pair has separated. THE RUNTIME LAW (surface-tested): the pass runs after each RENDERED frame while at least one on:collide handler is authored — nothing moves without a render, so a static scene pays nothing. Floats 6 decimals, tolerance 1.5e-6; numbers from an independent scratch implementation. Runners: TS (per-PR). Kotlin/Swift are the NAMED P5 follow-up.",
+ "cases": [
+  {
+   "name": "sphere↔sphere overlap — depth = ra + rb − |ca − cb|",
+   "kind": "contacts",
+   "shapes": [
+    {
+     "id": "a",
+     "kind": "sphere",
+     "center": [
+      0,
+      0,
+      0
+     ],
+     "radius": 1
+    },
+    {
+     "id": "b",
+     "kind": "sphere",
+     "center": [
+      1.5,
+      0,
+      0
+     ],
+     "radius": 1
+    }
+   ],
+   "expect": [
+    {
+     "a": "a",
+     "b": "b",
+     "depth": 0.5
+    }
+   ]
+  },
+  {
+   "name": "sphere↔sphere apart — no contact",
+   "kind": "contacts",
+   "shapes": [
+    {
+     "id": "a",
+     "kind": "sphere",
+     "center": [
+      0,
+      0,
+      0
+     ],
+     "radius": 1
+    },
+    {
+     "id": "b",
+     "kind": "sphere",
+     "center": [
+      3,
+      0,
+      0
+     ],
+     "radius": 1
+    }
+   ],
+   "expect": []
+  },
+  {
+   "name": "box↔box overlap — depth is the smallest axis overlap",
+   "kind": "contacts",
+   "shapes": [
+    {
+     "id": "a",
+     "kind": "box",
+     "min": [
+      -1,
+      -1,
+      -1
+     ],
+     "max": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "b",
+     "kind": "box",
+     "min": [
+      0.5,
+      -0.5,
+      -0.5
+     ],
+     "max": [
+      2.5,
+      1.5,
+      0.7
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "a": "a",
+     "b": "b",
+     "depth": 0.5
+    }
+   ]
+  },
+  {
+   "name": "box↔box exact face touch — depth 0 is NOT a contact",
+   "kind": "contacts",
+   "shapes": [
+    {
+     "id": "a",
+     "kind": "box",
+     "min": [
+      -1,
+      -1,
+      -1
+     ],
+     "max": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "b",
+     "kind": "box",
+     "min": [
+      1,
+      -1,
+      -1
+     ],
+     "max": [
+      3,
+      1,
+      1
+     ]
+    }
+   ],
+   "expect": []
+  },
+  {
+   "name": "sphere↔box, center outside — depth = r − |c − clamp(c)|",
+   "kind": "contacts",
+   "shapes": [
+    {
+     "id": "s",
+     "kind": "sphere",
+     "center": [
+      1.8,
+      0,
+      0
+     ],
+     "radius": 1
+    },
+    {
+     "id": "b",
+     "kind": "box",
+     "min": [
+      -1,
+      -1,
+      -1
+     ],
+     "max": [
+      1,
+      1,
+      1
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "a": "s",
+     "b": "b",
+     "depth": 0.2
+    }
+   ]
+  },
+  {
+   "name": "sphere↔box, center INSIDE — depth = r + nearest-face distance",
+   "kind": "contacts",
+   "shapes": [
+    {
+     "id": "s",
+     "kind": "sphere",
+     "center": [
+      0.5,
+      0,
+      0
+     ],
+     "radius": 1
+    },
+    {
+     "id": "b",
+     "kind": "box",
+     "min": [
+      -1,
+      -1,
+      -1
+     ],
+     "max": [
+      1,
+      1,
+      1
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "a": "s",
+     "b": "b",
+     "depth": 1.5
+    }
+   ]
+  },
+  {
+   "name": "worldAabb — a rotated box's corners fold to the world AABB",
+   "kind": "aabb",
+   "half": [
+    1,
+    0.5,
+    0.5
+   ],
+   "trs": {
+    "position": [
+     1,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     45
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "expect": {
+    "min": [
+     -0.06066,
+     -1.06066,
+     -0.5
+    ],
+    "max": [
+     2.06066,
+     1.06066,
+     0.5
+    ]
+   }
+  },
+  {
+   "name": "the ENTER law — fires on overlap start, re-arms only after separation",
+   "kind": "track",
+   "frames": [
+    [
+     {
+      "id": "a",
+      "kind": "sphere",
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "radius": 1
+     },
+     {
+      "id": "b",
+      "kind": "sphere",
+      "center": [
+       3,
+       0,
+       0
+      ],
+      "radius": 1
+     }
+    ],
+    [
+     {
+      "id": "a",
+      "kind": "sphere",
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "radius": 1
+     },
+     {
+      "id": "b",
+      "kind": "sphere",
+      "center": [
+       1.5,
+       0,
+       0
+      ],
+      "radius": 1
+     }
+    ],
+    [
+     {
+      "id": "a",
+      "kind": "sphere",
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "radius": 1
+     },
+     {
+      "id": "b",
+      "kind": "sphere",
+      "center": [
+       1.2,
+       0,
+       0
+      ],
+      "radius": 1
+     }
+    ],
+    [
+     {
+      "id": "a",
+      "kind": "sphere",
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "radius": 1
+     },
+     {
+      "id": "b",
+      "kind": "sphere",
+      "center": [
+       3,
+       0,
+       0
+      ],
+      "radius": 1
+     }
+    ],
+    [
+     {
+      "id": "a",
+      "kind": "sphere",
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "radius": 1
+     },
+     {
+      "id": "b",
+      "kind": "sphere",
+      "center": [
+       1.5,
+       0,
+       0
+      ],
+      "radius": 1
+     }
+    ]
+   ],
+   "expect": [
+    [],
+    [
+     {
+      "id": "a",
+      "other": "b",
+      "depth": 0.5
+     },
+     {
+      "id": "b",
+      "other": "a",
+      "depth": 0.5
+     }
+    ],
+    [],
+    [],
+    [
+     {
+      "id": "a",
+      "other": "b",
+      "depth": 0.5
+     },
+     {
+      "id": "b",
+      "other": "a",
+      "depth": 0.5
+     }
+    ]
+   ]
+  }
+ ]
+}

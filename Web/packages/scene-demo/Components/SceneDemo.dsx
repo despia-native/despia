@@ -1,0 +1,113 @@
+<!-- DSX Scene (dsx-scene.md P1 + P4) — the web <scene> WebGL renderer: the reactive
+     store IS the game loop (the spin variable drives the rig's rotation through a
+     normal {{ }} hole), on:tap picking v0 fires ordinary handlers, and the math
+     underneath is pinned by OpenSource/Conformance/scene/. The second scene is the P4
+     showcase: a textured box (the UV law), a <text3d> billboard, and an on:frame tick
+     loop (60/s budget) spinning the rig for the simulation-shaped rest. The fourth is
+     the G2 PHYSICS showcase (dsx-game.md §2): a dynamic ball drops onto a static
+     ground under the fixed 60 Hz solver (corpus physics.json), rests at the
+     corpus-pinned height, sleeps (the loop stops), and relaunches through the bus's
+     velocity write — the attribute-shaped impulse verb. -->
+<stack grow="true" style="gap: 0rem; background: groupedBackground">
+  <head>
+    <variable as="spin">return 0</variable>
+    <variable as="picked">return 'nothing yet'</variable>
+    <variable as="auto">return 0</variable>
+    <variable as="slide">return -1.2</variable>
+    <variable as="nextId">return 2</variable>
+    <variable as="enemies">return [{ id: 1, x: -1.2 }, { id: 2, x: 1.2 }]</variable>
+    <variable as="ticks">return 0</variable>
+    <action as="slideToggle">
+      dsx.variable.slide = dsx.variable.slide > 0 ? -1.2 : 1.2
+    </action>
+    <action as="spawnEnemy">
+      dsx.variable.nextId = dsx.variable.nextId + 1
+      dsx.variable.enemies = dsx.variable.enemies.concat([{ id: dsx.variable.nextId, x: ((dsx.variable.nextId * 7) % 5) - 2 }])
+    </action>
+    <action as="launchBall">
+      dsx.module.scene.set({ scene: 'phys', id: 'pball', attr: 'velocity', value: '0 7 0' })
+    </action>
+  </head>
+
+  <NavBar title="DSX Scene" back="true" on:back="dsx.module.route.pop()"/>
+
+  <scroll grow="true">
+    <stack style="gap: 0.875rem; padding: 1rem">
+
+      <text value="THE SCENE ELEMENT — WEBGL, CORPUS-PINNED MATH" style="font-size: 0.75rem; font-weight: 700; color: tertiary"/>
+      <scene background="#0b1020" a11yLabel="Demo scene: a spinning rig with a cube, a ball and a ground plane">
+        <camera position="0 1.5 4" look-at="0 0 0" fov="60"/>
+        <light kind="ambient" intensity="0.4"/>
+        <light kind="directional" position="3 5 2" intensity="0.8"/>
+        <group id="rig" rotation="0 {{ dsx.variable.spin }} 0">
+          <box id="cube" position="-1 0 0" size="1 1 1" color="#2563eb" on:tap="dsx.variable.picked = 'cube'"/>
+          <sphere id="ball" position="1 0 0" radius="0.5" color="#f59e0b" on:tap="dsx.variable.picked = 'ball'"/>
+          <plane position="0 -0.5 0" size="10 10" rotation="-90 0 0" color="#1e293b"/>
+        </group>
+      </scene>
+
+      <stack grow="width" style="gap: 0.625rem; background: secondaryGroupedBackground; border-radius: 14px; padding: 0.875rem">
+        <button label="Spin 15°" variant="prominent" on:tap="dsx.variable.spin = (dsx.variable.spin + 15) % 360"/>
+        <text value="Rotation: {{ dsx.variable.spin }}° — a store write re-renders the scene, no game loop" style="font-size: 0.75rem; color: tertiary"/>
+        <text value="Picked: {{ dsx.variable.picked }} — tap the cube or the ball" style="font-size: 0.75rem; color: tertiary"/>
+      </stack>
+
+      <text value="P4 — TEXT3D · TEXTURES · ON:FRAME" style="font-size: 0.75rem; font-weight: 700; color: tertiary"/>
+      <scene id="p4-scene" background="#101828" a11yLabel="P4 scene: a textured spinning cube under a 3D label, animated by on:frame"
+             on:frame="dsx.variable.auto = (dsx.variable.auto + 2) % 360">
+        <camera position="0 1.4 4" look-at="0 0.4 0" fov="60"/>
+        <light kind="ambient" intensity="0.45"/>
+        <light kind="directional" position="3 5 2" intensity="0.8"/>
+        <group rotation="0 {{ dsx.variable.auto }} 0">
+          <box position="0 0 0" size="1.2 1.2 1.2" texture="/packages/scene-demo/assets/checker.png"/>
+          <text3d value="DSX" size="0.6" position="0 1.35 0" color="#ffffff"/>
+          <plane position="0 -0.6 0" size="8 8" rotation="-90 0 0" color="#1e293b"/>
+        </group>
+      </scene>
+      <text value="on:frame ticks dt / elapsed / frame through the normal runner (60/s budget) — auto = {{ dsx.variable.auto }}°" style="font-size: 0.75rem; color: tertiary"/>
+
+      <text value="P5 — ANIMATIONS · BOUND ROWS · POINT LIGHT · FOG · ORBIT" style="font-size: 0.75rem; font-weight: 700; color: tertiary"/>
+      <scene id="p5-scene" background="#0d1420" fog="#0d1420 6 14"
+             a11yLabel="P5 scene: a gliding cube, a looping tween, spawned enemies, a point light and fog">
+        <camera position="0 1.6 4.5" look-at="0 0.4 0" fov="60" controls="orbit"/>
+        <light kind="ambient" intensity="0.35"/>
+        <light kind="directional" position="3 5 2" intensity="0.6"/>
+        <light kind="point" position="0 2.2 1.5" color="#ffb454" intensity="2.5" range="12"/>
+        <box id="glider" position="{{ dsx.variable.slide }} 0 0" size="0.8 0.8 0.8" color="#2563eb"
+             transition="position 500ms ease-out" on:tap="slideToggle()"/>
+        <box position="0 1.4 0" size="0.5 0.5 0.5" color="#38bdf8">
+          <animate target="rotation" from="0 0 0" to="0 360 0" duration="2s" easing="linear" loop="true"/>
+        </box>
+        <group bind="dsx.variable.enemies" key="id">
+          <sphere position="{{ item.x }} 0.35 1" radius="0.3" color="#ef4444"
+                  on:tap="dsx.variable.picked = 'enemy ' + item.id"/>
+        </group>
+        <plane position="0 -0.4 0" size="10 10" rotation="-90 0 0" color="#16233b"/>
+      </scene>
+
+      <stack grow="width" style="gap: 0.625rem; background: secondaryGroupedBackground; border-radius: 14px; padding: 0.875rem">
+        <button label="Slide the cube" variant="prominent" on:tap="slideToggle()"/>
+        <button label="Spawn an enemy" on:tap="spawnEnemy()"/>
+        <text value="Enemies: {{ dsx.variable.enemies.length }} — a store write spawns a keyed row; the small cube loops a tween; tapping the blue cube glides it (transition, the CSS retarget model); drag to orbit" style="font-size: 0.75rem; color: tertiary"/>
+      </stack>
+
+      <text value="G2 — PHYSICS: FIXED 60 HZ TICK · GRAVITY · THE IMPULSE VERB" style="font-size: 0.75rem; font-weight: 700; color: tertiary"/>
+      <scene id="phys" gravity="0 -9.81 0" background="#0a1626"
+             a11yLabel="G2 physics scene: a ball drops onto the ground, bounces to rest and relaunches on tap"
+             on:tick="dsx.variable.ticks = dsx.variable.ticks + 1">
+        <camera position="0 1.5 6" look-at="0 1 0" fov="60"/>
+        <light kind="ambient" intensity="0.45"/>
+        <light kind="directional" position="3 5 2" intensity="0.8"/>
+        <box physics="static" position="0 -0.5 0" size="20 1 20" color="#14532d"/>
+        <sphere id="pball" physics="dynamic" bounce="0.4" position="0 3 0" radius="0.5" color="#f59e0b"
+                on:tap="launchBall()"/>
+      </scene>
+
+      <stack grow="width" style="gap: 0.625rem; background: secondaryGroupedBackground; border-radius: 14px; padding: 0.875rem">
+        <button label="Launch the ball" variant="prominent" on:tap="launchBall()"/>
+        <text value="Ticks: {{ dsx.variable.ticks }} — the solver steps at exactly 60 Hz, decoupled from render; the ball rests at the corpus-pinned height, SLEEPS (the loop and the tick counter stop), and a bus velocity write relaunches it" style="font-size: 0.75rem; color: tertiary"/>
+      </stack>
+
+    </stack>
+  </scroll>
+</stack>

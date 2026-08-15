@@ -1,0 +1,34 @@
+{
+  "name": "@despia/vite-plugin",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Vite plugin (v0.1) - compile .dsx on import, expose the compiled registry as virtual:dsx-registry, and full-page-reload on change. Vite is a peer dependency and is never imported.",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/src/index.d.ts", "import": "./dist/src/index.js", "default": "./dist/src/index.js" }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "engines": { "node": ">=22.18" },
+  "repository": { "type": "git", "url": "git+https://github.com/despia-native/despia-framework.git", "directory": "OpenSource/Web/packages/vite-plugin" },
+  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/vite-plugin",
+  "bugs": { "url": "https://github.com/despia-native/despia-framework/issues" },
+  "publishConfig": { "access": "public", "provenance": true },
+  "dependencies": {
+    "@despia/compiler": "0.0.1"
+  },
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": { "optional": true }
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\"",
+    "test": "node --test test/*.test.ts"
+  }
+}

@@ -1,0 +1,191 @@
+{
+ "_note": "L4, WHAT THE PACK CANNOT PRONOUNCE IS REPORTED, NEVER REMOVED (g2p-pack.md). A character outside the accepted set survives folding as an explicit `refused` token carrying the offending text, and the `fallback` policy decides what the CALLER does about it. THE VOCABULARY IS `lts`, `spell`, `refuse`, `defer`, AND THERE IS DELIBERATELY NO `drop`. The option that deletes a word is not spelled wrong in this format, it is absent from it, and a request naming it is a typed `invalid_request` rather than a policy anyone can reach by accident. That closure is the difference between this format and the reference implementation it replaces: there, deletion was not a policy either, it was an EMERGENT behaviour of a placeholder meeting a tokenizer, which is why nobody chose it and everybody shipped it.\n\n`defer` is the option this framework has and an upstream G2P project does not: a complete platform synthesizer sits next to the neural one, with full language coverage and no download, so a sentence the pack cannot prove can be handed to it WHOLE. Two things about it are pinned here and are easy to get backwards. It is at SENTENCE granularity, because switching voices mid-clause sounds worse than either voice alone, so a deferral names a sentence and carries that sentence's own text. And it still GUESSES: the tokens come back pronounced, marked, and complete, so a caller that ignores the flag gets a mispronunciation rather than a hole. Deferral is a routing fact, not a pronunciation fact. It never changes what `via` means, and L1 holds under it exactly as under everything else.",
+
+ "requires": [ "nothingDropped", "tilesInput", "tokens", "tokenCount", "trailing", "loaded", "deferred", "blocks", "requestError", "coverage" ],
+
+ "cases": [
+  {
+   "name": "g2p fallback: lts guesses the word and labels the guess",
+   "_note": "Policy one, and the default. The letter-to-sound trees answer, the token says `lts`, and the pack's own META records what that class of answer is worth on a held-out split, so a caller can show a confidence without the frontend pretending to certainty.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth is here", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "is", "here" ], "joined": "Zyleth is here" },
+    "tilesInput": true,
+    "tokenCount": 3,
+    "tokens": [
+     { "text": "Zyleth", "via": "lts", "phonemes": "record", "phonemesNonEmpty": true },
+     { "text": "is", "via": "lexicon", "phonemes": "p2p9" },
+     { "text": "here", "via": "lexicon", "phonemes": "p3p4p5" }
+    ]
+   }
+  },
+  {
+   "name": "g2p fallback: spell reads the word out one character at a time",
+   "_note": "Policy two, and the one whose phonemes this corpus can state exactly: the pack's SPEL rows for the folded characters, joined by its row for SPACE. Spelling is what an app wants for a serial number or a code, and it is never wrong in the way a guess can be wrong.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth is here", "fallback": "spell" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "is", "here" ], "joined": "Zyleth is here" },
+    "tilesInput": true,
+    "tokenCount": 3,
+    "tokens": [
+     { "text": "Zyleth", "via": "spelled", "phonemes": "p1p1p0p1pBp1p4p1p7p1p7" },
+     { "text": "is", "via": "lexicon", "phonemes": "p2p9" },
+     { "text": "here", "via": "lexicon", "phonemes": "p3p4p5" }
+    ],
+    "coverage": { "lexicon": 2, "spelled": 1, "total": 3, "guessed": 1 }
+   }
+  },
+  {
+   "name": "g2p fallback: refuse produces an empty pronunciation and a present token",
+   "_note": "Policy three. REFUSAL IS NOT REMOVAL, and this case is where the two are told apart mechanically: the phonemes are empty, the token count is unchanged, and both halves of L1 still hold. An implementation that treats an empty pronunciation as a reason to skip the token fails here.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth is here", "fallback": "refuse" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "is", "here" ], "joined": "Zyleth is here" },
+    "tilesInput": true,
+    "tokenCount": 3,
+    "tokens": [
+     { "text": "Zyleth", "via": "refused", "phonemes": "" },
+     { "text": "is", "via": "lexicon", "phonemes": "p2p9" },
+     { "text": "here", "via": "lexicon", "phonemes": "p3p4p5" }
+    ],
+    "coverage": { "lexicon": 2, "refused": 1, "total": 3, "guessed": 1 }
+   }
+  },
+  {
+   "name": "g2p fallback: defer marks the sentence, carries its text, and still pronounces it",
+   "_note": "Policy four. The deferral names the sentence and carries the SENTENCE TEXT VERBATIM. That string is what a caller hands to the platform synthesizer, so a deferral that carried only an index would make the caller re-derive the sentence split and hope it matched. The token is guessed, not refused: `via` is `lts` and the phonemes are there, so a caller that ignores the mark speaks the sentence badly rather than incompletely. That is the deliberate choice, and it is the difference between a routing hint and a second deletion path.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth is here.", "fallback": "defer" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "is", "here" ], "joined": "Zyleth is here" },
+    "tilesInput": true,
+    "tokenCount": 3,
+    "trailing": ".",
+    "deferred": [ { "sentence": 0, "text": "Zyleth is here." } ],
+    "tokens": [
+     { "text": "Zyleth", "via": "lts", "phonemes": "record", "phonemesNonEmpty": true, "sentence": 0 },
+     { "text": "is", "via": "lexicon", "phonemes": "p2p9", "sentence": 0 },
+     { "text": "here", "via": "lexicon", "phonemes": "p3p4p5", "sentence": 0 }
+    ]
+   }
+  },
+  {
+   "name": "g2p fallback: defer moves one sentence and leaves the other alone",
+   "_note": "THE GRANULARITY CASE. Two sentences, one unknown word, and exactly ONE deferral: the second sentence resolves from the lexicon and stays on the neural voice. This is what 'sentence granularity' has to mean in practice: not the whole utterance, because that would hand a paragraph to the other voice over one name, and not the word, because switching voices mid-clause sounds worse than either voice alone. `walks` is in the first sentence and does NOT trigger anything, because a stem derivation is a rule applied to a dictionary fact rather than a guess about a name. Note the second sentence's text starts with the space that followed the first one's full stop: a sentence carries every byte between the previous sentence's end and its own, which is what keeps the sentence texts a partition of the input rather than a tidied version of it.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth walks. The walk is here.", "fallback": "defer" },
+   "expect": {
+    "nothingDropped": {
+     "words": [ "Zyleth", "walks", "The", "walk", "is", "here" ],
+     "joined": "Zyleth walks The walk is here"
+    },
+    "tilesInput": true,
+    "tokenCount": 6,
+    "trailing": ".",
+    "deferred": [ { "sentence": 0, "text": "Zyleth walks." } ],
+    "blocks": [
+     { "sentence": 0, "text": "Zyleth walks.", "deferred": true },
+     { "sentence": 1, "text": " The walk is here." },
+     { "sentence": 2, "text": "." }
+    ],
+    "tokens": [
+     { "text": "Zyleth", "via": "lts", "phonemes": "record", "phonemesNonEmpty": true, "sentence": 0 },
+     { "text": "walks", "via": "stem", "phonemes": "p0p7p3p6", "sentence": 0 },
+     { "text": "The", "via": "lexicon", "phonemes": "p9p4", "sentence": 1 },
+     { "text": "walk", "via": "lexicon", "phonemes": "p0p7p3", "sentence": 1 },
+     { "text": "is", "via": "lexicon", "phonemes": "p2p9", "sentence": 1 },
+     { "text": "here", "via": "lexicon", "phonemes": "p3p4p5", "sentence": 1 }
+    ]
+   }
+  },
+  {
+   "name": "g2p fallback: drop is not a policy value and a request naming it is refused",
+   "_note": "THE ONE THAT MATTERS MOST IN THIS FILE. `drop` is not misspelled, not deprecated, not unimplemented. It does not exist, and the request is refused by name. Silently substituting a nearby policy would put the deletion path back exactly where L1 removed it from, and a caller who asked for deletion is a caller who needs to be told no. The pack is fine and loaded; it is the request that is wrong, and nothing is phonemized.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth is here", "fallback": "drop" },
+   "expect": {
+    "loaded": true,
+    "requestError": { "code": "invalid_request", "messageContains": "not one of lts, spell, refuse, defer" },
+    "tokenCount": 0
+   }
+  },
+  {
+   "name": "g2p fallback: any policy word outside the four is refused the same way",
+   "_note": "The vocabulary is CLOSED, and this case says so with a word nobody would type by accident. Contrast the unknown SECTION TAG in validation.json, which is ignored and loads: must-ignore is for data a pack carries forward, never for a request's policy word, because ignoring a policy means silently running a different one.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth", "fallback": "guess" },
+   "expect": {
+    "loaded": true,
+    "requestError": { "code": "invalid_request", "messageContains": "not one of lts, spell, refuse, defer" },
+    "tokenCount": 0
+   }
+  },
+  {
+   "name": "g2p fallback: a character outside accept is refused even under spell",
+   "_note": "The policy governs unknown WORDS; it cannot conjure a spelling for a character the speller does not name. SPEL covers META.accept and nothing else, so an emoji is refused under `spell` exactly as under `refuse`, and it is still a token either way.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "ship 🚀", "fallback": "spell" },
+   "expect": {
+    "nothingDropped": { "words": [ "ship", "🚀" ], "joined": "ship 🚀" },
+    "tilesInput": true,
+    "tokenCount": 2,
+    "tokens": [
+     { "text": "ship", "via": "lexicon", "phonemes": "p4p2pB" },
+     { "text": "🚀", "via": "refused", "phonemes": "", "unaccepted": true }
+    ]
+   }
+  },
+  {
+   "name": "g2p fallback: fold runs before anything else, and never touches the receipt",
+   "_note": "`café` and `don’t` are outside META.accept as typed. `fold` maps them into it BEFORE the lookup, so both hit the lexicon with the pack's own phones; that is how `café` becomes a word the lexicon can be asked about. The `text` fields keep the acute and the curly apostrophe, because the receipt is the caller's input and only the lookup sees the folded form. Neither token is marked `unaccepted`, because acceptance is judged after folding: a character the pack knows how to fold is a character the pack accepts.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "café don’t", "fallback": "refuse" },
+   "expect": {
+    "nothingDropped": { "words": [ "café", "don’t" ], "joined": "café don’t" },
+    "tilesInput": true,
+    "tokenCount": 2,
+    "tokens": [
+     { "text": "café", "via": "lexicon", "phonemes": "p6p0p5p4" },
+     { "text": "don’t", "via": "lexicon", "phonemes": "p9p8p3" }
+    ],
+    "coverage": { "lexicon": 2, "total": 2, "guessed": 0 }
+   }
+  },
+  {
+   "name": "g2p fallback: a word mixing accepted and unaccepted characters is refused whole, and still says what it can",
+   "_note": "`ï` is in neither `accept` nor `fold`, so `naïve` cannot be pronounced as a word. Two things are pinned. The token is not split at the offending character, because fragments nobody asked for are a worse answer than an honest refusal and a caller needs the whole word to hand it anywhere else. And the refusal still carries phonemes for the characters the speller does know, so a listener hears an attempt rather than a gap while the `via` and `unaccepted` flags tell the caller exactly what happened.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "a naïve walk", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "a", "naïve", "walk" ], "joined": "a naïve walk" },
+    "tilesInput": true,
+    "tokenCount": 3,
+    "tokens": [
+     { "text": "a", "via": "lexicon", "phonemes": "p0" },
+     { "text": "naïve", "via": "refused", "phonemes": "p1p1p0p1p9p1p4", "unaccepted": true },
+     { "text": "walk", "via": "lexicon", "phonemes": "p0p7p3" }
+    ]
+   }
+  },
+  {
+   "name": "g2p fallback: an omitted policy is lts",
+   "_note": "The default is `lts`, and pinning it is the point: a default that lives only in one implementation's initializer is a default the other two get to disagree about. g2p-pack.md's L4 paragraph lists the four words without saying which one an omitted `fallback` gets, so the doc needs that sentence. The expectations here are the explicit-lts case's, restated against a request that names nothing.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth walks here" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "walks", "here" ], "joined": "Zyleth walks here" },
+    "tilesInput": true,
+    "tokenCount": 3,
+    "tokens": [
+     { "text": "Zyleth", "via": "lts", "phonemes": "record", "phonemesNonEmpty": true },
+     { "text": "walks", "via": "stem", "phonemes": "p0p7p3p6" },
+     { "text": "here", "via": "lexicon", "phonemes": "p3p4p5" }
+    ],
+    "coverage": { "lexicon": 1, "stem": 1, "lts": 1, "total": 3, "guessed": 1 }
+   }
+  }
+ ]
+}

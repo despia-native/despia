@@ -1,0 +1,85 @@
+{
+ "_note": "DETERMINISM: the same input and the same pack produce byte-identical output. This is not a performance property, it is what makes every other file in this corpus mean anything. An expectation is only a gate if the thing it measures is the same thing twice. It is also what makes a frontend debuggable: a user who reports that one word sounds wrong has to be able to hand you the sentence and have you hear it, and a cache, a hash iteration order, or a stemmer that warms up between calls is enough to make that impossible. Nothing in the format needs randomness: the lexicon is sorted keys, the LTS walk is a decision tree, the speller is a table, so any variation is a bug in the reader rather than a property of the language.\n\n`byteIdentical` compares the WHOLE answer across repeats, canonically serialized: every block in order with its sentence index, text, phonemes and deferral flag, every token in order with every field it carries, and the trailing text. Comparing only the phonemes would pass a build whose `via` flickered between `stem` and `lts`, which is exactly the kind of drift a caller's logging would then blame on the user.",
+
+ "requires": [ "nothingDropped", "tilesInput", "tokenCount", "deferred", "byteIdentical" ],
+
+ "cases": [
+  {
+   "name": "g2p determinism: the same text through the same pack answers identically",
+   "_note": "The plain statement, over an input that touches four different provenances so a difference anywhere in the ladder shows up.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth walked 3 here", "fallback": "lts" },
+   "repeat": 3,
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "walked", "3", "here" ], "joined": "Zyleth walked 3 here" },
+    "tilesInput": true,
+    "tokenCount": 4,
+    "byteIdentical": true
+   }
+  },
+  {
+   "name": "g2p determinism: unloading and reloading the pack changes nothing",
+   "_note": "A pack is read in place rather than parsed into a heap of objects, so a reload has to land on the same bytes and the same answers. This is the case that catches state which survives in the READER rather than in the file, such as a lazily built index whose contents depend on what was asked first.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth walked 3 here", "fallback": "lts" },
+   "repeat": 2,
+   "reload": true,
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "walked", "3", "here" ], "joined": "Zyleth walked 3 here" },
+    "tilesInput": true,
+    "tokenCount": 4,
+    "byteIdentical": true
+   }
+  },
+  {
+   "name": "g2p determinism: an unrelated request in between changes nothing",
+   "_note": "The interleaved request is phonemized and discarded, so anything the reader memoized while serving it is live when the repeat runs. It deliberately uses a different policy as well as different words, because a cache keyed on the word and not on the policy is the specific bug this catches.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth walked 3 here", "fallback": "lts" },
+   "repeat": 2,
+   "interleave": { "text": "the walk runs here today", "fallback": "spell" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "walked", "3", "here" ], "joined": "Zyleth walked 3 here" },
+    "tilesInput": true,
+    "tokenCount": 4,
+    "byteIdentical": true
+   }
+  },
+  {
+   "name": "g2p determinism: the sentence split under defer is stable",
+   "_note": "A deferral is a routing decision a caller acts on, so an unstable split means the platform voice speaks a different fragment on the second run. Three sentences, two of them deferred over a name each, and the same indices and the same carried text every time.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth walks. The walk is here. Kubernetes is up.", "fallback": "defer" },
+   "repeat": 3,
+   "expect": {
+    "nothingDropped": {
+     "words": [ "Zyleth", "walks", "The", "walk", "is", "here", "Kubernetes", "is", "up" ],
+     "joined": "Zyleth walks The walk is here Kubernetes is up"
+    },
+    "tilesInput": true,
+    "tokenCount": 9,
+    "deferred": [
+     { "sentence": 0, "text": "Zyleth walks." },
+     { "sentence": 2, "text": " Kubernetes is up." }
+    ],
+    "byteIdentical": true
+   }
+  },
+  {
+   "name": "g2p determinism: refusals keep their order and their text",
+   "_note": "An input that is mostly refusals, because the refusal path is the one least likely to be exercised by hand and the one where a set, a map or a filter would quietly reorder the answer. Every refused token is still in its input position with its own bytes.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "привет 🚀 naïve ‡ walk", "fallback": "refuse" },
+   "repeat": 3,
+   "expect": {
+    "nothingDropped": {
+     "words": [ "привет", "🚀", "naïve", "‡", "walk" ],
+     "joined": "привет 🚀 naïve ‡ walk"
+    },
+    "tilesInput": true,
+    "tokenCount": 5,
+    "byteIdentical": true
+   }
+  }
+ ]
+}

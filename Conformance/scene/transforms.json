@@ -1,0 +1,272 @@
+{
+ "_note": "The DSX Scene TRANSFORM corpus (dsx-scene.md P1). THE LAW: matrices are COLUMN-MAJOR mat4 (index = column*4 + row), vectors are columns (v' = M·v). A node's LOCAL matrix composes scale, then rotation, then translation — local = T · Rz(rz) · Ry(ry) · Rx(rx) · S — i.e. the X rotation applies to the object first, then Y, then Z (degrees, the authored `rotation=\"rx ry rz\"` triple). WORLD = parentWorld · local, root downward. Vectors are space-separated triples; a malformed triple falls back to THAT attribute's default with exactly one diagnostic (Article 7 — never a crash, never a partial parse of the triple). JSE holes ({{ expr }}) interpolate before parsing: each case's `vars` map is the resolver — the runner substitutes String(vars[expr]) for every hole, exactly what the reactive store does live. Case shape: `tree` = a scene-node subtree (kind/id/position/rotation/scale/children as AUTHORED STRINGS); `node` = the id whose world matrix is asserted; `world` = the 16 column-major floats (6 decimals); `point` = optional {local, world} transformed point through that matrix; `diagnostics` = expected diagnostic count (absent = 0). Expected numbers were computed by an independent scratch implementation, never by the kernel under test. Runners: TS (packages/kernel/test/scene-conformance.test.ts, per-PR). Kotlin (:core) and Swift (record lane) are the P2 row of dsx-scene.md.",
+ "cases": [
+  {
+   "name": "identity — all defaults",
+   "tree": {
+    "kind": "group",
+    "id": "t"
+   },
+   "node": "t",
+   "world": [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
+   "note": "a bare group is the identity transform",
+   "point": {
+    "local": [1,2,3],
+    "world": [1,2,3]
+   }
+  },
+  {
+   "name": "pure translation",
+   "tree": {
+    "kind": "group",
+    "id": "t",
+    "position": "3 -2 5"
+   },
+   "node": "t",
+   "world": [1,0,0,0,0,1,0,0,0,0,1,0,3,-2,5,1],
+   "point": {
+    "local": [0,0,0],
+    "world": [3,-2,5]
+   }
+  },
+  {
+   "name": "pure rotation about X, 90°",
+   "tree": {
+    "kind": "box",
+    "id": "t",
+    "rotation": "90 0 0"
+   },
+   "node": "t",
+   "world": [1,0,0,0,0,0,1,0,0,-1,0,0,0,0,0,1],
+   "note": "(0,1,0) → (0,0,1): +Y folds into +Z",
+   "point": {
+    "local": [0,1,0],
+    "world": [0,0,1]
+   }
+  },
+  {
+   "name": "pure rotation about Y, 90°",
+   "tree": {
+    "kind": "box",
+    "id": "t",
+    "rotation": "0 90 0"
+   },
+   "node": "t",
+   "world": [0,0,-1,0,0,1,0,0,1,0,0,0,0,0,0,1],
+   "note": "(1,0,0) → (0,0,-1): +X folds into -Z",
+   "point": {
+    "local": [1,0,0],
+    "world": [0,0,-1]
+   }
+  },
+  {
+   "name": "pure rotation about Z, 90°",
+   "tree": {
+    "kind": "box",
+    "id": "t",
+    "rotation": "0 0 90"
+   },
+   "node": "t",
+   "world": [0,1,0,0,-1,0,0,0,0,0,1,0,0,0,0,1],
+   "note": "(1,0,0) → (0,1,0): +X folds into +Y",
+   "point": {
+    "local": [1,0,0],
+    "world": [0,1,0]
+   }
+  },
+  {
+   "name": "pure scale",
+   "tree": {
+    "kind": "box",
+    "id": "t",
+    "scale": "2 3 4"
+   },
+   "node": "t",
+   "world": [2,0,0,0,0,3,0,0,0,0,4,0,0,0,0,1],
+   "point": {
+    "local": [1,1,1],
+    "world": [2,3,4]
+   }
+  },
+  {
+   "name": "TRS composition order — scale, then rotate, then translate",
+   "tree": {
+    "kind": "box",
+    "id": "t",
+    "position": "1 0 0",
+    "rotation": "0 0 90",
+    "scale": "2 1 1"
+   },
+   "node": "t",
+   "world": [0,2,0,0,-1,0,0,0,0,0,1,0,1,0,0,1],
+   "note": "local (1,0,0): S(2,1,1) → (2,0,0); Rz90 → (0,2,0); T(1,0,0) → (1,2,0). Any other order gives a different point.",
+   "point": {
+    "local": [1,0,0],
+    "world": [1,2,0]
+   }
+  },
+  {
+   "name": "rotation XYZ order — X applies before Y",
+   "tree": {
+    "kind": "box",
+    "id": "t",
+    "rotation": "90 90 0"
+   },
+   "node": "t",
+   "world": [0,0,-1,0,1,0,0,0,0,-1,0,0,0,0,0,1],
+   "note": "(0,1,0): Rx90 → (0,0,1); Ry90 → (1,0,0). The YXZ order would give (0,0,1).",
+   "point": {
+    "local": [0,1,0],
+    "world": [1,0,0]
+   }
+  },
+  {
+   "name": "nested composition — parent group × child",
+   "tree": {
+    "kind": "group",
+    "position": "0 1 0",
+    "rotation": "0 0 90",
+    "children": [
+     {
+      "kind": "box",
+      "id": "t",
+      "position": "1 0 0"
+     }
+    ]
+   },
+   "node": "t",
+   "world": [0,1,0,0,-1,0,0,0,0,0,1,0,0,2,0,1],
+   "note": "child world = parent(T·Rz90) · child T(1,0,0)",
+   "point": {
+    "local": [0,0,0],
+    "world": [0,2,0]
+   }
+  },
+  {
+   "name": "nested scale inheritance",
+   "tree": {
+    "kind": "group",
+    "scale": "2 2 2",
+    "children": [
+     {
+      "kind": "sphere",
+      "id": "t",
+      "position": "1 1 1"
+     }
+    ]
+   },
+   "node": "t",
+   "world": [2,0,0,0,0,2,0,0,0,0,2,0,2,2,2,1],
+   "note": "a parent scale multiplies the child's translation",
+   "point": {
+    "local": [0,0,0],
+    "world": [2,2,2]
+   }
+  },
+  {
+   "name": "three-level nesting, irrational angles",
+   "tree": {
+    "kind": "group",
+    "position": "1 2 3",
+    "rotation": "30 0 0",
+    "children": [
+     {
+      "kind": "group",
+      "rotation": "0 45 0",
+      "scale": "2 2 2",
+      "children": [
+       {
+        "kind": "box",
+        "id": "t",
+        "position": "0.5 0 -1",
+        "rotation": "0 0 60"
+       }
+      ]
+     }
+    ]
+   },
+   "node": "t",
+   "world": [0.707107,1.853553,0.253653,0,-1.224745,0.253653,1.56066,0,1.414214,-0.707107,1.224745,0,0.292893,3.06066,1.162883,1],
+   "note": "30°/45° rotations exercise full 6-decimal precision",
+   "point": {
+    "local": [1,0,0],
+    "world": [1,4.914214,1.416536]
+   }
+  },
+  {
+   "name": "bound hole in a translation",
+   "tree": {
+    "kind": "group",
+    "id": "t",
+    "position": "0 {{ y }} 0"
+   },
+   "node": "t",
+   "world": [1,0,0,0,0,1,0,0,0,0,1,0,0,1.5,0,1],
+   "note": "{{ y }} resolves through the supplied variable map",
+   "vars": {
+    "y": 1.5
+   },
+   "point": {
+    "local": [0,0,0],
+    "world": [0,1.5,0]
+   }
+  },
+  {
+   "name": "bound hole in a rotation, nested",
+   "tree": {
+    "kind": "group",
+    "rotation": "0 {{ spin }} 0",
+    "children": [
+     {
+      "kind": "box",
+      "id": "t",
+      "position": "1 0 0"
+     }
+    ]
+   },
+   "node": "t",
+   "world": [0.707107,0,-0.707107,0,0,1,0,0,0.707107,0,0.707107,0,0.707107,0,-0.707107,1],
+   "note": "the reactive spin idiom: rotation=\"0 {{ spin }} 0\"",
+   "vars": {
+    "spin": 45
+   },
+   "point": {
+    "local": [1,0,0],
+    "world": [1.414214,0,-1.414214]
+   }
+  },
+  {
+   "name": "malformed vector falls back to the default (Article 7)",
+   "tree": {
+    "kind": "box",
+    "id": "t",
+    "position": "banana",
+    "rotation": "0 0 90"
+   },
+   "node": "t",
+   "world": [0,1,0,0,-1,0,0,0,0,0,1,0,0,0,0,1],
+   "note": "position=\"banana\" is not a triple: the node keeps the identity translation and reports ONE diagnostic — never a crash",
+   "point": {
+    "local": [1,0,0],
+    "world": [0,1,0]
+   },
+   "diagnostics": 1
+  },
+  {
+   "name": "two-component vector is malformed too",
+   "tree": {
+    "kind": "box",
+    "id": "t",
+    "position": "1 2"
+   },
+   "node": "t",
+   "world": [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
+   "note": "\"1 2\" is not a triple; the whole attribute falls back",
+   "point": {
+    "local": [1,1,1],
+    "world": [1,1,1]
+   },
+   "diagnostics": 1
+  }
+ ]
+}

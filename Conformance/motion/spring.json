@@ -1,0 +1,267 @@
+{
+ "_note": "The UI MOTION spring corpus \u2014 THE CRUX OF THE 1:1 CLAIM. The authoring plane is SwiftUI's `.spring(response:dampingFraction:)` (that is what `anim=\"spring\"` has always meant on iOS, and animDuration sets the response). The MATH plane is the mass-1 damped oscillator the scene kernel already pins. THE CONVERSION, pinned here: \u03c9\u2099 = 2\u03c0 / response \u00b7 stiffness k = \u03c9\u2099\u00b2 \u00b7 damping coefficient c = 2 \u00b7 dampingFraction \u00b7 \u03c9\u2099 (so \u03b6 = c / (2\u221ak) = dampingFraction exactly). THE VALUE LAW is the analytic mass-1 damped spring from 0 to 1 (initial position 0, initial velocity 0) at REAL elapsed seconds \u2014 sceneSpring, unchanged and unduplicated. THE SETTLE LAW: a spring owns its clock; it completes at T = ln(1000) / (\u03c9\u2099 \u00b7 (\u03b6 \u2212 \u221amax(0, \u03b6\u00b2\u22121))) \u2014 the time its envelope decays to 0.1% \u2014 and progress clamps to EXACTLY 1 at and after T, so ending never snaps. `motionSettleMs(spec)` returns T\u00b71000; for a curve spec it returns the curve duration. Underdamped springs legitimately OVERSHOOT (p > 1) before settling \u2014 the bouncy case pins that. Platform notes: SwiftUI's spring IS this oscillator (response/dampingFraction are its own parameters), and Compose's spring(dampingRatio, stiffness) is the same mass-1 oscillator \u2014 both consume the converted numbers directly. CSS has NO spring, so the web renderer samples this curve into a `linear()` easing (ui-motion.md, the named approximation). All floats 6 decimals, tolerance 1.5e-6; independent scratch derivation.",
+ "conversion": [
+  {
+   "name": "the DEFAULT spring \u2014 response 0.4, damping fraction 0.8",
+   "response": 0.4,
+   "dampingFraction": 0.8,
+   "omega": 15.707963,
+   "stiffness": 246.74011,
+   "damping": 25.132741,
+   "zeta": 0.8,
+   "settleMs": 549.701699
+  },
+  {
+   "name": "a fast spring \u2014 response 0.25",
+   "response": 0.25,
+   "dampingFraction": 0.8,
+   "omega": 25.132741,
+   "stiffness": 631.654682,
+   "damping": 40.212386,
+   "zeta": 0.8,
+   "settleMs": 343.563562
+  },
+  {
+   "name": "critically damped \u2014 damping fraction 1.0",
+   "response": 0.5,
+   "dampingFraction": 1.0,
+   "omega": 12.566371,
+   "stiffness": 157.91367,
+   "damping": 25.132741,
+   "zeta": 1.0,
+   "settleMs": 549.701699
+  },
+  {
+   "name": "bouncy \u2014 damping fraction 0.5",
+   "response": 0.6,
+   "dampingFraction": 0.5,
+   "omega": 10.471976,
+   "stiffness": 109.662271,
+   "damping": 10.471976,
+   "zeta": 0.5,
+   "settleMs": 1319.284078
+  },
+  {
+   "name": "overdamped \u2014 damping fraction 1.5",
+   "response": 0.3,
+   "dampingFraction": 1.5,
+   "omega": 20.943951,
+   "stiffness": 438.649084,
+   "damping": 62.831853,
+   "zeta": 1.5,
+   "settleMs": 863.482639
+  },
+  {
+   "name": "a slow spring \u2014 response 1.0",
+   "response": 1.0,
+   "dampingFraction": 0.8,
+   "omega": 6.283185,
+   "stiffness": 39.478418,
+   "damping": 10.053096,
+   "zeta": 0.8,
+   "settleMs": 1374.254248
+  }
+ ],
+ "progress": [
+  {
+   "name": "the default spring (0.4 / 0.8) sampled across its settle",
+   "response": 0.4,
+   "dampingFraction": 0.8,
+   "settleMs": 549.701699,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 50,
+     "p": 0.201727
+    },
+    {
+     "t": 100,
+     "p": 0.525705
+    },
+    {
+     "t": 150,
+     "p": 0.776292
+    },
+    {
+     "t": 200,
+     "p": 0.922314
+    },
+    {
+     "t": 300,
+     "p": 1.012427
+    },
+    {
+     "t": 400,
+     "p": 1.010451
+    },
+    {
+     "t": 500,
+     "p": 1.00249
+    },
+    {
+     "t": 540,
+     "p": 1.000985
+    },
+    {
+     "t": 600,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "a fast spring (0.25 / 0.8)",
+   "response": 0.25,
+   "dampingFraction": 0.8,
+   "settleMs": 343.563562,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 25,
+     "p": 0.140641
+    },
+    {
+     "t": 50,
+     "p": 0.399251
+    },
+    {
+     "t": 100,
+     "p": 0.813403
+    },
+    {
+     "t": 200,
+     "p": 1.014793
+    },
+    {
+     "t": 340,
+     "p": 1.000878
+    },
+    {
+     "t": 400,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "bouncy (0.6 / 0.5) overshoots past 1",
+   "response": 0.6,
+   "dampingFraction": 0.5,
+   "settleMs": 1319.284078,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 100,
+     "p": 0.365609
+    },
+    {
+     "t": 200,
+     "p": 0.887787
+    },
+    {
+     "t": 300,
+     "p": 1.1407
+    },
+    {
+     "t": 400,
+     "p": 1.142095
+    },
+    {
+     "t": 500,
+     "p": 1.054361
+    },
+    {
+     "t": 700,
+     "p": 0.973493
+    },
+    {
+     "t": 1000,
+     "p": 1.003918
+    }
+   ]
+  },
+  {
+   "name": "critically damped (0.5 / 1.0) never overshoots",
+   "response": 0.5,
+   "dampingFraction": 1.0,
+   "settleMs": 549.701699,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 50,
+     "p": 0.131311
+    },
+    {
+     "t": 100,
+     "p": 0.35774
+    },
+    {
+     "t": 200,
+     "p": 0.715416
+    },
+    {
+     "t": 300,
+     "p": 0.890034
+    },
+    {
+     "t": 500,
+     "p": 0.986399
+    },
+    {
+     "t": 540,
+     "p": 0.991205
+    },
+    {
+     "t": 560,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "overdamped (0.3 / 1.5) crawls in",
+   "response": 0.3,
+   "dampingFraction": 1.5,
+   "settleMs": 863.482639,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 50,
+     "p": 0.226183
+    },
+    {
+     "t": 100,
+     "p": 0.47462
+    },
+    {
+     "t": 200,
+     "p": 0.763613
+    },
+    {
+     "t": 300,
+     "p": 0.893782
+    },
+    {
+     "t": 400,
+     "p": 0.952272
+    },
+    {
+     "t": 500,
+     "p": 0.978554
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,224 @@
+{
+ "_note": "The DSX Scene BIND corpus (dsx-scene.md P5): data-driven children as data. THE ROW LAW: <group bind=\"expr\" key=\"field\"> instantiates its template children once per array row; a non-array binds zero rows; a dict row keys on String(row[keyField] ?? index), a scalar row on String(row); duplicate keys get the ·1/·2… suffix in encounter order (the <list> keying law verbatim); rows past 256 (SCENE_BIND_LIMIT) drop with one diagnostic. THE KEYED-IDENTITY LAW: a key present on both sides of a reconcile keeps its instantiated subtree across any reorder (diff cases pin added/removed/retained as data). THE SCOPE LAW: inside a row, item.* resolves against the row value exactly like a <list> row (scope cases pin per-row resolved props through the ordinary hole resolver); a row node's on:* handlers run in the row scope, so the payload carries the row item (surface-tested — a data corpus cannot mount handlers). Removing a row removes its subtree and STOPS ITS ANIMATIONS (surface-tested). Nested binds are full rows of rows. Runners: TS (per-PR). Kotlin/Swift are the NAMED P5 follow-up.",
+ "cases": [
+  {
+   "name": "dict rows key on the key field, in row order",
+   "kind": "rows",
+   "key": "id",
+   "value": [
+    {
+     "id": "a",
+     "hp": 3
+    },
+    {
+     "id": "b",
+     "hp": 5
+    },
+    {
+     "id": "c",
+     "hp": 1
+    }
+   ],
+   "expect": {
+    "keys": [
+     "a",
+     "b",
+     "c"
+    ],
+    "indices": [
+     0,
+     1,
+     2
+    ]
+   }
+  },
+  {
+   "name": "scalar rows key on their stringified value; duplicates suffix ·n",
+   "kind": "rows",
+   "key": "id",
+   "value": [
+    5,
+    "x",
+    5,
+    5
+   ],
+   "expect": {
+    "keys": [
+     "5",
+     "x",
+     "5·1",
+     "5·2"
+    ],
+    "indices": [
+     0,
+     1,
+     2,
+     3
+    ]
+   }
+  },
+  {
+   "name": "a missing key field falls back to the row index",
+   "kind": "rows",
+   "key": "id",
+   "value": [
+    {
+     "n": 1
+    },
+    {
+     "n": 2
+    }
+   ],
+   "expect": {
+    "keys": [
+     "0",
+     "1"
+    ],
+    "indices": [
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "name": "a non-array binds zero rows",
+   "kind": "rows",
+   "key": "id",
+   "value": {
+    "id": "not-an-array"
+   },
+   "expect": {
+    "keys": [],
+    "indices": []
+   }
+  },
+  {
+   "name": "keyed identity across reorder — added/removed/retained as data",
+   "kind": "diff",
+   "key": "id",
+   "previous": [
+    "a",
+    "b",
+    "c"
+   ],
+   "value": [
+    {
+     "id": "c"
+    },
+    {
+     "id": "a"
+    },
+    {
+     "id": "d"
+    }
+   ],
+   "expect": {
+    "added": [
+     "d"
+    ],
+    "removed": [
+     "b"
+    ],
+    "retained": [
+     "c",
+     "a"
+    ]
+   }
+  },
+  {
+   "name": "item-scoped holes resolve per row through the ordinary resolver",
+   "kind": "scope",
+   "key": "id",
+   "template": {
+    "kind": "box",
+    "attrs": {
+     "position": "{{ item.x }} 0 0",
+     "color": "{{ item.tint }}"
+    }
+   },
+   "value": [
+    {
+     "id": "e1",
+     "x": 2,
+     "tint": "#ff0000"
+    },
+    {
+     "id": "e2",
+     "x": 5,
+     "tint": "#00ff00"
+    }
+   ],
+   "expect": {
+    "positions": [
+     [
+      2,
+      0,
+      0
+     ],
+     [
+      5,
+      0,
+      0
+     ]
+    ],
+    "colors": [
+     "#ff0000",
+     "#00ff00"
+    ]
+   }
+  },
+  {
+   "name": "nested bind — rows of rows, each level keyed independently",
+   "kind": "nested",
+   "key": "id",
+   "innerField": "squad",
+   "innerKey": "id",
+   "value": [
+    {
+     "id": "r1",
+     "squad": [
+      10,
+      20
+     ]
+    },
+    {
+     "id": "r2",
+     "squad": [
+      7,
+      8,
+      9
+     ]
+    }
+   ],
+   "expect": {
+    "outerKeys": [
+     "r1",
+     "r2"
+    ],
+    "innerKeys": [
+     [
+      "10",
+      "20"
+     ],
+     [
+      "7",
+      "8",
+      "9"
+     ]
+    ]
+   }
+  },
+  {
+   "name": "the 256-row cap drops the tail with one diagnostic",
+   "kind": "cap",
+   "key": "id",
+   "count": 300,
+   "expect": {
+    "rowCount": 256,
+    "firstKey": "0",
+    "lastKey": "255",
+    "diagnostics": 1
+   }
+  }
+ ]
+}

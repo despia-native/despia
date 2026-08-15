@@ -1,0 +1,15 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "spacer",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Spacer/swift/Spacer.swift",
+  "attributes": {
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "Flexible space (Spacer.swift:10). A width=/height= sized spacer is fixed via the universal style chain; Android emits flexible spacers from the parent stack loop (weight scope — StackNodeView.kt header)."
+}

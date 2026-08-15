@@ -1,0 +1,106 @@
+<vstack grow="true" background="#000000">
+  <head>
+    <variable as="meals">return [
+      { id: '1', name: 'Oatmeal &amp; Berries', calories: 340, time: '08:30' },
+      { id: '2', name: 'Grilled Chicken Salad', calories: 520, time: '12:45' },
+      { id: '3', name: 'Greek Yogurt', calories: 150, time: '15:20' }
+    ]</variable>
+    <variable as="goal">return 2000</variable>
+    <variable as="consumed" computed="true">return dsx.variable.meals.reduce((sum, m) => sum + m.calories, 0)</variable>
+    <variable as="remaining" computed="true">return dsx.variable.goal - dsx.variable.consumed</variable>
+    <variable as="progress" computed="true">return Math.min(dsx.variable.consumed / dsx.variable.goal, 1)</variable>
+    <variable as="mealCount" computed="true">return dsx.variable.meals.length</variable>
+  </head>
+
+  <scaffold>
+    <vstack pin="top" padding="20" paddingTop="24">
+      <hstack align="center">
+        <text value="Today" fontSize="17" fontWeight="semibold" color="white"/>
+        <spacer/>
+        <button icon="gearshape.fill" iconSize="20" color="rgba(255,255,255,0.6)"/>
+      </hstack>
+    </vstack>
+
+    <scroll>
+      <vstack padding="20" spacing="24">
+        <vstack style="card" padding="24" spacing="20" align="center">
+          <hstack spacing="16" align="center">
+            <vstack spacing="4" align="leading">
+              <text value="Remaining" fontSize="13" color="rgba(255,255,255,0.5)" fontWeight="medium"/>
+              <text value="{{ dsx.variable.remaining }}" fontSize="40" fontWeight="bold" color="accent"/>
+              <text value="/ {{ dsx.variable.goal }} kcal" fontSize="15" color="rgba(255,255,255,0.4)"/>
+            </vstack>
+            <spacer/>
+            <vstack spacing="4" align="trailing">
+              <text value="Eaten" fontSize="13" color="rgba(255,255,255,0.5)" fontWeight="medium"/>
+              <text value="{{ dsx.variable.consumed }}" fontSize="28" fontWeight="bold" color="white"/>
+              <text value="kcal" fontSize="13" color="rgba(255,255,255,0.4)"/>
+            </vstack>
+          </hstack>
+          <vstack grow="width" spacing="8">
+            <progress bind="dsx.variable.progress" color="accent" height="8"/>
+            <hstack>
+              <text value="{{ dsx.variable.mealCount }} meals logged" fontSize="12" color="rgba(255,255,255,0.4)"/>
+              <spacer/>
+              <text value="{{ Math.round(dsx.variable.progress * 100) }}%" fontSize="12" color="accent" fontWeight="semibold"/>
+            </hstack>
+          </vstack>
+        </vstack>
+
+        <hstack spacing="10">
+          <vstack grow="true" style="card" padding="16" spacing="6" align="center">
+            <text value="Protein" fontSize="12" color="rgba(255,255,255,0.5)"/>
+            <text value="124g" fontSize="17" fontWeight="bold" color="white"/>
+            <vstack grow="width" height="4" background="rgba(255,255,255,0.1)" radius="2">
+              <vstack width="70" height="4" background="#34C759" radius="2"/>
+            </vstack>
+          </vstack>
+          <vstack grow="true" style="card" padding="16" spacing="6" align="center">
+            <text value="Carbs" fontSize="12" color="rgba(255,255,255,0.5)"/>
+            <text value="186g" fontSize="17" fontWeight="bold" color="white"/>
+            <vstack grow="width" height="4" background="rgba(255,255,255,0.1)" radius="2">
+              <vstack width="55" height="4" background="#FF9500" radius="2"/>
+            </vstack>
+          </vstack>
+          <vstack grow="true" style="card" padding="16" spacing="6" align="center">
+            <text value="Fat" fontSize="12" color="rgba(255,255,255,0.5)"/>
+            <text value="52g" fontSize="17" fontWeight="bold" color="white"/>
+            <vstack grow="width" height="4" background="rgba(255,255,255,0.1)" radius="2">
+              <vstack width="40" height="4" background="#FF2D55" radius="2"/>
+            </vstack>
+          </vstack>
+        </hstack>
+
+        <vstack spacing="12">
+          <hstack align="center">
+            <text value="Today's Meals" fontSize="20" fontWeight="bold" color="white"/>
+            <spacer/>
+            <text value="{{ dsx.variable.mealCount }} items" fontSize="13" color="rgba(255,255,255,0.4)"/>
+          </hstack>
+          <list bind="dsx.variable.meals" key="id" spacing="8" appearance="custom">
+            <row>
+              <hstack padding="16" background="rgba(255,255,255,0.06)" radius="12" align="center" spacing="12">
+                <vstack width="40" height="40" background="accent" radius="10" align="center">
+                  <text value="{{ dsx.item.name.charAt(0) }}" fontSize="17" fontWeight="bold" color="white"/>
+                </vstack>
+                <vstack spacing="2" grow="width">
+                  <text bind="dsx.item.name" fontSize="16" fontWeight="semibold" color="white"/>
+                  <text value="{{ dsx.item.time }}" fontSize="13" color="rgba(255,255,255,0.4)"/>
+                </vstack>
+                <vstack align="trailing" spacing="2">
+                  <text value="{{ dsx.item.calories }}" fontSize="16" fontWeight="bold" color="white"/>
+                  <text value="kcal" fontSize="11" color="rgba(255,255,255,0.4)"/>
+                </vstack>
+              </hstack>
+            </row>
+          </list>
+        </vstack>
+      </vstack>
+    </scroll>
+
+    <hstack pin="bottom" padding="20" paddingBottom="28">
+      <spacer/>
+      <button icon="plus" iconSize="24" color="white" width="56" height="56" background="accent" radius="28"/>
+    </hstack>
+  </scaffold>
+</vstack>

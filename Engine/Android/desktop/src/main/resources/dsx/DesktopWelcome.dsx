@@ -1,0 +1,9 @@
+<vstack grow="true" align="center" spacing="18" padding="32" background="systemBackground">
+  <vstack width="640" maxWidth="640" spacing="14" padding="28" radius="18" background="surface" borderColor="outline" borderWidth="1">
+    <text value="DSX" fontSize="34" fontWeight="bold" color="accent"/>
+    <text value="Your DSX desktop app is ready to configure." fontSize="26" fontWeight="semibold"/>
+    <text value="Pass a native .dsx entry with --entry or set DSX_ENTRY in the packaged launcher. This screen is rendered by the Compose desktop runtime; no web view is mounted." color="secondary"/>
+    <divider/>
+    <text value="Platform: {{ platform.os }} · native={{ platform.native }} · desktop={{ platform.desktop }}" fontDesign="monospaced" color="secondary"/>
+  </vstack>
+</vstack>

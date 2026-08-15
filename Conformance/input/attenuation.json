@@ -1,0 +1,277 @@
+{
+  "version": 1,
+  "_note": "G4 audio \u2014 the POSITIONAL ATTENUATION FOLD (dsx-game.md \u00a72 G4). Pure math in the shared kernel: a listener position, a source position and the three knobs fold to {distance, gain, pan}. The model is the clamped INVERSE-DISTANCE law (gain = ref / (ref + rolloff \u00b7 (clamp(d, ref, max) \u2212 ref))) \u2014 the same curve the Web Audio 'inverse' panner uses, so a web renderer can hand the numbers straight to a PannerNode. pan is the listener-relative X component (dx / d), clamped to [-1, 1], and 0 when the source sits on the listener. PLAYBACK of the folded numbers is NOT part of this rung (the named absence) \u2014 Core/Audio plays SFX/music unattenuated.",
+  "defaults": {
+    "ref": 1.0,
+    "max": 50.0,
+    "rolloff": 1.0
+  },
+  "cases": [
+    {
+      "name": "at-listener",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        0,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 0.0,
+      "gain": 1.0,
+      "pan": 0.0
+    },
+    {
+      "name": "inside-reference",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        0.5,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 0.5,
+      "gain": 1.0,
+      "pan": 1.0
+    },
+    {
+      "name": "at-reference",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        1,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 1.0,
+      "gain": 1.0,
+      "pan": 1.0
+    },
+    {
+      "name": "double-reference",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        2,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 2.0,
+      "gain": 0.5,
+      "pan": 1.0
+    },
+    {
+      "name": "ten-units",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        10,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 10.0,
+      "gain": 0.1,
+      "pan": 1.0
+    },
+    {
+      "name": "at-max",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        50,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 50.0,
+      "gain": 0.02,
+      "pan": 1.0
+    },
+    {
+      "name": "beyond-max-clamps",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        500,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 500.0,
+      "gain": 0.02,
+      "pan": 1.0
+    },
+    {
+      "name": "left-of-listener",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        -4,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 4.0,
+      "gain": 0.25,
+      "pan": -1.0
+    },
+    {
+      "name": "diagonal",
+      "listener": [
+        0,
+        1,
+        0
+      ],
+      "source": [
+        3,
+        1,
+        4
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 5.0,
+      "gain": 0.2,
+      "pan": 0.6
+    },
+    {
+      "name": "rolloff-two",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        10,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 2.0,
+      "distance": 10.0,
+      "gain": 0.052632,
+      "pan": 1.0
+    },
+    {
+      "name": "rolloff-half",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        10,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 0.5,
+      "distance": 10.0,
+      "gain": 0.181818,
+      "pan": 1.0
+    },
+    {
+      "name": "reference-five",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        10,
+        0,
+        0
+      ],
+      "ref": 5.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 10.0,
+      "gain": 0.5,
+      "pan": 1.0
+    },
+    {
+      "name": "moving-listener",
+      "listener": [
+        6,
+        0,
+        0
+      ],
+      "source": [
+        0,
+        0,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 6.0,
+      "gain": 0.166667,
+      "pan": -1.0
+    },
+    {
+      "name": "straight-above",
+      "listener": [
+        0,
+        0,
+        0
+      ],
+      "source": [
+        0,
+        8,
+        0
+      ],
+      "ref": 1.0,
+      "max": 50.0,
+      "rolloff": 1.0,
+      "distance": 8.0,
+      "gain": 0.125,
+      "pan": 0.0
+    }
+  ]
+}

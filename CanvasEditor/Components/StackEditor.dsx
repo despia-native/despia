@@ -1,0 +1,54 @@
+<!-- StackEditor — the canvas editor as a DSX component (/web/13 + /web/18). The head
+     IS the web-component contract: every attribute below becomes an observed attribute
+     AND a JS property on <despia-editor> (rich data — a deck tree, a data store — rides
+     the property or JSON attribute text), and every event re-dispatches as a composed
+     CustomEvent with the SDK payload in `detail`. The body is ONE module-provided
+     facet component: <EditorCanvas> (web/index.js) mounts the zero-dependency
+     StackCanvas SDK — the same surface CanvasEditor.html inlines. Inside a DSX app it
+     is an ordinary component (<StackEditor deck="{{ … }}" on:select="…"/>); embed
+     packaging changes nothing about authoring. Forwarding is FIELD-EXPLICIT on purpose:
+     dsx.this in a handler is the merged item scope (attrs + payload — the kernel
+     contract, jse "this" → item), so each event names exactly the SDK payload fields
+     it re-emits — the component's event contract, readable in one place. -->
+<stack style="width: 100%; height: 100%; background: #0a0a0b">
+  <head>
+    <attribute as="deck" default=""/>
+    <attribute as="src" default=""/>
+    <attribute as="data" default=""/>
+    <attribute as="controls" default="true"/>
+    <attribute as="frame" default="phone"/>
+    <attribute as="preview" default="false"/>
+    <attribute as="zoom" default="fit"/>
+    <event as="ready"/>
+    <event as="select"/>
+    <event as="deselect"/>
+    <event as="hover"/>
+    <event as="change"/>
+    <event as="history"/>
+    <event as="drop"/>
+    <event as="preview"/>
+    <event as="edit"/>
+    <event as="view"/>
+    <action as="fwdSelect">dsx.event('select', { id: dsx.this.id, ids: dsx.this.ids, tag: dsx.this.tag, via: dsx.this.via, path: dsx.this.path, attrs: dsx.this.attrs, accepts: dsx.this.accepts, bindings: dsx.this.bindings, events: dsx.this.events, size: dsx.this.size })</action>
+    <action as="fwdDrop">dsx.event('drop', { ids: dsx.this.ids, id: dsx.this.id, parentId: dsx.this.parentId, index: dsx.this.index, unlinked: dsx.this.unlinked })</action>
+    <action as="fwdEdit">dsx.event('edit', { id: dsx.this.id, attr: dsx.this.attr, value: dsx.this.value, bind: dsx.this.bind, linked: dsx.this.linked, unlinked: dsx.this.unlinked, resolves: dsx.this.resolves })</action>
+  </head>
+  <EditorCanvas grow="true"
+    deck="{{ dsx.attribute.deck }}"
+    src="{{ dsx.attribute.src }}"
+    data="{{ dsx.attribute.data }}"
+    controls="{{ dsx.attribute.controls }}"
+    frame="{{ dsx.attribute.frame }}"
+    preview="{{ dsx.attribute.preview }}"
+    zoom="{{ dsx.attribute.zoom }}"
+    on:ready="dsx.event('ready', { nodes: dsx.this.nodes })"
+    on:select="fwdSelect()"
+    on:deselect="dsx.event('deselect', {})"
+    on:hover="dsx.event('hover', { id: dsx.this.id, tag: dsx.this.tag })"
+    on:change="dsx.event('change', { tree: dsx.this.tree })"
+    on:history="dsx.event('history', { undo: dsx.this.undo, redo: dsx.this.redo })"
+    on:drop="fwdDrop()"
+    on:preview="dsx.event('preview', { on: dsx.this.on })"
+    on:edit="fwdEdit()"
+    on:view="dsx.event('view', { zoom: dsx.this.zoom, x: dsx.this.x, y: dsx.this.y })"/>
+</stack>

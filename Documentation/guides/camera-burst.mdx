@@ -1,0 +1,198 @@
+---
+title: "Burst Capture"
+description: "Capture a rapid sequence of full-resolution stills with no preview, shutter, or picker, driven entirely from JavaScript."
+icon: "camera"
+---
+
+Capture a rapid sequence of full-resolution stills with no preview, no shutter button and no picker. The whole burst is driven from JavaScript, which makes this the tool for correlating frames with a sensor window or a timestamp, rather than for a photo a person composes.
+
+That is the scope, not a gap: putting a human in the middle of a loop whose entire purpose is machine correlation would defeat it. If you want the user to frame and take a picture, use the file picker instead.
+
+***
+
+## Installation
+
+<Tabs>
+  <Tab title="Bundle">
+    <CodeGroup>
+
+    ```bash npm theme={null}
+    npm install despia-native
+    ```
+
+    ```bash pnpm theme={null}
+    pnpm add despia-native
+    ```
+
+    ```bash yarn theme={null}
+    yarn add despia-native
+    ```
+
+    </CodeGroup>
+
+    ```javascript theme={null}
+    import despia from 'despia-native';
+    ```
+  </Tab>
+  <Tab title="CDN">
+    <CodeGroup>
+
+    ```html UMD theme={null}
+    <script src="https://cdn.jsdelivr.net/npm/despia-native/index.min.js"></script>
+    ```
+
+    ```html ESM theme={null}
+    <script type="module">
+        import despia from 'https://cdn.jsdelivr.net/npm/despia-native/+esm'
+    </script>
+    ```
+
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+***
+
+## Capture a burst
+
+Takes N photos as fast as the hardware allows, with no preview, no shutter button, and no picker, and hands back file paths. This is the capture primitive a program drives, built for correlating frames with a motion window, a sensor reading, or a timestamp. Frames are captured sequentially, each request goes out only after the previous one lands, because concurrent requests come back out of order under pressure and a shuffled burst is worse than a slightly slower one. A single failed frame does not abandon the run; `count` reports what actually landed.
+
+```javascript theme={null}
+despia(`camera://burst?count=10&interval=0&quality=0.8&camera=back`)
+```
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `count` | No | Frames to take, clamped to 1 to 60. Defaults to `1`. |
+| `interval` | No | Minimum milliseconds between frames, never a guarantee, the hardware sets the real cadence. `0` (the default) means as fast as the sensor delivers. Trust each photo's own `timestamp`, not this. |
+| `quality` | No | JPEG quality from `0.01` to `1`. Defaults to `0.9`. |
+| `camera` | No | `back` (the default) or `front`. Pass as-is, no encoding needed. |
+| `encode` | No | `base64` inlines the bytes instead of writing files. Honest but expensive, a ten-frame full-resolution burst is tens of megabytes of string; use it for one or two frames, use paths for a real burst. |
+
+The result arrives once on `window.onBurstComplete`. The camera permission is requested lazily on the first burst, never at launch. A second burst while one is running answers `busy` rather than interleaving two runs' frames into each other's output.
+
+```json theme={null}
+{
+    "status": "success",
+    "count": 10,
+    "durationMs": 1240,
+    "photos": [
+        { "path": "/caches/despia-burst/0.jpg", "width": 4032, "height": 3024, "bytes": 2411500, "timestamp": 1716651000123 }
+    ]
+}
+```
+
+<ParamField path="success" type="object">
+  `photos` in capture order, each with `path` (or `base64` when inlined), `width`, `height`, `bytes`, and its own `timestamp`. `durationMs` measures the burst itself, not the few hundred milliseconds of camera warm-up.
+</ParamField>
+
+<ParamField path="error" type="object">
+  Carries `error` with a stable code: `unavailable` (no camera on the requested side), `permission_denied` (recoverable, ask again after the user changes their mind), `capture_failed` (the session could not start), or `busy` (a burst is already running).
+</ParamField>
+
+Photos land in the app's caches directory, which the OS may reclaim under memory pressure. Read them promptly and clear when done. Each burst clears the directory first, so a short burst never reports paths left over from a longer previous one.
+
+***
+
+## Clear captured files
+
+Deletes every file a previous burst wrote. Cleanup is explicit because the runtime cannot know when you have finished reading a burst, and guessing wrong would lose it.
+
+```javascript theme={null}
+despia('camera://clear')
+```
+
+The result arrives on `window.onBurstComplete` as `{ "status": "success", "deleted": 10 }`.
+
+***
+
+## Probe the cameras
+
+Reports which lenses exist and the burst ceiling. Front-only devices are real, check before building UI around the back camera.
+
+```javascript theme={null}
+despia('camera://capabilities')
+```
+
+The result arrives once on `window.onCameraCapabilities`.
+
+```json theme={null}
+{ "status": "success", "back": true, "front": true, "maxBurst": 60 }
+```
+
+***
+
+## Module API (v4)
+
+Apps on the Despia framework runtime call the same feature through the module surface. The URL spellings above keep working unchanged.
+
+```javascript theme={null}
+const { photos, count, durationMs } = await dsx.module.camera.burst({
+  count: 10, interval: 0, quality: 0.8, camera: "back"
+});
+await dsx.module.camera.clear({});
+const caps = await dsx.module.camera.capabilities({});
+```
+
+***
+
+## Standard burst flow
+
+Probe, subscribe, capture, read, clear.
+
+```javascript theme={null}
+import despia from 'despia-native';
+
+const isDespia = navigator.userAgent.toLowerCase().includes('despia')
+
+window.onCameraCapabilities = function (caps) {
+    if (!caps.back) { /* offer the front camera instead */ }
+}
+
+window.onBurstComplete = function (result) {
+    if (result.status === 'error') { handleError(result.error); return }
+    if (result.photos) {
+        result.photos.forEach(p => upload(p.path))
+        if (isDespia) despia('camera://clear')
+    }
+}
+
+if (isDespia) {
+    despia('camera://capabilities')
+    despia('camera://burst?count=10&quality=0.8&camera=back')
+}
+```
+
+***
+
+## Permissions
+
+Burst capture rides the existing camera permission — no field of its own. The switch is `camera_usage` under **App → Settings → Usage Descriptions**, the same field every other camera feature uses:
+
+| | Set (non-empty string) | Unset (`""`, `null`, or absent) |
+| --- | --- | --- |
+| iOS | The string becomes `NSCameraUsageDescription`; the grant is asked lazily on the first burst | The key is deleted and the capture code is compiled out — `burst` answers `permission_denied`, `capabilities` reports both lenses `false` |
+| Android | `CAMERA` is declared, plus `required="false"` camera feature guards | `CAMERA` is stripped and merge-blocked; `burst` answers `permission_denied` |
+
+Feature-detect from the page:
+
+```javascript theme={null}
+if (window.permissions && !window.permissions.includes('camera_usage')) {
+  hideCaptureUI(); // camera excluded from this build
+}
+```
+
+See [Permissions](/native-features/permissions) for the full key list and the rollout rules that apply when a permission is removed.
+
+***
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="NPM Package" icon="npm" href="https://www.npmjs.com/package/despia-native">
+    despia-native
+  </Card>
+  <Card title="Support" icon="envelope" href="mailto:support@despia.com">
+    [support@despia.com](mailto:support@despia.com)
+  </Card>
+</CardGroup>

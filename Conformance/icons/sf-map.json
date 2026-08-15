@@ -1,0 +1,646 @@
+{
+  "_note": "SF Symbol name -> cross-platform icon resolution. THE #1 .dsx portability seam: icon=/systemImage=/tabIcon=/actionIcon= (and the snapshot dialect's symbol=) name SF Symbols, which exist only on Apple platforms (and may not be redistributed). iOS renders the SF name directly (the fast path); every other runtime resolves it HERE. Per entry: `material` = the Material Symbols name (Apache-2.0, google/material-design-icons), `codepoint` = that glyph's hex codepoint in the Material Symbols font (the PUA cmap slot - render the char at this codepoint with the bundled font), `fallback` = a plain unicode/text stand-in for when no icon font is available (best-effort; a renderer with neither font nor fallback draws its placeholder). Fail-open: an SF name not in this table renders the consumer's placeholder, never an error. Keyed by the SF name because the .dsx corpus is SF-named (StackReference.md: the icon attribute is a semantic token resolved by the same name on every platform - never a per-platform id). COVERAGE: every distinct icon=/symbol= literal in the shipped .dsx corpus (ClosedSource/DSX/Modules, incl. ternary/default-expression literals) + the StackReference.md defaults (EmptyState `tray`, the tab examples). Adding an icon to markup? Add its row here in the same change - Android consumes this file as a packaged :render asset (see OpenSource/Engine/Android/render/build.gradle.kts copySfMapJson; ONE file, never forked).",
+  "_fill_axis": "SF `.fill` variants map to the SAME material name as their outline sibling: Material Symbols express fill as a variable-font FILL axis, and the bundled Android subset is instanced at the default FILL=0 (outline) look. A filled-vs-outline pair that must stay visually distinct (selection states) maps to two DIFFERENT material glyphs instead - see circle -> radio_button_unchecked vs circle.fill -> fiber_manual_record.",
+  "_web_axis": "`web` = the row's 24x24 SVG path `d` for renderers that have neither the Material Symbols font nor SF Symbols - the browsers. It is the WEB render ladder's rung 1 (OpenSource/Web/packages/dom/src/elements.ts iconSvg): `web` path -> `fallback` unicode text -> the consumer's placeholder, the same fail-open shape as the Android ladder. The tier is a UNIFORM stroke tier (viewBox 0 0 24 24, fill none, stroke currentColor, stroke-width 2, round caps/joins), so - exactly like `_fill_axis` above - an SF `.fill` variant carries the SAME path as its outline sibling unless the pair must stay visually distinct (circle vs circle.fill). A row MAY omit `web`: that row then renders its `fallback` glyph on web, which is what `fallback` is for. Rows deliberately left on the fallback rung are the pictographic ones whose brand/organic shape a 2px stroke cannot honestly carry (apple.logo, crown.fill, flame.fill, pianokeys, puzzlepiece.extension, tuningfork, recordingtape, books.vertical, bitcoinsign.circle.fill, metronome) - a documented divergence, not silent breakage. THIS FILE IS THE ONLY COPY: OpenSource/Web generates packages/dom/src/icons.generated.ts from it (npm run icons:generate) and packages/dom/test/icons.test.ts FAILS when the generated table drifts from this file or when any row here cannot be drawn on web.",
+  "_subset_provenance": "The bundled Android asset (OpenSource/Engine/Android/render/src/main/assets/despia/icons/MaterialSymbolsOutlined-subset.ttf) is generated FROM google/material-design-icons variablefont/MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf (name-table Version 2.962, Apache-2.0) BY: fontTools varLib.instancer at the default axes (wght=400 FILL=0 GRAD=0 opsz=24) then pyftsubset --unicodes=<every `codepoint` in this file>. Regenerate the subset in the SAME change as any row addition; :render's FontSubsetTest fails the build when a row's codepoint is missing from the shipped cmap.",
+  "_license": "Material Symbols (google/material-design-icons) is Apache License 2.0 - redistribution of the font subset + this name/codepoint table is permitted with attribution; the license text ships next to the bundled font (OpenSource/Engine/Android/render/src/main/assets/despia/icons/).",
+  "icons": {
+    "apple.logo": {
+      "material": "ios",
+      "codepoint": "e027",
+      "fallback": "🍎"
+    },
+    "arrow.backward": {
+      "material": "arrow_back",
+      "codepoint": "e5c4",
+      "fallback": "←",
+      "web": "M19 12H5M12 19l-7-7 7-7"
+    },
+    "arrow.clockwise": {
+      "material": "refresh",
+      "codepoint": "e5d5",
+      "fallback": "↻",
+      "web": "M21 12a9 9 0 11-2.6-6.4M21 4v5h-5"
+    },
+    "arrow.down.circle": {
+      "material": "arrow_circle_down",
+      "codepoint": "f181",
+      "fallback": "↓",
+      "web": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8v8M8 12l4 4 4-4"
+    },
+    "arrow.down.circle.fill": {
+      "material": "arrow_circle_down",
+      "codepoint": "f181",
+      "fallback": "↓",
+      "web": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8v8M8 12l4 4 4-4"
+    },
+    "arrow.down.right.and.arrow.up.left": {
+      "material": "close_fullscreen",
+      "codepoint": "f1cf",
+      "fallback": "⤡",
+      "web": "M9 15v5M9 15H4M9 15l-6 6M15 9V4M15 9h5M15 9l6-6"
+    },
+    "arrow.right": {
+      "material": "arrow_forward",
+      "codepoint": "e5c8",
+      "fallback": "→",
+      "web": "M5 12h14M12 5l7 7-7 7"
+    },
+    "arrow.up.left.and.arrow.down.right": {
+      "material": "open_in_full",
+      "codepoint": "f1ce",
+      "fallback": "⤢",
+      "web": "M15 3h6v6M21 3l-7 7M9 21H3v-6M3 21l7-7"
+    },
+    "arrow.uturn.backward": {
+      "material": "undo",
+      "codepoint": "e166",
+      "fallback": "↩",
+      "web": "M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-5"
+    },
+    "arrow.uturn.forward": {
+      "material": "redo",
+      "codepoint": "e15a",
+      "fallback": "↪",
+      "web": "M15 14l5-5-5-5M20 9H10a6 6 0 000 12h5"
+    },
+    "arrowshape.turn.up.right.fill": {
+      "material": "forward",
+      "codepoint": "f57a",
+      "fallback": "➦",
+      "web": "M13 5l8 7-8 7v-4C7 15 5 17 4 20c0-6 3-9 9-9V5z"
+    },
+    "backward.end.fill": {
+      "material": "skip_previous",
+      "codepoint": "e045",
+      "fallback": "⏮",
+      "web": "M18 5v14L8 12zM6 5v14"
+    },
+    "bell.fill": {
+      "material": "notifications",
+      "codepoint": "e7f5",
+      "fallback": "🔔",
+      "web": "M6 16v-5a6 6 0 1112 0v5l2 2H4zM10 20a2 2 0 004 0"
+    },
+    "bitcoinsign.circle.fill": {
+      "material": "currency_bitcoin",
+      "codepoint": "ebc5",
+      "fallback": "₿"
+    },
+    "bolt.fill": {
+      "material": "bolt",
+      "codepoint": "ea0b",
+      "fallback": "⚡",
+      "web": "M13.2 2L5 13h6l-.2 9L19 10h-6z"
+    },
+    "bookmark": {
+      "material": "bookmark",
+      "codepoint": "e8e7",
+      "fallback": "🔖",
+      "web": "M6 3h12v18l-6-5-6 5z"
+    },
+    "bookmark.fill": {
+      "material": "bookmark",
+      "codepoint": "e8e7",
+      "fallback": "🔖",
+      "web": "M6 3h12v18l-6-5-6 5z"
+    },
+    "books.vertical": {
+      "material": "library_books",
+      "codepoint": "e02f",
+      "fallback": "📚"
+    },
+    "cart": {
+      "material": "shopping_cart",
+      "codepoint": "e8cc",
+      "fallback": "🛒",
+      "web": "M3 4h2l2.4 10.5a2 2 0 002 1.5h7.8a2 2 0 002-1.6L21 8H7M10 20a1 1 0 100-2 1 1 0 000 2zM18 20a1 1 0 100-2 1 1 0 000 2z"
+    },
+    "checkmark": {
+      "material": "check",
+      "codepoint": "e668",
+      "fallback": "✓",
+      "web": "M5 13l4 4L19 7"
+    },
+    "checkmark.circle.fill": {
+      "material": "check_circle",
+      "codepoint": "f0be",
+      "fallback": "✓",
+      "web": "M12 3a9 9 0 100 18 9 9 0 000-18zM8 12l3 3 5-6"
+    },
+    "checkmark.square.fill": {
+      "material": "check_box",
+      "codepoint": "e9de",
+      "fallback": "☑",
+      "web": "M4 4h16v16H4zM8 12l3 3 5-6"
+    },
+    "chevron.left": {
+      "material": "chevron_left",
+      "codepoint": "e5cb",
+      "fallback": "‹",
+      "web": "M15 6l-6 6 6 6"
+    },
+    "chevron.right": {
+      "material": "chevron_right",
+      "codepoint": "e5cc",
+      "fallback": "›",
+      "web": "M9 6l6 6-6 6"
+    },
+    "chevron.up.chevron.down": {
+      "material": "unfold_more",
+      "codepoint": "e5d7",
+      "fallback": "↕",
+      "web": "M8 9l4-4 4 4M8 15l4 4 4-4"
+    },
+    "circle": {
+      "material": "radio_button_unchecked",
+      "codepoint": "e836",
+      "fallback": "○",
+      "web": "M12 3a9 9 0 100 18 9 9 0 000-18z"
+    },
+    "circle.fill": {
+      "material": "fiber_manual_record",
+      "codepoint": "e061",
+      "fallback": "●",
+      "web": "M12 8a4 4 0 100 8 4 4 0 000-8z"
+    },
+    "clock.fill": {
+      "material": "schedule",
+      "codepoint": "efd6",
+      "fallback": "🕐",
+      "web": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 2"
+    },
+    "crop": {
+      "material": "crop",
+      "codepoint": "e3be",
+      "fallback": "▢",
+      "web": "M6 2v16h16M2 6h16v16"
+    },
+    "cross.case.fill": {
+      "material": "medical_services",
+      "codepoint": "f109",
+      "fallback": "✚",
+      "web": "M3 8h18v12H3zM9 8V5h6v3M12 11v6M9 14h6"
+    },
+    "crown.fill": {
+      "material": "crown",
+      "codepoint": "ecb3",
+      "fallback": "♛"
+    },
+    "delete.left": {
+      "material": "backspace",
+      "codepoint": "e14a",
+      "fallback": "⌫",
+      "web": "M9 5h12v14H9L3 12zM13 9l6 6M19 9l-6 6"
+    },
+    "dial.max": {
+      "material": "tune",
+      "codepoint": "e429",
+      "fallback": "🎛",
+      "web": "M4 7h16M4 12h16M4 17h16M9 5v4M15 10v4M7 15v4"
+    },
+    "dial.medium": {
+      "material": "tune",
+      "codepoint": "e429",
+      "fallback": "🎛",
+      "web": "M4 7h16M4 12h16M4 17h16M9 5v4M15 10v4M7 15v4"
+    },
+    "doc.on.clipboard": {
+      "material": "content_paste",
+      "codepoint": "e14f",
+      "fallback": "📋",
+      "web": "M9 4h6v3H9zM7 5H5v16h14V5h-2M9 12h6M9 16h4"
+    },
+    "dollarsign.circle.fill": {
+      "material": "paid",
+      "codepoint": "f041",
+      "fallback": "$",
+      "web": "M12 3a9 9 0 100 18 9 9 0 000-18zM14.5 9.5A2.5 2.5 0 0012 8c-1.4 0-2.5.9-2.5 2s1.1 2 2.5 2 2.5.9 2.5 2-1.1 2-2.5 2a2.5 2.5 0 01-2.5-1.5M12 6.5v11"
+    },
+    "drop.fill": {
+      "material": "water_drop",
+      "codepoint": "e798",
+      "fallback": "💧",
+      "web": "M12 3s6 6.5 6 10a6 6 0 11-12 0c0-3.5 6-10 6-10z"
+    },
+    "ellipsis": {
+      "material": "more_horiz",
+      "codepoint": "e5d3",
+      "fallback": "⋯",
+      "web": "M5 12h.01M12 12h.01M19 12h.01"
+    },
+    "exclamationmark.triangle.fill": {
+      "material": "warning",
+      "codepoint": "f083",
+      "fallback": "⚠",
+      "web": "M12 4l9 16H3zM12 10v4M12 17h.01"
+    },
+    "faceid": {
+      "material": "face",
+      "codepoint": "f008",
+      "fallback": "🙂",
+      "web": "M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3M9 10v2M15 10v2M9 15c1 1 5 1 6 0"
+    },
+    "flame.fill": {
+      "material": "local_fire_department",
+      "codepoint": "ef55",
+      "fallback": "🔥"
+    },
+    "folder": {
+      "material": "folder",
+      "codepoint": "e2c7",
+      "fallback": "📁",
+      "web": "M3 6h6l2 2h10v12H3z"
+    },
+    "forward.fill": {
+      "material": "fast_forward",
+      "codepoint": "e01f",
+      "fallback": "⏩",
+      "web": "M4 6l8 6-8 6zM13 6l8 6-8 6z"
+    },
+    "gift.fill": {
+      "material": "card_giftcard",
+      "codepoint": "e8f6",
+      "fallback": "🎁",
+      "web": "M3 11h18v10H3zM3 7h18v4H3zM12 7v14M8 7a2.5 2.5 0 010-5c2 0 4 5 4 5M16 7a2.5 2.5 0 000-5c-2 0-4 5-4 5"
+    },
+    "globe": {
+      "material": "globe",
+      "codepoint": "e64c",
+      "fallback": "🌐",
+      "web": "M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"
+    },
+    "hand.tap.fill": {
+      "material": "touch_app",
+      "codepoint": "e913",
+      "fallback": "👆",
+      "web": "M9 11V6a2 2 0 014 0v4-1a2 2 0 014 0v2-1a2 2 0 014 0v2-1a2 2 0 014 0v5c0 3.3-2.7 6-6 6h-1.5a6 6 0 01-4.2-1.8L2 16.9a2 2 0 012.8-2.8L9 17"
+    },
+    "headphones": {
+      "material": "headphones",
+      "codepoint": "f01f",
+      "fallback": "🎧",
+      "web": "M4 14v-2a8 8 0 0116 0v2M4 14h3v6H5a1 1 0 01-1-1zM20 14h-3v6h2a1 1 0 001-1z"
+    },
+    "heart": {
+      "material": "favorite",
+      "codepoint": "e87e",
+      "fallback": "♡",
+      "web": "M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"
+    },
+    "heart.fill": {
+      "material": "favorite",
+      "codepoint": "e87e",
+      "fallback": "♥",
+      "web": "M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"
+    },
+    "house": {
+      "material": "home",
+      "codepoint": "e9b2",
+      "fallback": "🏠",
+      "web": "M3 11l9-7 9 7M5 10v10h14V10M10 20v-6h4v6"
+    },
+    "house.fill": {
+      "material": "home",
+      "codepoint": "e9b2",
+      "fallback": "🏠",
+      "web": "M3 11l9-7 9 7M5 10v10h14V10M10 20v-6h4v6"
+    },
+    "info.circle.fill": {
+      "material": "info",
+      "codepoint": "e88e",
+      "fallback": "ⓘ",
+      "web": "M12 8h.01M11 12h1v4h1"
+    },
+    "largecircle.fill.circle": {
+      "material": "radio_button_checked",
+      "codepoint": "e837",
+      "fallback": "◉",
+      "web": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8z"
+    },
+    "line.diagonal": {
+      "material": "diagonal_line",
+      "codepoint": "f41e",
+      "fallback": "╱",
+      "web": "M4 20L20 4"
+    },
+    "lock.fill": {
+      "material": "lock",
+      "codepoint": "e899",
+      "fallback": "🔒",
+      "web": "M5 11h14v10H5zM8 11V7a4 4 0 018 0v4"
+    },
+    "lock.open.fill": {
+      "material": "lock_open",
+      "codepoint": "e898",
+      "fallback": "🔓",
+      "web": "M5 11h14v10H5zM8 11V7a4 4 0 018 0"
+    },
+    "lock.shield": {
+      "material": "shield_locked",
+      "codepoint": "f592",
+      "fallback": "🛡",
+      "web": "M12 3l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6zM10 13h4v3h-4zM10.7 13v-1a1.3 1.3 0 012.6 0v1"
+    },
+    "magnifyingglass": {
+      "material": "search",
+      "codepoint": "e8b6",
+      "fallback": "🔍",
+      "web": "M21 21l-4.3-4.3M19 11a8 8 0 11-16 0 8 8 0 0116 0z"
+    },
+    "metronome": {
+      "material": "av_timer",
+      "codepoint": "e01b",
+      "fallback": "♩"
+    },
+    "mic.fill": {
+      "material": "mic",
+      "codepoint": "e31d",
+      "fallback": "🎤",
+      "web": "M12 3a3 3 0 013 3v5a3 3 0 01-6 0V6a3 3 0 013-3zM6 11a6 6 0 0012 0M12 17v4M9 21h6"
+    },
+    "mic.slash.fill": {
+      "material": "mic_off",
+      "codepoint": "e02b",
+      "fallback": "🚫",
+      "web": "M6 11a6 6 0 009 5.2M15 9V6a3 3 0 00-5.6-1.5M9 9v2a3 3 0 004.3 2.7M12 17v4M9 21h6M4 4l16 16"
+    },
+    "minus": {
+      "material": "remove",
+      "codepoint": "e15b",
+      "fallback": "−",
+      "web": "M5 12h14"
+    },
+    "moon.fill": {
+      "material": "dark_mode",
+      "codepoint": "e51c",
+      "fallback": "🌙",
+      "web": "M20 14A8.5 8.5 0 019.5 3.5 8.5 8.5 0 1020 14z"
+    },
+    "music.note.list": {
+      "material": "queue_music",
+      "codepoint": "e03d",
+      "fallback": "🎶",
+      "web": "M4 7h12M4 11h12M4 15h8M18 19a2 2 0 100-4 2 2 0 000 4zM20 17V7"
+    },
+    "note.text": {
+      "material": "description",
+      "codepoint": "e873",
+      "fallback": "📝",
+      "web": "M6 3h9l3 3v15H6zM9 9h6M9 13h6M9 17h4"
+    },
+    "pause.fill": {
+      "material": "pause",
+      "codepoint": "e034",
+      "fallback": "⏸",
+      "web": "M9 5v14M15 5v14"
+    },
+    "pencil.line": {
+      "material": "edit",
+      "codepoint": "f097",
+      "fallback": "✎",
+      "web": "M4 16l10-10 4 4-10 10H4zM4 21h16"
+    },
+    "person.3.fill": {
+      "material": "groups",
+      "codepoint": "f233",
+      "fallback": "👥",
+      "web": "M12 7a3 3 0 100 6 3 3 0 000-6zM7 19a5 5 0 0110 0M5 12a2.5 2.5 0 110-5M19 12a2.5 2.5 0 100-5M2 18a4 4 0 013-3M22 18a4 4 0 00-3-3"
+    },
+    "person.fill": {
+      "material": "person",
+      "codepoint": "e7fd",
+      "fallback": "👤",
+      "web": "M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0"
+    },
+    "person.wave.2": {
+      "material": "connect_without_contact",
+      "codepoint": "f223",
+      "fallback": "👋",
+      "web": "M9 7a3 3 0 100 6 3 3 0 000-6zM4 20a5 5 0 0110 0M17 8a5 5 0 010 8M20 5a9 9 0 010 14"
+    },
+    "phone.fill": {
+      "material": "call",
+      "codepoint": "f0d4",
+      "fallback": "📞",
+      "web": "M6 3h4l2 5-2.5 1.5a12 12 0 005 5L16 12l5 2v4a2 2 0 01-2 2A16 16 0 014 5a2 2 0 012-2z"
+    },
+    "photo.on.rectangle": {
+      "material": "photo_library",
+      "codepoint": "e413",
+      "fallback": "🖼",
+      "web": "M8 3h13v13H8zM3 8v13h13M11 12l2.5-3 3 4 2-2.5 2.5 3.5H11z"
+    },
+    "pianokeys": {
+      "material": "piano",
+      "codepoint": "e521",
+      "fallback": "🎹"
+    },
+    "play.fill": {
+      "material": "play_arrow",
+      "codepoint": "e037",
+      "fallback": "▶",
+      "web": "M7 4l13 8-13 8z"
+    },
+    "play.rectangle.fill": {
+      "material": "smart_display",
+      "codepoint": "f06a",
+      "fallback": "▶",
+      "web": "M3 5h18v14H3zM10 9l5 3-5 3z"
+    },
+    "plus": {
+      "material": "add",
+      "codepoint": "e145",
+      "fallback": "+",
+      "web": "M12 5v14M5 12h14"
+    },
+    "puzzlepiece.extension": {
+      "material": "extension",
+      "codepoint": "e87b",
+      "fallback": "🧩"
+    },
+    "record.circle": {
+      "material": "radio_button_checked",
+      "codepoint": "e837",
+      "fallback": "◉",
+      "web": "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8z"
+    },
+    "recordingtape": {
+      "material": "voicemail",
+      "codepoint": "e0d9",
+      "fallback": "∞"
+    },
+    "rectangle.stack.fill": {
+      "material": "layers",
+      "codepoint": "e53b",
+      "fallback": "🗂",
+      "web": "M4 9h16v11H4zM6 6h12M8 3h8"
+    },
+    "ruler": {
+      "material": "straighten",
+      "codepoint": "e41c",
+      "fallback": "📏",
+      "web": "M3 9h18v6H3zM7 9v3M11 9v3M15 9v3M19 9v3"
+    },
+    "scissors": {
+      "material": "content_cut",
+      "codepoint": "e14e",
+      "fallback": "✂",
+      "web": "M6 5l12 12M18 5L6 17M6 20a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM6 9a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"
+    },
+    "scribble.variable": {
+      "material": "gesture",
+      "codepoint": "e155",
+      "fallback": "〰",
+      "web": "M3 15c3-6 6 6 9 0s6-6 9 0"
+    },
+    "shift": {
+      "material": "shift",
+      "codepoint": "e5f2",
+      "fallback": "⇧",
+      "web": "M12 3l8 8h-4v6H8v-6H4z"
+    },
+    "slider.horizontal.3": {
+      "material": "tune",
+      "codepoint": "e429",
+      "fallback": "🎚",
+      "web": "M4 7h16M4 12h16M4 17h16M9 5v4M15 10v4M7 15v4"
+    },
+    "slider.vertical.3": {
+      "material": "instant_mix",
+      "codepoint": "e026",
+      "fallback": "🎚",
+      "web": "M7 4v16M12 4v16M17 4v16M5 9h4M10 14h4M15 7h4"
+    },
+    "sparkles": {
+      "material": "auto_awesome",
+      "codepoint": "e65f",
+      "fallback": "✨",
+      "web": "M12 4l1.5 4.5L18 10l-4.5 1.5L12 16l-1.5-4.5L6 10l4.5-1.5z"
+    },
+    "speaker.slash.fill": {
+      "material": "volume_off",
+      "codepoint": "e04f",
+      "fallback": "🔇",
+      "web": "M4 9h3l4-4v14l-4-4H4zM16 9l5 6M21 9l-5 6"
+    },
+    "speedometer": {
+      "material": "speed",
+      "codepoint": "e9e4",
+      "fallback": "⏱",
+      "web": "M4 18a9 9 0 1116 0M12 14l4-4"
+    },
+    "square": {
+      "material": "check_box_outline_blank",
+      "codepoint": "e835",
+      "fallback": "☐",
+      "web": "M4 4h16v16H4z"
+    },
+    "square.and.arrow.down": {
+      "material": "download",
+      "codepoint": "f090",
+      "fallback": "⬇",
+      "web": "M12 15V3M8 11l4 4 4-4M6 12v8h12v-8"
+    },
+    "square.and.arrow.up": {
+      "material": "ios_share",
+      "codepoint": "e6b8",
+      "fallback": "⬆",
+      "web": "M12 3v12M8 7l4-4 4 4M6 12v8h12v-8"
+    },
+    "star.fill": {
+      "material": "star",
+      "codepoint": "f09a",
+      "fallback": "★",
+      "web": "M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.7l5.4-.8z"
+    },
+    "stop.fill": {
+      "material": "stop",
+      "codepoint": "e047",
+      "fallback": "⏹",
+      "web": "M6 6h12v12H6z"
+    },
+    "timer": {
+      "material": "timer",
+      "codepoint": "e425",
+      "fallback": "⏱",
+      "web": "M12 21a8 8 0 100-16 8 8 0 000 16zM12 9v4l3 2M9 3h6"
+    },
+    "trash": {
+      "material": "delete",
+      "codepoint": "e92e",
+      "fallback": "🗑",
+      "web": "M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6M14 11v6"
+    },
+    "tray": {
+      "material": "inbox",
+      "codepoint": "e156",
+      "fallback": "📥",
+      "web": "M4 14h4l1 3h6l1-3h4M4 14l3-9h10l3 9v5H4z"
+    },
+    "tuningfork": {
+      "material": "music_note",
+      "codepoint": "e405",
+      "fallback": "♪"
+    },
+    "video.fill": {
+      "material": "videocam",
+      "codepoint": "e04b",
+      "fallback": "🎥",
+      "web": "M3 6h12v12H3zM15 10l6-4v12l-6-4z"
+    },
+    "wand.and.stars": {
+      "material": "auto_fix_high",
+      "codepoint": "e663",
+      "fallback": "✨",
+      "web": "M4 20L16 8M14 4l1 3 3 1-3 1-1 3-1-3-3-1 3-1zM19 12l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"
+    },
+    "wave.3.right": {
+      "material": "sensors",
+      "codepoint": "e51e",
+      "fallback": "📶",
+      "web": "M8 8a6 6 0 010 8M12 5a10 10 0 010 14M4 11a2 2 0 010 2"
+    },
+    "waveform": {
+      "material": "graphic_eq",
+      "codepoint": "e1b8",
+      "fallback": "≈",
+      "web": "M3 12h2l2-6 3 12 3-16 3 16 2-6h3"
+    },
+    "waveform.badge.magnifyingglass": {
+      "material": "query_stats",
+      "codepoint": "e4fc",
+      "fallback": "🔍",
+      "web": "M3 12h2l2-5 3 10 2-8 2 5h2M18 15a3 3 0 100 6 3 3 0 000-6zM20.5 20.5L23 23"
+    },
+    "wind": {
+      "material": "air",
+      "codepoint": "efd8",
+      "fallback": "💨",
+      "web": "M3 8h11a3 3 0 10-3-3M3 12h15a3 3 0 11-3 3M3 16h9"
+    },
+    "xmark": {
+      "material": "close",
+      "codepoint": "e5cd",
+      "fallback": "✕",
+      "web": "M6 6l12 12M18 6L6 18"
+    }
+  },
+  "_web_extra_note": "Names the WEB renderer draws that are not (yet) rows of `icons` above. They are authored by the in-repo web demos/previews (the device-agnostic Live Activity + Watch previews, the settings and bookmark chrome), so web must draw them; they are NOT in `icons` because a row there also pins a Material Symbols codepoint that must exist in the bundled Android subset font (OpenSource/Engine/Android/render FontSubsetTest), and regenerating that subset is a separate, Android-owned change. Promoting one is exactly that: pick its material name, regenerate the subset font, move the row up. Until then this section is the explicit, documented divergence - web-only coverage, recorded in the shared table rather than forked into the web package. Shape: SF name -> the same 24x24 stroke path `d` as an `icons` row's `web` field. These rows carry NO codepoint by construction.",
+  "web_extra": {
+    "chevron.up": "M6 15l6-6 6 6",
+    "chevron.down": "M6 9l6 6 6-6",
+    "star": "M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.7l5.4-.8z",
+    "doc.on.doc": "M8 8h8v12H8zM8 8V4h8v4",
+    "gear": "M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1",
+    "bell": "M6 16v-5a6 6 0 1112 0v5l2 2H4zM10 20a2 2 0 004 0",
+    "takeoutbag.and.cup.and.straw.fill": "M6 8h10l1 12H5L6 8zM8 8l1-4h6l1 4M15 4l3-2",
+    "car.fill": "M5 16h14l-1-5-2-3H8l-2 3-1 5zM7 16v2M17 16v2M8 13h.01M16 13h.01",
+    "cup.and.saucer.fill": "M5 8h11v5a4 4 0 01-4 4H9a4 4 0 01-4-4V8zM16 10h2a2 2 0 010 4h-2M4 20h15",
+    "airplane": "M3 13l8-2V4l2-1 2 7 5-1 1 2-6 3-1 5-2-1-1-4-3 1v4z",
+    "applewatch": "M9 2h6l1 4a5 5 0 012 4v4a5 5 0 01-2 4l-1 4H9l-1-4a5 5 0 01-2-4v-4a5 5 0 012-4zM9 8h6v8H9z",
+    "applewatch.watchface": "M9 2h6l1 4a5 5 0 012 4v4a5 5 0 01-2 4l-1 4H9l-1-4a5 5 0 01-2-4v-4a5 5 0 012-4zM9 8h6v8H9z",
+    "gyroscope": "M4 12a8 8 0 1016 0M6 8c3 2 9 2 12 0M6 16c3-2 9-2 12 0M12 4c-2 3-2 13 0 16M12 4c2 3 2 13 0 16",
+    "macwindow": "M4 5h16v14H4zM4 9h16"
+  }
+}

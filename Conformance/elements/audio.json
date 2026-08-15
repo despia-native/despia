@@ -1,0 +1,105 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "audio",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift",
+  "attributes": {
+    "src": {
+      "type": "url",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:57"
+    },
+    "autoplay": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:58"
+    },
+    "loop": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:59"
+    },
+    "muted": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:60"
+    },
+    "speed": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:61"
+    },
+    "start": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:62"
+    },
+    "reload": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:63"
+    },
+    "session": {
+      "type": "enum(playback|ambient)",
+      "default": "playback",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:64"
+    },
+    "nowPlaying": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:65"
+    },
+    "nowTitle": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:66"
+    },
+    "nowArtist": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:67"
+    },
+    "remoteSkip": {
+      "type": "number",
+      "default": 15,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:68"
+    },
+    "paused": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:50"
+    },
+    "bind": {
+      "type": "expr(number)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:51"
+    },
+    "time": {
+      "type": "state-key",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:52"
+    },
+    "duration": {
+      "type": "state-key",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:53"
+    },
+    "buffering": {
+      "type": "state-key",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:54"
+    },
+    "scrubbing": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Audio/swift/AudioElement.swift:55"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

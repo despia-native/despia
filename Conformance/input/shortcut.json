@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "_note": "Platform-neutral shortcut= accelerator matching. The declaration is parsed once (lowercased, split on '+', trimmed; the last token is the key, the rest are modifiers) and each key event is matched deterministically: cmd is the PRIMARY modifier (Command on Apple, Ctrl elsewhere, so it matches meta OR ctrl); ctrl/alt/shift are literal; the key compares case-insensitively. An UNMODIFIED shortcut (no cmd and no ctrl) never fires while an editable target holds focus, so typing is never stolen. The event's toolkit adapter fills key/meta/ctrl/alt/shift/editable; the shared rule below decides `fires`.",
+  "cases": [
+    { "name": "cmd+s fires on the meta key (Apple)", "shortcut": "cmd+s", "event": { "key": "s", "meta": true, "ctrl": false, "alt": false, "shift": false, "editable": false }, "fires": true },
+    { "name": "cmd+s fires on the ctrl key (non-Apple)", "shortcut": "cmd+s", "event": { "key": "s", "meta": false, "ctrl": true, "alt": false, "shift": false, "editable": false }, "fires": true },
+    { "name": "cmd+s does not fire with no primary modifier", "shortcut": "cmd+s", "event": { "key": "s", "meta": false, "ctrl": false, "alt": false, "shift": false, "editable": false }, "fires": false },
+    { "name": "wrong key never fires", "shortcut": "cmd+s", "event": { "key": "a", "meta": true, "ctrl": false, "alt": false, "shift": false, "editable": false }, "fires": false },
+    { "name": "key match is case-insensitive", "shortcut": "cmd+s", "event": { "key": "S", "meta": true, "ctrl": false, "alt": false, "shift": false, "editable": false }, "fires": true },
+    { "name": "modified shortcut still fires inside an editable target", "shortcut": "cmd+s", "event": { "key": "s", "meta": true, "ctrl": false, "alt": false, "shift": false, "editable": true }, "fires": true },
+    { "name": "unmodified shortcut is suppressed inside an editable target", "shortcut": "n", "event": { "key": "n", "meta": false, "ctrl": false, "alt": false, "shift": false, "editable": true }, "fires": false },
+    { "name": "unmodified shortcut fires outside an editable target", "shortcut": "n", "event": { "key": "n", "meta": false, "ctrl": false, "alt": false, "shift": false, "editable": false }, "fires": true },
+    { "name": "ctrl-modified shortcut fires inside an editable target", "shortcut": "ctrl+k", "event": { "key": "k", "meta": false, "ctrl": true, "alt": false, "shift": false, "editable": true }, "fires": true },
+    { "name": "ctrl literal is not satisfied by meta alone", "shortcut": "ctrl+k", "event": { "key": "k", "meta": true, "ctrl": false, "alt": false, "shift": false, "editable": false }, "fires": false },
+    { "name": "alt modifier is required when declared", "shortcut": "alt+enter", "event": { "key": "enter", "meta": false, "ctrl": false, "alt": true, "shift": false, "editable": false }, "fires": true },
+    { "name": "alt modifier missing does not fire", "shortcut": "alt+enter", "event": { "key": "enter", "meta": false, "ctrl": false, "alt": false, "shift": false, "editable": false }, "fires": false },
+    { "name": "shift modifier is required when declared", "shortcut": "cmd+shift+p", "event": { "key": "p", "meta": true, "ctrl": false, "alt": false, "shift": true, "editable": false }, "fires": true },
+    { "name": "shift missing does not fire the shift-declared shortcut", "shortcut": "cmd+shift+p", "event": { "key": "p", "meta": true, "ctrl": false, "alt": false, "shift": false, "editable": false }, "fires": false },
+    { "name": "declaration whitespace and casing are normalized", "shortcut": "  CMD +  S ", "event": { "key": "s", "meta": true, "ctrl": false, "alt": false, "shift": false, "editable": false }, "fires": true }
+  ]
+}

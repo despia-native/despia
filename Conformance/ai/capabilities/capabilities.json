@@ -1,0 +1,136 @@
+{
+ "_note": "Evolution itself, made a fixture (local-ai-engine.md §4.2 rules 1-2, §4.4). THE LAW ENCODED HERE: (1) SELF-DESCRIPTION — `despia_ai_capabilities()` reports what THIS build carries (engines, formats, modalities, tool dialects, features, limits), and every consumer ADAPTS to the reported surface instead of hardcoding it. A consumer that assumes `gbnf` exists fails on a build without it; a consumer that asks, degrades. (2) ADDITIVE EVOLUTION — every JSON envelope carries a `schema_version` and unknown fields are MUST-IGNORE in both directions, so a newer catalog served to an older runtime does not crash it. (3) An entry the runtime cannot serve is SKIPPED with typed absence, never a parse failure that takes the whole catalog with it — one bad or too-new row must never blind an app to the rest of its models. (4) Retirement is not a kill switch: a `retired` entry stops NEW downloads while an already-installed model keeps working forever, because 'you own your OWN AI' is enforced here or it is marketing. (5) Unknown capability keys reported by a NEWER engine are ignored by an older consumer for the same reason, in the same direction.",
+ "cases": [
+  {
+   "name": "capabilities: consumers adapt to the reported surface",
+   "_note": "Two builds, one catalog, different answers. The build without `gbnf` cannot serve an entry that requires it, and says so rather than trying and failing at generate time.",
+   "engine": { "abi": 1, "capabilities": { "engines": [ "gguf", "mock" ], "formats": [ "gguf" ], "features": [], "modalities": [ "text" ] } },
+   "catalog": { "installed": [ "toolish" ], "entries": [ { "id": "toolish", "engine": "gguf", "format": "gguf", "requires": { "engine_caps": [ "gbnf" ] } } ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "capabilities", "args": { }, "mode": "await", "as": "c" } },
+    { "call": { "scheme": "intelligence", "action": "models", "args": { }, "mode": "await", "as": "m" } }
+   ],
+   "expect": {
+    "results": { "c": { "abi": 1, "engines": [ "gguf", "mock" ], "features": [] } },
+    "rows": [ { "id": "toolish", "verdict": "unsupported", "reason": "missing_engine_caps" } ]
+   }
+  },
+  {
+   "name": "capabilities: the same catalog on a richer build serves the entry",
+   "_note": "The mirror image of the previous case — nothing about the catalog changed, only what the build reports.",
+   "engine": { "abi": 1, "capabilities": { "engines": [ "gguf", "mock" ], "formats": [ "gguf" ], "features": [ "gbnf" ], "modalities": [ "text" ] } },
+   "catalog": {
+    "installed": [ "toolish" ],
+    "entries": [ { "id": "toolish", "engine": "gguf", "format": "gguf", "requires": { "engine_caps": [ "gbnf" ] }, "perf_priors": { "phone-mid": { "decode_tps": 20 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "expect": {
+    "rows": [ { "id": "toolish", "verdict": "runs_well" } ]
+   }
+  },
+  {
+   "name": "capabilities: a newer catalog schema_version is tolerated, not fatal",
+   "_note": "Fleets straddle releases. A catalog written for a newer runtime carries fields this one has never heard of; the known rows still load, the unknown FIELDS are ignored, and the app keeps working.",
+   "catalog": {
+    "schema_version": 2,
+    "installed": [ "m1" ],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf", "speculative_decoding": { "draft": "m0" }, "perf_priors": { "phone-mid": { "decode_tps": 20 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "expect": {
+    "rows": [ { "id": "m1", "verdict": "runs_well" } ],
+    "catalogNotices": [ { "code": "unknown_fields_ignored", "entry": "m1", "fields": [ "speculative_decoding" ] } ]
+   }
+  },
+  {
+   "name": "capabilities: an entry requiring a newer ABI is skipped, the rest load",
+   "_note": "The containment assertion. One future row must not blind the app to its working models: the unservable entry is skipped with a typed reason and every other row is unaffected.",
+   "engine": { "abi": 1, "capabilities": { "engines": [ "gguf", "mock" ], "formats": [ "gguf" ] } },
+   "catalog": {
+    "installed": [ "future", "present" ],
+    "entries": [
+     { "id": "future", "engine": "gguf", "format": "gguf", "requires": { "abi": 2 } },
+     { "id": "present", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 20 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "expect": {
+    "rows": [
+     { "id": "future", "verdict": "unsupported", "reason": "requires_newer_abi" },
+     { "id": "present", "verdict": "runs_well" }
+    ]
+   }
+  },
+  {
+   "name": "capabilities: a malformed entry is skipped and the catalog still loads",
+   "_note": "Hostile or broken data is a row-level problem. A row missing its id or its engine is dropped with a notice; the catalog is not a transaction that fails whole.",
+   "catalog": {
+    "installed": [ "good" ],
+    "entries": [
+     { "engine": "gguf", "format": "gguf" },
+     { "id": "good", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 20 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "expect": {
+    "rows": [ { "id": "good", "verdict": "runs_well" } ],
+    "catalogNotices": [ { "code": "entry_skipped", "reason": "missing_required_field" } ]
+   }
+  },
+  {
+   "name": "capabilities: retirement blocks new downloads and never disables an installed model",
+   "_note": "The no-kill-switch law, in one case. `old` is retired upstream: it disappears from what can be downloaded and still answers when asked to run, because it is already on the user's device and the user owns it.",
+   "catalog": {
+    "installed": [ "old" ],
+    "entries": [
+     { "id": "old", "engine": "gguf", "format": "gguf", "status": "retired", "perf_priors": { "phone-mid": { "decode_tps": 20 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } },
+     { "id": "new", "engine": "gguf", "format": "gguf", "status": "active", "perf_priors": { "phone-mid": { "decode_tps": 25 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "mock": { "models": { "old": { "script": [ { "token": "still here" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "models.available", "args": { }, "mode": "await", "as": "av" } },
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "old" }, "mode": "await", "as": "d" } },
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "old", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "results": {
+     "av": { "rows": [ { "id": "new" } ] },
+     "a": { "snapshot": [ { "type": "text", "text": "still here" } ] }
+    },
+    "absent": [ { "action": "download", "code": "model_retired", "data": { "model": "old" } } ]
+   }
+  },
+  {
+   "name": "capabilities: a deprecated entry still downloads and warns",
+   "_note": "Deprecation is a signal, not a wall — the row stays downloadable and carries its status so a dashboard can nudge, which is the whole difference between deprecated and retired.",
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "aging", "engine": "gguf", "format": "gguf", "status": "deprecated", "perf_priors": { "phone-mid": { "decode_tps": 20 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 }, "files": [ { "name": "model.gguf", "bytes": 400000000, "sha256": "aaaa000000000000000000000000000000000000000000000000000000000000", "urls": [ "https://cdn.example.com/aging.gguf" ] } ] } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "expect": {
+    "rows": [ { "id": "aging", "status": "deprecated", "verdict": "runs_well" } ]
+   }
+  },
+  {
+   "name": "capabilities: unknown reported capability keys are ignored by an older consumer",
+   "_note": "Must-ignore in the other direction: a newer engine reporting surfaces this consumer has never heard of changes nothing about how it behaves.",
+   "engine": { "abi": 1, "capabilities": { "engines": [ "gguf", "mock" ], "formats": [ "gguf" ], "features": [ "gbnf" ], "neural_engine_partitioning": { "tiles": 4 } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "capabilities", "args": { }, "mode": "await", "as": "c" } }
+   ],
+   "expect": {
+    "results": { "c": { "abi": 1, "features": [ "gbnf" ] } },
+    "noErrors": true
+   }
+  }
+ ]
+}

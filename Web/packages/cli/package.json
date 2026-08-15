@@ -1,0 +1,55 @@
+{
+  "name": "@despia/cli",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "DSX web toolchain - `dsx build` (the @despia/compiler + @despia/server compile path), `dsx dev` (build · serve · watch · reload), `dsx lint` (the TypeScript twin of lint_dsx.rb for the surface a CLI can see), `dsx doctor` (the command table's own health check, itself authored in DSX).",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "bin": {
+    "dsx": "./dist/bin/dsx.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/despia-native/despia-framework.git",
+    "directory": "OpenSource/Web/packages/cli"
+  },
+  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/cli",
+  "bugs": {
+    "url": "https://github.com/despia-native/despia-framework/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@despia/compiler": "0.0.1",
+    "@despia/dom": "0.0.1",
+    "@despia/kernel": "0.0.1",
+    "@despia/server": "0.0.1",
+    "esbuild": "^0.28.1"
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json && npm run copy:document",
+    "copy:document": "node -e \"const f=require('node:fs');f.mkdirSync('dist/src',{recursive:true});f.copyFileSync('src/dsx.cli.dsx','dist/src/dsx.cli.dsx')\"",
+    "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\"",
+    "test": "node --test test/*.test.ts"
+  }
+}

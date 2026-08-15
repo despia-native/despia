@@ -1,0 +1,39 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "datepicker",
+  "aliases": [
+    "date"
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/DatePicker/swift/DatePicker.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(iso8601-string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/DatePicker/swift/DatePicker.swift:13-17"
+    },
+    "mode": {
+      "type": "enum(date|time|datetime)",
+      "default": "date",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/DatePicker/swift/DatePicker.swift:18-20"
+    },
+    "label": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/DatePicker/swift/DatePicker.swift:21"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/DatePicker/swift/DatePicker.swift:22"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/DatePicker/swift/DatePicker.swift:22"
+    }
+  },
+  "notes": ""
+}

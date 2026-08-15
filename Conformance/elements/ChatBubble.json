@@ -1,0 +1,58 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "ChatBubble",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift",
+  "attributes": {
+    "side": {
+      "type": "enum(left|right)",
+      "default": "left",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:32"
+    },
+    "color": {
+      "type": "color",
+      "default": "#2C2C2E left / accent right",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:33"
+    },
+    "maxWidth": {
+      "type": "number",
+      "default": 280,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:34"
+    }
+  },
+  "geometry": {
+    "maxWidth": {
+      "value": 280,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:34"
+    },
+    "paddingH": {
+      "value": 14,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:58"
+    },
+    "paddingV": {
+      "value": 10,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:59"
+    },
+    "radius": {
+      "value": 18,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:70-74"
+    },
+    "tailRadius": {
+      "value": 4,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:71-72 (squared bottom corner on the bubble's own side)"
+    }
+  },
+  "colors": {
+    "leftBubble": {
+      "token": "#2C2C2E",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:33"
+    },
+    "rightBubble": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:33"
+    }
+  },
+  "notes": ""
+}

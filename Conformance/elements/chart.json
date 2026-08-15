@@ -1,0 +1,145 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "chart",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift",
+  "attributes": {
+    "data": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:66 (NOT bind= — chart reads rows from data=)"
+    },
+    "x": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:67"
+    },
+    "y": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:68"
+    },
+    "series": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:69"
+    },
+    "type": {
+      "type": "enum(line|bar|area|point)",
+      "default": "line",
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:71"
+    },
+    "xType": {
+      "type": "enum(category|number|time)",
+      "default": "category",
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:72"
+    },
+    "interpolation": {
+      "type": "enum(linear|monotone|step)",
+      "default": "linear",
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:73"
+    },
+    "stacked": {
+      "type": "bool",
+      "default": "true for area, else false",
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:74"
+    },
+    "showPoints": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:75"
+    },
+    "lineWidth": {
+      "type": "number",
+      "default": 2,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:76"
+    },
+    "pointSize": {
+      "type": "number",
+      "default": 40,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:77"
+    },
+    "areaOpacity": {
+      "type": "number",
+      "default": 0.25,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:78"
+    },
+    "legend": {
+      "type": "enum(bottom|top|leading|trailing|none)",
+      "default": "bottom with series, else none",
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:79"
+    },
+    "xGrid": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:82"
+    },
+    "yGrid": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:83"
+    },
+    "xHide": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:84"
+    },
+    "yHide": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:85"
+    },
+    "animate": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:86 (Android"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:88"
+    },
+    "colors": {
+      "type": "csv(colors)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:90"
+    },
+    "y2Key": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:112"
+    },
+    "y2Color": {
+      "type": "color",
+      "default": "#FF9500",
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:115"
+    }
+  },
+  "geometry": {
+    "lineWidth": {
+      "value": 2,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:76"
+    },
+    "pointSize": {
+      "value": 40,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:77"
+    },
+    "areaOpacity": {
+      "value": 0.25,
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:78"
+    }
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:88"
+    },
+    "y2": {
+      "token": "#FF9500",
+      "_src": "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift:115"
+    }
+  },
+  "notes": ""
+}

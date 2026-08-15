@@ -1,0 +1,57 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "carousel",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Carousel/swift/Carousel.swift",
+  "attributes": {
+    "value": {
+      "type": "expr(int)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Carousel/swift/Carousel.swift:40-41"
+    },
+    "dots": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Carousel/swift/Carousel.swift:32"
+    },
+    "peek": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Carousel/swift/Carousel.swift:33"
+    },
+    "spacing": {
+      "type": "number",
+      "default": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Carousel/swift/Carousel.swift:34"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Carousel/swift/Carousel.swift:31 (tints the paging dots)"
+    },
+    "on:change": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Carousel/swift/Carousel.swift:46"
+    }
+  },
+  "geometry": {
+    "peek": {
+      "value": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Carousel/swift/Carousel.swift:33"
+    },
+    "spacing": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Carousel/swift/Carousel.swift:34"
+    }
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Carousel/swift/Carousel.swift:31"
+    }
+  },
+  "notes": ""
+}

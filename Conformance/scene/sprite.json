@@ -1,0 +1,607 @@
+{
+  "_note": "The DSX Scene 2D corpus (dsx-game.md G6 — the 2D engine): `<sprite>` and the mode=\"2d\" conventions AS DATA. THE QUAD LAW: a `<sprite src size position rotation scale color anchor flip>` lays out a TEXTURED QUAD in the node's LOCAL XY plane facing +Z, riding the node's world transform exactly like `<plane>` — in mode=\"2d\" that IS camera-facing (the orthographic camera looks down −Z); BILLBOARDING IN 3D IS A NAMED ABSENCE, so an authored `rotation` stays meaningful. `size=\"w h\"` is scene units; UNAUTHORED, height = 1 (defaultHeight) and width = the TEXTURE ASPECT (image width/height) at that height, falling back to 1 when the texture is unknown or not yet loaded. `anchor` names WHICH POINT OF THE QUAD `position` names (center default · top · bottom · left · right · top-left · top-right · bottom-left · bottom-right): the quad CENTER sits at offset (−ax·w, −ay·h, 0) from the node origin with ax ∈ {−½ left, 0 center, +½ right} and ay ∈ {+½ top, 0 center, −½ bottom}; an unknown word falls back to center with one diagnostic. `flip` mirrors UVs — \"\" (default) · any arrangement of the letters x and y (\"x\", \"y\", \"xy\", \"yx\"); any other word is no flip + one diagnostic. The texel MODULATES `color` exactly like the P4 texture law, and a texel with alpha < 0.5 is CUT OUT (the sprite silhouette — the text3d cutout path verbatim). THE SHEET LAW: `frames` is the sheet GRID — ONE number N = a SINGLE ROW (cols = N, rows = 1), TWO numbers = \"cols rows\" EXPLICITLY. The kernel NEVER guesses a grid: cols = ceil(√N) is WRONG and is not the law. Unauthored = 1×1 (the whole texture); a non-integer, a value < 1, or any other count of numbers falls back to 1×1 with one diagnostic. The UV RECTANGLE of frame n (ROW-MAJOR: left→right then top→bottom) is col = n mod cols, row = floor(n / cols), u0 = col/cols, u1 = (col+1)/cols, v0 = row/rows, v1 = (row+1)/rows — v0 is the frame's TOP edge (texel row 0 = the image's top, the P4 UV law verbatim); flip=\"x\" swaps u0/u1, flip=\"y\" swaps v0/v1. `frame` is the 0-based index to show, hole-bound like every prop (a store write animates it): the resolved value FLOORS, then CLAMPS to [0, cols·rows − 1] with one diagnostic when it was out of range (Article 7); a malformed value falls back to 0 with one diagnostic. THE FPS LAW: `fps` > 0 AUTO-ADVANCES on the SAME frame clock the P4 on:frame budget rides — never a second loop — as advanced = floor(elapsedSeconds × fps), with loop=\"true\" (the default) wrapping index = advanced mod total and loop=\"false\" clamping index = min(advanced, total − 1); a non-positive elapsed reads frame 0. When `fps` is authored and positive it OWNS the index and `frame` is not read; fps ≤ 0, unauthored or malformed means no auto-advance (malformed diagnosing once). THE 2D CONVENTIONS LAW: in mode=\"2d\" the camera is ORTHOGRAPHIC with `size` the VERTICAL half-extent (half-width = size·aspect — the P1 law unchanged), +Y is UP, z is the DRAW ORDER (higher z draws IN FRONT: the renderers paint in `sceneDrawOrder2d` order — world z ASCENDING, stable in document order — with depth testing OFF, the painter's algorithm), and `position` accepts a PAIR \"x y\" meaning z = 0 (every OTHER vector word — rotation, scale, velocity — stays a triple, a NAMED ABSENCE; in mode=\"3d\" a 2-number position is malformed exactly as before). There is NO pixel-space mode: units stay scene units. THE Z-LOCK PHYSICS LAW: `physics=` on a `<sprite>` runs through the EXISTING 3D solver — there is no second solver. A mode=\"2d\" world carries a Z-LOCK: every body records zLock = its initial world z and vzLock = its initial z velocity at world creation, and the LAST act of every step (after the sleep pass, before the tick advances) re-pins position.z = previous.z = zLock and velocity.z = vzLock; a TELEPORT (a base position write) RE-ANCHORS zLock to the written z, and nothing re-anchors vzLock (the named v1 shape). Sprite colliders: collider=\"box\" (the sprite default, also `auto`) derives from the sprite's SIZE as half extents [w/2, h/2, colliderHalfZ] with the pinned 1000 extrusion — so a box↔box contact's minimum-overlap axis is ALWAYS in the XY plane (the 2D semantics of an extruded rectangle) — centered on the QUAD CENTER (the anchor offset applied); collider=\"circle\" (the alias of `sphere`) takes radius = half the SMALLER extent, min(w, h)/2, scaled by the largest world basis. The collider reads the RESOLVED `size`, so an unauthored size colliders as 1×1 (the texture aspect is a render-time refinement — the honest v1). Everything else — masses, restitution, friction, triggers, layers, sleep, characters, the fixed 60 Hz tick — is G2 verbatim. Case shape: `kind` selects the lane — quad (attrs [+ aspect] → the quad offset/half-extents) · uv (attrs → the frame's UV rect through the resolved+clamped frame index) · sheet (attrs → cols/rows/total/frame) · fps (attrs + elapsed samples → frame indices) · parse (markup → the typed IR + resolved props, worlds optional) · order (world z list → the 2D draw order) · physics-world (markup → the extracted body records) · physics-sim (specs + ticks → pinned states). `diagnostics` = expected count (absent = 0). All floats to 6 decimals, tolerance 1.5e-6; every number computed by an independent scratch implementation, never by a kernel under test. Runners: TS (per-PR) · Kotlin (:core, gradle) · Swift (record lane).",
+  "constants": {
+    "defaultHeight": 1,
+    "colliderHalfZ": 1000,
+    "defaultAnchor": "center",
+    "defaultLoop": true,
+    "anchors": {
+      "center": [0, 0],
+      "top": [0, 0.5],
+      "bottom": [0, -0.5],
+      "left": [-0.5, 0],
+      "right": [0.5, 0],
+      "top-left": [-0.5, 0.5],
+      "top-right": [0.5, 0.5],
+      "bottom-left": [-0.5, -0.5],
+      "bottom-right": [0.5, -0.5]
+    }
+  },
+  "cases": [
+    {
+      "name": "quad — the unauthored default is 1 unit tall and square when the texture is unknown",
+      "kind": "quad",
+      "attrs": { "src": "hero.png" },
+      "expect": { "offset": [0, 0, 0], "halfWidth": 0.5, "halfHeight": 0.5 }
+    },
+    {
+      "name": "quad — an unauthored size derives its WIDTH from the texture aspect at 1 unit tall",
+      "kind": "quad",
+      "attrs": { "src": "wide.png" },
+      "aspect": 2,
+      "expect": { "offset": [0, 0, 0], "halfWidth": 1, "halfHeight": 0.5 },
+      "note": "aspect 2 (a 64×32 image) → w = 2, h = 1"
+    },
+    {
+      "name": "quad — a tall texture narrows the same 1-unit height",
+      "kind": "quad",
+      "attrs": { "src": "tall.png" },
+      "aspect": 0.5,
+      "expect": { "offset": [0, 0, 0], "halfWidth": 0.25, "halfHeight": 0.5 }
+    },
+    {
+      "name": "quad — an authored size WINS over the texture aspect",
+      "kind": "quad",
+      "attrs": { "src": "wide.png", "size": "3 1.5" },
+      "aspect": 2,
+      "expect": { "offset": [0, 0, 0], "halfWidth": 1.5, "halfHeight": 0.75 }
+    },
+    {
+      "name": "quad — anchor=\"top-left\": position names the quad's top-left corner",
+      "kind": "quad",
+      "attrs": { "size": "2 1", "anchor": "top-left" },
+      "expect": { "offset": [1, -0.5, 0], "halfWidth": 1, "halfHeight": 0.5 }
+    },
+    {
+      "name": "quad — anchor=\"bottom\": position names the bottom-center (the feet-on-the-ground anchor)",
+      "kind": "quad",
+      "attrs": { "size": "1.5 2.5", "anchor": "bottom" },
+      "expect": { "offset": [0, 1.25, 0], "halfWidth": 0.75, "halfHeight": 1.25 }
+    },
+    {
+      "name": "quad — anchor=\"bottom-right\"",
+      "kind": "quad",
+      "attrs": { "size": "4 2", "anchor": "bottom-right" },
+      "expect": { "offset": [-2, 1, 0], "halfWidth": 2, "halfHeight": 1 }
+    },
+    {
+      "name": "quad — anchor=\"right\" on the default 1×1 quad",
+      "kind": "quad",
+      "attrs": { "anchor": "right" },
+      "expect": { "offset": [-0.5, 0, 0], "halfWidth": 0.5, "halfHeight": 0.5 }
+    },
+    {
+      "name": "quad — an unknown anchor word falls back to center with one diagnostic",
+      "kind": "quad",
+      "attrs": { "size": "2 1", "anchor": "middle-ish" },
+      "expect": { "offset": [0, 0, 0], "halfWidth": 1, "halfHeight": 0.5 },
+      "diagnostics": 1
+    },
+    {
+      "name": "quad — a malformed size falls back to the 1×1 default with one diagnostic",
+      "kind": "quad",
+      "attrs": { "size": "big" },
+      "expect": { "offset": [0, 0, 0], "halfWidth": 0.5, "halfHeight": 0.5 },
+      "diagnostics": 1,
+      "note": "the fallback is the AUTHORED default 1 1 — never the texture aspect (the size WAS authored)"
+    },
+    {
+      "name": "quad — a hole-resolved size drives the quad",
+      "kind": "quad",
+      "attrs": { "size": "{{ w }} {{ h }}" },
+      "vars": { "w": 6, "h": 2 },
+      "expect": { "offset": [0, 0, 0], "halfWidth": 3, "halfHeight": 1 }
+    },
+
+    {
+      "name": "uv — no frames: the whole texture",
+      "kind": "uv",
+      "attrs": { "src": "hero.png" },
+      "expect": [0, 0, 1, 1]
+    },
+    {
+      "name": "uv — a single-row sheet, frame 0",
+      "kind": "uv",
+      "attrs": { "frames": "8", "frame": "0" },
+      "expect": [0, 0, 0.125, 1]
+    },
+    {
+      "name": "uv — a single-row sheet, frame 3",
+      "kind": "uv",
+      "attrs": { "frames": "8", "frame": "3" },
+      "expect": [0.375, 0, 0.5, 1]
+    },
+    {
+      "name": "uv — a single-row sheet, the last frame",
+      "kind": "uv",
+      "attrs": { "frames": "8", "frame": "7" },
+      "expect": [0.875, 0, 1, 1]
+    },
+    {
+      "name": "uv — a 2-D PACKED sheet needs \"cols rows\": 4×2, frame 0 is the top-left cell",
+      "kind": "uv",
+      "attrs": { "frames": "4 2", "frame": "0" },
+      "expect": [0, 0, 0.25, 0.5]
+    },
+    {
+      "name": "uv — a 2-D packed sheet, frame 5 wraps to row 1 (row-major)",
+      "kind": "uv",
+      "attrs": { "frames": "4 2", "frame": "5" },
+      "expect": [0.25, 0.5, 0.5, 1],
+      "note": "col = 5 mod 4 = 1, row = floor(5/4) = 1"
+    },
+    {
+      "name": "uv — a 2-D packed sheet, the bottom-right cell",
+      "kind": "uv",
+      "attrs": { "frames": "4 2", "frame": "7" },
+      "expect": [0.75, 0.5, 1, 1]
+    },
+    {
+      "name": "uv — a square 3×3 sheet, the middle cell (thirds, not eighths)",
+      "kind": "uv",
+      "attrs": { "frames": "3 3", "frame": "4" },
+      "expect": [0.333333, 0.333333, 0.666667, 0.666667]
+    },
+    {
+      "name": "uv — flip=\"x\" swaps u0/u1",
+      "kind": "uv",
+      "attrs": { "flip": "x" },
+      "expect": [1, 0, 0, 1]
+    },
+    {
+      "name": "uv — flip=\"y\" swaps v0/v1",
+      "kind": "uv",
+      "attrs": { "flip": "y" },
+      "expect": [0, 1, 1, 0]
+    },
+    {
+      "name": "uv — flip=\"xy\" swaps both",
+      "kind": "uv",
+      "attrs": { "flip": "xy" },
+      "expect": [1, 1, 0, 0]
+    },
+    {
+      "name": "uv — flipping a SHEET frame mirrors inside the frame's rect (walking left)",
+      "kind": "uv",
+      "attrs": { "frames": "4 2", "frame": "5", "flip": "x" },
+      "expect": [0.5, 0.5, 0.25, 1]
+    },
+    {
+      "name": "uv — flip=\"yx\" is the same word as \"xy\" (a SET of letters)",
+      "kind": "uv",
+      "attrs": { "frames": "8", "frame": "3", "flip": "yx" },
+      "expect": [0.5, 1, 0.375, 0]
+    },
+    {
+      "name": "uv — an unknown flip word mirrors nothing and says so once",
+      "kind": "uv",
+      "attrs": { "flip": "horizontal" },
+      "expect": [0, 0, 1, 1],
+      "diagnostics": 1
+    },
+    {
+      "name": "uv — a hole-resolved frame index selects the cell (a store write animates)",
+      "kind": "uv",
+      "attrs": { "frames": "4 2", "frame": "{{ n }}" },
+      "vars": { "n": 6 },
+      "expect": [0.5, 0.5, 0.75, 1]
+    },
+
+    {
+      "name": "sheet — unauthored frames is one whole-texture cell",
+      "kind": "sheet",
+      "attrs": { "src": "hero.png" },
+      "expect": { "cols": 1, "rows": 1, "total": 1, "frame": 0 }
+    },
+    {
+      "name": "sheet — one number is a SINGLE ROW",
+      "kind": "sheet",
+      "attrs": { "frames": "6" },
+      "expect": { "cols": 6, "rows": 1, "total": 6, "frame": 0 }
+    },
+    {
+      "name": "sheet — two numbers are cols × rows",
+      "kind": "sheet",
+      "attrs": { "frames": "3 3", "frame": "4" },
+      "expect": { "cols": 3, "rows": 3, "total": 9, "frame": 4 }
+    },
+    {
+      "name": "sheet — a NINE-frame sheet stays SINGLE ROW unless \"cols rows\" is spelled (ceil(√9) = 3 is NOT the law)",
+      "kind": "sheet",
+      "attrs": { "frames": "9", "frame": "8" },
+      "expect": { "cols": 9, "rows": 1, "total": 9, "frame": 8 }
+    },
+    {
+      "name": "sheet — a zero count is malformed: 1×1 + one diagnostic",
+      "kind": "sheet",
+      "attrs": { "frames": "0" },
+      "expect": { "cols": 1, "rows": 1, "total": 1, "frame": 0 },
+      "diagnostics": 1
+    },
+    {
+      "name": "sheet — a fractional count is malformed",
+      "kind": "sheet",
+      "attrs": { "frames": "2.5" },
+      "expect": { "cols": 1, "rows": 1, "total": 1, "frame": 0 },
+      "diagnostics": 1
+    },
+    {
+      "name": "sheet — three numbers are malformed (the grammar is 1 or 2)",
+      "kind": "sheet",
+      "attrs": { "frames": "2 3 4" },
+      "expect": { "cols": 1, "rows": 1, "total": 1, "frame": 0 },
+      "diagnostics": 1
+    },
+    {
+      "name": "sheet — a non-numeric count is malformed",
+      "kind": "sheet",
+      "attrs": { "frames": "many" },
+      "expect": { "cols": 1, "rows": 1, "total": 1, "frame": 0 },
+      "diagnostics": 1
+    },
+    {
+      "name": "sheet — frame FLOORS toward the cell it is inside",
+      "kind": "sheet",
+      "attrs": { "frames": "8", "frame": "7.9" },
+      "expect": { "cols": 8, "rows": 1, "total": 8, "frame": 7 }
+    },
+    {
+      "name": "sheet — an out-of-range frame CLAMPS to the last cell with one diagnostic (Article 7)",
+      "kind": "sheet",
+      "attrs": { "frames": "8", "frame": "12" },
+      "expect": { "cols": 8, "rows": 1, "total": 8, "frame": 7 },
+      "diagnostics": 1
+    },
+    {
+      "name": "sheet — a negative frame CLAMPS to 0 with one diagnostic",
+      "kind": "sheet",
+      "attrs": { "frames": "8", "frame": "-1" },
+      "expect": { "cols": 8, "rows": 1, "total": 8, "frame": 0 },
+      "diagnostics": 1
+    },
+    {
+      "name": "sheet — a malformed frame falls back to 0 with one diagnostic",
+      "kind": "sheet",
+      "attrs": { "frames": "8", "frame": "first" },
+      "expect": { "cols": 8, "rows": 1, "total": 8, "frame": 0 },
+      "diagnostics": 1
+    },
+    {
+      "name": "sheet — a frame past a ONE-cell texture clamps to 0",
+      "kind": "sheet",
+      "attrs": { "frame": "2" },
+      "expect": { "cols": 1, "rows": 1, "total": 1, "frame": 0 },
+      "diagnostics": 1
+    },
+
+    {
+      "name": "fps — 12 fps over an 8-frame strip, looping",
+      "kind": "fps",
+      "attrs": { "frames": "8", "fps": "12" },
+      "samples": [
+        { "elapsed": 0, "frame": 0 },
+        { "elapsed": 0.04, "frame": 0 },
+        { "elapsed": 0.0833333, "frame": 0 },
+        { "elapsed": 0.0834, "frame": 1 },
+        { "elapsed": 0.25, "frame": 3 },
+        { "elapsed": 0.5, "frame": 6 },
+        { "elapsed": 0.583333, "frame": 6 },
+        { "elapsed": 0.6667, "frame": 0 },
+        { "elapsed": 1, "frame": 4 },
+        { "elapsed": 1.5, "frame": 2 }
+      ],
+      "note": "advanced = floor(elapsed × 12); the wrap is advanced mod 8"
+    },
+    {
+      "name": "fps — loop=\"false\" HOLDS the last frame instead of wrapping",
+      "kind": "fps",
+      "attrs": { "frames": "8", "fps": "12", "loop": "false" },
+      "samples": [
+        { "elapsed": 0, "frame": 0 },
+        { "elapsed": 0.25, "frame": 3 },
+        { "elapsed": 0.583333, "frame": 6 },
+        { "elapsed": 0.6667, "frame": 7 },
+        { "elapsed": 1, "frame": 7 },
+        { "elapsed": 1.5, "frame": 7 }
+      ]
+    },
+    {
+      "name": "fps — a 3-frame strip at 4 fps wraps every 0.75 s",
+      "kind": "fps",
+      "attrs": { "frames": "3", "fps": "4" },
+      "samples": [
+        { "elapsed": 0, "frame": 0 },
+        { "elapsed": 0.24, "frame": 0 },
+        { "elapsed": 0.25, "frame": 1 },
+        { "elapsed": 0.5, "frame": 2 },
+        { "elapsed": 0.75, "frame": 0 },
+        { "elapsed": 1, "frame": 1 },
+        { "elapsed": 1.24, "frame": 1 },
+        { "elapsed": 2, "frame": 2 }
+      ]
+    },
+    {
+      "name": "fps — a negative elapsed reads frame 0 (never a negative index)",
+      "kind": "fps",
+      "attrs": { "frames": "8", "fps": "12" },
+      "samples": [{ "elapsed": -1, "frame": 0 }]
+    },
+    {
+      "name": "fps — an unauthored fps does NOT auto-advance: the `frame` prop owns the index",
+      "kind": "fps",
+      "attrs": { "frames": "8", "frame": "5" },
+      "samples": [
+        { "elapsed": 0, "frame": 5 },
+        { "elapsed": 3.5, "frame": 5 }
+      ]
+    },
+    {
+      "name": "fps — a positive fps OWNS the index: an authored `frame` is not read",
+      "kind": "fps",
+      "attrs": { "frames": "8", "fps": "12", "frame": "5" },
+      "samples": [
+        { "elapsed": 0, "frame": 0 },
+        { "elapsed": 0.25, "frame": 3 }
+      ]
+    },
+    {
+      "name": "fps — a malformed fps falls back to no auto-advance with one diagnostic",
+      "kind": "fps",
+      "attrs": { "frames": "8", "fps": "fast", "frame": "2" },
+      "samples": [
+        { "elapsed": 0, "frame": 2 },
+        { "elapsed": 5, "frame": 2 }
+      ],
+      "diagnostics": 1
+    },
+
+    {
+      "name": "parse — a sprite's every default (the 2D primitive's baseline)",
+      "kind": "parse",
+      "markup": "<scene mode=\"2d\"><sprite src=\"hero.png\"/></scene>",
+      "expect": {
+        "mode": "2d",
+        "nodes": [
+          {
+            "kind": "sprite", "src": "hero.png",
+            "position": [0, 0, 0], "rotation": [0, 0, 0], "scale": [1, 1, 1],
+            "spriteSize": [1, 1], "frames": [1, 1], "frame": 0, "fps": 0,
+            "loop": true, "anchor": "center", "flip": "", "color": "#ffffff"
+          }
+        ]
+      }
+    },
+    {
+      "name": "parse — in 2d a 2-number position means z = 0",
+      "kind": "parse",
+      "markup": "<scene mode=\"2d\"><sprite position=\"3 -1.5\" size=\"2 2\"/></scene>",
+      "expect": { "mode": "2d", "nodes": [{ "kind": "sprite", "position": [3, -1.5, 0], "spriteSize": [2, 2] }] }
+    },
+    {
+      "name": "parse — the pair law is 2D ONLY: in 3d a 2-number position is malformed",
+      "kind": "parse",
+      "markup": "<scene><sprite position=\"3 -1.5\"/></scene>",
+      "expect": { "mode": "3d", "nodes": [{ "kind": "sprite", "position": [0, 0, 0] }] },
+      "diagnostics": 1
+    },
+    {
+      "name": "parse — the pair law reaches every node kind in 2d, and ONLY the position word",
+      "kind": "parse",
+      "markup": "<scene mode=\"2d\"><box position=\"1 2\" scale=\"2 2\"/></scene>",
+      "expect": { "mode": "2d", "nodes": [{ "kind": "box", "position": [1, 2, 0], "scale": [1, 1, 1] }] },
+      "diagnostics": 1,
+      "note": "the scale PAIR is a named absence — it falls back to 1 1 1 with one diagnostic"
+    },
+    {
+      "name": "parse — a 3-number position still means what it always did in 2d",
+      "kind": "parse",
+      "markup": "<scene mode=\"2d\"><sprite position=\"1 2 3\"/></scene>",
+      "expect": { "mode": "2d", "nodes": [{ "kind": "sprite", "position": [1, 2, 3] }] }
+    },
+    {
+      "name": "parse — a sprite's transform composes under a group across the pair law",
+      "kind": "parse",
+      "markup": "<scene mode=\"2d\"><group id=\"rig\" position=\"1 2\"><sprite id=\"hero\" position=\"0.5 -1\" rotation=\"0 0 90\"/></group></scene>",
+      "expect": { "mode": "2d" },
+      "worlds": [
+        {
+          "node": "hero",
+          "world": [0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 1.5, 1, 0, 1]
+        }
+      ]
+    },
+    {
+      "name": "parse — every sprite word resolves through holes like any other prop",
+      "kind": "parse",
+      "markup": "<scene mode=\"2d\"><sprite src=\"sheet.png\" frames=\"4 2\" frame=\"{{ f }}\" fps=\"{{ speed }}\" anchor=\"bottom\" flip=\"x\"/></scene>",
+      "vars": { "f": 3, "speed": 10 },
+      "expect": {
+        "mode": "2d",
+        "nodes": [
+          {
+            "kind": "sprite", "src": "sheet.png", "frames": [4, 2], "frame": 3,
+            "fps": 10, "anchor": "bottom", "flip": "x"
+          }
+        ]
+      }
+    },
+
+    {
+      "name": "order — equal z keeps DOCUMENT order (a stable sort)",
+      "kind": "order",
+      "z": [0, 0, 0],
+      "expect": [0, 1, 2]
+    },
+    {
+      "name": "order — higher z draws IN FRONT, so the paint order is z ASCENDING",
+      "kind": "order",
+      "z": [2, -1, 0.5],
+      "expect": [1, 2, 0]
+    },
+    {
+      "name": "order — a background layer at negative z paints first",
+      "kind": "order",
+      "z": [0, 1, 0, -1],
+      "expect": [3, 0, 2, 1]
+    },
+    {
+      "name": "order — ties inside a layer keep document order",
+      "kind": "order",
+      "z": [3, 3, 1, 1, 2],
+      "expect": [2, 3, 4, 0, 1]
+    },
+
+    {
+      "name": "physics-world — a sprite's default collider is a BOX from its size, extruded 1000 in z",
+      "kind": "physics-world",
+      "markup": "<scene mode=\"2d\" gravity=\"0 -9.81 0\"><sprite id=\"hero\" src=\"h.png\" physics=\"dynamic\" size=\"2 0.5\" position=\"-1 3\"/><sprite id=\"coin\" src=\"c.png\" physics=\"static\" collider=\"circle\" size=\"2 1\" position=\"0 4\"/></scene>",
+      "expect": {
+        "gravity": [0, -9.81, 0],
+        "mode2d": true,
+        "bodies": [
+          {
+            "id": "hero", "kind": "dynamic", "shape": "box", "half": [1, 0.25, 1000],
+            "position": [-1, 3, 0], "velocity": [0, 0, 0], "invMass": 1,
+            "bounce": 0, "friction": 0.5, "trigger": false, "layer": "default",
+            "collides": null, "speed": 5, "jump": 8
+          },
+          {
+            "id": "coin", "kind": "static", "shape": "sphere", "radius": 0.5,
+            "position": [0, 4, 0], "velocity": [0, 0, 0], "invMass": 0,
+            "bounce": 0, "friction": 0.5, "trigger": false, "layer": "default",
+            "collides": null, "speed": 5, "jump": 8
+          }
+        ]
+      },
+      "note": "circle radius = min(2, 1)/2 = 0.5 — half the SMALLER extent"
+    },
+    {
+      "name": "physics-world — the box collider centers on the QUAD, so anchor=\"bottom\" lifts it",
+      "kind": "physics-world",
+      "markup": "<scene mode=\"2d\"><sprite id=\"ground\" physics=\"static\" size=\"2 1\" anchor=\"bottom\" position=\"0 0\"/></scene>",
+      "expect": {
+        "gravity": [0, -9.81, 0],
+        "mode2d": true,
+        "bodies": [
+          {
+            "id": "ground", "kind": "static", "shape": "box", "half": [1, 0.5, 1000],
+            "position": [0, 0.5, 0], "velocity": [0, 0, 0], "invMass": 0,
+            "bounce": 0, "friction": 0.5, "trigger": false, "layer": "default",
+            "collides": null, "speed": 5, "jump": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "physics-world — an unauthored size colliders as 1×1, and scale reaches the circle radius",
+      "kind": "physics-world",
+      "markup": "<scene mode=\"2d\"><sprite id=\"ball\" physics=\"dynamic\" collider=\"circle\" scale=\"2 2 2\" position=\"0 4\"/></scene>",
+      "expect": {
+        "gravity": [0, -9.81, 0],
+        "mode2d": true,
+        "bodies": [
+          {
+            "id": "ball", "kind": "dynamic", "shape": "sphere", "radius": 1,
+            "position": [0, 4, 0], "velocity": [0, 0, 0], "invMass": 1,
+            "bounce": 0, "friction": 0.5, "trigger": false, "layer": "default",
+            "collides": null, "speed": 5, "jump": 8
+          }
+        ]
+      },
+      "note": "min(1, 1)/2 = 0.5, × the largest world basis 2 → 1"
+    },
+    {
+      "name": "physics-world — a 3d scene extracts the SAME sprite body with NO z-lock",
+      "kind": "physics-world",
+      "markup": "<scene><sprite id=\"hero\" physics=\"dynamic\" size=\"2 0.5\" position=\"-1 3 0\"/></scene>",
+      "expect": {
+        "gravity": [0, -9.81, 0],
+        "mode2d": false,
+        "bodies": [
+          {
+            "id": "hero", "kind": "dynamic", "shape": "box", "half": [1, 0.25, 1000],
+            "position": [-1, 3, 0], "velocity": [0, 0, 0], "invMass": 1,
+            "bounce": 0, "friction": 0.5, "trigger": false, "layer": "default",
+            "collides": null, "speed": 5, "jump": 8
+          }
+        ]
+      }
+    },
+
+    {
+      "name": "physics-sim — a 2D body falling with a z velocity keeps z EXACTLY (the z-lock)",
+      "kind": "physics-sim",
+      "mode2d": true,
+      "gravity": [0, -9.81, 0],
+      "bodies": [
+        {
+          "id": "hero", "kind": "dynamic", "shape": { "kind": "sphere", "radius": 0.3 },
+          "position": [0, 5, 0.25], "velocity": [0, 0, 3]
+        }
+      ],
+      "ticks": 60,
+      "samples": [
+        { "tick": 0, "id": "hero", "position": [0, 4.997275, 0.25], "velocity": [0, -0.1635, 3], "grounded": false, "sleeping": false },
+        { "tick": 1, "id": "hero", "position": [0, 4.991825, 0.25], "velocity": [0, -0.327, 3], "grounded": false, "sleeping": false },
+        { "tick": 29, "id": "hero", "position": [0, 3.732875, 0.25], "velocity": [0, -4.905, 3], "grounded": false, "sleeping": false },
+        { "tick": 59, "id": "hero", "position": [0, 0.01325, 0.25], "velocity": [0, -9.81, 3], "grounded": false, "sleeping": false }
+      ]
+    },
+    {
+      "name": "physics-sim — the SAME body in a 3d world DRIFTS in z (the lock is exactly what 2D adds)",
+      "kind": "physics-sim",
+      "mode2d": false,
+      "gravity": [0, -9.81, 0],
+      "bodies": [
+        {
+          "id": "hero", "kind": "dynamic", "shape": { "kind": "sphere", "radius": 0.3 },
+          "position": [0, 5, 0.25], "velocity": [0, 0, 3]
+        }
+      ],
+      "ticks": 60,
+      "samples": [
+        { "tick": 0, "id": "hero", "position": [0, 4.997275, 0.3], "velocity": [0, -0.1635, 3], "grounded": false, "sleeping": false },
+        { "tick": 1, "id": "hero", "position": [0, 4.991825, 0.35], "velocity": [0, -0.327, 3], "grounded": false, "sleeping": false },
+        { "tick": 29, "id": "hero", "position": [0, 3.732875, 1.75], "velocity": [0, -4.905, 3], "grounded": false, "sleeping": false },
+        { "tick": 59, "id": "hero", "position": [0, 0.01325, 3.25], "velocity": [0, -9.81, 3], "grounded": false, "sleeping": false }
+      ]
+    },
+    {
+      "name": "physics-sim — a plain 2D fall: the y column is the G2 free-fall law verbatim, z stays 0",
+      "kind": "physics-sim",
+      "mode2d": true,
+      "gravity": [0, -9.81, 0],
+      "bodies": [
+        {
+          "id": "crate", "kind": "dynamic", "shape": { "kind": "box", "half": [0.5, 0.5, 1000] },
+          "position": [0, 3, 0]
+        }
+      ],
+      "ticks": 30,
+      "samples": [
+        { "tick": 0, "id": "crate", "position": [0, 2.997275, 0], "velocity": [0, -0.1635, 0], "grounded": false, "sleeping": false },
+        { "tick": 9, "id": "crate", "position": [0, 2.850125, 0], "velocity": [0, -1.635, 0], "grounded": false, "sleeping": false },
+        { "tick": 29, "id": "crate", "position": [0, 1.732875, 0], "velocity": [0, -4.905, 0], "grounded": false, "sleeping": false }
+      ]
+    },
+    {
+      "name": "physics-sim — a teleport RE-ANCHORS zLock; vzLock is never re-anchored",
+      "kind": "physics-sim",
+      "mode2d": true,
+      "gravity": [0, -9.81, 0],
+      "bodies": [
+        {
+          "id": "hero", "kind": "dynamic", "shape": { "kind": "sphere", "radius": 0.3 },
+          "position": [0, 5, 0.25], "velocity": [0, 0, 3]
+        }
+      ],
+      "ticks": 30,
+      "writes": [{ "tick": 20, "id": "hero", "attr": "position", "value": [0, 4, 1.5] }],
+      "samples": [
+        { "tick": 19, "id": "hero", "position": [0, 4.42775, 0.25], "velocity": [0, -3.27, 3], "grounded": false, "sleeping": false },
+        { "tick": 29, "id": "hero", "position": [0, 3.850125, 1.5], "velocity": [0, -1.635, 3], "grounded": false, "sleeping": false }
+      ],
+      "note": "the write lands BEFORE tick 20's step (the physics.json driver law); the teleport zeroes velocity, then the z-lock re-pins vz to the ORIGINAL 3"
+    }
+  ]
+}
