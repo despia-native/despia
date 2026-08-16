@@ -1,0 +1,326 @@
+{
+ "_note": "What a declared command body may reach, and the exit code it produces. The seam list is EXHAUSTIVE by construction rather than by policy, for the same reason it is on the server: JSE is an interpreter over a closed statement grammar, so a name this host does not bind is a name a body cannot reach — there is no import, no require, no process, no globalThis. What differs from the server is WHICH seams exist and why. A CLI legitimately touches the filesystem, the environment and other programs, so instead of denying those it makes each one DECLARED: <root> scopes the filesystem, <env> names what may be read, <exec> names what may be run. The trade is the same trade the server makes — declare it and you may reach it, and what you did not declare is refused rather than answered emptily, because an empty answer is indistinguishable from a real one and that is how a build silently does the wrong thing.",
+ "_envelope": "A SEAM CALL IS A BUS CALL, and these fixtures assert the bus contract rather than a CLI-shaped invention. `await dsx.module.x.y(args)` settles to an ENVELOPE — `{ ok: true, data }` on success, `{ ok: false, error: '<reason>' }` on refusal — and a refusal does NOT throw. That is the same shape a tap handler gets from the same call, which is the entire point: one grammar, and a body that moves between a screen, a server and a command without learning new rules. It also means a seam refusal is FAIL-OPEN by default, per the constitution's law that absence degrades a feature rather than bricking the program. A command that must stop instead says so in one line — `if (!r.ok) { throw { reason: 'forbidden', message: '…' } }` — and the throw table below turns that into an exit code. Without `await` a call is fire-and-forget and evaluates to the absent marker, which is correct for `out.print` and a bug anywhere a body reads the result; the fixtures spell every read with `await` for that reason.",
+ "exitCodes": {
+  "_note": "A body says how it ended, and the host translates. Returning nothing is success, because the common case should not need ceremony. The reason vocabulary mirrors the server's: a name in it is a REJECTION the user should read, and anything else is a FAULT the host reports as an internal error with the correlation id.",
+  "return": [
+   {
+    "value": null,
+    "code": 0
+   },
+   {
+    "value": 0,
+    "code": 0
+   },
+   {
+    "value": 3,
+    "code": 3
+   },
+   {
+    "value": {
+     "code": 2
+    },
+    "code": 2
+   },
+   {
+    "value": {
+     "code": 0
+    },
+    "code": 0
+   }
+  ],
+  "throw": [
+   {
+    "reason": "invalid",
+    "code": 2,
+    "_why": "the user asked for something that does not make sense — the conventional usage-error code"
+   },
+   {
+    "reason": "not_found",
+    "code": 3
+   },
+   {
+    "reason": "forbidden",
+    "code": 4
+   },
+   {
+    "reason": "unavailable",
+    "code": 5
+   },
+   {
+    "reason": "failed",
+    "code": 1,
+    "_why": "the ordinary 'it did not work' exit"
+   },
+   {
+    "reason": "budget_exceeded",
+    "code": 7
+   }
+  ],
+  "fault": {
+   "code": 70,
+   "_why": "an unrecognised throw is a defect in the command, not a message to the user; 70 is EX_SOFTWARE and stays distinct from every reason above"
+  }
+ },
+ "cases": [
+  {
+   "name": "out-print-writes-a-line-to-stdout",
+   "body": "dsx.module.out.print({ text: 'hello' }); return 0",
+   "expect": {
+    "code": 0,
+    "stdout": [
+     "hello"
+    ],
+    "stderr": []
+   }
+  },
+  {
+   "name": "out-warn-writes-to-stderr-not-stdout",
+   "_why": "A CLI whose diagnostics land on stdout cannot be piped. Keeping the streams separate is a contract, not a detail.",
+   "body": "dsx.module.out.warn({ text: 'careful' }); return 0",
+   "expect": {
+    "code": 0,
+    "stdout": [],
+    "stderr": [
+     "careful"
+    ]
+   }
+  },
+  {
+   "name": "env-read-of-a-declared-name",
+   "declare": {
+    "env": [
+     "DSX_TEST_NAME"
+    ]
+   },
+   "environment": {
+    "DSX_TEST_NAME": "despia"
+   },
+   "body": "const r = await dsx.module.env.read({ name: 'DSX_TEST_NAME' }); dsx.module.out.print({ text: r.data }); return 0",
+   "expect": {
+    "code": 0,
+    "stdout": [
+     "despia"
+    ],
+    "stderr": []
+   }
+  },
+  {
+   "name": "env-read-of-an-undeclared-name-is-forbidden-not-empty",
+   "declare": {
+    "env": []
+   },
+   "environment": {
+    "SECRET_TOKEN": "sh"
+   },
+   "body": "return await dsx.module.env.read({ name: 'SECRET_TOKEN' })",
+   "expectEnvelope": {
+    "ok": false,
+    "error": "forbidden"
+   }
+  },
+  {
+   "name": "env-read-of-a-declared-but-unset-name-is-null",
+   "_why": "Declared-and-absent is a different fact from undeclared, and a body must be able to branch on it. Collapsing both into a refusal would make an optional variable unusable.",
+   "declare": {
+    "env": [
+     "DSX_TEST_ABSENT"
+    ]
+   },
+   "environment": {},
+   "body": "const r = await dsx.module.env.read({ name: 'DSX_TEST_ABSENT' }); return (r.ok === true && r.data === null) ? 0 : 1",
+   "expect": {
+    "code": 0,
+    "stdout": [],
+    "stderr": []
+   }
+  },
+  {
+   "name": "fs-read-inside-a-declared-root",
+   "declare": {
+    "roots": [
+     {
+      "name": "project",
+      "path": "."
+     }
+    ]
+   },
+   "files": {
+    "note.txt": "hi"
+   },
+   "body": "const r = await dsx.module.fs.read({ root: 'project', path: 'note.txt' }); dsx.module.out.print({ text: r.data }); return 0",
+   "expect": {
+    "code": 0,
+    "stdout": [
+     "hi"
+    ],
+    "stderr": []
+   }
+  },
+  {
+   "name": "fs-read-of-an-undeclared-root-is-forbidden",
+   "declare": {
+    "roots": [
+     {
+      "name": "project",
+      "path": "."
+     }
+    ]
+   },
+   "files": {},
+   "body": "return await dsx.module.fs.read({ root: 'elsewhere', path: 'note.txt' })",
+   "expectEnvelope": {
+    "ok": false,
+    "error": "forbidden"
+   }
+  },
+  {
+   "name": "fs-escape-from-a-root-is-forbidden",
+   "_why": "The traversal case, stated as a fixture because every host will re-derive it and one of them will get it wrong. Resolving the path and comparing against the root is the only check that holds; string prefix matching does not.",
+   "declare": {
+    "roots": [
+     {
+      "name": "project",
+      "path": "."
+     }
+    ]
+   },
+   "files": {},
+   "body": "return await dsx.module.fs.read({ root: 'project', path: '../../etc/passwd' })",
+   "expectEnvelope": {
+    "ok": false,
+    "error": "forbidden"
+   }
+  },
+  {
+   "name": "fs-read-of-an-absent-file-is-not_found",
+   "declare": {
+    "roots": [
+     {
+      "name": "project",
+      "path": "."
+     }
+    ]
+   },
+   "files": {},
+   "body": "return await dsx.module.fs.read({ root: 'project', path: 'missing.txt' })",
+   "expectEnvelope": {
+    "ok": false,
+    "error": "not_found"
+   }
+  },
+  {
+   "name": "fs-exists-answers-rather-than-throwing",
+   "declare": {
+    "roots": [
+     {
+      "name": "project",
+      "path": "."
+     }
+    ]
+   },
+   "files": {
+    "there.txt": "x"
+   },
+   "body": "const a = await dsx.module.fs.exists({ root: 'project', path: 'there.txt' }); const b = await dsx.module.fs.exists({ root: 'project', path: 'nope.txt' }); return (a.data === true && b.data === false) ? 0 : 1",
+   "expect": {
+    "code": 0,
+    "stdout": [],
+    "stderr": []
+   }
+  },
+  {
+   "name": "fs-write-then-read-round-trips",
+   "declare": {
+    "roots": [
+     {
+      "name": "project",
+      "path": "."
+     }
+    ]
+   },
+   "files": {},
+   "body": "await dsx.module.fs.write({ root: 'project', path: 'out/made.txt', text: 'written' }); const r = await dsx.module.fs.read({ root: 'project', path: 'out/made.txt' }); dsx.module.out.print({ text: r.data }); return 0",
+   "expect": {
+    "code": 0,
+    "stdout": [
+     "written"
+    ],
+    "stderr": []
+   }
+  },
+  {
+   "name": "fs-list-returns-names-sorted",
+   "declare": {
+    "roots": [
+     {
+      "name": "project",
+      "path": "."
+     }
+    ]
+   },
+   "files": {
+    "b.dsx": "",
+    "a.dsx": "",
+    "sub/c.dsx": ""
+   },
+   "body": "const r = await dsx.module.fs.list({ root: 'project', path: '.' }); dsx.module.out.print({ text: r.data.join(',') }); return 0",
+   "expect": {
+    "code": 0,
+    "stdout": [
+     "a.dsx,b.dsx,sub"
+    ],
+    "stderr": []
+   }
+  },
+  {
+   "name": "exec-of-an-undeclared-program-is-forbidden",
+   "declare": {
+    "exec": []
+   },
+   "body": "return await dsx.module.exec.run({ name: 'rm', args: ['-rf', '/'] })",
+   "expectEnvelope": {
+    "ok": false,
+    "error": "forbidden"
+   }
+  },
+  {
+   "name": "a-body-cannot-name-a-surface-namespace",
+   "_why": "dsx.component / dsx.route / dsx.screen are surface words. A CLI has no router and no screen, so a body using them would silently do nothing — the lint refuses the document rather than letting it run inert. Mirrors the server rule exactly.",
+   "body": "dsx.component.push('Home'); return 0",
+   "expectLintError": {
+    "contains": "SURFACE namespace"
+   }
+  },
+  {
+   "name": "a-blown-loop-budget-fails-rather-than-answering-short",
+   "_why": "The runner CONTAINS a runaway loop and lets the body continue, which is right for a tap handler and wrong for a program whose output someone will pipe into another program. A half-computed answer with exit 0 is the worst outcome available. The fixture asks for a small loop budget so the LAW is proven in milliseconds; the ceiling itself is the host's and a case may only ask for less.",
+   "body": "let n = 0; while (true) { n = n + 1 } return n",
+   "expectThrow": {
+    "reason": "budget_exceeded",
+    "contains": "loop"
+   },
+   "budget": {
+    "loopCap": 1000
+   }
+  },
+  {
+   "name": "a-body-turns-a-refusal-into-a-nonzero-exit-when-it-must",
+   "_why": "Fail-open is the default and the right default, but a command that cannot do its job must be able to say so. This is the one-line idiom, and the fixture exists so the idiom is part of the contract rather than folklore.",
+   "declare": {
+    "roots": [
+     {
+      "name": "project",
+      "path": "."
+     }
+    ]
+   },
+   "files": {},
+   "body": "const r = await dsx.module.fs.read({ root: 'project', path: 'missing.txt' }); if (!r.ok) { throw { reason: 'not_found', message: 'missing.txt is required' } } return 0",
+   "expectThrow": {
+    "reason": "not_found",
+    "contains": "missing.txt is required"
+   }
+  }
+ ]
+}

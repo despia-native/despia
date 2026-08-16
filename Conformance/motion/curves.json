@@ -1,0 +1,590 @@
+{
+ "_note": "The UI MOTION curve corpus (architecture/proposals/ui-motion.md). THE PARSE LAW: `anim` is one of spring \u00b7 linear \u00b7 easeIn \u00b7 easeOut \u00b7 easeInOut; absent or empty is easeInOut (NO diagnostic); any other word falls back to easeInOut with ONE `malformed-motion` diagnostic (Article 7 \u2014 failure is a value). `animDuration` is a plain decimal number of SECONDS matching /^[+-]?(\\d+(\\.\\d*)?|\\.\\d+)([eE][+-]?\\d+)?$/ on the TRIMMED string and strictly > 0; absent/empty is the default (no diagnostic), anything else is ONE `malformed-motion` diagnostic and the default. For the four CURVES the default duration is 0.35 s (SwiftUI's) and the control points are the SwiftUI unit beziers, identical to the CSS timing functions of the same names: easeIn (0.42,0,1,1) \u00b7 easeOut (0,0,0.58,1) \u00b7 easeInOut (0.42,0,0.58,1) \u00b7 linear (0,0,1,1). For SPRING, `animDuration` sets the RESPONSE (default 0.4 s) at damping fraction 0.8, and `durationMs` is not authored at all \u2014 it is the SETTLE time (spring.json). THE PROGRESS LAW: motionProgress(spec, elapsedMs) \u2192 0..1. A curve normalizes u = clamp(elapsed/duration, 0, 1) and returns u for `linear`, else the cubic bezier ((0,0) P1 P2 (1,1)) solved for y at x = u by EXACTLY 60 bisection iterations on s \u2208 [0,1] \u2014 the same solver the scene kernel pins (there is ONE bezier solver and ONE spring in this codebase; motion.ts imports them from scene/anim.ts). The `presets` block pins the two motion defaults the renderers apply when the author sets no anim=: keep-mode's 0.18 s easeOut fade and the button press snap's 0.12 s easeOut. All floats 6 decimals, tolerance 1.5e-6; every number here was computed by an independent scratch derivation, never by a kernel under test. Runners: TS (packages/kernel/test/motion-conformance.test.ts, per-PR) \u00b7 Kotlin (:core MotionConformanceTest, gradle) \u00b7 Swift (MotionConformance, record lane).",
+ "presets": {
+  "keep": {
+   "name": "easeOut",
+   "kind": "curve",
+   "durationMs": 180.0,
+   "x1": 0.0,
+   "y1": 0.0,
+   "x2": 0.58,
+   "y2": 1.0
+  },
+  "press": {
+   "name": "easeOut",
+   "kind": "curve",
+   "durationMs": 120.0,
+   "x1": 0.0,
+   "y1": 0.0,
+   "x2": 0.58,
+   "y2": 1.0
+  },
+  "default": {
+   "name": "easeInOut",
+   "kind": "curve",
+   "durationMs": 350.0,
+   "x1": 0.42,
+   "y1": 0.0,
+   "x2": 0.58,
+   "y2": 1.0
+  }
+ },
+ "parse": [
+  {
+   "name": "no anim, no duration \u2014 the easeInOut/0.35s default",
+   "anim": null,
+   "animDuration": null,
+   "expect": {
+    "name": "easeInOut",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.42,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0
+   },
+   "diagnostics": []
+  },
+  {
+   "name": "anim=\"\" is absent, not malformed",
+   "anim": "",
+   "animDuration": null,
+   "expect": {
+    "name": "easeInOut",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.42,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0
+   },
+   "diagnostics": []
+  },
+  {
+   "name": "linear",
+   "anim": "linear",
+   "animDuration": null,
+   "expect": {
+    "name": "linear",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.0,
+    "y1": 0.0,
+    "x2": 1.0,
+    "y2": 1.0
+   },
+   "diagnostics": []
+  },
+  {
+   "name": "easeIn",
+   "anim": "easeIn",
+   "animDuration": null,
+   "expect": {
+    "name": "easeIn",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.42,
+    "y1": 0.0,
+    "x2": 1.0,
+    "y2": 1.0
+   },
+   "diagnostics": []
+  },
+  {
+   "name": "easeOut",
+   "anim": "easeOut",
+   "animDuration": null,
+   "expect": {
+    "name": "easeOut",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.0,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0
+   },
+   "diagnostics": []
+  },
+  {
+   "name": "easeInOut",
+   "anim": "easeInOut",
+   "animDuration": null,
+   "expect": {
+    "name": "easeInOut",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.42,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0
+   },
+   "diagnostics": []
+  },
+  {
+   "name": "spring \u2014 response 0.4 / damping 0.8, duration IS the settle time",
+   "anim": "spring",
+   "animDuration": null,
+   "expect": {
+    "name": "spring",
+    "kind": "spring",
+    "durationMs": 549.701699,
+    "response": 0.4,
+    "dampingFraction": 0.8
+   },
+   "diagnostics": []
+  },
+  {
+   "name": "animDuration sets the curve duration in SECONDS",
+   "anim": "easeOut",
+   "animDuration": "0.5",
+   "expect": {
+    "name": "easeOut",
+    "kind": "curve",
+    "durationMs": 500.0,
+    "x1": 0.0,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0
+   },
+   "diagnostics": []
+  },
+  {
+   "name": "animDuration on a spring sets the RESPONSE",
+   "anim": "spring",
+   "animDuration": "0.25",
+   "expect": {
+    "name": "spring",
+    "kind": "spring",
+    "durationMs": 343.563562,
+    "response": 0.25,
+    "dampingFraction": 0.8
+   },
+   "diagnostics": []
+  },
+  {
+   "name": "surrounding whitespace is trimmed",
+   "anim": "easeIn",
+   "animDuration": "  0.5  ",
+   "expect": {
+    "name": "easeIn",
+    "kind": "curve",
+    "durationMs": 500.0,
+    "x1": 0.42,
+    "y1": 0.0,
+    "x2": 1.0,
+    "y2": 1.0
+   },
+   "diagnostics": []
+  },
+  {
+   "name": "an unknown anim word falls back to easeInOut with one diagnostic",
+   "anim": "bogus",
+   "animDuration": null,
+   "expect": {
+    "name": "easeInOut",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.42,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0
+   },
+   "diagnostics": [
+    "malformed-motion"
+   ]
+  },
+  {
+   "name": "a non-numeric animDuration falls back with one diagnostic",
+   "anim": "easeOut",
+   "animDuration": "abc",
+   "expect": {
+    "name": "easeOut",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.0,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0
+   },
+   "diagnostics": [
+    "malformed-motion"
+   ]
+  },
+  {
+   "name": "animDuration=0 is not a duration",
+   "anim": "easeOut",
+   "animDuration": "0",
+   "expect": {
+    "name": "easeOut",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.0,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0
+   },
+   "diagnostics": [
+    "malformed-motion"
+   ]
+  },
+  {
+   "name": "a negative animDuration is not a duration",
+   "anim": "easeOut",
+   "animDuration": "-1",
+   "expect": {
+    "name": "easeOut",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.0,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0
+   },
+   "diagnostics": [
+    "malformed-motion"
+   ]
+  },
+  {
+   "name": "a malformed animDuration on a spring keeps response 0.4",
+   "anim": "spring",
+   "animDuration": "nope",
+   "expect": {
+    "name": "spring",
+    "kind": "spring",
+    "durationMs": 549.701699,
+    "response": 0.4,
+    "dampingFraction": 0.8
+   },
+   "diagnostics": [
+    "malformed-motion"
+   ]
+  },
+  {
+   "name": "both words malformed \u2014 two diagnostics, both defaults",
+   "anim": "bogus",
+   "animDuration": "bogus",
+   "expect": {
+    "name": "easeInOut",
+    "kind": "curve",
+    "durationMs": 350.0,
+    "x1": 0.42,
+    "y1": 0.0,
+    "x2": 0.58,
+    "y2": 1.0
+   },
+   "diagnostics": [
+    "malformed-motion",
+    "malformed-motion"
+   ]
+  },
+  {
+   "name": "exponent notation is a number",
+   "anim": "linear",
+   "animDuration": "5e-1",
+   "expect": {
+    "name": "linear",
+    "kind": "curve",
+    "durationMs": 500.0,
+    "x1": 0.0,
+    "y1": 0.0,
+    "x2": 1.0,
+    "y2": 1.0
+   },
+   "diagnostics": []
+  }
+ ],
+ "progress": [
+  {
+   "name": "linear at the 0.35s default",
+   "anim": "linear",
+   "animDuration": null,
+   "durationMs": 350.0,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 87.5,
+     "p": 0.25
+    },
+    {
+     "t": 175,
+     "p": 0.5
+    },
+    {
+     "t": 262.5,
+     "p": 0.75
+    },
+    {
+     "t": 350,
+     "p": 1.0
+    },
+    {
+     "t": 400,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "easeIn at the 0.35s default",
+   "anim": "easeIn",
+   "animDuration": null,
+   "durationMs": 350.0,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 87.5,
+     "p": 0.093465
+    },
+    {
+     "t": 175,
+     "p": 0.315357
+    },
+    {
+     "t": 262.5,
+     "p": 0.621862
+    },
+    {
+     "t": 350,
+     "p": 1.0
+    },
+    {
+     "t": 400,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "easeOut at the 0.35s default",
+   "anim": "easeOut",
+   "animDuration": null,
+   "durationMs": 350.0,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 87.5,
+     "p": 0.378138
+    },
+    {
+     "t": 175,
+     "p": 0.684643
+    },
+    {
+     "t": 262.5,
+     "p": 0.906535
+    },
+    {
+     "t": 350,
+     "p": 1.0
+    },
+    {
+     "t": 400,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "easeInOut at the 0.35s default",
+   "anim": "easeInOut",
+   "animDuration": null,
+   "durationMs": 350.0,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 87.5,
+     "p": 0.129162
+    },
+    {
+     "t": 175,
+     "p": 0.5
+    },
+    {
+     "t": 262.5,
+     "p": 0.870838
+    },
+    {
+     "t": 350,
+     "p": 1.0
+    },
+    {
+     "t": 400,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "the default curve IS easeInOut",
+   "anim": null,
+   "animDuration": null,
+   "durationMs": 350.0,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 87.5,
+     "p": 0.129162
+    },
+    {
+     "t": 175,
+     "p": 0.5
+    },
+    {
+     "t": 262.5,
+     "p": 0.870838
+    },
+    {
+     "t": 350,
+     "p": 1.0
+    },
+    {
+     "t": 400,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "easeInOut over an explicit 0.5s",
+   "anim": "easeInOut",
+   "animDuration": "0.5",
+   "durationMs": 500.0,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 125,
+     "p": 0.129162
+    },
+    {
+     "t": 250,
+     "p": 0.5
+    },
+    {
+     "t": 375,
+     "p": 0.870838
+    },
+    {
+     "t": 500,
+     "p": 1.0
+    },
+    {
+     "t": 750,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "easeOut over 1s \u2014 the quarter points",
+   "anim": "easeOut",
+   "animDuration": "1",
+   "durationMs": 1000.0,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 250,
+     "p": 0.378138
+    },
+    {
+     "t": 500,
+     "p": 0.684643
+    },
+    {
+     "t": 750,
+     "p": 0.906535
+    },
+    {
+     "t": 1000,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "progress before t=0 clamps to 0",
+   "anim": "easeIn",
+   "animDuration": null,
+   "durationMs": 350.0,
+   "samples": [
+    {
+     "t": -100,
+     "p": 0.0
+    },
+    {
+     "t": 0,
+     "p": 0.0
+    }
+   ]
+  },
+  {
+   "name": "the keep preset curve (0.18s easeOut)",
+   "anim": "easeOut",
+   "animDuration": "0.18",
+   "durationMs": 180.0,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 45,
+     "p": 0.378138
+    },
+    {
+     "t": 90,
+     "p": 0.684643
+    },
+    {
+     "t": 135,
+     "p": 0.906535
+    },
+    {
+     "t": 180,
+     "p": 1.0
+    }
+   ]
+  },
+  {
+   "name": "the press preset curve (0.12s easeOut)",
+   "anim": "easeOut",
+   "animDuration": "0.12",
+   "durationMs": 120.0,
+   "samples": [
+    {
+     "t": 0,
+     "p": 0.0
+    },
+    {
+     "t": 30,
+     "p": 0.378138
+    },
+    {
+     "t": 60,
+     "p": 0.684643
+    },
+    {
+     "t": 90,
+     "p": 0.906535
+    },
+    {
+     "t": 120,
+     "p": 1.0
+    }
+   ]
+  }
+ ]
+}

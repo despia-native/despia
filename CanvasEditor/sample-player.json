@@ -1,0 +1,54 @@
+{
+  "name": "VerticalPlayer", "scheme": "player",
+  "context":  { "credits": { "type": "int", "default": 0 } },
+  "delegate": { "unlock": { "combine": "first", "default": true, "payload": { "sku": "string" } } },
+
+  "hydrate": { "context": { "credits": 0 } },
+
+  "actions": {
+    "_note": "Self-contained actions (OpenSource/Skills/writing-unit-tests.md): each action declares its args, what it resolves (or its stream events), the broadcasts it fires, and its unit tests. Validated at build by verify_module_tests.rb and played as live scenarios in OpenSource/CanvasEditor.",
+    "spend": {
+      "args": { "amount": "number" },
+      "resolves": { "balance": "number" },
+      "broadcasts": [ "creditsChanged" ],
+      "tests": [
+        { "name": "spends from balance", "given": { "context": { "credits": 100 } }, "args": { "amount": 30 }, "resolve": { "balance": 70 }, "broadcasts": [ { "event": "creditsChanged", "balance": 70 } ] },
+        { "name": "rejects when insufficient", "given": { "context": { "credits": 10 } }, "args": { "amount": 30 }, "expectError": "insufficient" }
+      ]
+    },
+    "close": {
+      "resolves": { "closed": "boolean" },
+      "tests": [
+        { "name": "closes", "args": {}, "resolve": { "closed": true } }
+      ]
+    },
+    "load": {
+      "args": { "url": "string" },
+      "resolves": { "ok": "boolean" },
+      "stream": true,
+      "events": [ "buffer", "ready" ],
+      "broadcasts": [ "loadStarted" ],
+      "tests": [
+        {
+          "name": "buffers then becomes ready",
+          "given": { "global": { "session": { "premium": true } }, "variable": { "buffered": 0 } },
+          "args": { "url": "https://cdn/clip.mp4" },
+          "resolve": { "ok": true },
+          "broadcasts": [ { "event": "loadStarted", "url": "https://cdn/clip.mp4" } ],
+          "events": [
+            { "at": 0, "event": "buffer", "data": { "pct": 0 } },
+            { "at": 200, "event": "buffer", "data": { "pct": 60 } },
+            { "at": 400, "event": "ready", "data": { "pct": 100 } }
+          ]
+        }
+      ]
+    },
+    "track.purchase": {
+      "args": { "sku": "string", "value": "number" },
+      "resolves": { "ok": "boolean" },
+      "tests": [
+        { "name": "tracks a purchase", "args": { "sku": "gold", "value": 9.99 }, "resolve": { "ok": true } }
+      ]
+    }
+  }
+}

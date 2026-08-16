@@ -1,0 +1,25 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "DSXView",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/DSXView/swift/DSXView.swift",
+  "attributes": {
+    "src": {
+      "type": "url",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/DSXView/swift/DSXView.swift:51"
+    },
+    "origin": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/DSXView/swift/DSXView.swift:52"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "Remote/native DSX surface (remote-cached via DSXRemoteCache)."
+}

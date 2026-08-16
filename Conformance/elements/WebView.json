@@ -1,0 +1,40 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "WebView",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift",
+  "attributes": {
+    "name": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift:48"
+    },
+    "src": {
+      "type": "url",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift:49"
+    },
+    "path": {
+      "type": "string",
+      "default": "/",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift:50"
+    },
+    "origin": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift:50"
+    },
+    "ephemeral": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift:51"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "The bare web-surface primitive — NO bridge by construction (web-surface-policy.md)."
+}

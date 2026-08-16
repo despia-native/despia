@@ -1,0 +1,56 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "qrcode",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/QRCode/swift/QRCode.swift",
+  "attributes": {
+    "value": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/QRCode/swift/QRCode.swift:36 (required; empty renders nothing)"
+    },
+    "size": {
+      "type": "number",
+      "default": 200,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/QRCode/swift/QRCode.swift:42 (width/height accepted as aliases)"
+    },
+    "color": {
+      "type": "color",
+      "default": "black",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/QRCode/swift/QRCode.swift:44"
+    },
+    "background": {
+      "type": "color",
+      "default": "white",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/QRCode/swift/QRCode.swift:45"
+    },
+    "correction": {
+      "type": "enum(L|M|Q|H)",
+      "default": "M",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/QRCode/swift/QRCode.swift:43"
+    }
+  },
+  "geometry": {
+    "size": {
+      "value": 200,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/QRCode/swift/QRCode.swift:42"
+    },
+    "quietZoneFraction": {
+      "value": 0.06,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/QRCode/swift/QRCode.swift:58 (padding = size * 0.06)"
+    }
+  },
+  "colors": {
+    "modules": {
+      "token": "black",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/QRCode/swift/QRCode.swift:44"
+    },
+    "background": {
+      "token": "white",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/QRCode/swift/QRCode.swift:45"
+    }
+  },
+  "notes": ""
+}

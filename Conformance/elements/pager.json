@@ -1,0 +1,45 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "pager",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Pager/swift/Pager.swift",
+  "attributes": {
+    "value": {
+      "type": "expr(int)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Pager/swift/Pager.swift:16 (two-way current page by child index)"
+    },
+    "bind": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Pager/swift/Pager.swift:48 (data-bound pages + one row template; Android this wave reads bind as the page INDEX — divergence pinned in StackNodeView.kt header)"
+    },
+    "key": {
+      "type": "string",
+      "default": "id",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Pager/swift/Pager.swift:49"
+    },
+    "dots": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Pager/swift/Pager.swift:23 (dots != \"false\")"
+    },
+    "axis": {
+      "type": "enum(horizontal|vertical)",
+      "default": "horizontal",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Pager/swift/Pager.swift:19 (vertical = TikTok-style full-screen paging)"
+    },
+    "on:change": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Pager/swift/Pager.swift:30 (never for the mount page)"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "Vertical commit rule: the current page is the page that FULLY covers the viewport, confirmed after ~80ms at the boundary (Pager.swift:143-156)."
+}

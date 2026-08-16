@@ -1,0 +1,402 @@
+{
+  "_note": "JSE syntax-completeness wave 1 — lexer + operator grammar (JS-verbatim source forms). Pins: string escape sequences (the JS set; unknown escape = the char itself), template literals (parts string-coerce and concatenate — NOT the numeric-first `+`), // and /* */ comments stripped by the shared source preprocessor (regex literals are never comments — `/\\//g` survives), numeric literals (decimal exponents, 0x/0b/0o radix forms, `_` digit separators), `**` (right-assoc, operands number-coerced ?? 0 like `*`), `??` (nullish = the ONE missing value: null/undefined/NSNull; eager like &&/||), `?.` and `?.[` (pure sugar over the already-total member/index ops), bitwise & | ^ ~ and shifts << >> >>> (JS ToInt32/ToUint32 wrapping), unary +. Statement-level twins (ASI, sugar, comments in bodies) live in the actions corpus.",
+  "cases": [
+    {
+      "name": "esc-newline-length",
+      "scope": {},
+      "expression": "'a\\nb'.length",
+      "expected": 3
+    },
+    {
+      "name": "esc-quote-in-single",
+      "scope": {},
+      "expression": "'it\\'s'",
+      "expected": "it's"
+    },
+    {
+      "name": "esc-backslash",
+      "scope": {},
+      "expression": "'a\\\\b'.length",
+      "expected": 3
+    },
+    {
+      "name": "esc-tab-in-double",
+      "scope": {},
+      "expression": "\"a\\tb\"",
+      "expected": "a\tb"
+    },
+    {
+      "name": "esc-unicode-bmp",
+      "scope": {},
+      "expression": "'\\u0041\\u0042'",
+      "expected": "AB"
+    },
+    {
+      "name": "esc-unicode-codepoint",
+      "scope": {},
+      "expression": "'\\u{1F600}'.length",
+      "expected": 1
+    },
+    {
+      "name": "esc-hex",
+      "scope": {},
+      "expression": "'\\x41\\x42'",
+      "expected": "AB"
+    },
+    {
+      "name": "esc-unknown-is-char",
+      "scope": {},
+      "expression": "'\\q\\w'",
+      "expected": "qw"
+    },
+    {
+      "name": "tpl-basic",
+      "scope": {},
+      "expression": "`hi ${1 + 1}`",
+      "expected": "hi 2"
+    },
+    {
+      "name": "tpl-adjacent-holes-concat-not-add",
+      "scope": {},
+      "expression": "`${1}${2}`",
+      "expected": "12"
+    },
+    {
+      "name": "tpl-scope-read",
+      "scope": {
+        "n": 5
+      },
+      "expression": "`n=${n}`",
+      "expected": "n=5"
+    },
+    {
+      "name": "tpl-inner-string-arg",
+      "scope": {},
+      "expression": "`q${'x' + 1}`",
+      "expected": "qx1"
+    },
+    {
+      "name": "tpl-multiline",
+      "scope": {},
+      "expression": "`a\nb`",
+      "expected": "a\nb"
+    },
+    {
+      "name": "tpl-escaped-dollar",
+      "scope": {},
+      "expression": "`a\\${b}`",
+      "expected": "a${b}"
+    },
+    {
+      "name": "tpl-empty",
+      "scope": {},
+      "expression": "`` + 'x'",
+      "expected": "x"
+    },
+    {
+      "name": "tpl-nested-braces",
+      "scope": {},
+      "expression": "`v=${ { a: 2 }.a }`",
+      "expected": "v=2"
+    },
+    {
+      "name": "comment-line",
+      "scope": {},
+      "expression": "1 + 2 // three",
+      "expected": 3
+    },
+    {
+      "name": "comment-block",
+      "scope": {},
+      "expression": "1 + /* two */ 3",
+      "expected": 4
+    },
+    {
+      "name": "comment-block-multiline",
+      "scope": {},
+      "expression": "1 + /* a\nb */ 4",
+      "expected": 5
+    },
+    {
+      "name": "comment-unterminated-block-fails-open",
+      "scope": {},
+      "expression": "1 + 2 /* trailing",
+      "expected": 3
+    },
+    {
+      "name": "division-still-division",
+      "scope": {},
+      "expression": "8 / 2 / 2",
+      "expected": 2
+    },
+    {
+      "name": "regex-slash-escape-not-comment",
+      "scope": {},
+      "expression": "'a/b/c'.replace(/\\//g, '-')",
+      "expected": "a-b-c"
+    },
+    {
+      "name": "num-exponent",
+      "scope": {},
+      "expression": "1e3 + 1",
+      "expected": 1001
+    },
+    {
+      "name": "num-exponent-upper-plus",
+      "scope": {},
+      "expression": "1E+2",
+      "expected": 100
+    },
+    {
+      "name": "num-exponent-negative",
+      "scope": {},
+      "expression": "2.5e-2",
+      "expected": 0.025
+    },
+    {
+      "name": "num-hex",
+      "scope": {},
+      "expression": "0xFF",
+      "expected": 255
+    },
+    {
+      "name": "num-hex-lower",
+      "scope": {},
+      "expression": "0x1f",
+      "expected": 31
+    },
+    {
+      "name": "num-binary",
+      "scope": {},
+      "expression": "0b101",
+      "expected": 5
+    },
+    {
+      "name": "num-octal",
+      "scope": {},
+      "expression": "0o17",
+      "expected": 15
+    },
+    {
+      "name": "num-underscore-separators",
+      "scope": {},
+      "expression": "1_000_000 / 2",
+      "expected": 500000
+    },
+    {
+      "name": "num-hex-underscore",
+      "scope": {},
+      "expression": "0xF_F",
+      "expected": 255
+    },
+    {
+      "name": "op-pow",
+      "scope": {},
+      "expression": "2 ** 3",
+      "expected": 8
+    },
+    {
+      "name": "op-pow-right-assoc",
+      "scope": {},
+      "expression": "2 ** 3 ** 2",
+      "expected": 512
+    },
+    {
+      "name": "op-pow-binds-over-mult",
+      "scope": {},
+      "expression": "2 * 3 ** 2",
+      "expected": 18
+    },
+    {
+      "name": "op-pow-coerces-like-mult",
+      "scope": {},
+      "expression": "2 ** '3'",
+      "expected": 8
+    },
+    {
+      "name": "nullish-missing",
+      "scope": {},
+      "expression": "missing ?? 'fb'",
+      "expected": "fb"
+    },
+    {
+      "name": "nullish-zero-passes",
+      "scope": {},
+      "expression": "0 ?? 5",
+      "expected": 0
+    },
+    {
+      "name": "nullish-empty-string-passes",
+      "scope": {},
+      "expression": "'' ?? 'x'",
+      "expected": ""
+    },
+    {
+      "name": "nullish-false-passes",
+      "scope": {},
+      "expression": "false ?? 1",
+      "expected": false
+    },
+    {
+      "name": "nullish-chain",
+      "scope": {},
+      "expression": "missing ?? also_missing ?? 7",
+      "expected": 7
+    },
+    {
+      "name": "nullish-below-or",
+      "scope": {},
+      "expression": "(false || missing) ?? 9",
+      "expected": 9
+    },
+    {
+      "name": "optional-member-present",
+      "scope": {
+        "o": {
+          "k": 7
+        }
+      },
+      "expression": "o?.k",
+      "expected": 7
+    },
+    {
+      "name": "optional-member-missing-composes-with-nullish",
+      "scope": {},
+      "expression": "o?.k ?? 'absent'",
+      "expected": "absent"
+    },
+    {
+      "name": "optional-chain-deep",
+      "scope": {
+        "o": {
+          "a": {
+            "b": 3
+          }
+        }
+      },
+      "expression": "o?.a?.b",
+      "expected": 3
+    },
+    {
+      "name": "optional-index",
+      "scope": {
+        "a": [
+          1,
+          2
+        ]
+      },
+      "expression": "a?.[1]",
+      "expected": 2
+    },
+    {
+      "name": "optional-method",
+      "scope": {
+        "s": "despia"
+      },
+      "expression": "s?.slice(0, 3)",
+      "expected": "des"
+    },
+    {
+      "name": "optional-not-ternary-digit",
+      "scope": {},
+      "expression": "true ?.5 : 2",
+      "expected": 0.5
+    },
+    {
+      "name": "bit-and",
+      "scope": {},
+      "expression": "12 & 10",
+      "expected": 8
+    },
+    {
+      "name": "bit-or",
+      "scope": {},
+      "expression": "12 | 3",
+      "expected": 15
+    },
+    {
+      "name": "bit-xor",
+      "scope": {},
+      "expression": "12 ^ 10",
+      "expected": 6
+    },
+    {
+      "name": "bit-not",
+      "scope": {},
+      "expression": "~5",
+      "expected": -6
+    },
+    {
+      "name": "bit-and-coerces",
+      "scope": {},
+      "expression": "'12' & '10'",
+      "expected": 8
+    },
+    {
+      "name": "bit-int32-wrap",
+      "scope": {},
+      "expression": "0xFFFFFFFF | 0",
+      "expected": -1
+    },
+    {
+      "name": "bit-precedence-and-over-or",
+      "scope": {},
+      "expression": "1 | 2 & 3",
+      "expected": 3
+    },
+    {
+      "name": "shift-left",
+      "scope": {},
+      "expression": "1 << 4",
+      "expected": 16
+    },
+    {
+      "name": "shift-right-arithmetic",
+      "scope": {},
+      "expression": "-16 >> 2",
+      "expected": -4
+    },
+    {
+      "name": "shift-right-unsigned",
+      "scope": {},
+      "expression": "-1 >>> 28",
+      "expected": 15
+    },
+    {
+      "name": "shift-below-additive",
+      "scope": {},
+      "expression": "1 + 2 << 1",
+      "expected": 6
+    },
+    {
+      "name": "shift-count-masked",
+      "scope": {},
+      "expression": "1 << 33",
+      "expected": 2
+    },
+    {
+      "name": "unary-plus-bool",
+      "scope": {},
+      "expression": "+true",
+      "expected": 1
+    },
+    {
+      "name": "unary-plus-string",
+      "scope": {},
+      "expression": "+'3.5'",
+      "expected": 3.5
+    },
+    {
+      "name": "asi-block-in-lambda",
+      "scope": {},
+      "expression": "[1, 2].map(x => { const d = x * 10\nreturn d + 1 }).join(',')",
+      "expected": "11,21"
+    },
+    {
+      "name": "asi-soft-continuation-in-expression",
+      "scope": {},
+      "expression": "1 +\n2",
+      "expected": 3
+    }
+  ]
+}

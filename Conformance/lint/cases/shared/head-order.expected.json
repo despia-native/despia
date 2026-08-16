@@ -1,0 +1,4 @@
+[
+  { "line": 4, "level": "warning", "rule": "head-order" },
+  { "line": 5, "level": "warning", "rule": "head-order" }
+]

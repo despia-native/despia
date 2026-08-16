@@ -1,0 +1,45 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "segmented",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:15"
+    },
+    "options": {
+      "type": "csv",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:21"
+    },
+    "optionsKey": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:17"
+    },
+    "valueField": {
+      "type": "string",
+      "default": "id",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:18"
+    },
+    "labelField": {
+      "type": "string",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:18"
+    },
+    "label": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:26"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "Native segmented control (pickerStyle(.segmented), Picker.swift:30,37)."
+}

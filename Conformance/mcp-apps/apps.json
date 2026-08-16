@@ -1,0 +1,253 @@
+{
+ "_note": "The MCP Apps view-protocol corpus (architecture/proposals/mcp-apps.md). Pins the VIEW half of the MCP Apps extension (modelcontextprotocol/ext-apps, specification 2026-01-26) as DSX implements it: the ui/initialize handshake, the two data notifications, host-proxied tools/call, size-changed, theming, and the laws we add on top. Deterministic — no timers, no network, no DOM: a case drives a transport double and asserts the exact JSON-RPC frames the view emits plus the view state that results. THE LAWS ENCODED HERE: (1) HANDSHAKE ORDER IS ABSOLUTE — the view's first frame is the `ui/initialize` REQUEST, the view sends `ui/notifications/initialized` only after the result arrives, and no other view-originated frame may precede it (a callTool issued early is QUEUED, never dropped and never reordered ahead of the handshake). (2) DATA BEFORE READY IS BUFFERED, NEVER LOST — the spec says a host sends no tool data until initialization completes, so a host that does anyway is out of spec; Article 7 says degrade, never brick, therefore the view buffers such frames and applies them in arrival order at ready. (3) `tool-input-partial` IS ADVISORY — it updates a separate `partial` channel and NEVER settles the data channel, because the spec states a view must not rely on it; a partial arriving after the real input is ignored. (4) REQUESTS ARE ID-MATCHED — every view request carries a monotonic string id, a response settles exactly the request whose id it names, an unmatched id is a no-op, and a second response for a settled id is swallowed (the first-settle-wins law the bus already has). (5) ERRORS ARE VALUES — a JSON-RPC error response to `tools/call` resolves the caller with a typed failure (`{ ok:false, code, message }`), it does not throw into the view; unknown methods FROM the host answer -32601 and never crash the view. (6) SIZE IS REPORTED ONLY WHEN FLEXIBLE — with fixed containerDimensions the view emits no size-changed frame at all, and when flexible it coalesces to one frame per distinct size (a repeat of the last reported size is not re-sent). (7) THEMING IS A TOKEN TABLE — hostContext.styles.variables is read into the token layer verbatim and absence yields an empty table, never a fabricated default. Case ops: `host` seeds the initialize RESULT the transport answers with (capabilities/hostInfo/hostContext; omit to answer the minimal legal result); `steps[]` run in order — `deliver` pushes a host→view frame, `callTool` invokes the view API, `resize` reports an observed size, `respond` answers the Nth outstanding view request; expects are exact unless named otherwise: `sent[]` = every view→host frame in order (id elided as \"<id>\" where the value is generated), `data` = the settled tool-result payload, `input` = the settled tool-input, `partial` = the advisory channel, `calls[]` = what each callTool step resolved to, `ready` = whether the handshake completed, `tokens` = the theme table the view exposes.",
+ "cases": [
+  {
+   "name": "handshake-initialize-is-the-first-frame",
+   "steps": [],
+   "expect": {
+    "sent": [
+     { "jsonrpc": "2.0", "id": "<id>", "method": "ui/initialize", "params": { "appCapabilities": { "displayModes": ["inline"] } } }
+    ],
+    "ready": false
+   }
+  },
+  {
+   "name": "handshake-completes-and-announces-initialized",
+   "host": { "hostInfo": { "name": "claude", "version": "1.0" } },
+   "steps": [
+    { "respond": { "request": 0 } }
+   ],
+   "expect": {
+    "sent": [
+     { "jsonrpc": "2.0", "id": "<id>", "method": "ui/initialize", "params": { "appCapabilities": { "displayModes": ["inline"] } } },
+     { "jsonrpc": "2.0", "method": "ui/notifications/initialized" }
+    ],
+    "ready": true,
+    "hostInfo": { "name": "claude", "version": "1.0" }
+   }
+  },
+  {
+   "name": "tool-input-and-result-settle-the-data-channels",
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "deliver": { "method": "ui/notifications/tool-input", "params": { "toolName": "catalogue.search", "arguments": { "q": "boots" } } } },
+    { "deliver": { "method": "ui/notifications/tool-result", "params": { "content": [ { "type": "text", "text": "2 results" } ], "structuredContent": { "items": [ { "id": "a" }, { "id": "b" } ] } } } }
+   ],
+   "expect": {
+    "ready": true,
+    "input": { "toolName": "catalogue.search", "arguments": { "q": "boots" } },
+    "data": { "content": [ { "type": "text", "text": "2 results" } ], "structuredContent": { "items": [ { "id": "a" }, { "id": "b" } ] } }
+   }
+  },
+  {
+   "name": "data-arriving-before-ready-is-buffered-and-replayed-in-order",
+   "steps": [
+    { "deliver": { "method": "ui/notifications/tool-input", "params": { "toolName": "t", "arguments": { "n": 1 } } } },
+    { "deliver": { "method": "ui/notifications/tool-result", "params": { "content": [], "structuredContent": { "n": 1 } } } },
+    { "respond": { "request": 0 } }
+   ],
+   "expect": {
+    "ready": true,
+    "input": { "toolName": "t", "arguments": { "n": 1 } },
+    "data": { "content": [], "structuredContent": { "n": 1 } },
+    "buffered": 2
+   }
+  },
+  {
+   "name": "tool-input-partial-never-settles-the-input-channel",
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "deliver": { "method": "ui/notifications/tool-input-partial", "params": { "arguments": { "q": "bo" } } } }
+   ],
+   "expect": {
+    "ready": true,
+    "input": null,
+    "partial": { "arguments": { "q": "bo" } }
+   }
+  },
+  {
+   "name": "a-partial-after-the-real-input-is-ignored",
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "deliver": { "method": "ui/notifications/tool-input", "params": { "toolName": "t", "arguments": { "q": "boots" } } } },
+    { "deliver": { "method": "ui/notifications/tool-input-partial", "params": { "arguments": { "q": "bo" } } } }
+   ],
+   "expect": {
+    "input": { "toolName": "t", "arguments": { "q": "boots" } },
+    "partial": null
+   }
+  },
+  {
+   "name": "calltool-proxies-through-the-host-and-resolves",
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "callTool": { "name": "catalogue.add", "arguments": { "id": "a" } } },
+    { "respond": { "request": 1, "result": { "content": [ { "type": "text", "text": "added" } ] } } }
+   ],
+   "expect": {
+    "sent": [
+     { "jsonrpc": "2.0", "id": "<id>", "method": "ui/initialize", "params": { "appCapabilities": { "displayModes": ["inline"] } } },
+     { "jsonrpc": "2.0", "method": "ui/notifications/initialized" },
+     { "jsonrpc": "2.0", "id": "<id>", "method": "tools/call", "params": { "name": "catalogue.add", "arguments": { "id": "a" } } }
+    ],
+    "calls": [ { "ok": true, "result": { "content": [ { "type": "text", "text": "added" } ] } } ]
+   }
+  },
+  {
+   "name": "calltool-before-ready-queues-behind-the-handshake",
+   "steps": [
+    { "callTool": { "name": "early", "arguments": {} } },
+    { "respond": { "request": 0 } },
+    { "respond": { "request": 1, "result": { "content": [] } } }
+   ],
+   "expect": {
+    "sent": [
+     { "jsonrpc": "2.0", "id": "<id>", "method": "ui/initialize", "params": { "appCapabilities": { "displayModes": ["inline"] } } },
+     { "jsonrpc": "2.0", "method": "ui/notifications/initialized" },
+     { "jsonrpc": "2.0", "id": "<id>", "method": "tools/call", "params": { "name": "early", "arguments": {} } }
+    ],
+    "calls": [ { "ok": true, "result": { "content": [] } } ]
+   }
+  },
+  {
+   "name": "a-tool-error-resolves-as-a-value-and-never-throws",
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "callTool": { "name": "denied", "arguments": {} } },
+    { "respond": { "request": 1, "error": { "code": -32001, "message": "tool not reachable from a view" } } }
+   ],
+   "expect": {
+    "calls": [ { "ok": false, "code": -32001, "message": "tool not reachable from a view" } ]
+   }
+  },
+  {
+   "name": "an-unmatched-response-id-is-a-no-op",
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "deliver": { "id": "no-such-request", "result": { "content": [] } } }
+   ],
+   "expect": { "ready": true, "calls": [] }
+  },
+  {
+   "name": "a-second-response-for-a-settled-request-is-swallowed",
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "callTool": { "name": "once", "arguments": {} } },
+    { "respond": { "request": 1, "result": { "content": [ { "type": "text", "text": "first" } ] } } },
+    { "respond": { "request": 1, "result": { "content": [ { "type": "text", "text": "second" } ] } } }
+   ],
+   "expect": {
+    "calls": [ { "ok": true, "result": { "content": [ { "type": "text", "text": "first" } ] } } ]
+   }
+  },
+  {
+   "name": "an-unknown-host-method-answers-method-not-found",
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "deliver": { "id": "h1", "method": "ui/teleport", "params": {} } }
+   ],
+   "expect": {
+    "sent": [
+     { "jsonrpc": "2.0", "id": "<id>", "method": "ui/initialize", "params": { "appCapabilities": { "displayModes": ["inline"] } } },
+     { "jsonrpc": "2.0", "method": "ui/notifications/initialized" },
+     { "jsonrpc": "2.0", "id": "h1", "error": { "code": -32601, "message": "method not found: ui/teleport" } }
+    ],
+    "ready": true
+   }
+  },
+  {
+   "name": "an-unknown-host-notification-is-ignored-silently",
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "deliver": { "method": "ui/notifications/weather", "params": {} } }
+   ],
+   "expect": {
+    "sent": [
+     { "jsonrpc": "2.0", "id": "<id>", "method": "ui/initialize", "params": { "appCapabilities": { "displayModes": ["inline"] } } },
+     { "jsonrpc": "2.0", "method": "ui/notifications/initialized" }
+    ],
+    "ready": true
+   }
+  },
+  {
+   "name": "flexible-container-reports-size-changes",
+   "host": { "hostContext": { "containerDimensions": {} } },
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "resize": { "width": 400, "height": 300 } }
+   ],
+   "expect": {
+    "sent": [
+     { "jsonrpc": "2.0", "id": "<id>", "method": "ui/initialize", "params": { "appCapabilities": { "displayModes": ["inline"] } } },
+     { "jsonrpc": "2.0", "method": "ui/notifications/initialized" },
+     { "jsonrpc": "2.0", "method": "ui/notifications/size-changed", "params": { "width": 400, "height": 300 } }
+    ]
+   }
+  },
+  {
+   "name": "a-repeat-of-the-last-size-is-not-resent",
+   "host": { "hostContext": { "containerDimensions": {} } },
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "resize": { "width": 400, "height": 300 } },
+    { "resize": { "width": 400, "height": 300 } },
+    { "resize": { "width": 400, "height": 320 } }
+   ],
+   "expect": {
+    "sent": [
+     { "jsonrpc": "2.0", "id": "<id>", "method": "ui/initialize", "params": { "appCapabilities": { "displayModes": ["inline"] } } },
+     { "jsonrpc": "2.0", "method": "ui/notifications/initialized" },
+     { "jsonrpc": "2.0", "method": "ui/notifications/size-changed", "params": { "width": 400, "height": 300 } },
+     { "jsonrpc": "2.0", "method": "ui/notifications/size-changed", "params": { "width": 400, "height": 320 } }
+    ]
+   }
+  },
+  {
+   "name": "a-fixed-container-never-reports-size",
+   "host": { "hostContext": { "containerDimensions": { "width": 600, "height": 400 } } },
+   "steps": [
+    { "respond": { "request": 0 } },
+    { "resize": { "width": 400, "height": 300 } }
+   ],
+   "expect": {
+    "sent": [
+     { "jsonrpc": "2.0", "id": "<id>", "method": "ui/initialize", "params": { "appCapabilities": { "displayModes": ["inline"] } } },
+     { "jsonrpc": "2.0", "method": "ui/notifications/initialized" }
+    ]
+   }
+  },
+  {
+   "name": "host-style-variables-are-read-as-a-token-table",
+   "host": {
+    "hostContext": {
+     "styles": { "variables": { "--color-text-primary": "#111", "--font-sans": "Inter", "--border-radius-md": "8px" } }
+    }
+   },
+   "steps": [
+    { "respond": { "request": 0 } }
+   ],
+   "expect": {
+    "tokens": { "--color-text-primary": "#111", "--font-sans": "Inter", "--border-radius-md": "8px" }
+   }
+  },
+  {
+   "name": "absent-host-styles-yield-an-empty-table-never-a-fabricated-default",
+   "steps": [
+    { "respond": { "request": 0 } }
+   ],
+   "expect": { "tokens": {} }
+  },
+  {
+   "name": "a-failed-handshake-leaves-the-view-usable-and-not-ready",
+   "steps": [
+    { "respond": { "request": 0, "error": { "code": -32601, "message": "method not found: ui/initialize" } } },
+    { "deliver": { "method": "ui/notifications/tool-result", "params": { "content": [], "structuredContent": { "n": 7 } } } }
+   ],
+   "expect": {
+    "ready": false,
+    "data": { "content": [], "structuredContent": { "n": 7 } },
+    "handshakeFailed": true
+   }
+  }
+ ]
+}

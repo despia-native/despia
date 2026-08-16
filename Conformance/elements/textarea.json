@@ -1,0 +1,62 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "textarea",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:27"
+    },
+    "placeholder": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:30"
+    },
+    "color": {
+      "type": "color",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:43 — system-defaults.md base pass: default rides the semantic token (was the pinned `white`)"
+    },
+    "minLines": {
+      "type": "number",
+      "default": 3,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:31"
+    },
+    "maxLines": {
+      "type": "number",
+      "default": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:32"
+    },
+    "on:focus": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:44-45"
+    },
+    "on:blur": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:44-45"
+    }
+  },
+  "geometry": {
+    "minLines": {
+      "value": 3,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:31"
+    },
+    "maxLines": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:32"
+    }
+  },
+  "colors": {
+    "text": {
+      "token": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:43 — system-defaults.md base pass: default rides the semantic token (was the pinned `white`)"
+    }
+  },
+  "notes": ""
+}

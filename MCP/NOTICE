@@ -1,0 +1,28 @@
+Despia MCP
+Copyright Despia
+
+This product includes software developed at Despia.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License in the LICENSE file distributed with this package.
+
+-------------------------------------------------------------------------------
+Third-party dependencies
+-------------------------------------------------------------------------------
+
+This package vendors no third-party source. It DEPENDS on the official Model
+Context Protocol SDKs, resolved by the consumer's package manager and pinned in
+vendor/VERSIONS:
+
+  * MCP Swift SDK   - MIT - https://github.com/modelcontextprotocol/swift-sdk
+  * MCP Kotlin SDK  - MIT - https://github.com/modelcontextprotocol/kotlin-sdk
+
+Both are permissive. Neither is redistributed here; each carries its own LICENSE
+in its own distribution.
+
+The local MCP server does NOT depend on an HTTP server framework. The
+Streamable-HTTP framing runs on this package's own bounded loopback listener,
+which is a deliberate choice and not an omission: an on-device server framework
+would be a second network surface with its own defaults, and the security story
+here is the listener's bind address, its token check and its file modes.

@@ -1,0 +1,14 @@
+<!-- The MCP Apps view fixture: renders the tool result it is HYDRATED with (the SSR shape —
+     the tool already ran on the server, `data` is its resolved value) and calls back through
+     the one egress a view has, the host-proxied tools/call. No fetch anywhere: the host's CSP
+     defaults to connect-src 'none', and this component is the proof that the restriction is
+     livable rather than theoretical. -->
+<stack style="gap: 0.5rem; padding: 1rem">
+  <head>
+    <attribute as="data" default=""/>
+    <attribute as="input" default=""/>
+  </head>
+  <text value="{{ dsx.attribute.data.total }} result(s)" a11yTrait="header" style="font-weight: 700"/>
+  <text value="query: {{ dsx.attribute.input.q }}"/>
+  <button label="Refresh" on:tap="dsx.module.mcp.call({ name: 'catalogue.search', arguments: { q: dsx.attribute.input.q } })"/>
+</stack>

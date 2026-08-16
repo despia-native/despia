@@ -1,0 +1,66 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "ProgressRing",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift",
+  "attributes": {
+    "value": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:27"
+    },
+    "max": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:28"
+    },
+    "lineWidth": {
+      "type": "number",
+      "default": 10,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:33"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:34"
+    },
+    "trackColor": {
+      "type": "color",
+      "default": "#2C2C2E",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:35"
+    },
+    "size": {
+      "type": "number",
+      "default": 88,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:36"
+    },
+    "label": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:37"
+    }
+  },
+  "geometry": {
+    "size": {
+      "value": 88,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:36"
+    },
+    "lineWidth": {
+      "value": 10,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:33"
+    }
+  },
+  "colors": {
+    "arc": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:34"
+    },
+    "track": {
+      "token": "#2C2C2E",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ProgressRing.swift:35"
+    }
+  },
+  "notes": "Arc starts at -90deg, rounded line cap, easeInOut animation (ProgressRing.swift:54-58)."
+}

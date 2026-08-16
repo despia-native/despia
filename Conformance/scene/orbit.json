@@ -1,0 +1,198 @@
+{
+ "_note": "The DSX Scene ORBIT corpus (dsx-scene.md P5): controls=\"orbit\" camera math as data. THE SPHERICAL LAW: offset = position − lookAt; distance = |offset|; pitch = asin(offset.y/distance)°; yaw = atan2(offset.x, offset.z)° (yaw 0 = camera on the +Z side); inverse position = lookAt + distance·(cosPitch·sinYaw, sinPitch, cosPitch·cosYaw). THE DRAG LAW: yaw −= dx·0.4°/px, pitch += dy·0.4°/px clamped to ±89°. THE ZOOM LAW: distance ×= e^(deltaY·0.0015), clamped to [max(near, 1e-3), far]. Each case folds `ops` (drags/zooms) over the state derived from the authored camera and pins the resulting state + camera position. Floats 6 decimals, tolerance 1.5e-6; numbers from an independent scratch implementation. Runners: TS (per-PR). Kotlin/Swift are the NAMED P5 follow-up.",
+ "cases": [
+  {
+   "name": "derive + round-trip — zero ops reproduce the authored position",
+   "camera": {
+    "position": [
+     0,
+     1.5,
+     4
+    ],
+    "lookAt": [
+     0,
+     0,
+     0
+    ]
+   },
+   "ops": [],
+   "expect": {
+    "yawDeg": 0.0,
+    "pitchDeg": 20.556045,
+    "distance": 4.272002,
+    "position": [
+     0.0,
+     1.5,
+     4.0
+    ]
+   }
+  },
+  {
+   "name": "a drag orbits — yaw −= dx·0.4, pitch += dy·0.4",
+   "camera": {
+    "position": [
+     0,
+     1.5,
+     4
+    ],
+    "lookAt": [
+     0,
+     0,
+     0
+    ]
+   },
+   "ops": [
+    {
+     "drag": [
+      100,
+      -50
+     ]
+    }
+   ],
+   "expect": {
+    "yawDeg": -40.0,
+    "pitchDeg": 0.556045,
+    "distance": 4.272002,
+    "position": [
+     -2.745861,
+     0.041458,
+     3.272389
+    ]
+   }
+  },
+  {
+   "name": "pitch clamps at ±89° — no pole flip",
+   "camera": {
+    "position": [
+     0,
+     1.5,
+     4
+    ],
+    "lookAt": [
+     0,
+     0,
+     0
+    ]
+   },
+   "ops": [
+    {
+     "drag": [
+      0,
+      400
+     ]
+    }
+   ],
+   "expect": {
+    "yawDeg": 0.0,
+    "pitchDeg": 89.0,
+    "distance": 4.272002,
+    "position": [
+     0.0,
+     4.271351,
+     0.074557
+    ]
+   }
+  },
+  {
+   "name": "zoom out clamps at far",
+   "camera": {
+    "position": [
+     0,
+     1.5,
+     4
+    ],
+    "lookAt": [
+     0,
+     0,
+     0
+    ]
+   },
+   "ops": [
+    {
+     "zoom": {
+      "deltaY": 500,
+      "near": 0.1,
+      "far": 8
+     }
+    }
+   ],
+   "expect": {
+    "yawDeg": 0.0,
+    "pitchDeg": 20.556045,
+    "distance": 8.0,
+    "position": [
+     0.0,
+     2.808988,
+     7.490633
+    ]
+   }
+  },
+  {
+   "name": "zoom in clamps at near",
+   "camera": {
+    "position": [
+     0,
+     1.5,
+     4
+    ],
+    "lookAt": [
+     0,
+     0,
+     0
+    ]
+   },
+   "ops": [
+    {
+     "zoom": {
+      "deltaY": -3000,
+      "near": 0.1,
+      "far": 8
+     }
+    }
+   ],
+   "expect": {
+    "yawDeg": 0.0,
+    "pitchDeg": 20.556045,
+    "distance": 0.1,
+    "position": [
+     0.0,
+     0.035112,
+     0.093633
+    ]
+   }
+  },
+  {
+   "name": "an off-origin look-at — the sphere is centered on lookAt",
+   "camera": {
+    "position": [
+     2,
+     3,
+     6
+    ],
+    "lookAt": [
+     1,
+     1,
+     2
+    ]
+   },
+   "ops": [
+    {
+     "drag": [
+      -45,
+      10
+     ]
+    }
+   ],
+   "expect": {
+    "yawDeg": 32.036243,
+    "pitchDeg": 29.87669,
+    "distance": 4.582576,
+    "position": [
+     3.107791,
+     3.282741,
+     5.368428
+    ]
+   }
+  }
+ ]
+}

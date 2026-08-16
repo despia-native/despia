@@ -1,0 +1,40 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "StudioTimeline",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioTimeline.swift",
+  "attributes": {
+    "tempo": {
+      "type": "number",
+      "default": 120,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioTimeline.swift:302"
+    },
+    "duration": {
+      "type": "number",
+      "default": 16,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioTimeline.swift:304 (min 8)"
+    },
+    "pxPerSecond": {
+      "type": "number",
+      "default": 80,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioTimeline.swift:305 (min 16)"
+    },
+    "snap": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioTimeline.swift:306"
+    },
+    "drawMode": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioTimeline.swift:307"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

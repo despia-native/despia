@@ -1,0 +1,89 @@
+# Vendored engine sources - the pin record.
+#
+# Format: <name> <upstream-commit-or-tag> <license-id> <upstream-url>
+#
+# One uncommented line per vendor/<name>/ tree. The four fields are machine-read
+# by generate_release_sbom.rb (`parse_vendor_pins`) and ai_package_gate.rb, and
+# `<name>` must equal the directory name. Everything else on this page is a
+# comment, including the per-pin detail blocks - a commented line is NOT a pin,
+# deliberately, so an intended-but-not-yet-imported pin cannot be mistaken for
+# shipped bytes.
+#
+# Three rules this file exists to enforce:
+#
+#   1. ONE SHARED ggml. llama.cpp and whisper.cpp each bundle their own copy
+#      upstream; vendoring both as-is means duplicate symbols and doubled binary
+#      size. Both are built against the single ggml pinned here.
+#   2. PERMISSIVE ONLY. Every pin is MIT, BSD or Apache-2.0. A copyleft
+#      dependency can never enter this package - ai_package_gate.rb checks the
+#      licence id against the schema's copyleft dimension, which exists because
+#      espeak-ng (GPL-3.0) sits one transitive hop from a TTS build graph.
+#   3. PINNED, NEVER FLOATING. Unpinned is chaos and frozen is rot, so the pins
+#      move through a bump PR that runs the full gate set.
+#
+# The trees are COMMITTED, not fetched at sync. SPM builds these as SOURCE
+# targets, and a source target has to exist in the mirror repository at the tag
+# a consumer resolves - there is no fetch step in `swift package resolve` that
+# could pull them in. The cost is a few megabytes in the repo; the alternative
+# is a package that cannot be installed. Import procedure, prune lists and the
+# two vendor patches: docs/vendoring.md.
+#
+# ── ggml ─────────────────────────────────────────────────────────────────────
+# The single shared tensor library. Copied from llama.cpp's `ggml/` subtree at
+# the llama pin below, which upstream had synced from ggml-org/ggml at exactly
+# this commit; whisper.cpp's bundled copy was synced from the SAME commit, so
+# the de-duplication needed no version reconciliation at all. The kept files are
+# byte-identical between the two upstreams except one CPU op that llama's copy
+# additionally supports (GGML_OP_CONV_2D), i.e. llama's copy is a superset.
+#   commit date: 2026-07-30 - "ggml : bump version to 0.18.0" (ggml 0.18.0)
+#   pruned: everything except CMakeLists.txt, cmake/, include/, and the core
+#           sources plus the three backends this package ships - ggml-cpu,
+#           ggml-metal (Apple GPU), ggml-blas (Accelerate on Apple). Removed:
+#           ggml-cuda, ggml-hip, ggml-musa, ggml-sycl, ggml-vulkan, ggml-opencl,
+#           ggml-cann, ggml-rpc, ggml-webgpu, ggml-zdnn, ggml-zendnn, ggml-et,
+#           ggml-hexagon, ggml-openvino, ggml-virtgpu. Inside ggml-cpu: the
+#           kleidiai backend (its CMake DOWNLOADS a tarball from the network at
+#           configure time, which a vendored offline build cannot have), the
+#           spacemit RISC-V vendor kernels, and arch/{loongarch,powerpc,riscv,
+#           s390,wasm} - no Despia target platform is any of those.
+#   patched: CMakeLists.txt - the git-derived build stamp now yields to a value
+#           the embedder passes in. Vendored, `git rev-parse HEAD` here reports
+#           the EMBEDDING repo's commit, so the library was self-reporting a
+#           version string unrelated to its own code (and flipping to "-dirty"
+#           on unrelated edits). The top-level CMakeLists feeds it this pin.
+ggml         06ca97616793248fadb410ea8d69c7511b2005e4  MIT  https://github.com/ggml-org/ggml
+#
+# ── llama.cpp ────────────────────────────────────────────────────────────────
+# The text backend: GGUF load, KV cache, sampling, GBNF grammars, chat templates.
+#   tag: b10217   commit date: 2026-08-01
+#   pruned: everything except CMakeLists.txt, LICENSE, cmake/, include/, src/.
+#           Removed: its bundled ggml/ (the shared one is used), common/, tools/,
+#           app/, examples/, pocs/, tests/, benches/, ci/, docs/, models/,
+#           grammars/, media/, scripts/, skills/, conversion/, gguf-py/, the
+#           Python conversion scripts and requirements, vendor/ (cpp-httplib,
+#           reachable only from common/), Makefile, flake.nix, CMakePresets.json
+#           and the repo-meta markdown. `LLAMA_BUILD_MTMD` (tools/mtmd, the
+#           multimodal projector library) is OFF and its sources are NOT
+#           vendored - W-SEE re-imports that subtree when it needs it.
+#   patched: cmake/common.cmake - one include() re-pointed from its own deleted
+#           ggml/ to the shared tree. This is the de-duplication's only edit to
+#           llama.cpp.
+llama.cpp    ddd4ec1428a6201e18975ea52b07c71e0f9aef26  MIT  https://github.com/ggml-org/llama.cpp
+#
+# ── whisper.cpp ──────────────────────────────────────────────────────────────
+# The speech backend: transcribe, streaming partials, VAD, language detection.
+#   commit date: 2026-07-31 - "sync : ggml (#3962)", the sync that put this tree
+#           on the same ggml commit as the llama pin above. Between releases on
+#           purpose: v1.9.1 (2026-06-19) carries an OLDER ggml, and pinning it
+#           would have meant reconciling two ggml revisions to get one tree.
+#   pruned: everything except CMakeLists.txt, LICENSE, cmake/, include/, src/.
+#           Removed: its bundled ggml/, bindings/ (Go, Java, JavaScript, Ruby),
+#           examples/, tests/, models/, samples/, scripts/, ci/, media/,
+#           grammars/, Makefile, CMakePresets.json and the repo-meta markdown.
+#           Inside src/: openvino/ and coreml/ - both behind CMake options that
+#           are OFF and both needing an SDK this package does not carry.
+#   not built: src/CMakeLists.txt also declares `parakeet`, a second ASR model.
+#           It is left on disk (it is small, and deleting it would mean patching
+#           two upstream CMake files) but the top-level build never compiles it.
+#   patched: nothing.
+whisper.cpp  2ca53bb45e38748d07b310eeb36245a7157ac882  MIT  https://github.com/ggml-org/whisper.cpp

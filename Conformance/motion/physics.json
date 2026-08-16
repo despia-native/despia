@@ -1,0 +1,262 @@
+{
+ "_note": "The UI PHYSICS corpus (ui-motion.md phase 2) \u2014 three pure folds the native UI elements call instead of each re-deriving their own feel. THE DECAY / FLING LAW is the UIScrollView deceleration model in its CONTINUOUS form: with the deceleration rate d = 0.998 per millisecond (UIScrollView.DecelerationRate.normal) the time constant is \u03c4 = \u22121 / ln(d) ms \u2248 499.4998 ms, position is x(t) = x0 + v0\u00b7\u03c4\u00b7(1 \u2212 e^(\u2212t/\u03c4)) with v0 in points per MILLISECOND, the RESTING offset is the limit x0 + v0\u00b7\u03c4, and the clip ends when |v| falls under the terminal threshold 0.001 pt/ms (1 pt/s) at t = \u03c4\u00b7ln(|v0| / 0.001) \u2014 a fling released at or under the threshold does NOT MOVE AT ALL (x(t) = x0 for every t, target = x0) and lasts 0 ms, never a negative duration. THE RUBBER-BAND LAW is the standard iOS overscroll compression f(x) = (1 \u2212 1 / (|x|\u00b7c/d + 1))\u00b7d \u00b7 sign(x) with c = 0.55 and d the dimension being overscrolled \u2014 asymptotic: no finger travel ever moves the content more than d past the edge. `rubberBandInverse` is its exact inverse (x = (d/c)\u00b7(1/(1 \u2212 |y|/d) \u2212 1), |y| clamped just inside d) so a gesture can be resumed from a compressed offset \u2014 each case's `inverse` is the ROUND TRIP rubberBandInverse(rubberBand(x, d), d), fed the runner's own unrounded y, and it must return x. A zero/negative dimension yields 0 (no travel) on both. THE RELEASE spring is the pinned constant RUBBER_BAND_RELEASE = spring(response 0.35 s, dampingFraction 1.0) \u2014 critically damped, because an overscroll snapping back must never bounce past the edge it is returning to. THE SNAP LAW: project the release with the decay fold, then take the NEAREST snap point to that projection; an exact tie takes the LOWER point (deterministic on all three runtimes). This is the one law behind sheet detents, pagers and pickers. Offsets and dimensions are in POINTS, velocities in points per millisecond; all floats 6 decimals, tolerance 1.5e-6; independent scratch derivation.",
+ "constants": {
+  "decelerationRate": 0.998,
+  "tauMs": 499.499833,
+  "minVelocity": 0.001,
+  "rubberBandC": 0.55,
+  "releaseResponse": 0.35,
+  "releaseDampingFraction": 1.0
+ },
+ "decay": [
+  {
+   "name": "a rightward fling from 0 at 2 pt/ms",
+   "x0": 0.0,
+   "v0": 2.0,
+   "target": 998.999666,
+   "durationMs": 3796.64951,
+   "samples": [
+    {
+     "t": 0,
+     "x": 0.0
+    },
+    {
+     "t": 100,
+     "x": 181.251702
+    },
+    {
+     "t": 250,
+     "x": 393.37903
+    },
+    {
+     "t": 500,
+     "x": 631.856045
+    },
+    {
+     "t": 1000,
+     "x": 864.070253
+    },
+    {
+     "t": 2000,
+     "x": 980.77549
+    },
+    {
+     "t": 4000,
+     "x": 998.667213
+    }
+   ]
+  },
+  {
+   "name": "a leftward fling is symmetric",
+   "x0": 100.0,
+   "v0": -1.5,
+   "target": -649.24975,
+   "durationMs": 3652.952363,
+   "samples": [
+    {
+     "t": 0,
+     "x": 100.0
+    },
+    {
+     "t": 100,
+     "x": -35.938776
+    },
+    {
+     "t": 500,
+     "x": -373.892034
+    },
+    {
+     "t": 1000,
+     "x": -548.05269
+    },
+    {
+     "t": 2000,
+     "x": -635.581617
+    }
+   ]
+  },
+  {
+   "name": "a slow drag release below the terminal threshold never moves",
+   "x0": 40.0,
+   "v0": 0.0005,
+   "target": 40.0,
+   "durationMs": 0.0,
+   "samples": [
+    {
+     "t": 0,
+     "x": 40.0
+    },
+    {
+     "t": 100,
+     "x": 40.0
+    },
+    {
+     "t": 500,
+     "x": 40.0
+    }
+   ]
+  },
+  {
+   "name": "zero velocity rests where it was released",
+   "x0": 12.5,
+   "v0": 0.0,
+   "target": 12.5,
+   "durationMs": 0.0,
+   "samples": [
+    {
+     "t": 0,
+     "x": 12.5
+    },
+    {
+     "t": 100,
+     "x": 12.5
+    }
+   ]
+  }
+ ],
+ "rubberBand": [
+  {
+   "name": "no overscroll is no compression",
+   "x": 0.0,
+   "dimension": 400.0,
+   "y": 0.0,
+   "inverse": 0.0
+  },
+  {
+   "name": "a small overscroll is nearly linear",
+   "x": 10.0,
+   "dimension": 400.0,
+   "y": 5.425401,
+   "inverse": 10.0
+  },
+  {
+   "name": "a quarter-dimension overscroll",
+   "x": 100.0,
+   "dimension": 400.0,
+   "y": 48.351648,
+   "inverse": 100.0
+  },
+  {
+   "name": "a full-dimension overscroll compresses to about a third",
+   "x": 400.0,
+   "dimension": 400.0,
+   "y": 141.935484,
+   "inverse": 400.0
+  },
+  {
+   "name": "compression is asymptotic \u2014 10x the dimension still fits inside it",
+   "x": 4000.0,
+   "dimension": 400.0,
+   "y": 338.461538,
+   "inverse": 4000.0
+  },
+  {
+   "name": "negative overscroll mirrors exactly",
+   "x": -100.0,
+   "dimension": 400.0,
+   "y": -48.351648,
+   "inverse": -100.0
+  },
+  {
+   "name": "a zero dimension yields no travel",
+   "x": 100.0,
+   "dimension": 0.0,
+   "y": 0.0,
+   "inverse": 0.0
+  }
+ ],
+ "snap": [
+  {
+   "name": "a released sheet with no velocity snaps to the nearest detent",
+   "x0": 300.0,
+   "v0": 0.0,
+   "points": [
+    0.0,
+    400.0,
+    800.0
+   ],
+   "projected": 300.0,
+   "target": 400.0,
+   "index": 1
+  },
+  {
+   "name": "a flick projects past the nearest detent",
+   "x0": 300.0,
+   "v0": 0.5,
+   "points": [
+    0.0,
+    400.0,
+    800.0
+   ],
+   "projected": 549.749917,
+   "target": 400.0,
+   "index": 1
+  },
+  {
+   "name": "a hard flick projects to the far detent",
+   "x0": 300.0,
+   "v0": 1.2,
+   "points": [
+    0.0,
+    400.0,
+    800.0
+   ],
+   "projected": 899.3998,
+   "target": 800.0,
+   "index": 2
+  },
+  {
+   "name": "a downward flick returns to the closed detent",
+   "x0": 300.0,
+   "v0": -0.6,
+   "points": [
+    0.0,
+    400.0,
+    800.0
+   ],
+   "projected": 0.3001,
+   "target": 0.0,
+   "index": 0
+  },
+  {
+   "name": "a pager page turn",
+   "x0": 0.0,
+   "v0": -0.3,
+   "points": [
+    -750.0,
+    -375.0,
+    0.0,
+    375.0,
+    750.0
+   ],
+   "projected": -149.84995,
+   "target": 0.0,
+   "index": 2
+  },
+  {
+   "name": "a projection past the last point clamps to it",
+   "x0": 700.0,
+   "v0": 3.0,
+   "points": [
+    0.0,
+    400.0,
+    800.0
+   ],
+   "projected": 2198.499499,
+   "target": 800.0,
+   "index": 2
+  },
+  {
+   "name": "an exact tie takes the LOWER point",
+   "x0": 200.0,
+   "v0": 0.0,
+   "points": [
+    0.0,
+    400.0
+   ],
+   "projected": 200.0,
+   "target": 0.0,
+   "index": 0
+  }
+ ]
+}

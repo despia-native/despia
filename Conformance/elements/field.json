@@ -1,0 +1,77 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "field",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift",
+  "attributes": {
+    "name": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:42"
+    },
+    "form": {
+      "type": "string",
+      "default": "form (inherited from enclosing <form as=>)",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:43"
+    },
+    "type": {
+      "type": "enum(text|email|number|phone|url|secure|toggle|picker)",
+      "default": "text",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:46"
+    },
+    "label": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:59-60"
+    },
+    "placeholder": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:115-116"
+    },
+    "validate": {
+      "type": "csv(required|email|url|phone|minLength:n|maxLength:n|pattern)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:167"
+    },
+    "pattern": {
+      "type": "regex",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:178"
+    },
+    "message": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:186"
+    },
+    "secure": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:112"
+    },
+    "color": {
+      "type": "color",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:119 — system-defaults.md base pass: default rides the semantic token (was the pinned `white`)"
+    }
+  },
+  "geometry": {
+    "stackSpacing": {
+      "value": 4,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:55"
+    }
+  },
+  "colors": {
+    "error": {
+      "token": "destructive",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:153 — system-defaults.md base pass (phase 3): the error rides the semantic `destructive` token (was the pinned #FF453A; theme-less resolution is the same 0xFFFF453A — byte-identical)"
+    },
+    "label": {
+      "token": "secondary",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:60 (.footnote)"
+    }
+  },
+  "notes": "State namespace: form.values.<name> / form.fields.<name>.{touched,dirty,error} / form.valid (Field.swift header)."
+}

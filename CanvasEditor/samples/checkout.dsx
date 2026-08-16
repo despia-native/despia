@@ -1,0 +1,151 @@
+<!--
+  checkout.dsx — a cart and shipping form.
+
+  A deliberate counterpart to releases.dsx: no network, all local state, and the form
+  element family instead of the data-fetching one — textfield, toggle, picker, stepper,
+  slider — plus per-row formulas over a keyed list and an inline validation summary.
+  Apache-2.0, like the rest of OpenSource/.
+-->
+<vstack grow="true">
+  <head>
+    <variable as="cart">return [
+      { id: 'a1', name: 'Mechanical keyboard', price: 149, qty: 1 },
+      { id: 'b2', name: 'Desk mat', price: 39, qty: 2 },
+      { id: 'c3', name: 'USB-C cable', price: 12, qty: 3 }
+    ]</variable>
+
+    <variable as="email">return ''</variable>
+    <variable as="country">return 'Germany'</variable>
+    <variable as="express">return false</variable>
+    <variable as="tipPercent">return 0</variable>
+    <variable as="placed">return false</variable>
+
+    <variable as="subtotal" computed="true">
+      return dsx.variable.cart.reduce((sum, row) => sum + (row.price * row.qty), 0);
+    </variable>
+
+    <variable as="shipping" computed="true">
+      if (dsx.variable.subtotal == 0) { return 0; }
+      return dsx.variable.express ? 19 : (dsx.variable.subtotal > 100 ? 0 : 7);
+    </variable>
+
+    <variable as="tip" computed="true">
+      return Math.round(dsx.variable.subtotal * (dsx.variable.tipPercent / 100));
+    </variable>
+
+    <variable as="total" computed="true">
+      return dsx.variable.subtotal + dsx.variable.shipping + dsx.variable.tip;
+    </variable>
+
+    <variable as="emailValid" computed="true">
+      const value = dsx.variable.email;
+      return value.includes('@') && value.includes('.') && value.length > 4;
+    </variable>
+
+    <variable as="itemCount" computed="true">
+      return dsx.variable.cart.reduce((sum, row) => sum + row.qty, 0);
+    </variable>
+
+    <!-- Inputs bind where the formula is READ, so this one resolves per row. -->
+    <formula as="lineTotal" price="dsx.item.price" qty="dsx.item.qty">
+      return price * qty;
+    </formula>
+
+    <action as="setQty" id="dsx.this.id" qty="dsx.this.qty">
+      const next = Math.max(0, qty);
+      dsx.variable.cart = dsx.variable.cart
+        .map(row => row.id == id ? { id: row.id, name: row.name, price: row.price, qty: next } : row)
+        .filter(row => row.qty > 0);
+    </action>
+
+    <action as="place">
+      if (!dsx.variable.emailValid) { return; }
+      dsx.variable.placed = true;
+    </action>
+
+    <action as="startOver">
+      dsx.variable.placed = false;
+      dsx.variable.tipPercent = 0;
+      dsx.variable.express = false;
+    </action>
+  </head>
+
+  <vstack visible-if="dsx.variable.placed" padding="40" spacing="12" align="center" grow="true">
+    <text value="Order placed" style="font-size: 1.75rem; font-weight: 700; color: label"/>
+    <text value="A receipt is on the way to {{ dsx.variable.email }}"
+          style="font-size: 0.9rem; color: secondary"/>
+    <button label="Start over" on:tap="startOver()"/>
+  </vstack>
+
+  <scroll visible-if="dsx.variable.placed == false">
+    <vstack padding="20" spacing="20">
+      <vstack spacing="4">
+        <text value="Checkout" style="font-size: 1.75rem; font-weight: 700; color: label"/>
+        <text value="{{ dsx.variable.itemCount }} items" style="font-size: 0.9rem; color: secondary"/>
+      </vstack>
+
+      <list bind="dsx.variable.cart" key="id" spacing="8" appearance="custom">
+        <row>
+          <hstack padding="14" radius="12" background="fillFaint" align="center" spacing="12">
+            <vstack spacing="2" grow="width" align="leading">
+              <text value="{{ dsx.item.name }}"
+                    style="font-size: 0.95rem; font-weight: 600; color: label"/>
+              <text value="{{ dsx.item.price }} each" style="font-size: 0.8rem; color: secondary"/>
+            </vstack>
+            <stepper bind="dsx.item.qty" min="0" max="99"
+                     on:change="setQty({ id: dsx.item.id, qty: dsx.item.qty })"/>
+            <text value="{{ lineTotal }}"
+                  style="font-size: 0.95rem; font-weight: 700; color: label"/>
+          </hstack>
+        </row>
+      </list>
+
+      <vstack spacing="12" padding="16" radius="12" background="fillFaint">
+        <text value="Delivery" style="font-size: 1rem; font-weight: 600; color: label"/>
+        <textfield bind="email" placeholder="you@example.com" a11yLabel="Email address"/>
+        <text visible-if="dsx.variable.email != '' &amp;&amp; dsx.variable.emailValid == false"
+              value="That does not look like an email address"
+              style="font-size: 0.8rem; color: #FF3B30"/>
+        <picker bind="country" options="Germany, France, Spain, Portugal" a11yLabel="Country"/>
+        <toggle bind="express" label="Express delivery"/>
+      </vstack>
+
+      <vstack spacing="10" padding="16" radius="12" background="fillFaint">
+        <hstack align="center">
+          <text value="Tip" style="font-size: 1rem; font-weight: 600; color: label"/>
+          <spacer/>
+          <text value="{{ dsx.variable.tipPercent }}%" style="color: accent; font-weight: 600"/>
+        </hstack>
+        <slider bind="tipPercent" min="0" max="25" step="5" a11yLabel="Tip percentage"/>
+      </vstack>
+
+      <vstack spacing="8" padding="16" radius="12" background="fillFaint">
+        <hstack>
+          <text value="Subtotal" style="color: secondary"/>
+          <spacer/>
+          <text value="{{ dsx.variable.subtotal }}" style="color: label"/>
+        </hstack>
+        <hstack>
+          <text value="Shipping" style="color: secondary"/>
+          <spacer/>
+          <text value="{{ dsx.variable.shipping == 0 ? 'Free' : dsx.variable.shipping }}"
+                style="color: label"/>
+        </hstack>
+        <hstack visible-if="dsx.variable.tip > 0">
+          <text value="Tip" style="color: secondary"/>
+          <spacer/>
+          <text value="{{ dsx.variable.tip }}" style="color: label"/>
+        </hstack>
+        <divider/>
+        <hstack>
+          <text value="Total" style="font-weight: 700; color: label"/>
+          <spacer/>
+          <text value="{{ dsx.variable.total }}"
+                style="font-size: 1.25rem; font-weight: 700; color: accent"/>
+        </hstack>
+      </vstack>
+
+      <button label="Place order" disabled="{{ dsx.variable.emailValid == false }}" on:tap="place()"/>
+    </vstack>
+  </scroll>
+</vstack>

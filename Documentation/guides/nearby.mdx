@@ -1,0 +1,328 @@
+---
+title: "Nearby"
+description: "Discover nearby devices over Bluetooth and peer-to-peer Wi-Fi and exchange byte payloads directly, with no server and no internet connection."
+icon: "tower-broadcast"
+---
+
+Discover other devices running your app in the same room and exchange byte payloads with them directly, over Bluetooth and peer-to-peer Wi-Fi. No server, no internet connection, no pairing screen: the radios talk to each other.
+
+Read the warning below before you design around this. It is the single fact most likely to be filed as a bug later.
+
+***
+
+<Warning>
+  One API, not one network. iPhones connect to iPhones and Android devices connect to Android devices, but an iPhone and an Android device never discover each other: the two platform stacks (MultipeerConnectivity and Google Nearby Connections) are not interoperable protocols. If your feature needs mixed-fleet communication, route it through a server.
+</Warning>
+
+***
+
+## Installation
+
+<Tabs>
+  <Tab title="Bundle">
+    <CodeGroup>
+
+    ```bash npm theme={null}
+    npm install despia-native
+    ```
+
+    ```bash pnpm theme={null}
+    pnpm add despia-native
+    ```
+
+    ```bash yarn theme={null}
+    yarn add despia-native
+    ```
+
+    </CodeGroup>
+
+    ```javascript theme={null}
+    import despia from 'despia-native';
+    ```
+  </Tab>
+  <Tab title="CDN">
+    <CodeGroup>
+
+    ```html UMD theme={null}
+    <script src="https://cdn.jsdelivr.net/npm/despia-native/index.min.js"></script>
+    ```
+
+    ```html ESM theme={null}
+    <script type="module">
+        import despia from 'https://cdn.jsdelivr.net/npm/despia-native/+esm'
+    </script>
+    ```
+
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+***
+
+## Start a session
+
+Opens the one nearby session: advertise so peers can find you, discover to find them, or both. Devices only see each other when both run the same app with the same service id. Every event of the session streams to `window.onNearbyEvent`, discriminated by its `event` field, so a page subscribes once.
+
+```javascript theme={null}
+despia(`nearby://start?name=Alice&mode=both&strategy=star`)
+```
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `name` | No | The human label other peers see. Defaults to the device name. Wrap with `encodeURIComponent(...)`. |
+| `mode` | No | `advertise`, `discover`, or `both` (the default). Pass as-is, no encoding needed. |
+| `strategy` | No | `star` (the default), `cluster`, or `p2p`. Honored on Android, where it picks the Nearby topology. Accepted and ignored on iOS, which has one mesh topology with a practical ceiling of about 8 peers. |
+
+On Android the first start triggers the runtime permission prompts (Bluetooth on Android 12 and later, nearby WiFi devices on 13 and later, location on 10 to 12), and a refusal answers a structured `permission_denied` event. On iOS the local network prompt appears once, and Apple provides no way to query or observe the answer: a denied grant does not error, the room just looks empty. If discovery finds nothing on iOS, Settings then Privacy then Local Network is where the user fixes it. `window.nearbyActive` updates in place when the session opens and closes.
+
+***
+
+## Reading session events
+
+One callback carries the whole session. Route on the `event` field.
+
+```javascript theme={null}
+window.onNearbyEvent = function (evt) {
+    switch (evt.event) {
+        case 'peerFound':    onFound(evt.peer);        break
+        case 'peerLost':     onLost(evt.peer);         break
+        case 'connecting':   onConnecting(evt);        break
+        case 'connected':    onConnected(evt.peer);    break
+        case 'disconnected': onDisconnected(evt.peer); break
+        case 'payload':      onData(evt);              break
+        case 'result':       onResult(evt);            break
+        case 'error':        onError(evt.error);       break
+    }
+}
+```
+
+```json theme={null}
+{
+    "event": "payload",
+    "peer": { "id": "4a2f", "name": "Bob" },
+    "data": "aGVsbG8=",
+    "bytes": 5,
+    "timestamp": 1716651000123
+}
+```
+
+<ParamField path="peerFound / peerLost" type="object">
+  A peer appeared in or vanished from discovery range. `peer.id` is opaque and session-scoped, never store it across sessions; `peer.name` is the human label.
+</ParamField>
+
+<ParamField path="connecting" type="object">
+  A link is being established. On Android it carries `auth`, short verification digits both screens can display and compare for out-of-band trust; iOS has no equivalent token and omits the field.
+</ParamField>
+
+<ParamField path="connected / disconnected" type="object">
+  The encrypted link opened or closed. Connections are accepted automatically; the trust boundary is same app plus same service id, which means any peer meeting that bar connects unchallenged.
+</ParamField>
+
+<ParamField path="payload" type="object">
+  Bytes arrived. `data` is base64, `bytes` is the decoded length.
+</ParamField>
+
+<ParamField path="result" type="object">
+  A send or disconnect settled: carries `sent` and `bytes`, or `disconnected` (a count).
+</ParamField>
+
+<ParamField path="error" type="object">
+  Carries `error` with a stable code: `unavailable`, `permission_denied`, `busy`, `invalid_argument`, `not_started`, `peer_not_found`, `connection_failed`, `send_failed`, or `too_large`.
+</ParamField>
+
+***
+
+## Connect to a peer
+
+Links to a peer surfaced by `peerFound`. The result arrives as a `connected` event, or `connection_failed` on the error path. Connecting to an already-linked peer just re-reports `connected`.
+
+```javascript theme={null}
+despia(`nearby://connect?peer=4a2f`)
+```
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `peer` | Yes | The `peer.id` from a `peerFound` event. Pass as-is, no encoding needed. |
+
+***
+
+## Send bytes
+
+Sends a payload to one connected peer, or to every connected peer when `peer` is omitted. Payloads cap at 32 KB on both platforms, the Android bytes limit enforced on iOS too, so a payload never works on one platform and fails on the other.
+
+```javascript theme={null}
+despia(`nearby://send?data=${base64url}&peer=4a2f`)
+```
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `data` | Yes | The payload, base64url encoded. Plain base64 uses `+` and `/`, which do not survive a query string; convert with `btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')` or percent-encode. |
+| `peer` | No | A connected `peer.id`. Omitted means broadcast to everyone connected. |
+
+The settle arrives as a `result` event carrying `sent` and `bytes`. Streams and files are not supported, chunk larger transfers over multiple sends or route them through a server.
+
+***
+
+## Disconnect
+
+Drops one peer, or everyone when `peer` is omitted. The platforms genuinely differ here: Android disconnects exactly the named endpoint, while iOS has no per-peer disconnect, so a named disconnect with other links present reports `disconnected: 0` and keeps the mesh rather than killing everyone's links.
+
+```javascript theme={null}
+despia(`nearby://disconnect?peer=4a2f`)
+```
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `peer` | No | A connected `peer.id`. Omitted disconnects every peer. Pass as-is, no encoding needed. |
+
+***
+
+## Stop the session
+
+Stops advertising and discovery, drops every link, and clears the peer registry. Peer ids do not survive a stop.
+
+```javascript theme={null}
+despia('nearby://stop')
+```
+
+***
+
+## Probe the radios
+
+Reports whether nearby networking is available and what the platform honors.
+
+```javascript theme={null}
+despia('nearby://capabilities')
+```
+
+The result arrives once on `window.onNearbyCapabilities`.
+
+```json theme={null}
+{
+    "status": "success",
+    "available": true, "bluetooth": true, "wifi": true,
+    "maxPayloadBytes": 32768,
+    "strategies": ["star", "cluster", "p2p"]
+}
+```
+
+`strategies` reports the per-platform truth: the three Nearby topologies on Android, `["mesh"]` on iOS. Android devices without Google Play services report `available: false`.
+
+***
+
+## Reading current state
+
+```javascript theme={null}
+window.nearbyActive   // boolean, true while a session is open
+```
+
+| Global | Type | Description |
+| --- | --- | --- |
+| `nearbyActive` | boolean | Updates when the session opens and closes, and re-pushes on every page load. Defaults to `false`. |
+
+***
+
+## Module API (v4)
+
+Apps on the Despia framework runtime call the same feature through the module surface. Events stream on the subscription; the URL spellings above keep working unchanged.
+
+```javascript theme={null}
+const sub = dsx.module.nearby.start(
+  { name: "Alice", mode: "both", strategy: "star" },
+  (e) => {
+    if (e.event === "peerFound") dsx.module.nearby.connect({ peer: e.data.peer.id });
+    if (e.event === "payload")   handle(atob(e.data.data));
+  }
+);
+
+await dsx.module.nearby.send({ data: btoa("hello") });
+await dsx.module.nearby.stop({});
+```
+
+***
+
+## Standard nearby flow
+
+Subscribe once, start, connect on discovery, exchange, stop.
+
+```javascript theme={null}
+import despia from 'despia-native';
+
+const isDespia = navigator.userAgent.toLowerCase().includes('despia')
+
+window.onNearbyEvent = function (evt) {
+    switch (evt.event) {
+        case 'peerFound':
+            if (isDespia) despia(`nearby://connect?peer=${evt.peer.id}`)
+            break
+        case 'connected': {
+            const data = btoa('hello').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+            if (isDespia) despia(`nearby://send?data=${data}&peer=${evt.peer.id}`)
+            break
+        }
+        case 'payload':
+            console.log('received', atob(evt.data))
+            break
+        case 'error':
+            console.warn('nearby error', evt.error)
+            break
+    }
+}
+
+if (isDespia) {
+    despia('nearby://start?name=Alice&mode=both')
+    // later
+    despia('nearby://stop')
+}
+```
+
+***
+
+## Not exposed
+
+| Capability | Reason |
+| --- | --- |
+| Cross-platform links | MultipeerConnectivity and Nearby Connections are different protocols; no runtime can join them. Route mixed-fleet traffic through a server. |
+| Stream and file payloads | Out of scope in v1. Chunk over multiple 32 KB sends, or use a server for large transfers. |
+| Manual accept and reject | Connections auto-accept over the encrypted link. Use the Android `auth` digits for out-of-band verification; an explicit accept flow is planned as an additive option. |
+| Background sessions | Sessions live while the app is in the foreground; iOS suspends the radio stack with the process. |
+
+***
+
+## Permissions
+
+The switch is the `local_network_usage` field under **App → Settings → Usage Descriptions** — one field, both platforms:
+
+| | Set (non-empty string) | Unset (`""`, `null`, or absent) |
+| --- | --- | --- |
+| iOS | The string becomes `NSLocalNetworkUsageDescription`, and the `NSBonjourServices` array (`_despia-nearby._tcp/_udp`) is written next to it — iOS never shows the local-network prompt without that array | Both are deleted and the feature is compiled out — `start` answers `unavailable`, `capabilities` reports `available: false` |
+| Android | The full radio set is declared: `BLUETOOTH_SCAN`/`BLUETOOTH_ADVERTISE`/`BLUETOOTH_CONNECT`, `NEARBY_WIFI_DEVICES`, and the legacy grants bounded to the OS versions that need them (`ACCESS_WIFI_STATE`/`CHANGE_WIFI_STATE` ≤ API 31, `BLUETOOTH`/`BLUETOOTH_ADMIN` ≤ API 30), plus `required="false"` radio feature guards | The Nearby-owned grants are stripped and merge-blocked; `start` answers `unavailable` |
+
+Runtime prompting stays as documented above: Android asks lazily on the first `start` and a refusal is a detectable `permission_denied`; iOS shows the local-network prompt once and a denial is undetectable — the room just looks empty.
+
+```javascript theme={null}
+if (window.permissions && !window.permissions.includes('local_network_usage')) {
+  hideNearbyUI(); // nearby excluded from this build
+}
+```
+
+See [Permissions](/native-features/permissions) for the full key list and the rollout rules that apply when a permission is removed.
+
+***
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="NPM Package" icon="npm" href="https://www.npmjs.com/package/despia-native">
+    despia-native
+  </Card>
+  <Card title="Google Nearby Connections" icon="book" href="https://developers.google.com/nearby/connections/overview">
+    The Android stack this feature rides
+  </Card>
+  <Card title="MultipeerConnectivity" icon="book" href="https://developer.apple.com/documentation/multipeerconnectivity">
+    The iOS stack this feature rides
+  </Card>
+  <Card title="Support" icon="envelope" href="mailto:support@despia.com">
+    [support@despia.com](mailto:support@despia.com)
+  </Card>
+</CardGroup>

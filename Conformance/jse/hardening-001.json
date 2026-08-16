@@ -1,0 +1,174 @@
+{
+  "_note": "JSE hardening wave 1 — adversarial-audit pins. ASI never detaches a brace-attached else/while(do)/catch/finally; regex literals lex after return/case/typeof/throw (and stripComments never eats `/*` inside one); a dotted POSTFIX run (`arr[0].x.y` — one ident token) walks per segment, method tail included; `new Date(y, m0, d)` builds a LOCAL date from components (TZ-safe via round-trip getters); non-finite numeric literals survive the compiled executor (`1e999` is Infinity on both); matchAll self-advances past zero-width matches; safeInt SATURATES ±Infinity to ±9e18 (substring/toSpliced clamp toward the end, never index 0); toFixed at ≥2^53 returns the plain string coercion; padStart is bounded at 10 000 like repeat; a leading `//` comment can't turn an expression into `;expr`; flat() takes finite-but-huge depths; non-ASCII numerics (½ ٣) lex as plain op chars on every kernel (no tokenizer stall); parser nesting is depth-capped at 200 (a 250-deep paren tower abandons to null — total, never a blown stack) while 100-deep still evaluates.",
+  "cases": [
+    {
+      "name": "asi-else-own-line-in-lambda",
+      "scope": {},
+      "expression": "[1, 5].map(x => { if (x > 2) { return 'big' }\nelse { return 'small' } }).join(',')",
+      "expected": "small,big"
+    },
+    {
+      "name": "regex-after-return",
+      "scope": {},
+      "expression": "[1].map(z => { return /ab/.test('zabz') })[0]",
+      "expected": true
+    },
+    {
+      "name": "typeof-regex-literal",
+      "scope": {},
+      "expression": "typeof /x/",
+      "expected": "object"
+    },
+    {
+      "name": "regex-after-return-comment-lookalike",
+      "scope": {},
+      "expression": "[1].map(z => { return /^\\/*/.test('//x') })[0]",
+      "expected": true
+    },
+    {
+      "name": "multidot-postfix-member",
+      "scope": {
+        "arr": [
+          {
+            "x": {
+              "y": 7
+            }
+          }
+        ]
+      },
+      "expression": "arr[0].x.y",
+      "expected": 7
+    },
+    {
+      "name": "multidot-postfix-member-nullish",
+      "scope": {
+        "arr": [
+          {
+            "x": {
+              "y": 7
+            }
+          }
+        ]
+      },
+      "expression": "arr[0].x.y ?? 'gone'",
+      "expected": 7
+    },
+    {
+      "name": "optional-chain-then-multidot",
+      "scope": {
+        "a": {
+          "b": {
+            "c": 42
+          }
+        }
+      },
+      "expression": "a?.b.c",
+      "expected": 42
+    },
+    {
+      "name": "multidot-postfix-method",
+      "scope": {
+        "arr": [
+          {
+            "items": [
+              1,
+              2
+            ]
+          }
+        ]
+      },
+      "expression": "arr[0].items.join('-')",
+      "expected": "1-2"
+    },
+    {
+      "name": "date-components-year",
+      "scope": {},
+      "expression": "new Date(2024, 0, 15).getFullYear()",
+      "expected": 2024
+    },
+    {
+      "name": "date-components-month",
+      "scope": {},
+      "expression": "new Date(2024, 0, 15).getMonth()",
+      "expected": 0
+    },
+    {
+      "name": "date-components-day",
+      "scope": {},
+      "expression": "new Date(2024, 0, 15).getDate()",
+      "expected": 15
+    },
+    {
+      "name": "infinity-literal-survives-compile",
+      "scope": {},
+      "expression": "1e999 == Infinity",
+      "expected": true
+    },
+    {
+      "name": "matchall-zero-width-advances",
+      "scope": {},
+      "expression": "'abc123'.matchAll(/\\d*/g).length",
+      "expected": 5
+    },
+    {
+      "name": "substring-infinity-saturates",
+      "scope": {},
+      "expression": "'hello'.substring(0, Infinity)",
+      "expected": "hello"
+    },
+    {
+      "name": "tospliced-infinity-saturates",
+      "scope": {},
+      "expression": "[1,2,3].toSpliced(Infinity, 1).join('')",
+      "expected": "123"
+    },
+    {
+      "name": "tofixed-beyond-2-53",
+      "scope": {},
+      "expression": "(1e16).toFixed(2)",
+      "expected": "10000000000000000"
+    },
+    {
+      "name": "padstart-infinity-bounded",
+      "scope": {},
+      "expression": "'a'.padStart(Infinity).length",
+      "expected": 10000
+    },
+    {
+      "name": "leading-comment-expression",
+      "scope": {},
+      "expression": "// lead\n1 + 2",
+      "expected": 3
+    },
+    {
+      "name": "flat-huge-finite-depth",
+      "scope": {},
+      "expression": "[1,[2]].flat(1e19).length",
+      "expected": 2
+    },
+    {
+      "name": "tokenizer-vulgar-fraction-is-op",
+      "scope": {},
+      "expression": "typeof ½",
+      "expected": "undefined"
+    },
+    {
+      "name": "tokenizer-arabic-indic-digit-is-op",
+      "scope": {},
+      "expression": "typeof ٣",
+      "expected": "undefined"
+    },
+    {
+      "name": "parser-depth-cap-contains",
+      "scope": {},
+      "expression": "typeof ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((1))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))",
+      "expected": "undefined"
+    },
+    {
+      "name": "parser-depth-100-evaluates",
+      "scope": {},
+      "expression": "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((7))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))",
+      "expected": 7
+    }
+  ]
+}

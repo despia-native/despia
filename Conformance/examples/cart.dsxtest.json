@@ -1,0 +1,68 @@
+{
+  "_note": "Example app-author fixtures for dsx-test (run: `node packages/kernel/bin/dsx-test.ts` from OpenSource/Web — no args sweeps the whole repo). Same shape as the actions corpus: each case seeds `scope` into a FRESH store, runs `run` through the REAL ActionRunner (the same execution path the corpus gates), then asserts `expectStore` paths under JSE equality (a JSON null means absent/nil) and `expectEvents` order. Copy this file next to your own component as <name>.dsxtest.json and edit. Money rides as integer cents on purpose — doubles cannot hold big decimals exactly (see proposals/jse-platform.md, appendix A).",
+  "cases": [
+    {
+      "name": "addItem-appends-lines-and-recomputes-total",
+      "actions": {
+        "seed": {
+          "body": "dsx.action.addItem({ sku: 'tea', price: 450, qty: 2 }); dsx.action.addItem({ sku: 'mug', price: 1200, qty: 1 })"
+        },
+        "addItem": {
+          "body": "dsx.variable.cart.push({ sku: sku, price: price, qty: qty }); dsx.action.total()"
+        },
+        "total": {
+          "body": "dsx.variable.total = dsx.variable.cart.reduce((sum, it) => sum + it.price * it.qty, 0)"
+        }
+      },
+      "scope": { "cart": [] },
+      "run": "seed",
+      "expectStore": {
+        "cart.length": 2,
+        "cart.0.sku": "tea",
+        "total": 2100
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "removeItem-drops-the-sku-and-emits",
+      "actions": {
+        "removeItem": {
+          "inputs": { "sku": "item.sku" },
+          "body": "dsx.variable.cart = dsx.variable.cart.filter(it => it.sku !== sku); dsx.action.total(); dsx.event('removed', { left: dsx.variable.cart.length })"
+        },
+        "total": {
+          "body": "dsx.variable.total = dsx.variable.cart.reduce((sum, it) => sum + it.price * it.qty, 0)"
+        }
+      },
+      "scope": {
+        "cart": [
+          { "sku": "tea", "price": 450, "qty": 2 },
+          { "sku": "mug", "price": 1200, "qty": 1 }
+        ]
+      },
+      "run": "dsx.action.removeItem()",
+      "runItem": { "sku": "tea" },
+      "expectStore": {
+        "cart.length": 1,
+        "cart.0.sku": "mug",
+        "total": 1200
+      },
+      "expectEvents": ["removed"]
+    },
+    {
+      "name": "total-of-an-empty-cart-is-zero",
+      "actions": {
+        "total": {
+          "body": "dsx.variable.total = dsx.variable.cart.reduce((sum, it) => sum + it.price * it.qty, 0)"
+        }
+      },
+      "scope": { "cart": [] },
+      "run": "total",
+      "expectStore": {
+        "total": 0,
+        "coupon": null
+      },
+      "expectEvents": []
+    }
+  ]
+}

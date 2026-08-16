@@ -1,0 +1,362 @@
+---
+title: "Motion Sensors"
+description: "Stream the device's inertial sensors, barometer, activity classification, and step count on one channel, with native buffering while the app is backgrounded."
+icon: "person-running"
+---
+
+Read the device's full inertial suite on a single channel: the raw accelerometer, gyroscope and magnetometer, plus the fused attitude, gravity, user-acceleration and rotation-rate blocks, at any rate up to 100 Hz. The same scheme reads barometric pressure, classifies what the user is currently doing, and counts steps.
+
+Sensor readings are useless if they stop the moment the user leaves your screen, so this channel does not rely on the page staying alive. While the app is backgrounded, samples are decimated into a native ring buffer and handed back as one batch when the user returns, and can optionally be POSTed to a server as they are gathered.
+
+***
+
+## Installation
+
+<Tabs>
+  <Tab title="Bundle">
+    <CodeGroup>
+
+    ```bash npm theme={null}
+    npm install despia-native
+    ```
+
+    ```bash pnpm theme={null}
+    pnpm add despia-native
+    ```
+
+    ```bash yarn theme={null}
+    yarn add despia-native
+    ```
+
+    </CodeGroup>
+
+    ```javascript theme={null}
+    import despia from 'despia-native';
+    ```
+  </Tab>
+  <Tab title="CDN">
+    <CodeGroup>
+
+    ```html UMD theme={null}
+    <script src="https://cdn.jsdelivr.net/npm/despia-native/index.min.js"></script>
+    ```
+
+    ```html ESM theme={null}
+    <script type="module">
+        import despia from 'https://cdn.jsdelivr.net/npm/despia-native/+esm'
+    </script>
+    ```
+
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+***
+
+## Start the sensor stream
+
+Opens one fused stream over the device's inertial sensors. You pick which sensor blocks appear in every sample and the sampling rate in hertz, and each sample arrives as a single object carrying exactly the blocks you asked for. The runtime handles the platform differences for you: acceleration always arrives in g on both platforms (Android's raw m/s² readings are converted), rotation in rad/s, magnetic field in µT, attitude in radians.
+
+```javascript theme={null}
+despia(`motion://start?sensors=accelerometer,gyroscope,attitude&hz=100&threshold=0.05&buffer=1&cap=500`)
+```
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `sensors` | No | Comma-separated list from `accelerometer`, `gyroscope`, `magnetometer`, `gravity`, `useracceleration`, `rotationrate`, `attitude`. Defaults to `accelerometer,gyroscope`. An unknown name fails with `unsupported_sensor` rather than producing an empty stream. Pass as-is, no encoding needed. |
+| `hz` | No | Sampling rate, clamped to 1 to 100. Defaults to 60. Asking for more than the hardware delivers is not an error, you simply receive what the sensor produces. |
+| `threshold` | No | Minimum gravity-excluded acceleration, in g, for a sample to deliver. `0` (the default) delivers every sample. Only applies when the session includes an acceleration-family sensor; a gyroscope-only session with a threshold delivers everything rather than being silently gated. |
+| `buffer` | No | Seconds between buffered samples while the app is backgrounded. Defaults to `1`. |
+| `cap` | No | Background ring size. Defaults to `500`. Oldest samples are dropped and counted, never silently lost. |
+| `server` | No | HTTPS URL. The native runtime POSTs background batches here directly, so data leaves the device even if the app is never reopened. Wrap with `encodeURIComponent(...)`. |
+
+Samples arrive on `window.onMotionChange` while the app is in the foreground. While backgrounded nothing is delivered per-sample, see Background delivery below. `window.motionActive` updates in place when the stream starts and stops.
+
+***
+
+## Stop the sensor stream
+
+Ends the session, releases every sensor, and hands back anything still buffered from a background window as a final batch before teardown.
+
+```javascript theme={null}
+despia('motion://stop')
+```
+
+Stopping never discards a background window you already paid for, the pending batch is delivered first.
+
+***
+
+## Reading samples
+
+Each foreground sample carries only the blocks you requested, plus `status` and `timestamp`.
+
+```javascript theme={null}
+window.onMotionChange = function (sample) {
+    if (sample.status === 'error') { handleError(sample.error); return }
+    // sample.accelerometer, sample.gyroscope, sample.attitude, ...
+}
+```
+
+```json theme={null}
+{
+    "status": "success",
+    "timestamp": 1716651000123,
+    "accelerometer":    { "x": 0.01, "y": -0.02, "z": -1.00 },
+    "gyroscope":        { "x": 0.10, "y": 0.20, "z": 0.30 },
+    "attitude": {
+        "roll": 0.01, "pitch": -0.02, "yaw": 1.57,
+        "quaternion": { "x": 0, "y": 0, "z": 0.7071, "w": 0.7071 }
+    }
+}
+```
+
+<ParamField path="success" type="object">
+  One fused sample. `accelerometer` is the raw signal with gravity included, in g. `gyroscope` and `rotationRate` are rad/s. `magnetometer` is µT. `gravity` and `userAcceleration` are g with gravity isolated and removed respectively. `attitude` carries `roll`, `pitch`, `yaw` in radians plus a `quaternion`; the quaternion is absent on devices without a rotation-vector sensor.
+</ParamField>
+
+<ParamField path="error" type="object">
+  Carries `error` with a stable code: `unavailable` (no requested sensor exists on this device), `unsupported_sensor` (a typo in `sensors`), or `timeout` (iOS cold-launch stall, retry after the app becomes active).
+</ParamField>
+
+***
+
+## Background delivery
+
+The page cannot run while the app is backgrounded, so the runtime does not try to call it. Samples are decimated to one per `buffer` seconds into a capped native ring, and the whole away-window arrives as one call to `window.onMotionBatch` when the app returns. If `server` was set, the native runtime also POSTs chunks of the ring directly while backgrounded, in non-overlapping batches marked `partial: true`, so a device that never returns still delivers its data.
+
+```json theme={null}
+{
+    "status": "success",
+    "count": 120,
+    "dropped": 0,
+    "from": 1716651000123,
+    "to": 1716651120123,
+    "samples": [ { "status": "success", "timestamp": 1716651000123, "accelerometer": { "x": 0.01, "y": -0.02, "z": -1.0 } } ]
+}
+```
+
+<ParamField path="batch" type="object">
+  The whole background window in one delivery. `samples` are ordinary sample objects. `dropped` above zero means the app was away longer than `cap` times `buffer` covers, raise one of them. `from` and `to` bound the window in epoch milliseconds.
+</ParamField>
+
+### How much the ring actually captures
+
+This differs by platform **and by runtime**, and the difference is large enough to design around rather than discover.
+
+| | What the ring captures while you are away |
+| --- | --- |
+| **iOS** | Seconds, not minutes. A suspended app receives no sensor callbacks at all, so the ring covers only the moments before suspension. |
+| **Android, standard apps** | The same in practice. The process is frozen shortly after the user leaves and nothing holds the sensors open. |
+| **Android, framework runtime (v4)** | The full away-window. A live session is promoted to a foreground service, so sampling genuinely continues — at the cost of a persistent notification the user sees. |
+
+So unless you are on the framework runtime with background enabled, treat the batch as *the tail end of what was happening as the user left*, not as a record of the whole away period.
+
+<Info>
+  **For "what happened while the user was away", reach for the pedometer first.** On iOS the motion coprocessor counts steps whether or not your app is running, and `motion://pedometer` reads that history back — roughly seven days of it. That is a real answer to the away-period question, and the live stream will never be one. Use `server` to capture whatever the stream does catch on the way out, and the pedometer for the period itself.
+</Info>
+
+***
+
+## Stream pressure and altitude
+
+Streams the barometer. Pressure arrives in kPa, and `relativeAltitude` in metres relative to the first reading of the session, so it measures change, not height above sea level. Restarting rebaselines to zero.
+
+```javascript theme={null}
+despia('motion://barometer?on=true')
+```
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `on` | No | `true` starts, `false` stops. Defaults to `true`. Pass as-is, no encoding needed. |
+
+Readings arrive on `window.onBarometerChange`. Many budget Android devices ship no barometer, in which case the callback receives `{ "status": "error", "error": "unavailable" }`, check capabilities first if you build UI around it.
+
+```json theme={null}
+{ "status": "success", "pressure": 101.325, "relativeAltitude": 0, "timestamp": 1716651000123 }
+```
+
+***
+
+## Recognize the user's activity
+
+Streams a classification of what the person carrying the device is doing: `stationary`, `walking`, `running`, `automotive`, `cycling`, or `unknown`, with a confidence between 0 and 1. The flat booleans ship too because iOS can report several at once, walking inside a moving vehicle is both.
+
+```javascript theme={null}
+despia('motion://activity?on=true')
+```
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `on` | No | `true` starts, `false` stops. Defaults to `true`. Pass as-is, no encoding needed. |
+
+Results arrive on `window.onMotionActivityChange`. The first call triggers the motion and fitness permission prompt on iOS and the activity recognition prompt on Android 10 and later; a refusal answers `{ "status": "error", "error": "permission_denied" }`.
+
+```json theme={null}
+{
+    "status": "success",
+    "type": "walking",
+    "confidence": 0.66,
+    "stationary": false, "walking": true, "running": false,
+    "automotive": false, "cycling": false,
+    "timestamp": 1716651000123
+}
+```
+
+***
+
+## Count steps
+
+**This is the right tool for "what did the user do while the app was closed."** The live stream stops when the app is suspended; the step counter does not, because the hardware keeps counting without your app. If you are tracking activity over hours or days rather than watching motion in real time, build on this rather than on the background ring.
+
+Answers how many steps were taken since a given instant. On iOS this is a true historical query, the motion coprocessor recorded those steps whether or not your app was running, going back about seven days, and `distance` plus the floor counts are filled in. On Android the step counter is a monotonic total since boot with no history API, so the runtime reports steps since your app first read the counter and returns `0` for `distance` and floors rather than fabricating them.
+
+```javascript theme={null}
+despia('motion://pedometer?from=1716600000000')
+```
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `from` | No | Epoch milliseconds. Defaults to midnight today. Pass as-is, no encoding needed. |
+
+The result arrives once on `window.onPedometerResult`.
+
+```json theme={null}
+{
+    "status": "success",
+    "steps": 3120, "distance": 2410.5,
+    "floorsAscended": 3, "floorsDescended": 1,
+    "start": 1716600000000, "end": 1716651000123
+}
+```
+
+***
+
+## Probe the hardware
+
+Reports which sensors exist before you build UI around them. Gyroscopes and barometers are both genuinely absent from a lot of Android hardware.
+
+```javascript theme={null}
+despia('motion://capabilities')
+```
+
+The result arrives once on `window.onMotionCapabilities`.
+
+```json theme={null}
+{
+    "status": "success",
+    "accelerometer": true, "gyroscope": true, "magnetometer": true,
+    "deviceMotion": true, "barometer": true,
+    "activity": true, "pedometer": true,
+    "maxHz": 100
+}
+```
+
+***
+
+## Reading current state
+
+The runtime keeps one global current and re-pushes it on every page load, since navigation clears window globals.
+
+```javascript theme={null}
+window.motionActive   // boolean, true while the IMU stream is live
+```
+
+| Global | Type | Description |
+| --- | --- | --- |
+| `motionActive` | boolean | Updates when the stream starts and stops. On iOS it flips true only once a real sample proves the channel is live, so a cold-launch stall reads false rather than lying. Defaults to `false`. |
+
+***
+
+## Module API (v4)
+
+Apps on the Despia framework runtime call the same feature through the module surface. Events stream on the subscription, batches included, and the URL spellings above keep working unchanged.
+
+```javascript theme={null}
+const sub = dsx.module.motion.start(
+  { sensors: ["accelerometer", "gyroscope"], hz: 100, buffer: 1, cap: 500 },
+  (e) => {
+    if (e.event === "change") { /* live sample: e.data */ }
+    if (e.event === "batch")  { /* away window: e.data.samples */ }
+  }
+);
+sub.stop();
+
+await dsx.module.motion.barometer({ on: true }, (e) => e.data.pressure);
+await dsx.module.motion.activity({ on: true }, (e) => e.data.type);
+const steps = await dsx.module.motion.pedometer({ from: Date.now() - 86400000 });
+const caps  = await dsx.module.motion.capabilities({});
+```
+
+***
+
+## Standard motion flow
+
+The end-to-end order: probe, subscribe the callbacks, start, and stop when done.
+
+```javascript theme={null}
+import despia from 'despia-native';
+
+const isDespia = navigator.userAgent.toLowerCase().includes('despia')
+
+window.onMotionCapabilities = function (caps) {
+    if (!caps.gyroscope) { /* fall back */ }
+}
+
+window.onMotionChange = function (sample) {
+    if (sample.status === 'success') render(sample)
+}
+
+window.onMotionBatch = function (batch) {
+    batch.samples.forEach(render)
+    if (batch.dropped > 0) console.warn('away longer than the ring covers')
+}
+
+if (isDespia) {
+    despia('motion://capabilities')
+    despia('motion://start?sensors=accelerometer,gyroscope&hz=60&buffer=1&cap=500')
+    // later
+    despia('motion://stop')
+}
+```
+
+***
+
+## Permissions
+
+The raw sensor stream and the barometer need **no** permission on either platform — an app that only calls `start` and `barometer` never prompts anyone. Only the fitness store (`activity`, `pedometer`) is gated.
+
+The switch is the `motion_usage` field under **App → Settings → Usage Descriptions** — one field, both platforms:
+
+| | Set (non-empty string) | Unset (`""`, `null`, or absent) |
+| --- | --- | --- |
+| iOS | Your text becomes `NSMotionUsageDescription`, shown in the fitness permission prompt | The key is removed and the fitness store is compiled out — `activity` and `pedometer` answer `permission_denied`, `capabilities` reports both `false`. The raw stream and barometer stay live. |
+| Android | `ACTIVITY_RECOGNITION` and `HIGH_SAMPLING_RATE_SENSORS` are declared, plus `required="false"` sensor feature guards so Play never filters devices | Both permissions are removed; `activity` and the pedometer's grant path answer `permission_denied` |
+
+Feature-detect from the page with the unified vocabulary:
+
+```javascript theme={null}
+if (window.permissions && !window.permissions.includes('motion_usage')) {
+  hideActivityUI(); // fitness store excluded from this build
+}
+```
+
+See [Permissions](/native-features/permissions) for the full key list and the rollout rules that apply when a permission is removed.
+
+***
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="NPM Package" icon="npm" href="https://www.npmjs.com/package/despia-native">
+    despia-native
+  </Card>
+  <Card title="Apple Core Motion" icon="book" href="https://developer.apple.com/documentation/coremotion">
+    The iOS sensor engine this feature rides
+  </Card>
+  <Card title="Android SensorManager" icon="book" href="https://developer.android.com/guide/topics/sensors/sensors_overview">
+    The Android sensor engine this feature rides
+  </Card>
+  <Card title="Support" icon="envelope" href="mailto:support@despia.com">
+    [support@despia.com](mailto:support@despia.com)
+  </Card>
+</CardGroup>

@@ -1,0 +1,54 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "wheelpicker",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/WheelPicker/swift/WheelPicker.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/WheelPicker/swift/WheelPicker.swift:14"
+    },
+    "options": {
+      "type": "csv",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/WheelPicker/swift/WheelPicker.swift:20"
+    },
+    "optionsKey": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/WheelPicker/swift/WheelPicker.swift:16"
+    },
+    "valueField": {
+      "type": "string",
+      "default": "id",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/WheelPicker/swift/WheelPicker.swift:17"
+    },
+    "labelField": {
+      "type": "string",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/WheelPicker/swift/WheelPicker.swift:17"
+    },
+    "label": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/WheelPicker/swift/WheelPicker.swift:25"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/WheelPicker/swift/WheelPicker.swift:28"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/WheelPicker/swift/WheelPicker.swift:28"
+    }
+  },
+  "notes": ""
+}

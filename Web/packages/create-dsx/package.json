@@ -1,0 +1,28 @@
+{
+  "name": "create-dsx",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Scaffold a DSX project: a real DSX package (dsx.json + Components/**.dsx) plus the app config @despia/cli reads. The generated project compiles with `dsx build` as generated.",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/src/index.d.ts", "import": "./dist/src/index.js", "default": "./dist/src/index.js" }
+  },
+  "bin": {
+    "create-dsx": "./dist/bin/create-dsx.js"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "engines": { "node": ">=22.18" },
+  "repository": { "type": "git", "url": "git+https://github.com/despia-native/despia-framework.git", "directory": "OpenSource/Web/packages/create-dsx" },
+  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/create-dsx",
+  "bugs": { "url": "https://github.com/despia-native/despia-framework/issues" },
+  "publishConfig": { "access": "public", "provenance": true },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\"",
+    "test": "node --test test/*.test.ts"
+  }
+}

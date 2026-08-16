@@ -1,0 +1,8 @@
+{
+  "_note": "Engine-level defaults — IRREDUCIBLY kernel-level platform config, separate from per-app App.json identity. Keep this TINY: only true engine defaults belong here. Feature/behaviour config lives in each package's own config.json — do NOT recreate the central config the dissolution removed (see OpenSource/Documentation/architecture/app-manifest.md). Nested so it can grow without flat-key sprawl. The retired 'defaults.view' (the engine-level web floor) is GONE: the root surface is App.json's `entry.surfaces` — the ordered root plan (architecture/proposals/root-plan.md) — and view-less route rows follow the plan's boot winner. The engine ships NO default surface.",
+  "content": {
+    "_note": "The dsx.content store (Engine/Content.swift): budget_mb caps the PURGEABLE cache tier (Caches/dsx-content); past it, least-recently-used folders are evicted at generation granularity (pinned folders and folders used this session never are). 0 disables eviction. max_blob_mb caps one streamed content blob (default 240, clamped to 1...2048); manifest and mutable single-URL control responses remain fixed at 4 MiB.",
+    "budget_mb": 300,
+    "max_blob_mb": 240
+  }
+}

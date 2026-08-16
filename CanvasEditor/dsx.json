@@ -1,0 +1,14 @@
+{
+  "name": "CanvasEditor",
+  "scheme": "editor",
+  "version": "0.1.0",
+  "web": {
+    "entry": "web/index.js",
+    "components": [{ "name": "EditorCanvas" }],
+    "expose": {
+      "StackEditor": { "tag": "despia-editor", "budgetKB": 160 }
+    },
+    "embed": { "origins": ["*"] },
+    "_note": "The editor as a DSX package (/web/13 + /web/18): <EditorCanvas> is the module-provided web-facet component (web/index.js mounts the StackCanvas SDK — an editor-grade widget is exactly why facets exist), StackEditor.dsx is the portable component wrapping it, and web.expose compiles that component to the REAL custom element <despia-editor> served from /embed/editor/StackEditor.js (+ .<hash>.js pin). budgetKB is the explicit tool-grade embed budget override (/web/13): the default 40KB widget budget stays law — a package that needs more must say so here, and the build prints the override loudly. origins ['*'] because the editor exists to be embedded anywhere. No native facet on purpose: the editor is the design surface FOR decks, not a deck capability — it badges web-only and degrades honestly on native (Article 7)."
+  }
+}

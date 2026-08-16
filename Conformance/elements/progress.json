@@ -1,0 +1,47 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "progress",
+  "aliases": [
+    "capsuleProgress"
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Progress/swift/Progress.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Progress/swift/Progress.swift:13"
+    },
+    "value": {
+      "type": "number(0..1)",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Progress/swift/Progress.swift:13-14 (clamped 0..1)"
+    },
+    "height": {
+      "type": "number",
+      "default": 6,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Progress/swift/Progress.swift:23"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Progress/swift/Progress.swift:15"
+    }
+  },
+  "geometry": {
+    "height": {
+      "value": 6,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Progress/swift/Progress.swift:23"
+    },
+    "trackOpacity": {
+      "value": 0.2,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Progress/swift/Progress.swift:19 (tint.opacity(0.2) capsule track)"
+    }
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Progress/swift/Progress.swift:15"
+    }
+  },
+  "notes": "SYSTEM IDENTITY (system-defaults.md, the Android M3-identity wave): iOS draws a custom capsule (this fixture's geometry — Progress.swift); web is the role=progressbar .dsx-progress control; Android renders the real M3 LinearProgressIndicator when unstyled or color-only (StackSystemControls.kt SystemControl.PROGRESS), determinate from bind=/value= clamped 0..1, at the fixture height 6 (the cross-platform metric rule — M3's native 4dp yields to the contract). THE TINT RULE matches the spinner (stated, consistent): an authored color= is the M3 indicator color and keeps this fixture's tint@0.2 track relationship (trackOpacity — Progress.swift:19); uncolored rides the component's own colors (primary + its own track). height= and every other styling attr eject to the legacy capsule byte-identically. Android joining COMPLETES the three-renderer parity for this element."
+}

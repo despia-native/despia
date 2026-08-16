@@ -1,0 +1,24 @@
+# Dependency pins - the pin record.
+#
+# Format: <name> <upstream-commit-or-tag> <license-id> <upstream-url>
+#
+# Despia MCP vendors NO source tree. What it pins are the two official Model
+# Context Protocol SDKs, consumed as ordinary package-manager dependencies
+# (SPM on the Swift lane, Maven on the Kotlin lane). They are recorded here for
+# the same three reasons the other packages record vendored trees:
+#
+#   1. PERMISSIVE ONLY. Both SDKs are MIT. ai_package_gate.rb checks the licence
+#      id in this file against the schema's copyleft dimension, so a future bump
+#      to a copyleft dependency fails a gate instead of a review.
+#   2. PINNED, NEVER FLOATING. MCP has already churned its transports and its
+#      auth story once. An exact version is the only defensible pin for a
+#      protocol that moves: bumps go through a PR that runs the full gate set,
+#      and the negotiated wire version is asserted by the conformance corpus.
+#   3. ONE SOURCE OF TRUTH. Package.swift and bindings/kotlin*/build.gradle.kts
+#      carry the same two versions; this file is what a reviewer reads first.
+#
+# The wire protocol version these pins negotiate is 2025-11-25 (the SDKs' own
+# latest supported revision); older revisions remain accepted on the client.
+
+mcp-swift-sdk    0.12.1  MIT  https://github.com/modelcontextprotocol/swift-sdk
+mcp-kotlin-sdk   0.15.0  MIT  https://github.com/modelcontextprotocol/kotlin-sdk

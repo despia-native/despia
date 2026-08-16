@@ -1,0 +1,20 @@
+{
+  "_note": "The cross-runtime WIRE CONTRACT — the one shared pin for the modern bridge surface every runtime must advertise identically (constitution Article 8). iOS emits these from Bridge.swift (bridgeVersion + capabilities), Android from Dom/android/VirtualBridge.kt, and both inject them into window.virtual.capabilities / __despiaRuntime.capabilities where OpenSource/Engine/runtime.js (the ONE shared file) gates on them. A coordinated bump MUST land here in the same change, or a runtime's assertion goes red — that is the whole point: this file makes a silent per-platform capabilities drift illegal. The web (TS) runtime joins as runtime #3 per /web/07. Enforced on Android by WireContractTest (:core); the iOS assertion is the flagged d-ios follow-up (Bridge.swift reads this same file in an XCTest / the record-mode lane).",
+  "bridgeVersion": 3,
+  "capabilities": {
+    "version": 3,
+    "structured": true,
+    "events": true,
+    "subscribe": true
+  },
+  "messageName": "virtual",
+  "envelopeKeys": ["id", "scheme", "host", "event", "final", "data", "code", "recoverable", "message"],
+  "errorCodes": {
+    "notLoaded": "not_loaded",
+    "unsupportedPlatform": "unsupported_platform"
+  },
+  "platforms": {
+    "ios": "ios",
+    "android": "android"
+  }
+}

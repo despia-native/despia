@@ -1,0 +1,176 @@
+{
+ "_note": "The FACET RESOLUTION LADDER corpus (facet-contracts.md: 'a call resolves local → declared reach over the link → typed unavailable error into the ledger'). THE LAW: the caller never spells the route — the same markup ships on every surface, and where an action LIVES is a declaration, never a call site. A runtime binds ONE registered facet word (`facet` below; the kernel knows no word — it arrives as build data, and an UNBOUND runtime is the honest default). The compiled per-facet capability table (`table`) is generated from each action's `provides` (the facets whose runtime implements it LOCALLY) and `reach` (the facets that may invoke it OVER THEIR LINK — fail-closed: absent reach admits nobody, explicit `false` is the deny). The table is EXCLUSION-BLIND, exactly like the platform catalog: a row survives its module being dropped from this build, so absence can be attributed instead of guessed. THE LADDER, in order, at every runtime's ONE dispatch funnel: (1) LOCAL — a registered module answering this action wins before anything else is consulted, so a partly-local chain never pays for the table; (2) REACH — the row admits THIS facet ⇒ invoke over the link; admitted but no transport installed ⇒ the typed `unreachable`, never a hang and never a silent no-op. A generated CLIENT-LINK route (the server node's table) is the same rung and is consulted here too; (3) TYPED UNAVAILABLE — the reason IS the code (durability.md P4), four-way distinct and always through the ordinary call-failure path into the error ledger (origin 'call'), never a side channel: (a) the module IS registered here but the action is not ⇒ `unknown_action` (the caller named a wrong action — that is a caller bug, not absence); (b) the scheme exists in the product but has no implementation on this OS ⇒ `unsupported_platform` (the platform catalog, X-tier); (c) the row exists and NEITHER provides NOR reaches this facet ⇒ `unsupported_platform` — this is the NEVER-ON-THIS-FACET class, and it keeps its shipping name: durability.md P4 RETIRED the draft spelling `never_on_facet` ('never repurpose a kept name' is P5's own law, and `unsupported_platform` already meant exactly this on the wire); (d) the chain is in the build-excluded overlay ⇒ `excluded`, the DespiaExcluded entry riding verbatim as data; (e) the row PROVIDES this facet yet nothing registered ⇒ `prerequisites_missing` — the manifest promises a local implementation the runtime could not stand up (an unlinked framework, an OS floor, a dropped companion), which is a genuinely different fact from 'never here' and from 'this build dropped it'; (f) nothing known at all ⇒ `not_loaded`. PRECEDENCE is frozen by the shipped funnels and is deliberate: local > reach > unknown_action > unsupported_platform > excluded > prerequisites_missing > not_loaded. `unsupported_platform` outranks `excluded` because 'it could never answer here' is the more fundamental fact than 'this build dropped it'; `excluded` outranks `prerequisites_missing` because a build fact beats a runtime one. THE EMPTY SEAM IS NOT A FAILURE MODE: an unbound runtime (facet null) with an empty table answers exactly what the funnels answered before the ladder existed — every facet-dependent rung is skipped and (d)/(f) remain. That is what lets the ladder land in a kernel whose build has no facets yet. Case shape: `facet` = the word this runtime binds (absent/null = unbound); `local` = chain -> the actions a registered module answers HERE (absent = nothing local); `transport` = is a reach transport installed (default false); `call` = 'chain/action'; expect.rung ∈ local | reach | unavailable, and expect.code is the frozen error code for the unavailable rung (null otherwise). Runners: TS (node:test, packages/kernel) and Kotlin (:core JUnit) execute every case; Swift implements the same ladder — see the README for its lane.",
+ "world": {
+  "table": {
+   "loc": {
+    "locate":   { "provides": ["app", "watch"], "reach": ["activity", "widget"] },
+    "track":    { "provides": ["app"], "reach": false },
+    "geofence": { "provides": ["app"] },
+    "relayOnly": { "provides": [], "reach": ["watch", "widget"] }
+   },
+   "watch.health": {
+    "heartRate": { "provides": ["watch"], "reach": ["app"] }
+   },
+   "beacon": {
+    "ping": { "provides": ["app"], "reach": ["widget"] }
+   },
+   "off.grid": {
+    "run": { "provides": ["app"], "reach": ["watch"] }
+   },
+   "quarantined": {
+    "ping": { "provides": ["app"] }
+   }
+  },
+  "excluded": {
+   "off": { "reason": "excluded" },
+   "off.grid": { "reason": "cascade", "from": "off" },
+   "quarantined": { "reason": "excluded" }
+  },
+  "platforms": {
+   "ar": ["ios"]
+  }
+ },
+ "cases": [
+  { "name": "rung one — a locally provided action answers before anything else is consulted",
+    "facet": "app", "local": { "loc": ["locate", "track", "geofence"] },
+    "call": "loc/locate",
+    "expect": { "rung": "local" } },
+
+  { "name": "rung one wins even where the row would admit reach (the table is never consulted first)",
+    "facet": "app", "transport": true, "local": { "watch.health": ["heartRate"] },
+    "call": "watch.health/heartRate",
+    "expect": { "rung": "local" } },
+
+  { "name": "a nested chain resolves locally on the runtime that provides it",
+    "facet": "watch", "local": { "watch.health": ["heartRate"] },
+    "call": "watch.health/heartRate",
+    "expect": { "rung": "local" } },
+
+  { "name": "rung two — the row admits this facet and a transport is installed",
+    "facet": "widget", "transport": true,
+    "call": "loc/locate",
+    "expect": { "rung": "reach" } },
+
+  { "name": "rung two applies PER ACTION on a partly-local chain",
+    "facet": "widget", "transport": true, "local": { "loc": ["geofence"] },
+    "call": "loc/locate",
+    "expect": { "rung": "reach" } },
+
+  { "name": "a provides-less action is reach-only and still routes",
+    "facet": "watch", "transport": true,
+    "call": "loc/relayOnly",
+    "expect": { "rung": "reach" } },
+
+  { "name": "the wrist reaches back to the phone (reach is symmetric — it is a declaration, not a direction)",
+    "facet": "app", "transport": true,
+    "call": "watch.health/heartRate",
+    "expect": { "rung": "reach" } },
+
+  { "name": "admitted by reach but NO transport installed — the typed unreachable, never a hang",
+    "facet": "widget",
+    "call": "loc/locate",
+    "expect": { "rung": "unavailable", "code": "unreachable" } },
+
+  { "name": "an EXCLUDED chain that still reaches a node keeps routing (this build dropped it, the far node did not)",
+    "facet": "watch", "transport": true,
+    "call": "off.grid/run",
+    "expect": { "rung": "reach" } },
+
+  { "name": "explicit `reach: false` is the deny — never on this facet",
+    "facet": "widget", "transport": true,
+    "call": "loc/track",
+    "expect": { "rung": "unavailable", "code": "unsupported_platform" } },
+
+  { "name": "an absent `reach` admits nobody (fail-closed, not fail-open)",
+    "facet": "widget", "transport": true,
+    "call": "loc/geofence",
+    "expect": { "rung": "unavailable", "code": "unsupported_platform" } },
+
+  { "name": "a facet the row neither provides nor reaches is the never-on-this-facet class",
+    "facet": "activity", "transport": true,
+    "call": "watch.health/heartRate",
+    "expect": { "rung": "unavailable", "code": "unsupported_platform" } },
+
+  { "name": "the row PROVIDES this facet but nothing registered — prerequisites_missing, not not_loaded",
+    "facet": "app",
+    "call": "loc/geofence",
+    "expect": { "rung": "unavailable", "code": "prerequisites_missing" } },
+
+  { "name": "a chain with no local module at all still separates promised-here from never-here",
+    "facet": "app",
+    "call": "beacon/ping",
+    "expect": { "rung": "unavailable", "code": "prerequisites_missing" } },
+
+  { "name": "…and the same row, asked from a facet it neither provides nor reaches, is never-here",
+    "facet": "activity",
+    "call": "beacon/ping",
+    "expect": { "rung": "unavailable", "code": "unsupported_platform" } },
+
+  { "name": "…and from the facet its reach DOES admit, with a transport, it routes",
+    "facet": "widget", "transport": true,
+    "call": "beacon/ping",
+    "expect": { "rung": "reach" } },
+
+  { "name": "prerequisites_missing survives a transport being installed (it is a LOCAL promise, unrouted)",
+    "facet": "app", "transport": true,
+    "call": "loc/track",
+    "expect": { "rung": "unavailable", "code": "prerequisites_missing" } },
+
+  { "name": "a build-excluded chain with no row answers `excluded` (the overlay entry is the data)",
+    "facet": "app",
+    "call": "off/anything",
+    "expect": { "rung": "unavailable", "code": "excluded" } },
+
+  { "name": "excluded outranks prerequisites_missing — a build fact beats a runtime one",
+    "facet": "app",
+    "call": "quarantined/ping",
+    "expect": { "rung": "unavailable", "code": "excluded" } },
+
+  { "name": "never-on-this-facet outranks excluded — it could not have answered here either way",
+    "facet": "activity", "transport": true,
+    "call": "off.grid/run",
+    "expect": { "rung": "unavailable", "code": "unsupported_platform" } },
+
+  { "name": "the platform catalog still answers unsupported_platform for an X-tier scheme",
+    "facet": "app",
+    "call": "ar/scan",
+    "expect": { "rung": "unavailable", "code": "unsupported_platform" } },
+
+  { "name": "a registered module with an unknown action is a CALLER bug, never absence",
+    "facet": "app", "local": { "loc": ["locate"] },
+    "call": "loc/nope",
+    "expect": { "rung": "unavailable", "code": "unknown_action" } },
+
+  { "name": "unknown_action outranks every typed-absence answer for a locally registered module",
+    "facet": "app", "local": { "quarantined": ["ping"] },
+    "call": "quarantined/nope",
+    "expect": { "rung": "unavailable", "code": "unknown_action" } },
+
+  { "name": "nothing known at all stays not_loaded",
+    "facet": "app",
+    "call": "ghost/run",
+    "expect": { "rung": "unavailable", "code": "not_loaded" } },
+
+  { "name": "an UNBOUND runtime skips every facet rung — the pre-ladder answer, unchanged",
+    "call": "loc/geofence",
+    "expect": { "rung": "unavailable", "code": "not_loaded" } },
+
+  { "name": "an UNBOUND runtime still answers the build facts it has always answered",
+    "call": "off.grid/run",
+    "expect": { "rung": "unavailable", "code": "excluded" } },
+
+  { "name": "an UNBOUND runtime never reaches — reach admission needs a facet word to admit",
+    "transport": true,
+    "call": "loc/locate",
+    "expect": { "rung": "unavailable", "code": "not_loaded" } },
+
+  { "name": "an UNBOUND runtime still resolves locally (the empty seam changes nothing that worked)",
+    "local": { "loc": ["locate"] },
+    "call": "loc/locate",
+    "expect": { "rung": "local" } }
+ ],
+ "codes": ["unknown_action", "unsupported_platform", "excluded", "prerequisites_missing", "unreachable", "not_loaded"],
+ "retired": {
+  "never_on_facet": "unsupported_platform"
+ }
+}

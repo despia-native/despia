@@ -1,0 +1,382 @@
+{
+  "version": 1,
+  "_note": "THE ROOT PLAN — the ordered first-ready fold that replaces the boot.json two-arm rule (root-plan.md). `App.json entry.surfaces` is a non-empty ordered array of candidates (`\"X\"` ≡ `{view:\"X\"}`; candidate keys: view, config, timeoutMs, id — there is deliberately NO onFailure/policy key: failure ALWAYS advances, an exhausted list is the only stop). NORMALIZATION (pinned by `expect.normalized`): scalar shorthand expands; timeoutMs defaults to the kernel constant ROOT_SETTLE_TIMEOUT_MS = 15000 (identical on every runtime); id defaults to the view name, and when a view occurs more than once in the plan every DERIVED id for it is numbered `view#k` (k = 1-based occurrence among candidates sharing that view) while EXPLICIT ids ride verbatim and never renumber the derived ones. FOLD SEMANTICS: candidates run in array order; each attempt mounts as ordinary frame-0 content (config rides the mount VERBATIM as component attributes — moustache values resolve in the existing attribute plane at real mount, outside this corpus); the attempt then races the frame-settle signal (`screen.ready` for frame 0) against root-attributed failure against its deadline. ready → fire `root.ready` once, the plan is DONE for the process lifetime (later signals of any kind are dropped — no silent root swap; recovery is module/route-owned). failed → fire `root.failed` and advance unconditionally. list exhausted → fire `root.exhausted` and show the kernel boot diagnostic (kernel-owned pixels, not a component). FAILURE ATTRIBUTION: a failure is a `dsx.error` carrying origin \"root\" delivered while the attempt is live; errors with any other origin NEVER advance the plan; a candidate whose view is not in the build's component registry fails at mount with code `root.component_missing` (reachable only when build validation was bypassed — V2 aborts this at prepare); a deadline expiry synthesizes code `root.timeout` through the same error plane. SIMULATION CONTRACT (how every runner drives these cases): a virtual clock starts at 0; attempt 0 mounts at t=0 and attempt N+1 mounts at the instant attempt N fails; deadline = mountAt + timeoutMs; events are delivered in atMs order, but a live attempt whose deadline ≤ the next event's atMs times out FIRST (at the deadline instant), and after the last event a still-live attempt times out at its deadline — the fold always terminates; an event carrying the optional `attempt` field (index into the normalized plan) belongs to that attempt and is delivered only while that attempt is live, else DROPPED — the stale-token rule; `settle` without `attempt` settles the live attempt; `error` events carry `origin` + `code` and without `attempt` apply to the live attempt (attribution still requires origin \"root\"). CASE FIELDS: `components` = the build's registered component tags (the registry double — membership is the ONLY thing it asserts); `surfaces` = the RAW pre-normalization entry.surfaces value; `events` = the signal script; `expect` = { normalized (the full normalized plan; entries list `config` only when non-empty), attempts (attempt ids in order), failures ([{id, code}] in order), ready (id or null), fired (the COMPLETE ordered list of root.* emissions — a dropped signal adds nothing), diagnostic (bool: the exhaustion diagnostic shows), winnerView (optional: the boot winner that view-less route rows now follow), mountedAttrs (optional map id → the attribute bag the mount received, asserted verbatim) }. Executors (all three drive the REAL extracted engine — RootPlanFold / RootPlan.Fold — through the Host seam on this virtual clock; the PRODUCTION wiring around it is pinned separately by each runtime's boot integration tests): TS `OpenSource/Web/packages/dom/test/router-conformance.test.ts` (+ `boot-integration` for the bootDsx wiring) · Kotlin `Engine/Android :core RootPlanConformanceTest` (+ RouterTest's real-boot case) · Swift `RootPlanConformance` in `Engine/iOS/ConformanceHosts.swift` is the REFERENCE (RecordMain, conformance-record lane). boot.json and `bootsToEntryFallback` are RETIRED on every lane — this corpus owns the boot.",
+  "cases": [
+    {
+      "name": "a single candidate settles and owns the root",
+      "components": ["A"],
+      "surfaces": ["A"],
+      "events": [{ "atMs": 100, "kind": "settle" }],
+      "expect": {
+        "normalized": [{ "view": "A", "id": "A", "timeoutMs": 15000 }],
+        "attempts": ["A"],
+        "failures": [],
+        "ready": "A",
+        "fired": ["root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "a root-origin error advances to the next candidate",
+      "components": ["A", "B"],
+      "surfaces": [{ "view": "A", "timeoutMs": 1000 }, "B"],
+      "events": [
+        { "atMs": 50, "kind": "error", "origin": "root", "code": "boom" },
+        { "atMs": 150, "kind": "settle" }
+      ],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 1000 },
+          { "view": "B", "id": "B", "timeoutMs": 15000 }
+        ],
+        "attempts": ["A", "B"],
+        "failures": [{ "id": "A", "code": "boom" }],
+        "ready": "B",
+        "fired": ["root.failed", "root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "a deadline expiry is a failure — the attempt is bounded and the fold advances",
+      "components": ["A", "B"],
+      "surfaces": [{ "view": "A", "timeoutMs": 1000 }, "B"],
+      "events": [{ "atMs": 1200, "kind": "settle" }],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 1000 },
+          { "view": "B", "id": "B", "timeoutMs": 15000 }
+        ],
+        "attempts": ["A", "B"],
+        "failures": [{ "id": "A", "code": "root.timeout" }],
+        "ready": "B",
+        "fired": ["root.failed", "root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "an exhausted plan fires root.exhausted and shows the diagnostic",
+      "components": ["A", "B"],
+      "surfaces": [
+        { "view": "A", "timeoutMs": 1000 },
+        { "view": "B", "timeoutMs": 1000 }
+      ],
+      "events": [
+        { "atMs": 100, "kind": "error", "origin": "root", "code": "boom" },
+        { "atMs": 500, "kind": "error", "origin": "root", "code": "crash" }
+      ],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 1000 },
+          { "view": "B", "id": "B", "timeoutMs": 1000 }
+        ],
+        "attempts": ["A", "B"],
+        "failures": [
+          { "id": "A", "code": "boom" },
+          { "id": "B", "code": "crash" }
+        ],
+        "ready": null,
+        "fired": ["root.failed", "root.failed", "root.exhausted"],
+        "diagnostic": true
+      }
+    },
+    {
+      "name": "timeoutMs omitted pins the engine default — 15000, then root.timeout",
+      "components": ["A"],
+      "surfaces": ["A"],
+      "events": [],
+      "expect": {
+        "normalized": [{ "view": "A", "id": "A", "timeoutMs": 15000 }],
+        "attempts": ["A"],
+        "failures": [{ "id": "A", "code": "root.timeout" }],
+        "ready": null,
+        "fired": ["root.failed", "root.exhausted"],
+        "diagnostic": true
+      }
+    },
+    {
+      "name": "ids derive from the view — repeats are numbered, explicit ids ride verbatim",
+      "components": ["A", "B"],
+      "surfaces": [
+        { "view": "A", "timeoutMs": 100 },
+        { "view": "A", "timeoutMs": 100, "id": "custom" },
+        "B"
+      ],
+      "events": [{ "atMs": 50, "kind": "settle" }],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A#1", "timeoutMs": 100 },
+          { "view": "A", "id": "custom", "timeoutMs": 100 },
+          { "view": "B", "id": "B", "timeoutMs": 15000 }
+        ],
+        "attempts": ["A#1"],
+        "failures": [],
+        "ready": "A#1",
+        "fired": ["root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "scalar shorthand normalizes to the object form",
+      "components": ["A", "B"],
+      "surfaces": ["A", "B"],
+      "events": [{ "atMs": 10, "kind": "settle" }],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 15000 },
+          { "view": "B", "id": "B", "timeoutMs": 15000 }
+        ],
+        "attempts": ["A"],
+        "failures": [],
+        "ready": "A",
+        "fired": ["root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "stale signals are dropped — a late settle cannot resurrect a timed-out attempt",
+      "components": ["A", "B"],
+      "surfaces": [
+        { "view": "A", "timeoutMs": 1000 },
+        { "view": "B", "timeoutMs": 5000 }
+      ],
+      "events": [
+        { "atMs": 1200, "kind": "settle", "attempt": 0 },
+        { "atMs": 1300, "kind": "settle" }
+      ],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 1000 },
+          { "view": "B", "id": "B", "timeoutMs": 5000 }
+        ],
+        "attempts": ["A", "B"],
+        "failures": [{ "id": "A", "code": "root.timeout" }],
+        "ready": "B",
+        "fired": ["root.failed", "root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "a ZOMBIE frame cannot crown its successor — the stale settle is dropped and the plan still exhausts",
+      "components": ["A", "B"],
+      "surfaces": [
+        { "view": "A", "timeoutMs": 1000 },
+        { "view": "B", "timeoutMs": 1000 }
+      ],
+      "events": [
+        { "atMs": 50, "kind": "error", "origin": "root", "code": "boom" },
+        { "atMs": 100, "kind": "settle", "attempt": 0 }
+      ],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 1000 },
+          { "view": "B", "id": "B", "timeoutMs": 1000 }
+        ],
+        "attempts": ["A", "B"],
+        "failures": [
+          { "id": "A", "code": "boom" },
+          { "id": "B", "code": "root.timeout" }
+        ],
+        "ready": null,
+        "fired": ["root.failed", "root.failed", "root.exhausted"],
+        "diagnostic": true
+      }
+    },
+    {
+      "name": "a stale settle does not consume the live attempt's chance — its own settle still wins",
+      "components": ["A", "B"],
+      "surfaces": [
+        { "view": "A", "timeoutMs": 1000 },
+        { "view": "B", "timeoutMs": 5000 }
+      ],
+      "events": [
+        { "atMs": 50, "kind": "error", "origin": "root", "code": "boom" },
+        { "atMs": 100, "kind": "settle", "attempt": 0 },
+        { "atMs": 900, "kind": "settle", "attempt": 1 }
+      ],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 1000 },
+          { "view": "B", "id": "B", "timeoutMs": 5000 }
+        ],
+        "attempts": ["A", "B"],
+        "failures": [{ "id": "A", "code": "boom" }],
+        "ready": "B",
+        "fired": ["root.failed", "root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "a settle for an attempt that has not run yet is dropped — the token is exact, not a floor",
+      "components": ["A", "B"],
+      "surfaces": [
+        { "view": "A", "timeoutMs": 2000 },
+        { "view": "B", "timeoutMs": 2000 }
+      ],
+      "events": [
+        { "atMs": 100, "kind": "settle", "attempt": 1 }
+      ],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 2000 },
+          { "view": "B", "id": "B", "timeoutMs": 2000 }
+        ],
+        "attempts": ["A", "B"],
+        "failures": [
+          { "id": "A", "code": "root.timeout" },
+          { "id": "B", "code": "root.timeout" }
+        ],
+        "ready": null,
+        "fired": ["root.failed", "root.failed", "root.exhausted"],
+        "diagnostic": true
+      }
+    },
+    {
+      "name": "a stale root ERROR from a retired candidate never fails the live one",
+      "components": ["A", "B"],
+      "surfaces": [
+        { "view": "A", "timeoutMs": 1000 },
+        { "view": "B", "timeoutMs": 5000 }
+      ],
+      "events": [
+        { "atMs": 50, "kind": "error", "origin": "root", "code": "boom" },
+        { "atMs": 100, "kind": "error", "origin": "root", "code": "late_boom", "attempt": 0 },
+        { "atMs": 200, "kind": "settle", "attempt": 1 }
+      ],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 1000 },
+          { "view": "B", "id": "B", "timeoutMs": 5000 }
+        ],
+        "attempts": ["A", "B"],
+        "failures": [{ "id": "A", "code": "boom" }],
+        "ready": "B",
+        "fired": ["root.failed", "root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "config rides the mount verbatim as attributes — moustache resolves in the attribute plane, not here",
+      "components": ["A"],
+      "surfaces": [
+        {
+          "view": "A",
+          "config": { "src": "{{ dsx.app.host }}/app.dsx", "theme": "dark" }
+        }
+      ],
+      "events": [{ "atMs": 10, "kind": "settle" }],
+      "expect": {
+        "normalized": [
+          {
+            "view": "A",
+            "id": "A",
+            "timeoutMs": 15000,
+            "config": { "src": "{{ dsx.app.host }}/app.dsx", "theme": "dark" }
+          }
+        ],
+        "attempts": ["A"],
+        "failures": [],
+        "ready": "A",
+        "fired": ["root.ready"],
+        "diagnostic": false,
+        "mountedAttrs": {
+          "A": { "src": "{{ dsx.app.host }}/app.dsx", "theme": "dark" }
+        }
+      }
+    },
+    {
+      "name": "an unregistered view fails at mount as root.component_missing and the fold advances",
+      "components": ["B"],
+      "surfaces": ["Ghost", "B"],
+      "events": [{ "atMs": 10, "kind": "settle" }],
+      "expect": {
+        "normalized": [
+          { "view": "Ghost", "id": "Ghost", "timeoutMs": 15000 },
+          { "view": "B", "id": "B", "timeoutMs": 15000 }
+        ],
+        "attempts": ["Ghost", "B"],
+        "failures": [{ "id": "Ghost", "code": "root.component_missing" }],
+        "ready": "B",
+        "fired": ["root.failed", "root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "an error without the root origin never advances the plan",
+      "components": ["A"],
+      "surfaces": [{ "view": "A", "timeoutMs": 2000 }],
+      "events": [
+        { "atMs": 100, "kind": "error", "origin": "web", "code": "js_exception" },
+        { "atMs": 200, "kind": "settle" }
+      ],
+      "expect": {
+        "normalized": [{ "view": "A", "id": "A", "timeoutMs": 2000 }],
+        "attempts": ["A"],
+        "failures": [],
+        "ready": "A",
+        "fired": ["root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "after root.ready the plan is done — a later root-origin error never re-runs it",
+      "components": ["A", "B"],
+      "surfaces": ["A", "B"],
+      "events": [
+        { "atMs": 100, "kind": "settle" },
+        { "atMs": 5000, "kind": "error", "origin": "root", "code": "late_crash" }
+      ],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 15000 },
+          { "view": "B", "id": "B", "timeoutMs": 15000 }
+        ],
+        "attempts": ["A"],
+        "failures": [],
+        "ready": "A",
+        "fired": ["root.ready"],
+        "diagnostic": false
+      }
+    },
+    {
+      "name": "route rows with no view follow the boot winner",
+      "components": ["A", "B"],
+      "surfaces": [{ "view": "A", "timeoutMs": 1000 }, "B"],
+      "events": [
+        { "atMs": 100, "kind": "error", "origin": "root", "code": "boom" },
+        { "atMs": 200, "kind": "settle" }
+      ],
+      "expect": {
+        "normalized": [
+          { "view": "A", "id": "A", "timeoutMs": 1000 },
+          { "view": "B", "id": "B", "timeoutMs": 15000 }
+        ],
+        "attempts": ["A", "B"],
+        "failures": [{ "id": "A", "code": "boom" }],
+        "ready": "B",
+        "fired": ["root.failed", "root.ready"],
+        "diagnostic": false,
+        "winnerView": "B"
+      }
+    },
+    {
+      "name": "the ten-year proof — a component the kernel has never heard of is an equal citizen",
+      "components": ["ProofShell", "DSXStartup"],
+      "surfaces": [{ "view": "ProofShell", "timeoutMs": 1000 }, "DSXStartup"],
+      "events": [
+        { "atMs": 100, "kind": "error", "origin": "root", "code": "proof_failure" },
+        { "atMs": 200, "kind": "settle" }
+      ],
+      "expect": {
+        "normalized": [
+          { "view": "ProofShell", "id": "ProofShell", "timeoutMs": 1000 },
+          { "view": "DSXStartup", "id": "DSXStartup", "timeoutMs": 15000 }
+        ],
+        "attempts": ["ProofShell", "DSXStartup"],
+        "failures": [{ "id": "ProofShell", "code": "proof_failure" }],
+        "ready": "DSXStartup",
+        "fired": ["root.failed", "root.ready"],
+        "diagnostic": false
+      }
+    }
+  ]
+}

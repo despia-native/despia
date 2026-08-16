@@ -1,0 +1,69 @@
+<!-- Sprite Field — the DSX 2D engine on one page (dsx-game.md G6). Everything here is
+     the SAME scene graph the 3D demos use, under mode="2d": an orthographic camera whose
+     `size` is the vertical half-extent, +Y up, and z as the DRAW ORDER. The five sprites
+     exercise the whole 2D surface — a sheet auto-advancing at a fixed fps, a sheet whose
+     frame is a STORE VARIABLE (a write animates), a mirrored frame, a static ground body
+     and a dynamic crate falling through the EXISTING solver under the z-lock. Every
+     number underneath is corpus-pinned (Conformance/scene/sprite.json). -->
+<stack grow="true" style="gap: 0rem; background: groupedBackground">
+  <head>
+    <variable as="frame">return 0</variable>
+    <variable as="ticks">return 0</variable>
+    <variable as="drops">return 0</variable>
+    <action as="nextFrame">
+      dsx.variable.frame = (dsx.variable.frame + 1) % 8
+    </action>
+    <action as="dropCrate">
+      dsx.variable.drops = dsx.variable.drops + 1
+      dsx.module.scene.set({ scene: 'sprites', id: 'crate', attr: 'position', value: '0 3.5 0.5' })
+    </action>
+  </head>
+
+  <NavBar title="Sprite Field" back="true" on:back="dsx.module.route.pop()"/>
+
+  <scroll grow="true">
+    <stack style="gap: 0.875rem; padding: 1rem">
+
+      <text value="THE 2D ENGINE — SPRITES · SHEETS · FPS · Z-LOCKED PHYSICS" style="font-size: 0.75rem; font-weight: 700; color: tertiary"/>
+
+      <scene id="sprites" mode="2d" background="#101826"
+             a11yLabel="A 2D sprite field: an animated sheet, a store-driven frame, a mirrored frame, and a crate falling onto the ground"
+             on:tick="dsx.variable.ticks = dsx.variable.ticks + 1">
+        <camera position="0 0 10" look-at="0 0 0" size="5"/>
+        <light kind="ambient" intensity="1"/>
+
+        <!-- z IS the draw order: the backdrop at −1 paints first, the actors at 0 -->
+        <sprite id="backdrop" src="/packages/scene-demo/assets/crate.png"
+                position="0 0 -1" size="18 10" color="#25324a"/>
+
+        <!-- the sheet auto-advances on the shared frame clock — no store write at all -->
+        <sprite id="hero" src="/packages/scene-demo/assets/hero-sheet.png"
+                frames="4 2" fps="6" position="-5 2" size="2 2"/>
+
+        <!-- …and the SAME sheet driven by a store variable (reactive `frame`) -->
+        <sprite id="picker" src="/packages/scene-demo/assets/hero-sheet.png"
+                frames="4 2" frame="{{ dsx.variable.frame }}" position="0 2" size="2 2"
+                on:tap="nextFrame()"/>
+
+        <!-- flip mirrors the frame's UV rectangle, nothing else -->
+        <sprite id="flipped" src="/packages/scene-demo/assets/hero-sheet.png"
+                frames="4 2" frame="3" flip="x" position="5 2" size="2 2"/>
+
+        <!-- 2D physics: the EXISTING fixed-tick solver with the z-lock. The crate spawns
+             at z 0.5 (a different LAYER) and keeps it exactly while it falls. -->
+        <sprite id="ground" src="/packages/scene-demo/assets/crate.png" physics="static"
+                position="0 -4" size="14 1" color="#1f7a3f"/>
+        <sprite id="crate" src="/packages/scene-demo/assets/crate.png" physics="dynamic"
+                collider="box" bounce="0.2" position="0 3.5 0.5" size="1 1"/>
+      </scene>
+
+      <stack grow="width" style="gap: 0.625rem; background: secondaryGroupedBackground; border-radius: 14px; padding: 0.875rem">
+        <button label="Next frame" variant="prominent" on:tap="nextFrame()"/>
+        <button label="Drop the crate" on:tap="dropCrate()"/>
+        <text value="Frame {{ dsx.variable.frame }} · drops {{ dsx.variable.drops }} · ticks {{ dsx.variable.ticks }}" style="font-size: 0.75rem; color: tertiary"/>
+        <text value="One sheet, two drivers: the left hero advances at 6 fps on the shared frame clock, the middle one reads a store variable. The crate is a dynamic body in the same solver the 3D scenes use — in 2D its z is pinned, so z stays a pure drawing layer." style="font-size: 0.75rem; color: tertiary"/>
+      </stack>
+
+    </stack>
+  </scroll>
+</stack>

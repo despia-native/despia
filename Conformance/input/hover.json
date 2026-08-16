@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "_note": "Platform-neutral on:hoverStart/on:hoverEnd lifecycle. A real hover-capable non-touch pointer starts the pair once; pointer identity prevents unrelated exits from ending it; cancel, leave, and unmount always balance an active pair.",
+  "cases": [
+    {
+      "name": "mouse enter and leave are balanced",
+      "events": [
+        { "type": "enter", "pointer": "mouse-1", "kind": "mouse", "hoverCapable": true },
+        { "type": "leave", "pointer": "mouse-1" }
+      ],
+      "expect": ["start", "end"],
+      "expectActive": []
+    },
+    {
+      "name": "touch is ignored even on a hybrid device",
+      "events": [
+        { "type": "enter", "pointer": "touch-1", "kind": "touch", "hoverCapable": true },
+        { "type": "leave", "pointer": "touch-1" },
+        { "type": "unmount" }
+      ],
+      "expect": [],
+      "expectActive": []
+    },
+    {
+      "name": "pointer without hover capability is ignored",
+      "events": [
+        { "type": "enter", "pointer": "mouse-1", "kind": "mouse", "hoverCapable": false },
+        { "type": "cancel", "pointer": "mouse-1" }
+      ],
+      "expect": [],
+      "expectActive": []
+    },
+    {
+      "name": "duplicate enter is deduplicated",
+      "events": [
+        { "type": "enter", "pointer": "mouse-1", "kind": "mouse", "hoverCapable": true },
+        { "type": "enter", "pointer": "mouse-1", "kind": "mouse", "hoverCapable": true },
+        { "type": "leave", "pointer": "mouse-1" },
+        { "type": "leave", "pointer": "mouse-1" }
+      ],
+      "expect": ["start", "end"],
+      "expectActive": []
+    },
+    {
+      "name": "unrelated pointer exit cannot end an active pointer",
+      "events": [
+        { "type": "enter", "pointer": "mouse-7", "kind": "mouse", "hoverCapable": true },
+        { "type": "leave", "pointer": "touch-9" },
+        { "type": "leave", "pointer": "mouse-7" }
+      ],
+      "expect": ["start", "end"],
+      "expectActive": []
+    },
+    {
+      "name": "multiple real pointers share one authored pair",
+      "events": [
+        { "type": "enter", "pointer": "stylus-1", "kind": "stylus", "hoverCapable": true },
+        { "type": "enter", "pointer": "mouse-2", "kind": "mouse", "hoverCapable": true },
+        { "type": "leave", "pointer": "stylus-1" },
+        { "type": "leave", "pointer": "mouse-2" }
+      ],
+      "expect": ["start", "end"],
+      "expectActive": []
+    },
+    {
+      "name": "cancel balances the active pointer",
+      "events": [
+        { "type": "enter", "pointer": "stylus-3", "kind": "stylus", "hoverCapable": true },
+        { "type": "cancel", "pointer": "stylus-3" }
+      ],
+      "expect": ["start", "end"],
+      "expectActive": []
+    },
+    {
+      "name": "unmount balances all active pointers once",
+      "events": [
+        { "type": "enter", "pointer": "mouse-1", "kind": "mouse", "hoverCapable": true },
+        { "type": "enter", "pointer": "stylus-2", "kind": "stylus", "hoverCapable": true },
+        { "type": "unmount" },
+        { "type": "unmount" }
+      ],
+      "expect": ["start", "end"],
+      "expectActive": []
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+name: Bug report
+description: Something renders, resolves, or behaves wrong
+title: "[bug]: "
+labels: ["type: bug", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A minimal reproduction is the single biggest accelerator;
+        an issue with one is usually fixed in the next patch.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `dsx doctor`, or the package version(s) involved
+      placeholder: "@despia/kernel 0.0.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      multiple: true
+      options:
+        - iOS (native rendering)
+        - Android (native rendering)
+        - Web (browser)
+        - Web (SSR / server rendering)
+        - Server (routes / workers)
+        - CLI / tooling
+        - Editor
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got. Paste errors verbatim.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: A minimal .dsx document, repo link, or exact steps from `npm create dsx`
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Screenshots, device/OS versions, whether it worked before

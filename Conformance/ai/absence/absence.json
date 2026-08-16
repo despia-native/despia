@@ -1,0 +1,100 @@
+{
+ "_note": "Typed absence for the intelligence surface (error-system.md; local-ai-engine.md §4.3, §4.12). THE LAW ENCODED HERE: the module NEVER fakes a result. Every way the capability can be missing has its own code and its own reason, and each answer says which one it is: the engine is not in this build; the child module that serves a modality is excluded (a cascade tells you which parent took it); no model is installed; the named model is unknown; the build cannot serve the entry's format; the target reaches the surface but does not run inference. The reach-vs-run law (§4.12) is the point of the last one: EVERY target may call `dsx.module.intelligence.*` and gets service or a typed absence with a reason, never silence and never a lie. Absence is also never a crash — constitution Article 7.",
+ "cases": [
+  {
+   "name": "absence: no engine in this build answers not_available with a reason",
+   "_note": "The app dropped the module weight. The call still resolves — typed — so a surface can offer the download or hide the feature honestly.",
+   "engine": { "present": false },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "completion", "code": "not_available", "reason": "engine_absent" } ],
+    "events": []
+   }
+  },
+  {
+   "name": "absence: an excluded provider child answers with its cascade reason",
+   "_note": "The voice child is excluded from this build, so `synthesize` on `intelligence.voice` is absent — and the answer names the chain and the exclusion reason, which is exactly what `despia.excluded` publishes on the page side. A UI can say 'this app was built without voice', not 'something went wrong'.",
+   "excludedOverlay": { "intelligence.voice": { "reason": "excluded" } },
+   "steps": [
+    { "call": { "scheme": "intelligence.voice", "action": "synthesize", "args": { "text": "hello" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "synthesize", "code": "not_available", "reason": "excluded", "chain": "intelligence.voice" } ]
+   }
+  },
+  {
+   "name": "absence: a cascade-excluded child reports the parent that took it",
+   "excludedOverlay": { "intelligence": { "reason": "excluded" }, "intelligence.see": { "reason": "cascade", "from": "intelligence" } },
+   "steps": [
+    { "call": { "scheme": "intelligence.see", "action": "describe", "args": { "url": "file:///a.png" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "describe", "code": "not_available", "reason": "cascade", "from": "intelligence" } ]
+   }
+  },
+  {
+   "name": "absence: no model installed is its own answer, not an engine failure",
+   "_note": "The engine is present and healthy; the device simply has nothing downloaded. `no_model_available` is the code a first-run UI keys its download prompt off.",
+   "catalog": { "installed": [], "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf" } ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "messages": [], "task": "chat" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "completion", "code": "no_model_available", "reason": "none_installed" } ]
+   }
+  },
+  {
+   "name": "absence: an unknown model id is refused typed and names the id",
+   "catalog": { "installed": [ "m1" ] },
+   "mock": { "models": { "m1": { "script": [ { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "does-not-exist", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "completion", "code": "unknown_model", "data": { "model": "does-not-exist" } } ],
+    "engineRequestCount": 0
+   }
+  },
+  {
+   "name": "absence: an entry whose engine this build lacks is unsupported, not broken",
+   "_note": "The catalog is a fleet-wide document and a given build carries a given set of backends. An entry naming a backend this build does not carry answers `unsupported` — the registry-not-enum law (§4.2) seen from the caller's side.",
+   "engine": { "capabilities": { "engines": [ "gguf", "mock" ], "formats": [ "gguf" ] } },
+   "catalog": { "installed": [ "onnx-model" ], "entries": [ { "id": "onnx-model", "engine": "onnx-genai", "format": "onnx" } ] },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "onnx-model", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "completion", "code": "unsupported", "reason": "engine_not_carried", "data": { "engine": "onnx-genai" } } ]
+   }
+  },
+  {
+   "name": "absence: a reach-only target is served the reason, never silence",
+   "_note": "The reach-vs-run law (§4.12). The watch declares no inference; the call still lands on the bus and comes back typed with `run_not_declared` plus the target — which is what lets a watch app show 'open this on your phone' instead of a spinner that never resolves.",
+   "device": { "target": "watchos", "runs_inference": false },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "m1", "messages": [] }, "mode": "await", "as": "a" } },
+    { "call": { "scheme": "intelligence", "action": "models", "args": { }, "mode": "await", "as": "m" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "completion", "code": "not_available", "reason": "run_not_declared", "data": { "target": "watchos" } } ],
+    "results": { "m": { "rows": [] } }
+   }
+  },
+  {
+   "name": "absence: an unserved locale answers fit-shaped, so the UI can offer the download",
+   "_note": "A voice request for a language no installed voice serves is not a failure of TTS — it is a missing asset, and the answer carries the language plus the catalog ids that WOULD serve it (§4.9).",
+   "catalog": { "installed": [ "voice-en" ], "entries": [
+    { "id": "voice-en", "engine": "tts", "languages": [ "en" ] },
+    { "id": "voice-ar", "engine": "tts", "languages": [ "ar" ] }
+   ] },
+   "steps": [
+    { "call": { "scheme": "intelligence.voice", "action": "synthesize", "args": { "text": "مرحبا", "language": "ar" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "synthesize", "code": "no_voice_for_language", "data": { "language": "ar", "available": [ "voice-ar" ] } } ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,59 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "calendar",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(yyyy-MM-dd string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift:70,140"
+    },
+    "min": {
+      "type": "iso-date",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift:73"
+    },
+    "max": {
+      "type": "iso-date",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift:74"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift:72"
+    },
+    "marks": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift:188"
+    },
+    "markDateField": {
+      "type": "string",
+      "default": "date",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift:189"
+    },
+    "markColorField": {
+      "type": "string",
+      "default": "color",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift:190"
+    },
+    "on:month": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift header:17 (payload { month: \"yyyy-MM\" })"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift:72"
+    }
+  },
+  "notes": "Wire format fixed at en_US_POSIX yyyy-MM-dd (Calendar.swift:40-44) — Android-identical by design; display localization from the system calendar."
+}

@@ -1,0 +1,1828 @@
+{
+ "_note": "The G3 skeletal corpus (dsx-game.md \u00a72 G3): GLB skins/animations/JOINTS_0/WEIGHTS_0 extraction, the joint-matrix law jointMatrix[i] = inverse(meshNodeWorld) \u00b7 globalJointTransform[i] \u00b7 inverseBindMatrix[i], vertex skinning skinnedPos = \u03a3 w[i] \u00b7 jointMatrix[i] \u00b7 pos (weights renormalized when their sum differs from 1 beyond weightEpsilon; a sum at or below weightEpsilon passes the vertex through untransformed), clip sampling (keyframe interval search; LINEAR lerp for translation/scale, shortest-path slerp for rotation \u2014 dot-sign flip, nlerp past slerpNlerpThreshold; STEP holds the left key; time wraps modulo duration when loop, clamps to [0, duration] when not), and the crossfade law (progress = clamp(elapsedMs/blendMs, 0, 1); blendMs \u2264 0 = hard cut = progress 1; per-node t/s componentwise lerp + rotation slerp; the mixer fold: the initial clip applies WITHOUT a fade, a switch starts one crossfade from the out-clip's continuing clock, a mid-fade switch drops the older fade, an unknown clip name diagnoses and keeps the current clip, the empty name is the bind pose). Every number from an independent scratch implementation. Laws + constants: the corpus README 'The G3 laws'.",
+ "constants": {
+  "slerpNlerpThreshold": 0.9995,
+  "weightEpsilon": 1e-06,
+  "defaultBlendMs": 0,
+  "defaultLoop": true
+ },
+ "fixtures": {
+  "skinned": "Z2xURgIAAAAUCgAAFAgAAEpTT057ImFzc2V0Ijp7InZlcnNpb24iOiIyLjAifSwic2NlbmUiOjAsInNjZW5lcyI6W3sibm9kZXMiOlswLDFdfV0sIm5vZGVzIjpbeyJtZXNoIjowLCJza2luIjowfSx7ImNoaWxkcmVuIjpbMl19LHsiY2hpbGRyZW4iOlszXSwidHJhbnNsYXRpb24iOlswLDEsMF19LHsidHJhbnNsYXRpb24iOlswLDEsMF19XSwic2tpbnMiOlt7ImpvaW50cyI6WzEsMiwzXSwiaW52ZXJzZUJpbmRNYXRyaWNlcyI6NH1dLCJtZXNoZXMiOlt7InByaW1pdGl2ZXMiOlt7ImF0dHJpYnV0ZXMiOnsiUE9TSVRJT04iOjAsIkpPSU5UU18wIjoxLCJXRUlHSFRTXzAiOjJ9LCJpbmRpY2VzIjozLCJtYXRlcmlhbCI6MH1dfV0sIm1hdGVyaWFscyI6W3sicGJyTWV0YWxsaWNSb3VnaG5lc3MiOnsiYmFzZUNvbG9yRmFjdG9yIjpbMC44LDAuMiwwLjEsMV19fV0sImFuaW1hdGlvbnMiOlt7Im5hbWUiOiJ3YXZlIiwiY2hhbm5lbHMiOlt7InNhbXBsZXIiOjAsInRhcmdldCI6eyJub2RlIjoyLCJwYXRoIjoicm90YXRpb24ifX0seyJzYW1wbGVyIjoxLCJ0YXJnZXQiOnsibm9kZSI6MSwicGF0aCI6InRyYW5zbGF0aW9uIn19XSwic2FtcGxlcnMiOlt7ImlucHV0Ijo1LCJvdXRwdXQiOjYsImludGVycG9sYXRpb24iOiJMSU5FQVIifSx7ImlucHV0Ijo3LCJvdXRwdXQiOjgsImludGVycG9sYXRpb24iOiJMSU5FQVIifV19LHsibmFtZSI6InNwaW4iLCJjaGFubmVscyI6W3sic2FtcGxlciI6MCwidGFyZ2V0Ijp7Im5vZGUiOjEsInBhdGgiOiJyb3RhdGlvbiJ9fV0sInNhbXBsZXJzIjpbeyJpbnB1dCI6OSwib3V0cHV0IjoxMCwiaW50ZXJwb2xhdGlvbiI6IlNURVAifV19XSwiYnVmZmVyVmlld3MiOlt7ImJ1ZmZlciI6MCwiYnl0ZU9mZnNldCI6MCwiYnl0ZUxlbmd0aCI6NDh9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0Ijo0OCwiYnl0ZUxlbmd0aCI6MTZ9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0Ijo2NCwiYnl0ZUxlbmd0aCI6NjR9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0IjoxMjgsImJ5dGVMZW5ndGgiOjEyfSx7ImJ1ZmZlciI6MCwiYnl0ZU9mZnNldCI6MTQwLCJieXRlTGVuZ3RoIjoxOTJ9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0IjozMzIsImJ5dGVMZW5ndGgiOjEyfSx7ImJ1ZmZlciI6MCwiYnl0ZU9mZnNldCI6MzQ0LCJieXRlTGVuZ3RoIjo0OH0seyJidWZmZXIiOjAsImJ5dGVPZmZzZXQiOjM5MiwiYnl0ZUxlbmd0aCI6OH0seyJidWZmZXIiOjAsImJ5dGVPZmZzZXQiOjQwMCwiYnl0ZUxlbmd0aCI6MjR9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0Ijo0MjQsImJ5dGVMZW5ndGgiOjEyfSx7ImJ1ZmZlciI6MCwiYnl0ZU9mZnNldCI6NDM2LCJieXRlTGVuZ3RoIjo0OH1dLCJhY2Nlc3NvcnMiOlt7ImJ1ZmZlclZpZXciOjAsImNvbXBvbmVudFR5cGUiOjUxMjYsImNvdW50Ijo0LCJ0eXBlIjoiVkVDMyJ9LHsiYnVmZmVyVmlldyI6MSwiY29tcG9uZW50VHlwZSI6NTEyMSwiY291bnQiOjQsInR5cGUiOiJWRUM0In0seyJidWZmZXJWaWV3IjoyLCJjb21wb25lbnRUeXBlIjo1MTI2LCJjb3VudCI6NCwidHlwZSI6IlZFQzQifSx7ImJ1ZmZlclZpZXciOjMsImNvbXBvbmVudFR5cGUiOjUxMjMsImNvdW50Ijo2LCJ0eXBlIjoiU0NBTEFSIn0seyJidWZmZXJWaWV3Ijo0LCJjb21wb25lbnRUeXBlIjo1MTI2LCJjb3VudCI6MywidHlwZSI6Ik1BVDQifSx7ImJ1ZmZlclZpZXciOjUsImNvbXBvbmVudFR5cGUiOjUxMjYsImNvdW50IjozLCJ0eXBlIjoiU0NBTEFSIn0seyJidWZmZXJWaWV3Ijo2LCJjb21wb25lbnRUeXBlIjo1MTI2LCJjb3VudCI6MywidHlwZSI6IlZFQzQifSx7ImJ1ZmZlclZpZXciOjcsImNvbXBvbmVudFR5cGUiOjUxMjYsImNvdW50IjoyLCJ0eXBlIjoiU0NBTEFSIn0seyJidWZmZXJWaWV3Ijo4LCJjb21wb25lbnRUeXBlIjo1MTI2LCJjb3VudCI6MiwidHlwZSI6IlZFQzMifSx7ImJ1ZmZlclZpZXciOjksImNvbXBvbmVudFR5cGUiOjUxMjYsImNvdW50IjozLCJ0eXBlIjoiU0NBTEFSIn0seyJidWZmZXJWaWV3IjoxMCwiY29tcG9uZW50VHlwZSI6NTEyNiwiY291bnQiOjMsInR5cGUiOiJWRUM0In1dLCJidWZmZXJzIjpbeyJieXRlTGVuZ3RoIjo0ODR9XX0g5AEAAEJJTgAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAQAAAAAAAAAAAAAEAAAEAAAACAAAAAACAPwAAAAAAAAAAAAAAAAAAAD8AAAA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPgAAAAAAAAAAAAAAAAAAAQACAAEAAwACAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAMAAAAAAAACAPwAAAAAAAAA/AACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAPMENT/zBDU/AAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAPwAAAAAAAAAAAAAAAM3MzD7NzEw/AAAAAAAAAAAAAAAAAACAPwAAAADzBDU/AAAAAPMENT8AAAAAAACAPwAAAAAAAAAA",
+  "skinnedWide": "Z2xURgIAAADsBwAAxAYAAEpTT057ImFzc2V0Ijp7InZlcnNpb24iOiIyLjAifSwic2NlbmUiOjAsInNjZW5lcyI6W3sibm9kZXMiOlswLDFdfV0sIm5vZGVzIjpbeyJtZXNoIjowLCJza2luIjowfSx7ImNoaWxkcmVuIjpbMl19LHsidHJhbnNsYXRpb24iOlsxLDAsMF19XSwic2tpbnMiOlt7ImpvaW50cyI6WzEsMl19XSwibWVzaGVzIjpbeyJwcmltaXRpdmVzIjpbeyJhdHRyaWJ1dGVzIjp7IlBPU0lUSU9OIjowLCJKT0lOVFNfMCI6MSwiV0VJR0hUU18wIjoyfX0seyJhdHRyaWJ1dGVzIjp7IlBPU0lUSU9OIjozLCJKT0lOVFNfMCI6NCwiV0VJR0hUU18wIjo1fX1dfV0sImFuaW1hdGlvbnMiOlt7ImNoYW5uZWxzIjpbeyJzYW1wbGVyIjowLCJ0YXJnZXQiOnsibm9kZSI6MiwicGF0aCI6InRyYW5zbGF0aW9uIn19LHsic2FtcGxlciI6MSwidGFyZ2V0Ijp7Im5vZGUiOjEsInBhdGgiOiJ0cmFuc2xhdGlvbiJ9fV0sInNhbXBsZXJzIjpbeyJpbnB1dCI6Niwib3V0cHV0Ijo3LCJpbnRlcnBvbGF0aW9uIjoiTElORUFSIn0seyJpbnB1dCI6OCwib3V0cHV0Ijo5LCJpbnRlcnBvbGF0aW9uIjoiQ1VCSUNTUExJTkUifV19XSwiYnVmZmVyVmlld3MiOlt7ImJ1ZmZlciI6MCwiYnl0ZU9mZnNldCI6MCwiYnl0ZUxlbmd0aCI6MzZ9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0IjozNiwiYnl0ZUxlbmd0aCI6MjR9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0Ijo2MCwiYnl0ZUxlbmd0aCI6MTJ9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0Ijo3MiwiYnl0ZUxlbmd0aCI6MzZ9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0IjoxMDgsImJ5dGVMZW5ndGgiOjI0fSx7ImJ1ZmZlciI6MCwiYnl0ZU9mZnNldCI6MTMyLCJieXRlTGVuZ3RoIjoyNH0seyJidWZmZXIiOjAsImJ5dGVPZmZzZXQiOjE1NiwiYnl0ZUxlbmd0aCI6OH0seyJidWZmZXIiOjAsImJ5dGVPZmZzZXQiOjE2NCwiYnl0ZUxlbmd0aCI6MjR9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0IjoxODgsImJ5dGVMZW5ndGgiOjh9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0IjoxOTYsImJ5dGVMZW5ndGgiOjcyfV0sImFjY2Vzc29ycyI6W3siYnVmZmVyVmlldyI6MCwiY29tcG9uZW50VHlwZSI6NTEyNiwiY291bnQiOjMsInR5cGUiOiJWRUMzIn0seyJidWZmZXJWaWV3IjoxLCJjb21wb25lbnRUeXBlIjo1MTIzLCJjb3VudCI6MywidHlwZSI6IlZFQzQifSx7ImJ1ZmZlclZpZXciOjIsImNvbXBvbmVudFR5cGUiOjUxMjEsImNvdW50IjozLCJ0eXBlIjoiVkVDNCIsIm5vcm1hbGl6ZWQiOnRydWV9LHsiYnVmZmVyVmlldyI6MywiY29tcG9uZW50VHlwZSI6NTEyNiwiY291bnQiOjMsInR5cGUiOiJWRUMzIn0seyJidWZmZXJWaWV3Ijo0LCJjb21wb25lbnRUeXBlIjo1MTIzLCJjb3VudCI6MywidHlwZSI6IlZFQzQifSx7ImJ1ZmZlclZpZXciOjUsImNvbXBvbmVudFR5cGUiOjUxMjMsImNvdW50IjozLCJ0eXBlIjoiVkVDNCIsIm5vcm1hbGl6ZWQiOnRydWV9LHsiYnVmZmVyVmlldyI6NiwiY29tcG9uZW50VHlwZSI6NTEyNiwiY291bnQiOjIsInR5cGUiOiJTQ0FMQVIifSx7ImJ1ZmZlclZpZXciOjcsImNvbXBvbmVudFR5cGUiOjUxMjYsImNvdW50IjoyLCJ0eXBlIjoiVkVDMyJ9LHsiYnVmZmVyVmlldyI6OCwiY29tcG9uZW50VHlwZSI6NTEyNiwiY291bnQiOjIsInR5cGUiOiJTQ0FMQVIifSx7ImJ1ZmZlclZpZXciOjksImNvbXBvbmVudFR5cGUiOjUxMjYsImNvdW50Ijo2LCJ0eXBlIjoiVkVDMyJ9XSwiYnVmZmVycyI6W3siYnl0ZUxlbmd0aCI6MjY4fV19DAEAAEJJTgAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAEAAAAAAAAAAQAAAAAAAAABAAAAAACAfwAAgH8AAIB/AAAAAAAAAAAAAAAAgD8AAIA/AAAAAAAAgD8AAAAAAACAPwAAgD8BAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAAAwABAAAAAAADAAEAAAAAAAMAAQAAAAAAAAAAAmpkZPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+ },
+ "cases": [
+  {
+   "name": "skinned-container",
+   "kind": "parse",
+   "fixture": "skinned",
+   "expect": {
+    "nodeCount": 4,
+    "meshCount": 1,
+    "drawCount": 1,
+    "draws": [
+     {
+      "index": 0,
+      "mesh": 0,
+      "node": 0,
+      "skin": 0
+     }
+    ],
+    "skins": [
+     {
+      "joints": [
+       1,
+       2,
+       3
+      ],
+      "ibms": [
+       [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ],
+       [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        1.0
+       ],
+       [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -2.0,
+        0.0,
+        1.0
+       ]
+      ]
+     }
+    ],
+    "primitives": [
+     {
+      "mesh": 0,
+      "primitive": 0,
+      "joints": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       1,
+       0,
+       0,
+       1,
+       0,
+       0,
+       0,
+       2,
+       0,
+       0,
+       0
+      ],
+      "weights": [
+       1,
+       0,
+       0,
+       0,
+       0.5,
+       0.5,
+       0,
+       0,
+       1,
+       0,
+       0,
+       0,
+       0.25,
+       0,
+       0,
+       0
+      ]
+     }
+    ],
+    "clips": [
+     {
+      "name": "wave",
+      "duration": 1.0,
+      "channels": [
+       {
+        "node": 2,
+        "path": "rotation",
+        "interpolation": "LINEAR",
+        "keys": 3
+       },
+       {
+        "node": 1,
+        "path": "translation",
+        "interpolation": "LINEAR",
+        "keys": 2
+       }
+      ]
+     },
+     {
+      "name": "spin",
+      "duration": 0.8,
+      "channels": [
+       {
+        "node": 1,
+        "path": "rotation",
+        "interpolation": "STEP",
+        "keys": 3
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "wide-formats",
+   "kind": "parse",
+   "fixture": "skinnedWide",
+   "expect": {
+    "nodeCount": 3,
+    "meshCount": 1,
+    "drawCount": 1,
+    "draws": [
+     {
+      "index": 0,
+      "mesh": 0,
+      "node": 0,
+      "skin": 0
+     }
+    ],
+    "skins": [
+     {
+      "joints": [
+       1,
+       2
+      ],
+      "ibms": [
+       [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+       ],
+       [
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        1.0
+       ]
+      ]
+     }
+    ],
+    "primitives": [
+     {
+      "mesh": 0,
+      "primitive": 0,
+      "joints": [
+       0,
+       1,
+       0,
+       0,
+       0,
+       1,
+       0,
+       0,
+       0,
+       1,
+       0,
+       0
+      ],
+      "weights": [
+       0.501961,
+       0.498039,
+       0.0,
+       0.0,
+       0.501961,
+       0.498039,
+       0.0,
+       0.0,
+       0.501961,
+       0.498039,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "mesh": 0,
+      "primitive": 1,
+      "joints": [
+       1,
+       0,
+       0,
+       0,
+       1,
+       0,
+       0,
+       0,
+       1,
+       0,
+       0,
+       0
+      ],
+      "weights": [
+       0.750011,
+       0.250004,
+       0.0,
+       0.0,
+       0.750011,
+       0.250004,
+       0.0,
+       0.0,
+       0.750011,
+       0.250004,
+       0.0,
+       0.0
+      ]
+     }
+    ],
+    "clips": [
+     {
+      "name": "0",
+      "duration": 0.6,
+      "channels": [
+       {
+        "node": 2,
+        "path": "translation",
+        "interpolation": "LINEAR",
+        "keys": 2
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "elbow-bend",
+   "kind": "jointMatrices",
+   "nodes": [
+    {
+     "mesh": 0,
+     "skin": 0
+    },
+    {
+     "children": [
+      2
+     ]
+    },
+    {
+     "children": [
+      3
+     ],
+     "translation": [
+      0,
+      1,
+      0
+     ]
+    },
+    {
+     "translation": [
+      0,
+      1,
+      0
+     ]
+    }
+   ],
+   "skin": {
+    "joints": [
+     1,
+     2,
+     3
+    ],
+    "ibms": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      -1.0,
+      0.0,
+      1.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      -2.0,
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "meshNode": 0,
+   "pose": {
+    "2": {
+     "r": [
+      0.0,
+      0.0,
+      0.707107,
+      0.707107
+     ]
+    }
+   },
+   "expect": {
+    "worlds": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      -1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      1.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      -1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      -1.0,
+      1.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "jointMatrices": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      -1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      1.0,
+      1.0,
+      0.0,
+      1.0
+     ],
+     [
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      -1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      1.0,
+      1.0,
+      0.0,
+      1.0
+     ]
+    ]
+   }
+  },
+  {
+   "name": "scaled-parent-bind",
+   "kind": "jointMatrices",
+   "nodes": [
+    {
+     "mesh": 0,
+     "skin": 0,
+     "translation": [
+      2,
+      0,
+      0
+     ]
+    },
+    {
+     "scale": [
+      2,
+      2,
+      2
+     ],
+     "children": [
+      2
+     ]
+    },
+    {
+     "translation": [
+      0,
+      1,
+      0
+     ]
+    }
+   ],
+   "skin": {
+    "joints": [
+     1,
+     2
+    ],
+    "ibms": [
+     [
+      0.5,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.5,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.5,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     [
+      0.5,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.5,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.5,
+      0.0,
+      0.0,
+      -1.0,
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "meshNode": 0,
+   "expect": {
+    "worlds": [
+     [
+      2.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      2.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      2.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     [
+      2.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      2.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      2.0,
+      0.0,
+      0.0,
+      2.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "jointMatrices": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      -2.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      -2.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   }
+  },
+  {
+   "name": "influences",
+   "kind": "skinVertex",
+   "matrices": [
+    [
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     -1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     1.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     -1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "vertices": [
+    {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "joints": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "weights": [
+      1,
+      0,
+      0,
+      0
+     ],
+     "expect": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "position": [
+      1,
+      0,
+      0
+     ],
+     "joints": [
+      0,
+      1,
+      0,
+      0
+     ],
+     "weights": [
+      0.5,
+      0.5,
+      0,
+      0
+     ],
+     "expect": [
+      1.0,
+      1.0,
+      0.0
+     ]
+    },
+    {
+     "position": [
+      0,
+      1,
+      0
+     ],
+     "joints": [
+      1,
+      0,
+      0,
+      0
+     ],
+     "weights": [
+      1,
+      0,
+      0,
+      0
+     ],
+     "expect": [
+      0.0,
+      1.0,
+      0.0
+     ]
+    },
+    {
+     "position": [
+      0,
+      2,
+      0
+     ],
+     "joints": [
+      2,
+      0,
+      0,
+      0
+     ],
+     "weights": [
+      0.25,
+      0,
+      0,
+      0
+     ],
+     "expect": [
+      -1.0,
+      1.0,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "renormalize",
+   "kind": "skinVertex",
+   "matrices": [
+    [
+     1.0,
+     0,
+     0,
+     0,
+     0,
+     1.0,
+     0,
+     0,
+     0,
+     0,
+     1.0,
+     0,
+     1.0,
+     0,
+     0,
+     1.0
+    ],
+    [
+     1.0,
+     0,
+     0,
+     0,
+     0,
+     1.0,
+     0,
+     0,
+     0,
+     0,
+     1.0,
+     0,
+     0,
+     2.0,
+     0,
+     1.0
+    ]
+   ],
+   "vertices": [
+    {
+     "position": [
+      1,
+      1,
+      1
+     ],
+     "joints": [
+      0,
+      1,
+      0,
+      0
+     ],
+     "weights": [
+      0.25,
+      0.25,
+      0,
+      0
+     ],
+     "expect": [
+      1.5,
+      2.0,
+      1.0
+     ]
+    },
+    {
+     "position": [
+      3,
+      0,
+      0
+     ],
+     "joints": [
+      0,
+      1,
+      0,
+      0
+     ],
+     "weights": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "expect": [
+      3.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "position": [
+      0,
+      0,
+      5
+     ],
+     "joints": [
+      1,
+      0,
+      0,
+      0
+     ],
+     "weights": [
+      2,
+      0,
+      0,
+      0
+     ],
+     "expect": [
+      0.0,
+      2.0,
+      5.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "translation-linear",
+   "kind": "sample",
+   "channel": {
+    "path": "translation",
+    "interpolation": "LINEAR",
+    "times": [
+     0,
+     1,
+     3
+    ],
+    "values": [
+     0,
+     0,
+     0,
+     2,
+     0,
+     0,
+     2,
+     6,
+     0
+    ]
+   },
+   "duration": 3.0,
+   "samples": [
+    {
+     "time": 0.0,
+     "loop": false,
+     "expect": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "time": 0.5,
+     "loop": false,
+     "expect": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "time": 2.0,
+     "loop": false,
+     "expect": [
+      2.0,
+      3.0,
+      0.0
+     ]
+    },
+    {
+     "time": 5.0,
+     "loop": false,
+     "expect": [
+      2.0,
+      6.0,
+      0.0
+     ]
+    },
+    {
+     "time": 4.5,
+     "loop": true,
+     "expect": [
+      2.0,
+      1.5,
+      0.0
+     ]
+    },
+    {
+     "time": -0.5,
+     "loop": false,
+     "expect": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rotation-slerp",
+   "kind": "sample",
+   "channel": {
+    "path": "rotation",
+    "interpolation": "LINEAR",
+    "times": [
+     0,
+     1
+    ],
+    "values": [
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0.707107,
+     0.707107
+    ]
+   },
+   "duration": 1.0,
+   "samples": [
+    {
+     "time": 0.25,
+     "loop": false,
+     "expect": [
+      0.0,
+      0.0,
+      0.19509,
+      0.980785
+     ]
+    },
+    {
+     "time": 0.5,
+     "loop": false,
+     "expect": [
+      0.0,
+      0.0,
+      0.382683,
+      0.92388
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rotation-slerp-flip",
+   "kind": "sample",
+   "channel": {
+    "path": "rotation",
+    "interpolation": "LINEAR",
+    "times": [
+     0,
+     1
+    ],
+    "values": [
+     0,
+     0,
+     0,
+     1,
+     0.0,
+     0.0,
+     -0.173648,
+     -0.984808
+    ]
+   },
+   "duration": 1.0,
+   "samples": [
+    {
+     "time": 0.5,
+     "loop": false,
+     "expect": [
+      0.0,
+      0.0,
+      0.087156,
+      0.996195
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rotation-step",
+   "kind": "sample",
+   "channel": {
+    "path": "rotation",
+    "interpolation": "STEP",
+    "times": [
+     0,
+     0.4,
+     0.8
+    ],
+    "values": [
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.707107,
+     0.0,
+     0.707107,
+     0.0,
+     1.0,
+     0.0,
+     0.0
+    ]
+   },
+   "duration": 0.8,
+   "samples": [
+    {
+     "time": 0.2,
+     "loop": false,
+     "expect": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "time": 0.4,
+     "loop": false,
+     "expect": [
+      0.0,
+      0.707107,
+      0.0,
+      0.707107
+     ]
+    },
+    {
+     "time": 0.7,
+     "loop": false,
+     "expect": [
+      0.0,
+      0.707107,
+      0.0,
+      0.707107
+     ]
+    },
+    {
+     "time": 0.8,
+     "loop": false,
+     "expect": [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "scale-linear",
+   "kind": "sample",
+   "channel": {
+    "path": "scale",
+    "interpolation": "LINEAR",
+    "times": [
+     0,
+     2
+    ],
+    "values": [
+     1,
+     1,
+     1,
+     3,
+     1,
+     5
+    ]
+   },
+   "duration": 2.0,
+   "samples": [
+    {
+     "time": 0.5,
+     "loop": true,
+     "expect": [
+      1.5,
+      1.0,
+      2.0
+     ]
+    },
+    {
+     "time": 3.5,
+     "loop": true,
+     "expect": [
+      2.5,
+      1.0,
+      4.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "nlerp-close",
+   "kind": "sample",
+   "channel": {
+    "path": "rotation",
+    "interpolation": "LINEAR",
+    "times": [
+     0,
+     1
+    ],
+    "values": [
+     0,
+     0,
+     0,
+     1,
+     0.0,
+     0.0,
+     0.017452,
+     0.999848
+    ]
+   },
+   "duration": 1.0,
+   "samples": [
+    {
+     "time": 0.5,
+     "loop": false,
+     "expect": [
+      0.0,
+      0.0,
+      0.008727,
+      0.999962
+     ]
+    }
+   ]
+  },
+  {
+   "name": "trs-blend",
+   "kind": "crossfade",
+   "from": {
+    "t": [
+     0,
+     0,
+     0
+    ],
+    "r": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "s": [
+     1,
+     1,
+     1
+    ]
+   },
+   "to": {
+    "t": [
+     2,
+     0,
+     4
+    ],
+    "r": [
+     0,
+     0,
+     0.707107,
+     0.707107
+    ],
+    "s": [
+     3,
+     1,
+     1
+    ]
+   },
+   "samples": [
+    {
+     "progress": 0.0,
+     "t": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "r": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "s": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "progress": 0.25,
+     "t": [
+      0.5,
+      0.0,
+      1.0
+     ],
+     "r": [
+      0.0,
+      0.0,
+      0.19509,
+      0.980785
+     ],
+     "s": [
+      1.5,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "progress": 0.5,
+     "t": [
+      1.0,
+      0.0,
+      2.0
+     ],
+     "r": [
+      0.0,
+      0.0,
+      0.382683,
+      0.92388
+     ],
+     "s": [
+      2.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "progress": 1.0,
+     "t": [
+      2.0,
+      0.0,
+      4.0
+     ],
+     "r": [
+      0.0,
+      0.0,
+      0.707107,
+      0.707107
+     ],
+     "s": [
+      3.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "ramp-progress",
+   "kind": "progress",
+   "samples": [
+    {
+     "elapsedMs": 0,
+     "blendMs": 200,
+     "progress": 0.0
+    },
+    {
+     "elapsedMs": 50,
+     "blendMs": 200,
+     "progress": 0.25
+    },
+    {
+     "elapsedMs": 300,
+     "blendMs": 200,
+     "progress": 1.0
+    },
+    {
+     "elapsedMs": 0,
+     "blendMs": 0,
+     "progress": 1.0
+    },
+    {
+     "elapsedMs": 5,
+     "blendMs": -3,
+     "progress": 1.0
+    }
+   ]
+  },
+  {
+   "name": "crossfade-switch",
+   "kind": "mixer",
+   "model": {
+    "nodes": [
+     {
+      "translation": [
+       0,
+       0,
+       0
+      ]
+     }
+    ],
+    "clips": [
+     {
+      "name": "a",
+      "duration": 2.0,
+      "channels": [
+       {
+        "node": 0,
+        "path": "translation",
+        "interpolation": "LINEAR",
+        "times": [
+         0,
+         2
+        ],
+        "values": [
+         1,
+         0,
+         0,
+         2,
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     {
+      "name": "b",
+      "duration": 2.0,
+      "channels": [
+       {
+        "node": 0,
+        "path": "translation",
+        "interpolation": "LINEAR",
+        "times": [
+         0,
+         2
+        ],
+        "values": [
+         0,
+         0,
+         0,
+         0,
+         4,
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "loop": true,
+   "blendMs": 200,
+   "events": [
+    {
+     "ms": 0,
+     "set": "a"
+    },
+    {
+     "ms": 1000,
+     "set": "b"
+    }
+   ],
+   "samples": [
+    {
+     "ms": 0,
+     "node": 0,
+     "t": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "ms": 500,
+     "node": 0,
+     "t": [
+      1.25,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "ms": 1000,
+     "node": 0,
+     "t": [
+      1.5,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "ms": 1050,
+     "node": 0,
+     "t": [
+      1.14375,
+      0.025,
+      0.0
+     ]
+    },
+    {
+     "ms": 1100,
+     "node": 0,
+     "t": [
+      0.775,
+      0.1,
+      0.0
+     ]
+    },
+    {
+     "ms": 1200,
+     "node": 0,
+     "t": [
+      0.0,
+      0.4,
+      0.0
+     ]
+    },
+    {
+     "ms": 1500,
+     "node": 0,
+     "t": [
+      0.0,
+      1.0,
+      0.0
+     ]
+    }
+   ],
+   "diagnostics": 0
+  },
+  {
+   "name": "hard-cut-and-unknown",
+   "kind": "mixer",
+   "model": {
+    "nodes": [
+     {
+      "translation": [
+       0,
+       0,
+       0
+      ]
+     }
+    ],
+    "clips": [
+     {
+      "name": "a",
+      "duration": 2.0,
+      "channels": [
+       {
+        "node": 0,
+        "path": "translation",
+        "interpolation": "LINEAR",
+        "times": [
+         0,
+         2
+        ],
+        "values": [
+         1,
+         0,
+         0,
+         2,
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     {
+      "name": "b",
+      "duration": 2.0,
+      "channels": [
+       {
+        "node": 0,
+        "path": "translation",
+        "interpolation": "LINEAR",
+        "times": [
+         0,
+         2
+        ],
+        "values": [
+         0,
+         0,
+         0,
+         0,
+         4,
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "loop": false,
+   "blendMs": 0,
+   "events": [
+    {
+     "ms": 0,
+     "set": "a"
+    },
+    {
+     "ms": 300,
+     "set": "nope"
+    },
+    {
+     "ms": 500,
+     "set": "b"
+    }
+   ],
+   "samples": [
+    {
+     "ms": 100,
+     "node": 0,
+     "t": [
+      1.05,
+      0.0,
+      0.0
+     ],
+     "active": true
+    },
+    {
+     "ms": 400,
+     "node": 0,
+     "t": [
+      1.2,
+      0.0,
+      0.0
+     ],
+     "active": true
+    },
+    {
+     "ms": 500,
+     "node": 0,
+     "t": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "active": true
+    },
+    {
+     "ms": 2400,
+     "node": 0,
+     "t": [
+      0.0,
+      3.8,
+      0.0
+     ],
+     "active": true
+    },
+    {
+     "ms": 2600,
+     "node": 0,
+     "t": [
+      0.0,
+      4.0,
+      0.0
+     ],
+     "active": false
+    }
+   ],
+   "diagnostics": 1
+  },
+  {
+   "name": "fade-to-bind",
+   "kind": "mixer",
+   "model": {
+    "nodes": [
+     {
+      "translation": [
+       0,
+       0,
+       0
+      ]
+     }
+    ],
+    "clips": [
+     {
+      "name": "a",
+      "duration": 2.0,
+      "channels": [
+       {
+        "node": 0,
+        "path": "translation",
+        "interpolation": "LINEAR",
+        "times": [
+         0,
+         2
+        ],
+        "values": [
+         1,
+         0,
+         0,
+         2,
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     {
+      "name": "b",
+      "duration": 2.0,
+      "channels": [
+       {
+        "node": 0,
+        "path": "translation",
+        "interpolation": "LINEAR",
+        "times": [
+         0,
+         2
+        ],
+        "values": [
+         0,
+         0,
+         0,
+         0,
+         4,
+         0
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "loop": true,
+   "blendMs": 200,
+   "events": [
+    {
+     "ms": 0,
+     "set": "a"
+    },
+    {
+     "ms": 400,
+     "set": ""
+    }
+   ],
+   "samples": [
+    {
+     "ms": 500,
+     "node": 0,
+     "t": [
+      0.625,
+      0.0,
+      0.0
+     ],
+     "active": true
+    },
+    {
+     "ms": 700,
+     "node": 0,
+     "t": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "active": false
+    }
+   ],
+   "diagnostics": 0
+  },
+  {
+   "name": "model-attrs",
+   "kind": "props",
+   "markup": "<scene><model src=\"robot.glb\" animation=\"{{ state }}\" loop=\"false\" blend=\"250ms\"/></scene>",
+   "vars": {
+    "state": "run"
+   },
+   "expect": {
+    "animation": "run",
+    "loop": false,
+    "blendMs": 250
+   },
+   "diagnostics": 0
+  },
+  {
+   "name": "model-attr-fallbacks",
+   "kind": "props",
+   "markup": "<scene><model src=\"robot.glb\" animation=\"walk\" loop=\"sometimes\" blend=\"fast\"/></scene>",
+   "expect": {
+    "animation": "walk",
+    "loop": true,
+    "blendMs": 0
+   },
+   "diagnostics": 2
+  },
+  {
+   "name": "model-attr-defaults",
+   "kind": "props",
+   "markup": "<scene><model src=\"robot.glb\"/></scene>",
+   "expect": {
+    "animation": "",
+    "loop": true,
+    "blendMs": 0
+   },
+   "diagnostics": 0
+  }
+ ]
+}

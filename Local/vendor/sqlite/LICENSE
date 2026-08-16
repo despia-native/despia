@@ -1,0 +1,26 @@
+SQLite is in the Public Domain
+==============================
+
+SQLite ships no separate licence file. The author's disclaimer and blessing are
+carried in the header of every SQLite source file, and are reproduced here
+verbatim so that the vendored tree states its own terms without anyone having to
+scroll nine million lines of amalgamation to find them:
+
+    2001-09-15
+
+    The author disclaims copyright to this source code.  In place of
+    a legal notice, here is a blessing:
+
+       May you do good and not evil.
+       May you find forgiveness for yourself and forgive others.
+       May you share freely, never taking more than you give.
+
+Vendored release: SQLite 3.53.4
+Source id:        2026-07-24 19:02:57
+                  bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc
+Upstream:         https://sqlite.org
+
+Public domain means there is no attribution obligation and no licence text to
+propagate. This file exists anyway, because a vendored dependency whose terms are
+not written down beside it is a dependency somebody will have to research under
+pressure later.

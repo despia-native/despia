@@ -1,0 +1,18 @@
+# Despia MCP
+
+Model Context Protocol in both directions, as one package: a Streamable HTTP
+client over the official MCP SDKs, and a loopback-only local server that
+publishes the app's own declared tools. iOS, Android, macOS, Windows, Linux.
+Apache-2.0. No HTTP server framework; no telemetry.
+
+## Docs
+
+- docs/client.md: declared servers, connecting, the server-namespaced tool registry
+- docs/server.md: the loopback server, served rows, approve-before-execute
+- docs/apps.md: MCP Apps - a tool with an interactive view, and why it stays a text tool
+- docs/security.md: the threat model - loopback is reachable by co-resident apps
+- docs/conformance.md: running the ai/mcp fixture corpus and the security guards
+
+The Swift product includes a strict authenticated-body JSON-RPC router for
+tools and resources; run `swift test` from this package root. The complete
+loopback listener/token/discovery transport remains on Kotlin/JVM.

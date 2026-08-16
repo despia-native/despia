@@ -1,0 +1,33 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "refreshable",
+  "aliases": [
+    "refresh"
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Refreshable/swift/Refreshable.swift",
+  "attributes": {
+    "on:refresh": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Refreshable/swift/Refreshable.swift:27"
+    },
+    "busy": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Refreshable/swift/Refreshable.swift:31,35 (spinner holds until the flag clears; no flag -> 350ms grace)"
+    }
+  },
+  "geometry": {
+    "graceMs": {
+      "value": 350,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Refreshable/swift/Refreshable.swift:32"
+    },
+    "pollMs": {
+      "value": 60,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Refreshable/swift/Refreshable.swift:36"
+    }
+  },
+  "colors": {
+  },
+  "notes": ""
+}

@@ -1,0 +1,40 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "alert",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Alert/swift/Alert.swift",
+  "attributes": {
+    "present": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Alert/swift/Alert.swift:33"
+    },
+    "title": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Alert/swift/Alert.swift:35"
+    },
+    "message": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Alert/swift/Alert.swift:36"
+    },
+    "buttons": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Alert/swift/Alert.swift:37 (empty -> a single OK; role cancel/destructive; action+args bus dispatch)"
+    },
+    "on:dismiss": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Alert/swift/Alert.swift:47-48"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

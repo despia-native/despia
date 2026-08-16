@@ -1,0 +1,5 @@
+# DesktopPackageImplementations.generated.tsv
+# Generated from enabled desktop Module subclasses; loaded only from this allowlist.
+# targets<TAB>registry-key<TAB>scheme<TAB>aliases<TAB>class<TAB>boot-eligible
+windows,linux	multiapicall	multiapicall	-	despia.modules.multiapicall.DesktopMultiApiCall	false
+windows,linux	global	global	state	despia.modules.state.DesktopStateBridge	false

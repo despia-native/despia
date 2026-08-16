@@ -1,0 +1,1775 @@
+{
+ "_note": "The <api> block conformance corpus (/web/05) — every runtime (TS kernel, Kotlin ApiBlock.kt, Swift ApiBlock.swift) runs these cases through ITS block against a seamed fetch + injected clock; no real network, no real timers, total and deterministic. THE LAW ENCODED HERE: (1) auto defaults true for GET, false otherwise; `auto` is a formula. (2) A block refetches when its MATERIALIZED REQUEST (url+method+headers+body, watchKey-compared) changes — not on raw store pokes. (3) Reserved paths <as>.data/.loading/.refreshing/.error{status,message,body}/.fetchedAt; data null until first resolve; stale data SURVIVES a failed refetch. (4) Network errors (status 0) retry per `retry`; http errors do not. (5) send(body) always fires and bypasses cache; every successful non-GET invalidates its surface's whole API LRU and never seeds a mutation response, while failed/aborted mutations leave the LRU intact; refresh() revalidates (bypasses freshness, rewrites cache). (6) cache: default no-store; max-age(d) serves the cache without a call while age<d; swr(f,s) serves cache-only while age<f, cache + background revalidate (refreshing=true) while f<=age<f+s, normal fetch past f+s; cache storage is surface/session-scoped, bounded LRU, and keyed by method+url+watchKey(headers)+watchKey(body)+expect plus the host's cookie identity partition, so authorization headers, decode modes, sessions, and independent surfaces cannot share entries; a fresh cache hit supersedes/cancels older in-flight work before it can overwrite the hit. (7) events: success fires on every resolved-ok request (source cache or network), error after retries exhaust or http failure, message per streamed chunk (a seamed {stream:[…]} response appends each chunk to <as>.data and fires message, then success). (8) dsx.const (networking.md N0): a case may declare `consts` — the app-wide constants plane (App.json `consts`), read as `dsx.const.<name>` from any url/headers/body/auto expression; present consts materialize, an ABSENT const is typed-null (interpolates empty), and it is REACTIVE — `dsx.const` lives on the same app-wide store as env/global, so a const change re-materializes the request and refetches, exactly like a surface-var change. (9) <api>-in-component (networking.md N1): a case may declare `item` — the COMPONENT SCOPE that an `<api>` mounted inside a component instance reads (the block's 3rd ctor arg); `attribute.<x>`/bare props resolve against it, so the request materializes from the owning component, not the surface root. Steps: {set:{path,value}} store write + settle · {setConst:{name,value}} mutate a const + republish (dsx.const reactivity) · {call:\"remount\"} dispose the block and mount a fresh instance over the same store (the cache probe — a page revisit) · {settle:true} drain schedulers · {call:\"refresh\"|\"cancel\"} · {send:{…}} body-override fire · {advance: seconds} move the injected clock. expectCalls asserts the seam's request URLs in order; expectEvents the ordered event names. (10) THE DEPENDENCY GRAPH (/web/11, RATIFIED): a case may declare `specs` (an ORDERED list of <api> specs sharing one scope) instead of `spec` — the runner builds the graph over them, mounts EVERY block, and only then starts the runnable ones. An edge exists when a block's url/headers/body expression names another block's `as` as its PATH ROOT, plus the explicit `needs=\"a, b\"` (invisible deps: a session side-effect, an ordering-only constraint). An auto block is GATED (never fires) while any of: an upstream has not resolved ok (reason `unresolved`), an upstream carries an error (reason `upstream-error`), a `needs=` target has not resolved (`unresolved`), or an interpolation landing in url/headers/body evaluates to null (`missing-value`). Value-presence gating covers plain variables too; the opt-out is the grammar's own `||` default. AMBIENT PLANES ARE NEVER HOLES — `dsx.const/env/global/screen/source/app/route/cookie/query/params/path` + `platform`/`os` are typed-absent by law (durability P4), so an absent const interpolates empty and does NOT gate. Exposed: `<as>.status` (`waiting|loading|refreshing|ready|error`) and `<as>.blockedBy` ([{name,reason}], [] when runnable); `<as>.loading` stays TRUE while `waiting` because from the user's seat it is loading. An upstream refetch producing identical data does NOT refire dependents (the materialized request is unchanged); changed data does. A cycle, or a `needs=` naming an unknown block, is a DECLARED error — every block in it publishes error {status:-3, message:\"cycle\"|\"unknown-needs\"} and issues no request. Manual send() ignores gating but not holes: it returns {ok:false, error:{kind:\"incomplete-input\", missing:[…]}} without firing (the runner stores the last send envelope at `sendResult`). (11) DECLARED TRANSPORT CONTROLS (networking.md N2): `stream` (declared streaming, no content-type sniffing), `timeout` (ms), `redirect` (follow|error), `encode` (json|text|form|multipart — the request encoding; multipart materializes `parts` sorted by field name), `via=\"server\"` (the proxy route: the request is rewritten to <base>/dsx/api/<as>?u=<encoded target>, never the secret-bearing target), and PROGRESS — a response envelope may carry `progress:[{direction,loaded,total}]`, each publishing `<as>.progress` and firing a `progress` event BEFORE the terminal settle. Steps/expectations added for these: `responsesByUrl` (a per-URL response queue — order-insensitive across sync and async runtimes), `target` on a `call`/`send` step (which block in a `specs` case), and `expectRequests` (per-call dotted-path subset assertions over the MATERIALIZED request).",
+ "cases": [
+  {
+   "name": "auto-get-fetches-on-mount",
+   "spec": {
+    "as": "orders",
+    "url": "/api/orders"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 1
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "orders.data.n": 1,
+    "orders.loading": false,
+    "orders.error": null
+   },
+   "expectCalls": [
+    "/api/orders"
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "non-get-never-autofires",
+   "spec": {
+    "as": "save",
+    "url": "/api/save",
+    "method": "POST"
+   },
+   "scope": {},
+   "responses": [],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "save.data": null,
+    "save.loading": false
+   },
+   "expectCalls": [],
+   "expectEvents": []
+  },
+  {
+   "name": "auto-formula-gates-the-fetch",
+   "spec": {
+    "as": "feed",
+    "url": "/api/feed",
+    "auto": "dsx.variable.ready == true"
+   },
+   "scope": {
+    "ready": false
+   },
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "ok": 1
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "set": {
+      "path": "ready",
+      "value": true
+     }
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "feed.data.ok": 1
+   },
+   "expectCalls": [
+    "/api/feed"
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "materialized-request-change-refetches",
+   "spec": {
+    "as": "feed",
+    "url": "/api/feed?user={{ user.id }}"
+   },
+   "scope": {
+    "user": {
+     "id": 7,
+     "note": "x"
+    }
+   },
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "for": 7
+     }
+    },
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "for": 9
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "set": {
+      "path": "user.note",
+      "value": "y"
+     }
+    },
+    {
+     "settle": true
+    },
+    {
+     "set": {
+      "path": "user.id",
+      "value": 9
+     }
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "feed.data.for": 9
+   },
+   "expectCalls": [
+    "/api/feed?user=7",
+    "/api/feed?user=9"
+   ],
+   "expectEvents": [
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "http-error-envelope-and-stale-data-survive",
+   "spec": {
+    "as": "thing",
+    "url": "/api/thing"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 1
+     }
+    },
+    {
+     "ok": false,
+     "status": 500,
+     "data": {
+      "reason": "boom"
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "call": "refresh"
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "thing.data.n": 1,
+    "thing.error.status": 500,
+    "thing.error.body.reason": "boom",
+    "thing.loading": false,
+    "thing.refreshing": false
+   },
+   "expectCalls": [
+    "/api/thing",
+    "/api/thing"
+   ],
+   "expectEvents": [
+    "success",
+    "error"
+   ]
+  },
+  {
+   "name": "network-errors-retry-http-errors-do-not",
+   "spec": {
+    "as": "flaky",
+    "url": "/api/flaky",
+    "retry": "2"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": false,
+     "status": 0,
+     "data": null
+    },
+    {
+     "ok": false,
+     "status": 0,
+     "data": null
+    },
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 3
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "flaky.data.n": 3,
+    "flaky.error": null
+   },
+   "expectCalls": [
+    "/api/flaky",
+    "/api/flaky",
+    "/api/flaky"
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "send-overrides-body-and-always-fires",
+   "spec": {
+    "as": "save",
+    "url": "/api/save",
+    "method": "POST",
+    "body": "dsx.variable.draft"
+   },
+   "scope": {
+    "draft": {
+     "name": "a"
+    }
+   },
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "saved": true
+     }
+    }
+   ],
+   "steps": [
+    {
+     "send": {
+      "name": "b"
+     }
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "save.data.saved": true
+   },
+   "expectCalls": [
+    "/api/save"
+   ],
+   "expectBodies": [
+    {
+     "name": "b"
+    }
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "cancel-clears-inflight-flags",
+   "spec": {
+    "as": "slow",
+    "url": "/api/slow",
+    "auto": "false"
+   },
+   "scope": {},
+   "responses": [],
+   "steps": [
+    {
+     "call": "cancel"
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "slow.loading": false,
+    "slow.refreshing": false,
+    "slow.data": null
+   },
+   "expectCalls": [],
+   "expectEvents": []
+  },
+  {
+   "name": "cache-max-age-serves-without-a-call",
+   "spec": {
+    "as": "cfg",
+    "url": "/api/cfg",
+    "cache": "max-age(60)"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "v": 1
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "advance": 30
+    },
+    {
+     "call": "remount"
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "cfg.data.v": 1
+   },
+   "expectCalls": [
+    "/api/cfg"
+   ],
+   "expectEvents": [
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "cache-swr-serves-stale-and-revalidates",
+   "spec": {
+    "as": "list",
+    "url": "/api/list",
+    "cache": "swr(10, 300)"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "v": 1
+     }
+    },
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "v": 2
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "advance": 60
+    },
+    {
+     "call": "remount"
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "list.data.v": 2,
+    "list.refreshing": false
+   },
+   "expectCalls": [
+    "/api/list",
+    "/api/list"
+   ],
+   "expectEvents": [
+    "success",
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "streamed-chunks-append-and-fire-message",
+   "spec": {
+    "as": "live",
+    "url": "/api/live"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "stream": [
+      {
+       "tick": 1
+      },
+      {
+       "tick": 2
+      },
+      {
+       "tick": 3
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "live.data.length": 3,
+    "live.data.2.tick": 3,
+    "live.loading": false
+   },
+   "expectCalls": [
+    "/api/live"
+   ],
+   "expectEvents": [
+    "message",
+    "message",
+    "message",
+    "success"
+   ]
+  },
+  {
+   "name": "retry-non-integer-is-not-a-count",
+   "spec": {
+    "as": "rf",
+    "url": "/api/rf",
+    "retry": "2.5"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": false,
+     "status": 0,
+     "data": null
+    },
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 9
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "rf.error.status": 0
+   },
+   "expectCalls": [
+    "/api/rf"
+   ],
+   "expectEvents": [
+    "error"
+   ]
+  },
+  {
+   "name": "cache-malformed-max-age-does-not-serve",
+   "spec": {
+    "as": "cfg2",
+    "url": "/api/cfg2",
+    "cache": "max-age(60x)"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "v": 1
+     }
+    },
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "v": 2
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "advance": 5
+    },
+    {
+     "call": "remount"
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "cfg2.data.v": 2
+   },
+   "expectCalls": [
+    "/api/cfg2",
+    "/api/cfg2"
+   ],
+   "expectEvents": [
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "cache-partitions-materialized-headers",
+   "spec": {
+    "as": "profile",
+    "url": "/api/profile",
+    "headers": "{ Authorization: token }",
+    "cache": "max-age(60)"
+   },
+   "scope": {
+    "token": "Bearer A"
+   },
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "identity": "A"
+     }
+    },
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "identity": "B"
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "set": {
+      "path": "token",
+      "value": "Bearer B"
+     }
+    },
+    {
+     "set": {
+      "path": "token",
+      "value": "Bearer A"
+     }
+    }
+   ],
+   "expect": {
+    "profile.data.identity": "A"
+   },
+   "expectCalls": [
+    "/api/profile",
+    "/api/profile"
+   ],
+   "expectEvents": [
+    "success",
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "const-materializes-into-request",
+   "spec": {
+    "as": "notes",
+    "url": "{{ dsx.const.api_url }}/notes?key={{ dsx.const.anon_key }}&t={{ dsx.const.missing }}"
+   },
+   "consts": {
+    "api_url": "https://xyz.example",
+    "anon_key": "anon-KEY"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 1
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "notes.data.n": 1
+   },
+   "expectCalls": [
+    "https://xyz.example/notes?key=anon-KEY&t="
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "const-change-refetches",
+   "spec": {
+    "as": "cfg",
+    "url": "{{ dsx.const.api_url }}/config"
+   },
+   "consts": {
+    "api_url": "https://a.example"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "v": 1
+     }
+    },
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "v": 2
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "setConst": {
+      "name": "api_url",
+      "value": "https://b.example"
+     }
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "cfg.data.v": 2
+   },
+   "expectCalls": [
+    "https://a.example/config",
+    "https://b.example/config"
+   ],
+   "expectEvents": [
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "api-in-component-scope-materializes",
+   "spec": {
+    "as": "u",
+    "url": "/api/u/{{ attribute.userId }}?tab={{ attribute.tab }}"
+   },
+   "item": {
+    "userId": 7,
+    "tab": "profile"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "id": 7
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "u.data.id": 7
+   },
+   "expectCalls": [
+    "/api/u/7?tab=profile"
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "graph-waits-for-upstream-then-fires",
+   "specs": [
+    {
+     "as": "user",
+     "url": "/api/me"
+    },
+    {
+     "as": "orders",
+     "url": "/api/orders?user={{ user.data.id }}"
+    },
+    {
+     "as": "invoice",
+     "url": "/api/invoices/{{ orders.data.0.id }}"
+    }
+   ],
+   "scope": {},
+   "responsesByUrl": {
+    "/api/me": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "id": 7
+      }
+     }
+    ],
+    "/api/orders?user=7": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": [
+       {
+        "id": 31
+       }
+      ]
+     }
+    ],
+    "/api/invoices/31": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "total": 12
+      }
+     }
+    ]
+   },
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "user.data.id": 7,
+    "orders.data.0.id": 31,
+    "invoice.data.total": 12,
+    "invoice.status": "ready",
+    "invoice.blockedBy.length": 0,
+    "invoice.loading": false
+   },
+   "expectCalls": [
+    "/api/me",
+    "/api/orders?user=7",
+    "/api/invoices/31"
+   ],
+   "expectEvents": [
+    "success",
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "graph-status-and-blockedby-expose-the-gate",
+   "specs": [
+    {
+     "as": "user",
+     "url": "/api/me",
+     "auto": "false"
+    },
+    {
+     "as": "orders",
+     "url": "/api/orders?user={{ user.data.id }}"
+    }
+   ],
+   "scope": {},
+   "responsesByUrl": {
+    "/api/me": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "id": 4
+      }
+     }
+    ],
+    "/api/orders?user=4": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "n": 1
+      }
+     }
+    ]
+   },
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "orders.status": "waiting",
+    "orders.loading": true,
+    "orders.data": null,
+    "orders.error": null,
+    "orders.blockedBy.length": 1,
+    "orders.blockedBy.0.name": "user",
+    "orders.blockedBy.0.reason": "unresolved",
+    "user.status": "ready",
+    "user.loading": false
+   },
+   "expectCalls": [],
+   "expectEvents": []
+  },
+  {
+   "name": "graph-needs-declares-an-invisible-dependency",
+   "specs": [
+    {
+     "as": "user",
+     "url": "/api/me"
+    },
+    {
+     "as": "prefs",
+     "url": "/api/prefs",
+     "needs": "user"
+    }
+   ],
+   "scope": {},
+   "responsesByUrl": {
+    "/api/me": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "id": 1
+      }
+     }
+    ],
+    "/api/prefs": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "theme": "dark"
+      }
+     }
+    ]
+   },
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "prefs.data.theme": "dark",
+    "prefs.status": "ready",
+    "prefs.blockedBy.length": 0
+   },
+   "expectCalls": [
+    "/api/me",
+    "/api/prefs"
+   ],
+   "expectEvents": [
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "graph-independent-blocks-are-not-serialized",
+   "specs": [
+    {
+     "as": "left",
+     "url": "/api/left"
+    },
+    {
+     "as": "right",
+     "url": "/api/right"
+    }
+   ],
+   "scope": {},
+   "responsesByUrl": {
+    "/api/left": [
+     {
+      "ok": false,
+      "status": 500,
+      "data": {
+       "reason": "boom"
+      }
+     }
+    ],
+    "/api/right": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "n": 2
+      }
+     }
+    ]
+   },
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "left.error.status": 500,
+    "left.status": "error",
+    "right.data.n": 2,
+    "right.status": "ready",
+    "right.blockedBy.length": 0
+   },
+   "expectCalls": [
+    "/api/left",
+    "/api/right"
+   ],
+   "expectEvents": [
+    "error",
+    "success"
+   ]
+  },
+  {
+   "name": "graph-upstream-error-blocks-dependent-until-refresh",
+   "specs": [
+    {
+     "as": "user",
+     "url": "/api/me"
+    },
+    {
+     "as": "orders",
+     "url": "/api/orders?user={{ user.data.id }}",
+     "needs": "user"
+    }
+   ],
+   "scope": {},
+   "responsesByUrl": {
+    "/api/me": [
+     {
+      "ok": false,
+      "status": 503,
+      "data": null
+     },
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "id": 5
+      }
+     }
+    ],
+    "/api/orders?user=5": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "n": 9
+      }
+     }
+    ]
+   },
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "call": "refresh",
+     "target": "user"
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "orders.data.n": 9,
+    "orders.status": "ready",
+    "orders.blockedBy.length": 0,
+    "user.data.id": 5
+   },
+   "expectCalls": [
+    "/api/me",
+    "/api/me",
+    "/api/orders?user=5"
+   ],
+   "expectEvents": [
+    "error",
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "graph-upstream-error-leaves-dependent-waiting",
+   "specs": [
+    {
+     "as": "user",
+     "url": "/api/me"
+    },
+    {
+     "as": "orders",
+     "url": "/api/orders",
+     "needs": "user"
+    }
+   ],
+   "scope": {},
+   "responsesByUrl": {
+    "/api/me": [
+     {
+      "ok": false,
+      "status": 503,
+      "data": null
+     }
+    ],
+    "/api/orders": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "n": 1
+      }
+     }
+    ]
+   },
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "orders.status": "waiting",
+    "orders.error": null,
+    "orders.blockedBy.0.name": "user",
+    "orders.blockedBy.0.reason": "upstream-error",
+    "user.status": "error"
+   },
+   "expectCalls": [
+    "/api/me"
+   ],
+   "expectEvents": [
+    "error"
+   ]
+  },
+  {
+   "name": "graph-identical-upstream-refetch-does-not-refire-dependents",
+   "specs": [
+    {
+     "as": "user",
+     "url": "/api/me"
+    },
+    {
+     "as": "orders",
+     "url": "/api/orders?user={{ user.data.id }}"
+    }
+   ],
+   "scope": {},
+   "responsesByUrl": {
+    "/api/me": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "id": 7
+      }
+     },
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "id": 7
+      }
+     }
+    ],
+    "/api/orders?user=7": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "n": 1
+      }
+     }
+    ]
+   },
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "call": "refresh",
+     "target": "user"
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "orders.data.n": 1
+   },
+   "expectCalls": [
+    "/api/me",
+    "/api/orders?user=7",
+    "/api/me"
+   ],
+   "expectEvents": [
+    "success",
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "graph-changed-upstream-refires-dependents",
+   "specs": [
+    {
+     "as": "user",
+     "url": "/api/me"
+    },
+    {
+     "as": "orders",
+     "url": "/api/orders?user={{ user.data.id }}"
+    }
+   ],
+   "scope": {},
+   "responsesByUrl": {
+    "/api/me": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "id": 7
+      }
+     },
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "id": 8
+      }
+     }
+    ],
+    "/api/orders?user=7": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "n": 1
+      }
+     }
+    ],
+    "/api/orders?user=8": [
+     {
+      "ok": true,
+      "status": 200,
+      "data": {
+       "n": 2
+      }
+     }
+    ]
+   },
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "call": "refresh",
+     "target": "user"
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "orders.data.n": 2
+   },
+   "expectCalls": [
+    "/api/me",
+    "/api/orders?user=7",
+    "/api/me",
+    "/api/orders?user=8"
+   ],
+   "expectEvents": [
+    "success",
+    "success",
+    "success",
+    "success"
+   ]
+  },
+  {
+   "name": "graph-cycle-is-a-declared-error",
+   "specs": [
+    {
+     "as": "a",
+     "url": "/api/a?x={{ b.data.id }}"
+    },
+    {
+     "as": "b",
+     "url": "/api/b?x={{ a.data.id }}"
+    }
+   ],
+   "scope": {},
+   "responsesByUrl": {},
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "a.status": "error",
+    "a.error.status": -3,
+    "a.error.message": "cycle",
+    "b.status": "error",
+    "b.error.message": "cycle",
+    "a.loading": false
+   },
+   "expectCalls": [],
+   "expectEvents": [
+    "error",
+    "error"
+   ]
+  },
+  {
+   "name": "graph-unknown-needs-is-a-declared-error",
+   "specs": [
+    {
+     "as": "prefs",
+     "url": "/api/prefs",
+     "needs": "nobody"
+    }
+   ],
+   "scope": {},
+   "responsesByUrl": {},
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "prefs.status": "error",
+    "prefs.error.status": -3,
+    "prefs.error.message": "unknown-needs"
+   },
+   "expectCalls": [],
+   "expectEvents": [
+    "error"
+   ]
+  },
+  {
+   "name": "gate-missing-value-holds-the-fetch",
+   "spec": {
+    "as": "feed",
+    "url": "/api/feed?q={{ term }}"
+   },
+   "scope": {
+    "term": null
+   },
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 1
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "set": {
+      "path": "term",
+      "value": "cats"
+     }
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "feed.data.n": 1,
+    "feed.status": "ready",
+    "feed.blockedBy.length": 0
+   },
+   "expectCalls": [
+    "/api/feed?q=cats"
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "gate-missing-value-names-the-hole",
+   "spec": {
+    "as": "feed",
+    "url": "/api/feed?q={{ term }}"
+   },
+   "scope": {
+    "term": null
+   },
+   "responses": [],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "feed.status": "waiting",
+    "feed.loading": true,
+    "feed.blockedBy.0.name": "term",
+    "feed.blockedBy.0.reason": "missing-value"
+   },
+   "expectCalls": [],
+   "expectEvents": []
+  },
+  {
+   "name": "gate-or-default-opts-out-of-value-presence",
+   "spec": {
+    "as": "feed",
+    "url": "/api/feed?filter={{ filter || 'all' }}"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 3
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "feed.data.n": 3,
+    "feed.status": "ready"
+   },
+   "expectCalls": [
+    "/api/feed?filter=all"
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "gate-ambient-planes-are-never-holes",
+   "_note": "doc 11's AMBIENT CARVE-OUT, and the only row that pins it on a plane other than const. dsx.const/env/global/screen/source/app/route/cookie/query/params/path and platform/os are TYPED-ABSENT by law (durability P4): an absent one interpolates EMPTY and is a VALUE, not a value that is coming. Value-presence gating (rule 2) is for the REACTIVE scope only - surface variables, component attributes, sibling <api> blocks. Without this carve-out const-materializes-into-request and gate rule 2 contradict each other, and every app reading dsx.global.* in a url would deadlock on first mount.",
+   "spec": {
+    "as": "feed",
+    "url": "/api/feed?g={{ dsx.global.dsx_missing_ambient_probe }}"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 7
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "feed.data.n": 7,
+    "feed.status": "ready",
+    "feed.loading": false,
+    "feed.blockedBy.length": 0
+   },
+   "expectCalls": [
+    "/api/feed?g="
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "gate-ambient-hole-never-lands-in-blockedby",
+   "_note": "The mixed url: ONE ambient hole + ONE reactive hole. The block gates on the reactive half only, and blockedBy names `term` - never the ambient plane - so a developer reading the gate is pointed at the value they actually control. When `term` arrives the request fires ONCE, with the ambient half still empty.",
+   "spec": {
+    "as": "feed",
+    "url": "/api/feed?g={{ dsx.global.dsx_missing_ambient_probe }}&q={{ term }}"
+   },
+   "scope": {
+    "term": null
+   },
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 2
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    },
+    {
+     "set": {
+      "path": "term",
+      "value": "cats"
+     }
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "feed.data.n": 2,
+    "feed.status": "ready",
+    "feed.blockedBy.length": 0
+   },
+   "expectCalls": [
+    "/api/feed?g=&q=cats"
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "send-with-a-hole-returns-incomplete-input",
+   "spec": {
+    "as": "save",
+    "url": "/api/save/{{ draftId }}",
+    "method": "POST"
+   },
+   "scope": {
+    "draftId": null
+   },
+   "responses": [],
+   "steps": [
+    {
+     "send": {
+      "name": "b"
+     }
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "sendResult.ok": false,
+    "sendResult.error.kind": "incomplete-input",
+    "sendResult.error.missing.0": "draftId",
+    "save.data": null,
+    "save.error": null
+   },
+   "expectCalls": [],
+   "expectEvents": []
+  },
+  {
+   "name": "transport-controls-materialize-into-the-request",
+   "spec": {
+    "as": "live",
+    "url": "/api/live",
+    "stream": "true",
+    "timeout": "2500",
+    "redirect": "error"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 1
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "live.data.n": 1
+   },
+   "expectCalls": [
+    "/api/live"
+   ],
+   "expectRequests": [
+    {
+     "stream": true,
+     "timeout": 2500,
+     "redirect": "error"
+    }
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "encode-form-materializes-a-urlencoded-body",
+   "spec": {
+    "as": "signin",
+    "url": "/api/signin",
+    "method": "POST",
+    "encode": "form",
+    "body": "{ user: 'a b', pass: 'x&y' }"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "ok": 1
+     }
+    }
+   ],
+   "steps": [
+    {
+     "send": {}
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "signin.data.ok": 1
+   },
+   "expectCalls": [
+    "/api/signin"
+   ],
+   "expectRequests": [
+    {
+     "encode": "form",
+     "wire": "pass=x%26y&user=a%20b",
+     "headers.content-type": "application/x-www-form-urlencoded;charset=UTF-8"
+    }
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "encode-multipart-materializes-sorted-parts",
+   "spec": {
+    "as": "upload",
+    "url": "/api/upload",
+    "method": "POST",
+    "encode": "multipart",
+    "body": "dsx.variable.payload"
+   },
+   "scope": {
+    "payload": {
+     "title": "hi",
+     "file": {
+      "__blob": "QUJD",
+      "type": "image/png",
+      "name": "a.png"
+     }
+    }
+   },
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "stored": true
+     }
+    }
+   ],
+   "steps": [
+    {
+     "send": {}
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "upload.data.stored": true
+   },
+   "expectCalls": [
+    "/api/upload"
+   ],
+   "expectRequests": [
+    {
+     "encode": "multipart",
+     "parts.length": 2,
+     "parts.0.name": "file",
+     "parts.0.filename": "a.png",
+     "parts.0.contentType": "image/png",
+     "parts.1.name": "title",
+     "parts.1.value": "hi"
+    }
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "progress-publishes-and-fires-before-success",
+   "spec": {
+    "as": "up",
+    "url": "/api/up",
+    "method": "POST"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "stored": true
+     },
+     "progress": [
+      {
+       "direction": "up",
+       "loaded": 50,
+       "total": 100
+      },
+      {
+       "direction": "up",
+       "loaded": 100,
+       "total": 100
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "send": {}
+    },
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "up.data.stored": true,
+    "up.progress.direction": "up",
+    "up.progress.loaded": 100,
+    "up.progress.total": 100,
+    "up.progress.fraction": 1
+   },
+   "expectCalls": [
+    "/api/up"
+   ],
+   "expectEvents": [
+    "progress",
+    "progress",
+    "success"
+   ]
+  },
+  {
+   "name": "terminal-response-errors-do-not-retry",
+   "spec": {
+    "as": "big",
+    "url": "/api/big",
+    "retry": "2"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": false,
+     "status": -2,
+     "data": null,
+     "error": "response_too_large"
+    },
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 1
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "big.error.status": -2,
+    "big.error.message": "response_too_large",
+    "big.status": "error"
+   },
+   "expectCalls": [
+    "/api/big"
+   ],
+   "expectEvents": [
+    "error"
+   ]
+  },
+  {
+   "name": "via-server-rewrites-the-request-to-the-proxy-route",
+   "spec": {
+    "as": "secretly",
+    "url": "/api/rates?base={{ base }}",
+    "via": "server"
+   },
+   "scope": {
+    "base": "usd"
+   },
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "rate": 1
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "secretly.data.rate": 1
+   },
+   "expectCalls": [
+    "/dsx/api/secretly?u=%2Fapi%2Frates%3Fbase%3Dusd"
+   ],
+   "expectRequests": [
+    {
+     "via": "server",
+     "target": "/api/rates?base=usd"
+    }
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,32 @@
+{
+  "_note": "The SHARED lint rule FACTS (doc 09 'Linter strategy — one rule source, two runners', step 1): the ground-truth tables both runners load — ClosedSource/scripts/lint_dsx.rb (the authoritative repo gate, unchanged rules) and the TS linter (OpenSource/Web/packages/compiler/src/lint.ts, the dev-loop twin). Rule FACTS live here so they cannot drift; rule LOGIC lives in each runner and is anti-drifted by the fixture corpus beside this file (cases/ + expected diagnostics, both runners in CI). Editing a table here changes BOTH linters at once — run both gates.",
+  "builtinTags": [
+    "stack", "vstack", "hstack", "zstack", "scroll", "spacer", "divider", "text", "label", "image", "svg", "button", "glassButton", "transport",
+    "pressable", "row", "progress", "capsuleProgress", "spinner", "activity", "textfield", "input", "toggle", "switch",
+    "slider", "list", "grid", "pager", "sheet", "contextmenu", "video", "audio", "chart", "map", "field", "form", "tabs", "scaffold", "refreshable", "datepicker", "date",
+    "picker", "segmented", "stepper", "markdown",
+    "gauge",
+    "textarea", "otp", "searchbar", "combobox", "rangeslider", "wheelpicker", "segmentedButton", "stars",
+    "alert", "confirmDialog", "menu", "popover", "carousel", "toolbar", "flow",
+    "lockscreen", "small", "island", "compact", "expanded", "minimal", "leading", "trailing", "center", "bottom",
+    "head", "event", "expects", "api",
+    "action", "variable", "var", "let", "formula", "script", "functions", "watch", "attribute", "style", "slot", "node", "dynamic", "component",
+    "qrcode", "calendar", "lightbox", "lottie",
+    "scene", "camera", "light", "group", "box", "sphere", "plane", "model", "text3d", "anchor", "animate", "sprite"
+  ],
+  "codeTags": ["script", "functions", "action", "formula", "variable", "var", "let"],
+  "declTags": ["action", "variable", "var", "let", "formula", "script", "functions", "style", "attribute", "component", "event", "expects", "api"],
+  "headRank": {
+    "attribute": 0, "expects": 1, "event": 2, "input": 2,
+    "api": 3,
+    "variable": 3, "var": 3, "let": 3,
+    "formula": 5, "action": 6, "script": 7, "functions": 7,
+    "watch": 8, "style": 9, "component": 10
+  },
+  "headComputedRank": 4,
+  "headOrderHint": "attribute → expects → event/input → api/variable (plain → computed) → formula → action → script → watch → style → component",
+  "handlerMaxStatements": 2,
+  "handlerMaxChars": 120,
+  "identifierTags": ["action", "variable", "var", "let", "formula", "style", "component", "attribute", "event", "api"],
+  "keyedCollections": ["list", "grid", "pager", "group"]
+}

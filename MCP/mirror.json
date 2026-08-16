@@ -1,0 +1,24 @@
+{
+  "_note": "Folder-owned PUBLIC MIRROR declaration for the Despia MCP package (ClosedSource/scripts/mirror_public.rb; OpenSource/CanvasEditor/mirror.json documents the schema). Same laws as the two mirrors next door: the monorepo is the source of truth, the mirror root is the package root so Package.swift resolves for SPM, the `check` is Linux-only with no Swift step (the mirror lane is not pinned to a mac), and `tag_from` is the bare VERSION file. `vendor` grafts only the mcp slice of the AI corpus in at conformance/mcp, which is why that corpus was subfoldered on day one (P·b). EVERY include path must be git-TRACKED when the lane runs: the mirror lane works from a fresh clone, git does not track empty folders, and a missing include path is a hard abort. The Swift package is proven separately by the mac readiness lane; this Linux mirror gate covers anatomy, the standalone TypeScript corpus, and Kotlin/JVM tests.",
+  "repo": "despia-native/despia-mcp",
+  "branch": "main",
+  "include": [
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "CHANGELOG.md",
+    "VERSION",
+    "llms.txt",
+    "PrivacyInfo.xcprivacy",
+    "Package.swift",
+    "vendor/",
+    "bindings/",
+    "conformance/",
+    "docs/"
+  ],
+  "vendor": {
+    "conformance/mcp": "OpenSource/Conformance/ai/mcp"
+  },
+  "check": "ruby ClosedSource/scripts/check_despia_mcp.rb",
+  "tag_from": "VERSION"
+}

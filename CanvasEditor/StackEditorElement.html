@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- StackEditorElement.html — the <despia-stack-editor> custom element, zero setup:
+     serve this folder statically (any server) and open the page. The editor mounts
+     from markup alone; every SDK event re-dispatches as a CustomEvent (watch the
+     console). The imperative API rides el.canvas. -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DSX Stack Editor — web component demo</title>
+  <style>
+    body { margin: 0; background: #0b0b0c; color: #eee; font-family: system-ui; }
+    header { padding: 0.75rem 1rem; font-size: 0.875rem; color: #9a9aa0; }
+    despia-stack-editor { height: calc(100vh - 3rem); }
+  </style>
+</head>
+<body>
+  <header><b>DSX Stack Editor</b> — drag to reorder, double-click to edit, ⌘Z undo; events log to the console</header>
+
+  <despia-stack-editor>
+    <script type="text/dsx">
+      <stack style="gap: 12px; padding: 16px">
+        <text value="The stack editor, as a web component" style="font-size: 22px; font-weight: 800"/>
+        <text value="Drag these rows. Double-click to edit text." style="color: secondary"/>
+        <hstack style="gap: 8px">
+          <text value="one" style="background: #1c1c1e; border-radius: 8px; padding: 8px"/>
+          <text value="two" style="background: #1c1c1e; border-radius: 8px; padding: 8px"/>
+          <text value="three" style="background: #1c1c1e; border-radius: 8px; padding: 8px"/>
+        </hstack>
+        <button label="A button"/>
+      </stack>
+    </script>
+  </despia-stack-editor>
+
+  <script src="./src/canvas-editor.js"></script>
+  <script src="./src/stack-editor-element.js"></script>
+  <script>
+    var el = document.querySelector("despia-stack-editor");
+    el.addEventListener("ready", function () { console.log("[element] ready"); });
+    el.addEventListener("select", function (e) { console.log("[element] select", e.detail); });
+    el.addEventListener("change", function (e) { console.log("[element] change", e.detail); });
+  </script>
+</body>
+</html>

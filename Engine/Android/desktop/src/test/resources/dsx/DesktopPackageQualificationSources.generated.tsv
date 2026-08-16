@@ -1,0 +1,11 @@
+# DesktopPackageQualificationSources.generated.tsv
+# Generated from every manifest-offered ClosedSource/DSX/Modules/**/kotlin/{desktop,windows,linux} facet.
+# Test compilation only; these paths never enter the production runtime source set.
+# targets<TAB>repository-relative Kotlin source directory
+windows,linux	ClosedSource/DSX/Modules/Core/Basics/ExternalApps/kotlin/desktop
+windows,linux	ClosedSource/DSX/Modules/Core/Basics/ValueStore/kotlin/desktop
+windows,linux	ClosedSource/DSX/Modules/Core/Clipboard/kotlin/desktop
+windows,linux	ClosedSource/DSX/Modules/Core/DeviceUUID/kotlin/desktop
+windows,linux	ClosedSource/DSX/Modules/Core/Metadata/kotlin/desktop
+windows,linux	ClosedSource/DSX/Modules/Mandatory/MultiApiCall/kotlin/desktop
+windows,linux	ClosedSource/DSX/Modules/Mandatory/State/kotlin/desktop

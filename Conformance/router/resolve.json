@@ -1,0 +1,65 @@
+{
+  "_note": "The UNIFIED route-table resolution rule (/web/04-routing.md): given a routes.json table and a concrete path, which entry matches and what does the screen receive? Pins the grammar every renderer consumes from the SAME file — `component` (the native screen / web component this path mounts), vars = matched params + parsed query MERGED WITH QUERY WINNING (the web navigatePath `{ ...params, ...query }` rule), and `meta.title` (the declared title: web sets document.title, native seeds the system bar with it when the component's own claim is unknown). First match wins, DSXPathMatch grammar ({name} / :name / *), unconditional `redirect` entries follow before matching completes (depth-capped in the runtimes). `component: null` = no component route matched — each runtime's degrade is its own documented business (web warns + no-ops; native falls to the configured web fallback, deriving a bar title for PUSHED frames — native-only behavior pinned by RouterTest, not here). Executors: Kotlin RouterTest.resolveMatchesTheSharedConformanceCorpus (END-TO-END: seeds the table, pushes, asserts the frame + seeded chrome); TS packages/dom/test/router.test.ts (drives the real FrameRouter.resolveUrl + the navigatePath vars rule); Swift Engine/iOS/Router.swift resolved()/materialize() is the compile-pending REFERENCE.",
+  "cases": [
+    {
+      "name": "an exact path mounts its component, no vars, no declared title",
+      "table": [{ "path": "/shop", "component": "demo.Shop" }],
+      "path": "/shop",
+      "expect": { "component": "demo.Shop", "vars": {}, "title": null }
+    },
+    {
+      "name": "brace params and query both land in vars; meta.title is the declared title",
+      "table": [{ "path": "/p/{id}", "component": "shop.Product", "meta": { "title": "Product" } }],
+      "path": "/p/7?ref=mail",
+      "expect": { "component": "shop.Product", "vars": { "id": "7", "ref": "mail" }, "title": "Product" }
+    },
+    {
+      "name": "query WINS a param collision (navigatePath's { ...params, ...query })",
+      "table": [{ "path": "/p/{id}", "component": "shop.Product" }],
+      "path": "/p/7?id=9",
+      "expect": { "component": "shop.Product", "vars": { "id": "9" }, "title": null }
+    },
+    {
+      "name": "first match wins — table order is precedence",
+      "table": [
+        { "path": "/a", "component": "first.A" },
+        { "path": "/a", "component": "second.A" }
+      ],
+      "path": "/a",
+      "expect": { "component": "first.A", "vars": {}, "title": null }
+    },
+    {
+      "name": "colon params are the same grammar as braces",
+      "table": [{ "path": "/u/:name", "component": "users.Profile" }],
+      "path": "/u/kai",
+      "expect": { "component": "users.Profile", "vars": { "name": "kai" }, "title": null }
+    },
+    {
+      "name": "an unconditional redirect entry resolves through to its target",
+      "table": [
+        { "path": "/home", "redirect": "/" },
+        { "path": "/", "component": "demo.Launcher", "meta": { "title": "DSX demo" } }
+      ],
+      "path": "/home",
+      "expect": { "component": "demo.Launcher", "vars": {}, "title": "DSX demo" }
+    },
+    {
+      "name": "a trailing star soaks the rest of the path (no params)",
+      "table": [{ "path": "/files/*", "component": "files.Browser" }],
+      "path": "/files/a/b",
+      "expect": { "component": "files.Browser", "vars": {}, "title": null }
+    },
+    {
+      "name": "query values percent-decode into vars",
+      "table": [{ "path": "/search", "component": "search.Page" }],
+      "path": "/search?q=a%20b",
+      "expect": { "component": "search.Page", "vars": { "q": "a b" }, "title": null }
+    },
+    {
+      "name": "no component route matched — each runtime degrades its own documented way",
+      "table": [{ "path": "/a", "component": "a.A" }],
+      "path": "/zzz",
+      "expect": { "component": null, "vars": {}, "title": null }
+    }
+  ]
+}

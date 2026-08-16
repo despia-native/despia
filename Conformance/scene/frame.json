@@ -1,0 +1,44 @@
+{
+ "_note": "The DSX Scene FRAME corpus (dsx-scene.md P4): the on:frame contract AS DATA. THE LAW: `on:frame` is a scene-root handler that receives a tick payload { dt, elapsed, frame } — dt = SECONDS since the previously EMITTED tick (0 for the first), elapsed = seconds since the first tick, frame = the emitted-tick counter starting at 0; all three are non-negative, elapsed and frame are strictly monotonic. THE BUDGET LAW: at most 60 ticks per second — a raw platform tick arriving less than 1000/60 ms after the last EMITTED tick is COALESCED (dropped; its time folds into the next emitted dt), so a 120 Hz display emits every second-or-later frame and a store-driven static scene pays nothing. THE LIFECYCLE LAW (stated here, asserted by each surface's own tests — a data corpus cannot mount elements): the tick loop runs ONLY while an on:frame handler is authored AND the element is connected/mounted; it stops when the element unmounts; a scene without on:frame runs NO loop at all (the P1 no-free-running-loop law stands for static scenes). Handlers run through the SAME runner path as on:tap, with dt/elapsed/frame as the payload. Case shape: `ticks` = raw platform tick timestamps in MILLISECONDS (what requestAnimationFrame / withFrameNanos / CADisplayLink hand the surface); `expect` = the emitted payload list, seconds to 6 decimals, tolerance 1.5e-6 — computed by an independent scratch implementation. Runners: TS (per-PR), Kotlin (:core). Swift is the NAMED P4 follow-up (dsx-scene.md P4 row).",
+ "cases": [
+  {
+   "name": "steady 50 Hz — every tick emits",
+   "ticks": [0, 20, 40, 60],
+   "expect": [
+    { "dt": 0, "elapsed": 0, "frame": 0 },
+    { "dt": 0.02, "elapsed": 0.02, "frame": 1 },
+    { "dt": 0.02, "elapsed": 0.04, "frame": 2 },
+    { "dt": 0.02, "elapsed": 0.06, "frame": 3 }
+   ]
+  },
+  {
+   "name": "120 Hz — ticks under 1000/60 ms since the last emit are coalesced",
+   "ticks": [0, 8, 16, 24, 32, 40, 48],
+   "expect": [
+    { "dt": 0, "elapsed": 0, "frame": 0 },
+    { "dt": 0.024, "elapsed": 0.024, "frame": 1 },
+    { "dt": 0.024, "elapsed": 0.048, "frame": 2 }
+   ],
+   "note": "8 and 16 fall inside the 16.67 ms budget window after 0; 24 emits; 32 and 40 fall inside the window after 24; 48 emits"
+  },
+  {
+   "name": "jank — dt reports the REAL gap, coalescing still applies",
+   "ticks": [0, 100, 116, 300],
+   "expect": [
+    { "dt": 0, "elapsed": 0, "frame": 0 },
+    { "dt": 0.1, "elapsed": 0.1, "frame": 1 },
+    { "dt": 0.2, "elapsed": 0.3, "frame": 2 }
+   ],
+   "note": "116 is only 16 ms after the 100 emit — coalesced; 300's dt spans the full 200 ms"
+  },
+  {
+   "name": "a non-zero clock origin — elapsed counts from the FIRST tick",
+   "ticks": [5000, 5020, 5040],
+   "expect": [
+    { "dt": 0, "elapsed": 0, "frame": 0 },
+    { "dt": 0.02, "elapsed": 0.02, "frame": 1 },
+    { "dt": 0.02, "elapsed": 0.04, "frame": 2 }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,89 @@
+{
+ "_note": "The DSX Scene MODEL corpus (dsx-scene.md P4): GLB → the parsed model. THE LAW: `<model src>` consumes glTF 2.0 BINARY containers (GLB) — 12-byte header (magic 0x46546C67, version 2, total length), a JSON chunk (0x4E4F534A), and an optional BIN chunk (0x004E4942). v1 reads EMBEDDED buffers only — a buffer with a `uri` (external .bin or data URI) is the NAMED ABSENCE, error code 'external-buffer'. Supported per primitive: POSITION (f32 VEC3, required), NORMAL (f32 VEC3, optional — absent normals come back empty and the renderer flat-shades from the triangle winding), indices (u8/u16/u32 SCALAR; a non-indexed primitive synthesizes 0..n-1), material `pbrMetallicRoughness.baseColorFactor` (default [1,1,1,1]), triangle mode (4, the default) only. The DRAW LIST flattens the default scene's node hierarchy: a node's local matrix is its `matrix` (column-major, the corpus mat4 layout verbatim) or T · R(quaternion x y z w) · S from translation/rotation/scale (defaults 0 0 0 · identity · 1 1 1); world = parentWorld · local, and every node that references a mesh contributes one draw {mesh, world}. The renderer then applies model = sceneWorld · draw.world (the P1 model = world · S(geometry) law, with the glTF node transform playing the geometry-local role). FAILURE IS A VALUE (Article 7): a malformed container parses to an error code, never a throw — 'not-glb' (bad magic/header), 'external-buffer' (the named absence), 'malformed' (anything structurally broken past the header). Case shape: `fixture` names an entry in `fixtures` (base64 GLB bytes, byte layout documented in README.md); `expect` asserts a SUBSET — meshCount/drawCount, `meshes` entries ({index, vertexCount, indexCount, positions, normals, indices, baseColor} — fields address PRIMITIVE 0 of mesh[index]; positions/normals flat xyz to 6 decimals), `draws` entries ({index, mesh, world: 16 column-major floats}), `transformed` entries ({draw, vertex, world}: draws[draw].world applied to that primitive-0 vertex, w=1); `error` asserts the code instead. Expected numbers were computed by an independent scratch implementation (scratch build_glb.py), never by a kernel under test. Runners: TS (per-PR), Kotlin (:core). Swift is the NAMED P4 follow-up (dsx-scene.md P4 row) — this file is the ledger entry until it lands.",
+ "fixtures": {
+  "twoMesh": "Z2xURgIAAADcBQAABAUAAEpTT057ImFzc2V0Ijp7InZlcnNpb24iOiIyLjAifSwic2NlbmUiOjAsInNjZW5lcyI6W3sibm9kZXMiOlswLDFdfV0sIm5vZGVzIjpbeyJtZXNoIjowfSx7Im1lc2giOjEsInRyYW5zbGF0aW9uIjpbMSwyLDNdLCJyb3RhdGlvbiI6WzAuMCwwLjAsMC43MDcxMDY3ODExODY1NDc1LDAuNzA3MTA2NzgxMTg2NTQ3NV0sInNjYWxlIjpbMiwxLDFdfV0sIm1lc2hlcyI6W3sicHJpbWl0aXZlcyI6W3siYXR0cmlidXRlcyI6eyJQT1NJVElPTiI6MCwiTk9STUFMIjoxfSwiaW5kaWNlcyI6MiwibWF0ZXJpYWwiOjB9XX0seyJwcmltaXRpdmVzIjpbeyJhdHRyaWJ1dGVzIjp7IlBPU0lUSU9OIjozLCJOT1JNQUwiOjR9LCJpbmRpY2VzIjo1LCJtYXRlcmlhbCI6MX1dfV0sIm1hdGVyaWFscyI6W3sicGJyTWV0YWxsaWNSb3VnaG5lc3MiOnsiYmFzZUNvbG9yRmFjdG9yIjpbMC44LDAuMiwwLjEsMS4wXX19LHsicGJyTWV0YWxsaWNSb3VnaG5lc3MiOnsiYmFzZUNvbG9yRmFjdG9yIjpbMC4yLDAuNCwwLjksMS4wXX19XSwiYWNjZXNzb3JzIjpbeyJidWZmZXJWaWV3IjowLCJjb21wb25lbnRUeXBlIjo1MTI2LCJjb3VudCI6MywidHlwZSI6IlZFQzMiLCJtaW4iOlswLDAsMF0sIm1heCI6WzEsMSwwXX0seyJidWZmZXJWaWV3IjoxLCJjb21wb25lbnRUeXBlIjo1MTI2LCJjb3VudCI6MywidHlwZSI6IlZFQzMifSx7ImJ1ZmZlclZpZXciOjIsImNvbXBvbmVudFR5cGUiOjUxMjMsImNvdW50IjozLCJ0eXBlIjoiU0NBTEFSIn0seyJidWZmZXJWaWV3IjozLCJjb21wb25lbnRUeXBlIjo1MTI2LCJjb3VudCI6NCwidHlwZSI6IlZFQzMiLCJtaW4iOlstMC41LC0wLjUsMF0sIm1heCI6WzAuNSwwLjUsMF19LHsiYnVmZmVyVmlldyI6NCwiY29tcG9uZW50VHlwZSI6NTEyNiwiY291bnQiOjQsInR5cGUiOiJWRUMzIn0seyJidWZmZXJWaWV3Ijo1LCJjb21wb25lbnRUeXBlIjo1MTIzLCJjb3VudCI6NiwidHlwZSI6IlNDQUxBUiJ9XSwiYnVmZmVyVmlld3MiOlt7ImJ1ZmZlciI6MCwiYnl0ZU9mZnNldCI6MCwiYnl0ZUxlbmd0aCI6MzZ9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0IjozNiwiYnl0ZUxlbmd0aCI6MzZ9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0Ijo3MiwiYnl0ZUxlbmd0aCI6Nn0seyJidWZmZXIiOjAsImJ5dGVPZmZzZXQiOjgwLCJieXRlTGVuZ3RoIjo0OH0seyJidWZmZXIiOjAsImJ5dGVPZmZzZXQiOjEyOCwiYnl0ZUxlbmd0aCI6NDh9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0IjoxNzYsImJ5dGVMZW5ndGgiOjEyfV0sImJ1ZmZlcnMiOlt7ImJ5dGVMZW5ndGgiOjE4OH1dfSC8AAAAQklOAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAQACAAAAAAAAvwAAAL8AAAAAAAAAPwAAAL8AAAAAAAAAPwAAAD8AAAAAAAAAvwAAAD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAABAAIAAAACAAMA",
+  "externalBuffer": "Z2xURgIAAABcAQAASAEAAEpTT057ImFzc2V0Ijp7InZlcnNpb24iOiIyLjAifSwic2NlbmUiOjAsInNjZW5lcyI6W3sibm9kZXMiOlswXX1dLCJub2RlcyI6W3sibWVzaCI6MH1dLCJtZXNoZXMiOlt7InByaW1pdGl2ZXMiOlt7ImF0dHJpYnV0ZXMiOnsiUE9TSVRJT04iOjB9fV19XSwiYWNjZXNzb3JzIjpbeyJidWZmZXJWaWV3IjowLCJjb21wb25lbnRUeXBlIjo1MTI2LCJjb3VudCI6MywidHlwZSI6IlZFQzMifV0sImJ1ZmZlclZpZXdzIjpbeyJidWZmZXIiOjAsImJ5dGVPZmZzZXQiOjAsImJ5dGVMZW5ndGgiOjM2fV0sImJ1ZmZlcnMiOlt7InVyaSI6Im1vZGVsLmJpbiIsImJ5dGVMZW5ndGgiOjM2fV19ICAg",
+  "notGlb": "dGhpcyBpcyBub3QgYSBnbGIgY29udGFpbmVyIGF0IGFsbA=="
+ },
+ "cases": [
+  {
+   "name": "glb container — mesh and draw counts",
+   "fixture": "twoMesh",
+   "expect": {
+    "meshCount": 2,
+    "drawCount": 2,
+    "meshes": [
+     { "index": 0, "vertexCount": 3, "indexCount": 3 },
+     { "index": 1, "vertexCount": 4, "indexCount": 6 }
+    ]
+   },
+   "note": "one triangle mesh + one two-triangle quad, one draw per scene node"
+  },
+  {
+   "name": "triangle mesh — positions and indices to 6 decimals",
+   "fixture": "twoMesh",
+   "expect": {
+    "meshes": [
+     { "index": 0,
+       "positions": [0, 0, 0, 1, 0, 0, 0, 1, 0],
+       "indices": [0, 1, 2] }
+    ]
+   }
+  },
+  {
+   "name": "triangle mesh — normals and baseColorFactor",
+   "fixture": "twoMesh",
+   "expect": {
+    "meshes": [
+     { "index": 0,
+       "normals": [0, 0, 1, 0, 0, 1, 0, 0, 1],
+       "baseColor": [0.8, 0.2, 0.1, 1] }
+    ]
+   }
+  },
+  {
+   "name": "quad mesh — positions, indices, baseColorFactor",
+   "fixture": "twoMesh",
+   "expect": {
+    "meshes": [
+     { "index": 1,
+       "positions": [-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0],
+       "indices": [0, 1, 2, 0, 2, 3],
+       "baseColor": [0.2, 0.4, 0.9, 1] }
+    ]
+   }
+  },
+  {
+   "name": "node transforms — identity draw and T·R(quat)·S draw",
+   "fixture": "twoMesh",
+   "expect": {
+    "draws": [
+     { "index": 0, "mesh": 0, "world": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] },
+     { "index": 1, "mesh": 1, "world": [0, 2, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 1, 2, 3, 1] }
+    ]
+   },
+   "note": "node 1: translation (1,2,3), quaternion (0,0,sin45°,cos45°) = 90° about +Z, scale (2,1,1) — local = T·R·S, column-major"
+  },
+  {
+   "name": "a transformed vertex under the node transform",
+   "fixture": "twoMesh",
+   "expect": {
+    "transformed": [
+     { "draw": 1, "vertex": 1, "world": [1.5, 3, 3] }
+    ]
+   },
+   "note": "quad vertex 1 = (0.5,-0.5,0): S(2,1,1) → (1,-0.5,0); Rz(90°) → (0.5,1,0); +T → (1.5,3,3)"
+  },
+  {
+   "name": "external buffer uri — the named absence, an error value",
+   "fixture": "externalBuffer",
+   "error": "external-buffer",
+   "note": "v1 reads embedded buffers only; a buffer with a uri (external .bin / data URI) errors as a value, never a throw"
+  },
+  {
+   "name": "not a glb — bad magic errors as a value",
+   "fixture": "notGlb",
+   "error": "not-glb"
+  }
+ ]
+}

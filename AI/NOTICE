@@ -1,0 +1,96 @@
+Despia AI
+Copyright Despia
+
+This product includes software developed at Despia.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+Vendored engine sources are pinned in vendor/VERSIONS with their upstream commit
+and license id, and each vendored tree keeps its own upstream LICENSE file in
+place. Every component listed there is permissively licensed: this package can
+never carry copyleft code, because its whole promise is unrestricted commercial
+use by the apps that embed it.
+
+ai_package_gate.rb checks that every vendor/<name>/ directory has both a pin in
+vendor/VERSIONS and an entry here before it can ship.
+
+ggml
+    Copyright (c) 2023-2026 The ggml authors
+    MIT License. https://github.com/ggml-org/ggml
+    Pinned at 06ca97616793248fadb410ea8d69c7511b2005e4. Full license text:
+    vendor/ggml/LICENSE.
+
+    One shared copy. llama.cpp and whisper.cpp each bundle their own ggml
+    upstream; both are built against this single tree instead, so the package
+    carries one set of tensor symbols rather than two.
+
+llama.cpp
+    Copyright (c) 2023-2026 The ggml authors
+    MIT License. https://github.com/ggml-org/llama.cpp
+    Pinned at ddd4ec1428a6201e18975ea52b07c71e0f9aef26. Full license text:
+    vendor/llama.cpp/LICENSE.
+
+whisper.cpp
+    Copyright (c) 2023-2026 The ggml authors
+    MIT License. https://github.com/ggml-org/whisper.cpp
+    Pinned at 2ca53bb45e38748d07b310eeb36245a7157ac882. Full license text:
+    vendor/whisper.cpp/LICENSE.
+
+These trees are pruned to what the build needs and are otherwise unmodified
+upstream source. The pruning removes tests, examples, tooling and bindings for
+other languages; it never edits the code that ships. Where a change was
+unavoidable it is recorded in docs/vendoring.md rather than applied silently,
+so a reader can always diff what is here against the pinned upstream commit.
+
+None of this is visible in the library's exported surface: libdespia_ai.so
+exports the eleven despia_ai_* ABI symbols and nothing else, so an app that
+links its own ggml, llama or whisper does not collide with the copies here.
+
+--------------------------------------------------------------------------------
+G2P pack data
+--------------------------------------------------------------------------------
+
+The grapheme-to-phoneme packs are built, not vendored: no pack is in this tree,
+and tools/g2p/ fetches these sources at build time under the digests below. They
+are listed here anyway because a pack REDISTRIBUTES them. The lexicon becomes the
+pack's LEXK and LEXV sections close to verbatim, and the letter-to-sound trees are
+trained on that same lexicon, so an app that embeds a pack is shipping this work
+in both derived forms. ai_package_gate.rb checks each digest and license id below
+against tools/g2p/fetch_sources.py, so a source cannot be added to the builder
+without being named here.
+
+misaki (US English lexicons: us_gold.json, us_silver.json)
+    Apache-2.0. https://pypi.org/project/misaki/
+    misaki-0.9.4-py3-none-any.whl, sha256
+    90e2eeb169786c014c429e5058d2ea6bcd02d651f2a24450ba6c9ffc0f8da15a.
+    The distribution carries exactly one license file, Apache-2.0, with no NOTICE
+    and no separate data license, and its English acknowledgements credit no
+    external dictionary. Dictionaries are often licensed apart from the code that
+    reads them; here they are not, and that was checked rather than assumed.
+
+CMU Pronouncing Dictionary
+    BSD-2-Clause. https://github.com/cmusphinx/cmudict
+    cmudict.dict at commit 74790861f652b15e4ac49015a90074ad62a27690, sha256
+    81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22, with its
+    LICENSE at sha256
+    bd4ce8e44170a5f9f481310ca85c51de3c4f851a65e679b40e603b143bd3542a.
+    An optional second lexicon tier. Pinned to a commit rather than to a branch,
+    because a branch name names different bytes on different days.
+
+espeak-ng is NOT here and is not a fallback anywhere in this package. It is
+GPL-3.0, and it is the reason the upstream frontend for this alphabet could not
+be used as it stands: its letter-to-sound fallback IS espeak. The replacement is
+trained on the permissive lexicons above, so the trees emit the pack's own
+alphabet and there is no phone-set mapping and no copyleft anywhere in the path.
+
+Model weights are NOT part of this package and are not covered by this license.
+Every model carries its own terms, recorded per catalog entry (engine is not
+weights: one model's licence is not another's).

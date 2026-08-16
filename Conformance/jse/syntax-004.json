@@ -1,0 +1,169 @@
+{
+  "_note": "JSE conformance corpus — DATA-SHAPING GRAMMAR (2026-08-12). Computed object keys, nested destructuring with defaults and rest, destructured arrow params, and `localeCompare`. Every case here was measured FAILING before the wave that added it, and two of them failed SILENTLY WRONG rather than loudly: `{ [k]: 1 }` evaluated to `{ k: <value of k> }`, and `([a, b]) => a + b` bound the whole pair to one name and returned a stringified row. Those two had no clean workaround and no error, which is why they were the ones worth adding grammar for — the remainder of the JS data surface (map/filter/reduce/sort/spread/Object.*/JSON/regex/template literals) already passed. Scope: Swift = reference, Kotlin :core runs these via ConformanceTest, TS via conformance.test.ts.",
+  "cases": [
+    {
+      "name": "computed-key-from-variable",
+      "scope": {
+        "k": "colour"
+      },
+      "expression": "{ [k]: 'red' }.colour",
+      "expected": "red"
+    },
+    {
+      "name": "computed-key-from-expression",
+      "scope": {
+        "k": "a"
+      },
+      "expression": "{ [k + '1']: 7 }.a1",
+      "expected": 7
+    },
+    {
+      "name": "computed-key-string-literal",
+      "scope": {},
+      "expression": "{ ['lit']: 2 }.lit",
+      "expected": 2
+    },
+    {
+      "name": "computed-key-alongside-plain-keys",
+      "scope": {
+        "k": "b"
+      },
+      "expression": "[0].map(z => { const o = { a: 1, [k]: 2 }\nreturn o.a + o.b })[0]",
+      "expected": 3
+    },
+    {
+      "name": "computed-key-groups-rows",
+      "scope": {},
+      "expression": "[0].map(z => { const rows = [{ k: 'x', n: 1 }, { k: 'y', n: 2 }]\nconst out = rows.reduce((acc, r) => ({ ...acc, [r.k]: r.n }), {})\nreturn out.x + out.y })[0]",
+      "expected": 3,
+      "_note": "Expressed with array methods rather than a `for` body: the EXPRESSION tier (JSE.evalBlock) is a bounded block with no loop statements by design, and this corpus runs there as well as in the action runner. What it pins is the computed key, not the iteration."
+    },
+    {
+      "name": "destructure-nested-object",
+      "scope": {},
+      "expression": "[0].map(z => { const { a: { b } } = { a: { b: 5 } }\nreturn b })[0]",
+      "expected": 5
+    },
+    {
+      "name": "destructure-nested-two-deep",
+      "scope": {},
+      "expression": "[0].map(z => { const { a: { b: { c } } } = { a: { b: { c: 9 } } }\nreturn c })[0]",
+      "expected": 9
+    },
+    {
+      "name": "destructure-default-when-missing",
+      "scope": {},
+      "expression": "[0].map(z => { const { a = 5 } = {}\nreturn a })[0]",
+      "expected": 5
+    },
+    {
+      "name": "destructure-default-not-applied-when-present",
+      "scope": {},
+      "expression": "[0].map(z => { const { a = 5 } = { a: 1 }\nreturn a })[0]",
+      "expected": 1
+    },
+    {
+      "name": "destructure-default-sees-earlier-binding",
+      "scope": {},
+      "expression": "[0].map(z => { const { a, b = a + 1 } = { a: 4 }\nreturn b })[0]",
+      "expected": 5
+    },
+    {
+      "name": "destructure-object-rest",
+      "scope": {},
+      "expression": "[0].map(z => { const { a, ...rest } = { a: 1, b: 2, c: 3 }\nreturn rest.b + rest.c })[0]",
+      "expected": 5
+    },
+    {
+      "name": "destructure-object-rest-is-empty-when-all-named",
+      "scope": {},
+      "expression": "[0].map(z => { const { a, ...rest } = { a: 1 }\nreturn Object.keys(rest).length })[0]",
+      "expected": 0
+    },
+    {
+      "name": "destructure-array-rest",
+      "scope": {},
+      "expression": "[0].map(z => { const [first, ...tail] = [1, 2, 3]\nreturn first + tail.length })[0]",
+      "expected": 3
+    },
+    {
+      "name": "destructure-array-default",
+      "scope": {},
+      "expression": "[0].map(z => { const [a = 9] = []\nreturn a })[0]",
+      "expected": 9
+    },
+    {
+      "name": "destructure-array-hole-still-skips",
+      "scope": {},
+      "expression": "[0].map(z => { const [, b] = [1, 2]\nreturn b })[0]",
+      "expected": 2
+    },
+    {
+      "name": "destructure-nested-from-element",
+      "scope": {},
+      "expression": "[0].map(z => { const rows = [{ p: { q: 4 } }]\nconst { p: { q } } = rows[0]\nreturn q })[0]",
+      "expected": 4,
+      "_note": "The iteration binding itself is covered by `param-nested-destructure`; this pins the same pattern in a DECLARATION, which is the shape the expression tier can run."
+    },
+    {
+      "name": "param-array-destructure",
+      "scope": {},
+      "expression": "[[1, 2], [3, 4]].map(([a, b]) => a + b)[1]",
+      "expected": 7
+    },
+    {
+      "name": "param-entries-pair-the-common-idiom",
+      "scope": {},
+      "expression": "Object.entries({ a: 1 }).map(([k, v]) => k + v)[0]",
+      "expected": "a1"
+    },
+    {
+      "name": "param-object-destructure-still-works",
+      "scope": {},
+      "expression": "[{ n: 4 }].map(({ n }) => n)[0]",
+      "expected": 4
+    },
+    {
+      "name": "param-nested-destructure",
+      "scope": {},
+      "expression": "[{ a: { b: 6 } }].map(({ a: { b } }) => b)[0]",
+      "expected": 6
+    },
+    {
+      "name": "param-destructure-default",
+      "scope": {},
+      "expression": "[{}].map(({ n = 3 }) => n)[0]",
+      "expected": 3
+    },
+    {
+      "name": "param-destructure-rest",
+      "scope": {},
+      "expression": "[{ a: 1, b: 2 }].map(({ a, ...rest }) => a + Object.keys(rest).length)[0]",
+      "expected": 2
+    },
+    {
+      "name": "localeCompare-orders-ascending",
+      "scope": {},
+      "expression": "['b', 'a', 'c'].sort((x, y) => x.localeCompare(y)).join('')",
+      "expected": "abc"
+    },
+    {
+      "name": "localeCompare-equal-is-zero",
+      "scope": {},
+      "expression": "'a'.localeCompare('a')",
+      "expected": 0
+    },
+    {
+      "name": "localeCompare-less-is-negative-one",
+      "scope": {},
+      "expression": "'a'.localeCompare('b')",
+      "expected": -1
+    },
+    {
+      "name": "localeCompare-greater-is-one",
+      "scope": {},
+      "expression": "'b'.localeCompare('a')",
+      "expected": 1
+    }
+  ]
+}

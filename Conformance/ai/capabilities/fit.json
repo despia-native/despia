@@ -1,0 +1,251 @@
+{
+ "_note": "The fit system (local-ai-engine.md §4.13). THE LAW ENCODED HERE: (1) fit is computed against how the OS ACTUALLY KILLS APPS, not against 'free RAM' — the limit is the per-process one the probe reads, and `requirements.footprint_mb` (resident weights plus KV at the entry's context length) is what counts against it. (2) `mapped_mb` NEVER counts against that limit: mmap'd weights are clean file-backed pages the kernel can evict — it rides the verdict as detail so a UI can explain thrash instead of a refusal that would have been wrong. (3) The iOS increased-memory-limit entitlement materially changes which models fit, so it is part of the probe and the SAME model on the SAME device class gets different verdicts with and without it. (4) Shipped perf bands are PRIORS; the first-run calibration measurement is the truth and replaces them, and `measured` says which one you are looking at. (5) `quarantined` is crash containment — a model that took the app down is refused on the next launch, clearably, instead of becoming a relaunch crash loop in a customer's app. (6) Below the floor a load REFUSES with a typed error: the recommender is enforced, not advisory. (7) Storage is accounted before a download, so a model that cannot fit is refused before the bytes move, not after.",
+ "cases": [
+  {
+   "name": "fit: a comfortable model on a capable device runs well",
+   "engine": { "abi": 1, "capabilities": { "engines": [ "gguf", "mock" ], "formats": [ "gguf" ] } },
+   "catalog": {
+    "installed": [ "m1" ],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 900, "mapped_mb": 400, "disk_mb": 400 }, "perf_priors": { "phone-high": { "prefill_tps": 300, "decode_tps": 25 } } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-high", "available_memory_mb": 2800, "free_disk_mb": 20000 },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "models.fit", "args": { "model": "m1" }, "mode": "await", "as": "f" } } ],
+   "expect": {
+    "verdicts": { "m1": { "verdict": "runs_well", "decode_tps": 25, "measured": false, "mapped_mb": 400 } },
+    "results": { "f": { "verdict": "runs_well" } }
+   }
+  },
+  {
+   "name": "fit: footprint over the process limit is too_big for memory",
+   "catalog": {
+    "installed": [ "big" ],
+    "entries": [ { "id": "big", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 3200, "mapped_mb": 2600, "disk_mb": 2600 }, "perf_priors": { "phone-mid": { "decode_tps": 9 } } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 1800, "free_disk_mb": 20000 },
+   "expect": { "verdicts": { "big": { "verdict": "too_big", "reason": "memory" } } }
+  },
+  {
+   "name": "fit: mapped size does not count against the process limit",
+   "_note": "The distinction that keeps honest verdicts honest. This entry maps 3.2 GB of weights but its resident footprint is 1.1 GB, and the device's limit is 1.8 GB — a naive 'model bytes vs available RAM' check would refuse a model that runs fine. The mapped figure still rides the verdict so a UI can warn about thrash on a busy device.",
+   "catalog": {
+    "installed": [ "mmapped" ],
+    "entries": [ { "id": "mmapped", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 1100, "mapped_mb": 3200, "disk_mb": 3300 }, "perf_priors": { "phone-mid": { "decode_tps": 14 } } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 1800, "free_disk_mb": 20000 },
+   "expect": { "verdicts": { "mmapped": { "verdict": "runs_well", "mapped_mb": 3200 } } }
+  },
+  {
+   "name": "fit: the increased-memory-limit entitlement changes the verdict",
+   "_note": "Same model, same device class, entitlement ABSENT — the program doc names this fixture explicitly. The refusal is computed against the limit the app will actually have, so an app that declared the entitlement is not told 'too big' about a model it can run.",
+   "catalog": {
+    "installed": [ "borderline" ],
+    "entries": [ { "id": "borderline", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 2400, "mapped_mb": 2000, "disk_mb": 2000 }, "perf_priors": { "phone-high": { "decode_tps": 15 } } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-high", "available_memory_mb": 2100, "increased_memory_limit_mb": 4200, "increased_memory_limit": false, "free_disk_mb": 20000 },
+   "expect": { "verdicts": { "borderline": { "verdict": "too_big", "reason": "memory" } } }
+  },
+  {
+   "name": "fit: the same model fits when the entitlement is present",
+   "catalog": {
+    "installed": [ "borderline" ],
+    "entries": [ { "id": "borderline", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 2400, "mapped_mb": 2000, "disk_mb": 2000 }, "perf_priors": { "phone-high": { "decode_tps": 15 } } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-high", "available_memory_mb": 2100, "increased_memory_limit_mb": 4200, "increased_memory_limit": true, "free_disk_mb": 20000 },
+   "expect": { "verdicts": { "borderline": { "verdict": "runs_well", "decode_tps": 15 } } }
+  },
+  {
+   "name": "fit: not enough disk is too_big for disk, before any byte moves",
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 900, "mapped_mb": 400, "disk_mb": 4000 }, "perf_priors": { "phone-mid": { "decode_tps": 20 } }, "files": [ { "name": "model.gguf", "bytes": 4000000000, "sha256": "bbbb000000000000000000000000000000000000000000000000000000000000", "urls": [ "https://cdn.example.com/m1.gguf" ] } ] } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2800, "free_disk_mb": 1200 },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "m1" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "verdicts": { "m1": { "verdict": "too_big", "reason": "disk" } },
+    "absent": [ { "action": "download", "code": "insufficient_storage", "data": { "needed_mb": 4000, "free_mb": 1200 } } ],
+    "downloadCount": 0
+   }
+  },
+  {
+   "name": "fit: a slow prior is runs_slow, not a refusal",
+   "_note": "Slow is a warning, not a wall — the user gets to decide whether four tokens a second is acceptable for their use, and the verdict says which number that judgement rests on.",
+   "catalog": {
+    "installed": [ "sluggish" ],
+    "entries": [ { "id": "sluggish", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 1400, "mapped_mb": 1200, "disk_mb": 1200 }, "perf_priors": { "phone-low": { "decode_tps": 4 } } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-low", "available_memory_mb": 1800, "free_disk_mb": 8000 },
+   "expect": { "verdicts": { "sluggish": { "verdict": "runs_slow", "decode_tps": 4, "measured": false } } }
+  },
+  {
+   "name": "fit: calibration replaces the prior and says it was measured",
+   "_note": "The priors are shipped guesses; the device is the authority. A measured decode rate above the floor upgrades the verdict, and `measured: true` is how a UI can say 'on YOUR phone' honestly.",
+   "catalog": {
+    "installed": [ "sluggish" ],
+    "entries": [ { "id": "sluggish", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 1400, "mapped_mb": 1200, "disk_mb": 1200 }, "perf_priors": { "phone-low": { "decode_tps": 4 } } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-low", "available_memory_mb": 1800, "free_disk_mb": 8000, "calibrated": { "sluggish": { "decode_tps": 11 } } },
+   "expect": { "verdicts": { "sluggish": { "verdict": "runs_well", "decode_tps": 11, "measured": true } } }
+  },
+  {
+   "name": "fit: calibration can also demote a model the prior flattered",
+   "_note": "Measurement cuts both ways, which is the point of measuring. The band said this device would be fine; under a real footprint-pressure pass it was not.",
+   "catalog": {
+    "installed": [ "flattered" ],
+    "entries": [ { "id": "flattered", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 1400, "mapped_mb": 1200, "disk_mb": 1200 }, "perf_priors": { "phone-mid": { "decode_tps": 18 } } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000, "calibrated": { "flattered": { "decode_tps": 5 } } },
+   "expect": { "verdicts": { "flattered": { "verdict": "runs_slow", "decode_tps": 5, "measured": true } } }
+  },
+  {
+   "name": "fit: with nothing measured, the memory check runs on the derived estimate",
+   "_note": "The launch before anybody has measured anything. `requirements.footprint_mb` is the only estimated number an entry carries, the verdict says which number it used, and a runtime-added entry still says `predicted` because that is exactly what it is. The numbers are the real ones: gemma-3-4b-it-Q4_K_M derives 1888 MB from its real header and file size.",
+   "catalog": {
+    "installed": [ "added-4b" ],
+    "entries": [ { "id": "added-4b", "engine": "gguf", "format": "gguf", "category": "text", "requirements": { "footprint_mb": 1888, "mapped_mb": 2375, "disk_mb": 2375 }, "origin": { "added": true } } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2600, "total_memory_mb": 6144, "free_disk_mb": 20000 },
+   "expect": { "verdicts": { "added-4b": { "verdict": "runs_well", "footprint_mb": 1888, "predicted": true } } }
+  },
+  {
+   "name": "fit: a measured footprint replaces the estimate, and the verdict stops predicting",
+   "_note": "THE DEFECT, with the measured numbers. The derivation puts gemma-3-4b-it-Q4_K_M at 1888 MB against a real 3104 — 39% LOW, which is the direction that gets a process killed rather than the direction that over-refuses. On a device that gives an app 2600 MB the estimate says `runs_well` and the OOM reaper disagrees. The first successful load records what it actually cost, keyed by model AND device beside `decode_tps` in the same calibration store, and the second launch refuses correctly. `predicted` is gone because `footprint_mb` was the only estimate left in the entry.",
+   "catalog": {
+    "installed": [ "added-4b" ],
+    "entries": [ { "id": "added-4b", "engine": "gguf", "format": "gguf", "category": "text", "requirements": { "footprint_mb": 1888, "mapped_mb": 2375, "disk_mb": 2375 }, "origin": { "added": true } } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2600, "total_memory_mb": 6144, "free_disk_mb": 20000, "calibrated": { "added-4b": { "footprint_mb": 3104 } } },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "models.fit", "args": { "model": "added-4b" }, "mode": "await", "as": "f" } } ],
+   "expect": {
+    "verdicts": { "added-4b": { "verdict": "too_big", "reason": "memory", "footprint_mb": 3104, "footprint_measured": true, "predicted": false } },
+    "results": { "f": { "verdict": "too_big", "reason": "memory", "footprint_mb": 3104, "footprint_measured": true, "predicted": false } }
+   }
+  },
+  {
+   "name": "fit: a measurement also frees a model the estimate over-refused",
+   "_note": "Measurement cuts both ways here too, and it is the common direction: against the eleven shipped rows the derivation runs +45%, +25% and +92% high before it runs 39% low. gemma-3-1b-it-Q4_K_M derives 512 MB and really costs 352, so a device that gives an app 400 MB refuses a model it can in fact hold — until it has held it once.",
+   "catalog": {
+    "installed": [ "added-1b" ],
+    "entries": [ { "id": "added-1b", "engine": "gguf", "format": "gguf", "category": "text", "requirements": { "footprint_mb": 512, "mapped_mb": 769, "disk_mb": 769 }, "origin": { "added": true } } ]
+   },
+   "device": { "class": "phone-low", "available_memory_mb": 400, "total_memory_mb": 2048, "free_disk_mb": 20000, "calibrated": { "added-1b": { "footprint_mb": 352, "decode_tps": 9 } } },
+   "expect": { "verdicts": { "added-1b": { "verdict": "runs_well", "footprint_mb": 352, "footprint_measured": true, "predicted": false, "decode_tps": 9, "measured": true } } }
+  },
+  {
+   "name": "fit: a zero or negative footprint measurement is discarded, not trusted",
+   "_note": "A measurement is not automatically better than an estimate — a WRONG one is worse, because it carries the authority of having been observed. Zero would make every model fit on every device and a negative number would too, so neither is believed: the estimate stands and the verdict says a measurement was thrown away, because a guard nobody can see is a guard nobody maintains.",
+   "catalog": {
+    "installed": [ "zeroed", "negative" ],
+    "entries": [
+     { "id": "zeroed", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 3200, "mapped_mb": 2600, "disk_mb": 2600 } },
+     { "id": "negative", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 3200, "mapped_mb": 2600, "disk_mb": 2600 } }
+    ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 1800, "total_memory_mb": 4096, "free_disk_mb": 20000, "calibrated": { "zeroed": { "footprint_mb": 0 }, "negative": { "footprint_mb": -128 } } },
+   "expect": {
+    "verdicts": {
+     "zeroed": { "verdict": "too_big", "reason": "memory", "footprint_mb": 3200, "footprint_rejected": true },
+     "negative": { "verdict": "too_big", "reason": "memory", "footprint_mb": 3200, "footprint_rejected": true }
+    }
+   }
+  },
+  {
+   "name": "fit: a footprint measurement above physical memory is discarded",
+   "_note": "The reading that is in the wrong unit. A footprint reported in bytes rather than MiB is a plausible-looking number that would refuse everything forever, so the ceiling a measurement has to fall under is the device's PHYSICAL memory — not its per-process limit, which a genuine measurement is allowed to exceed and which is how a measured model becomes `too_big` at all.",
+   "catalog": {
+    "installed": [ "wrong-unit" ],
+    "entries": [ { "id": "wrong-unit", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 1500, "mapped_mb": 1200, "disk_mb": 1200 } } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2048, "total_memory_mb": 6144, "free_disk_mb": 20000, "calibrated": { "wrong-unit": { "footprint_mb": 3254779904 } } },
+   "expect": { "verdicts": { "wrong-unit": { "verdict": "runs_well", "footprint_mb": 1500, "footprint_rejected": true } } }
+  },
+  {
+   "name": "fit: a measurement under physical memory but over the process limit is believed",
+   "_note": "The contrast pair to the case above, same shape and a plausible number: 3000 MB is impossible as a footprint on a device with 6144 MB of RAM only if you confuse physical memory with the app's share of it. It is BELIEVED and it refuses — the app's limit is 2048 — which is the whole point of measuring rather than estimating.",
+   "catalog": {
+    "installed": [ "hefty" ],
+    "entries": [ { "id": "hefty", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 1500, "mapped_mb": 1200, "disk_mb": 1200 } } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2048, "total_memory_mb": 6144, "free_disk_mb": 20000, "calibrated": { "hefty": { "footprint_mb": 3000 } } },
+   "expect": { "verdicts": { "hefty": { "verdict": "too_big", "reason": "memory", "footprint_mb": 3000, "footprint_measured": true } } }
+  },
+  {
+   "name": "fit: with no physical memory reported the process limit is the ceiling",
+   "_note": "A probe that does not report physical memory still gets a ceiling, and the stricter one: the measurement is taken after a load the app SURVIVED, and a process resident above its own jetsam limit does not survive to report anything. The same 3000 MB believed above is discarded here, and the entry's estimate stands.",
+   "catalog": {
+    "installed": [ "hefty" ],
+    "entries": [ { "id": "hefty", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 1500, "mapped_mb": 1200, "disk_mb": 1200 } } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2048, "free_disk_mb": 20000, "calibrated": { "hefty": { "footprint_mb": 3000 } } },
+   "expect": { "verdicts": { "hefty": { "verdict": "runs_well", "footprint_mb": 1500, "footprint_rejected": true } } }
+  },
+  {
+   "name": "fit: a quarantined model is refused until the user clears it",
+   "_note": "The crash-loop fixture. The marker written before the previous load survived the crash, so this launch refuses the model typed; clearing the quarantine is a user action and restores the ordinary verdict.",
+   "catalog": {
+    "installed": [ "crashy" ],
+    "entries": [ { "id": "crashy", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 900, "mapped_mb": 400, "disk_mb": 400 }, "perf_priors": { "phone-high": { "decode_tps": 25 } } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-high", "available_memory_mb": 2800, "free_disk_mb": 20000, "quarantined": [ "crashy" ] },
+   "mock": { "models": { "crashy": { "script": [ { "token": "hi" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "crashy", "messages": [] }, "mode": "await", "as": "a" } },
+    { "call": { "scheme": "intelligence", "action": "models.clearQuarantine", "args": { "model": "crashy" }, "mode": "await", "as": "q" } },
+    { "call": { "scheme": "intelligence", "action": "models.fit", "args": { "model": "crashy" }, "mode": "await", "as": "f" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "completion", "code": "model_quarantined", "data": { "model": "crashy" } } ],
+    "engineRequestCount": 0,
+    "results": { "f": { "verdict": "runs_well" } }
+   }
+  },
+  {
+   "name": "fit: a load below the floor refuses typed instead of trying",
+   "_note": "Enforced, not advisory (§9). The engine is never handed a model the device cannot hold — the refusal happens above the seam and no request reaches the ABI.",
+   "catalog": {
+    "installed": [ "big" ],
+    "entries": [ { "id": "big", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 3200, "mapped_mb": 2600, "disk_mb": 2600 }, "perf_priors": { "phone-low": { "decode_tps": 3 } } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-low", "available_memory_mb": 1400, "free_disk_mb": 20000 },
+   "mock": { "models": { "big": { "script": [ { "token": "never" }, { "complete": { } } ] } } },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "big", "messages": [] }, "mode": "await", "as": "a" } } ],
+   "expect": {
+    "absent": [ { "action": "completion", "code": "model_too_big", "data": { "verdict": "too_big", "reason": "memory" } } ],
+    "engineRequestCount": 0
+   }
+  },
+  {
+   "name": "fit: every installed row answers the question, ordered as the catalog gives them",
+   "_note": "The list surface. `models.installed()` is what a settings screen renders, so every row carries its verdict and the number behind it — no row is silently omitted because it would look bad.",
+   "catalog": {
+    "installed": [ "good", "slow", "huge" ],
+    "entries": [
+     { "id": "good", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 800, "mapped_mb": 400, "disk_mb": 400 }, "perf_priors": { "phone-mid": { "decode_tps": 22 } } },
+     { "id": "slow", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 1500, "mapped_mb": 1300, "disk_mb": 1300 }, "perf_priors": { "phone-mid": { "decode_tps": 5 } } },
+     { "id": "huge", "engine": "gguf", "format": "gguf", "requirements": { "footprint_mb": 6000, "mapped_mb": 5000, "disk_mb": 5000 }, "perf_priors": { "phone-mid": { "decode_tps": 2 } } }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "models.installed", "args": { }, "mode": "await", "as": "i" } } ],
+   "expect": {
+    "rows": [
+     { "id": "good", "verdict": "runs_well", "decode_tps": 22 },
+     { "id": "slow", "verdict": "runs_slow", "decode_tps": 5 },
+     { "id": "huge", "verdict": "too_big", "reason": "memory" }
+    ]
+   }
+  }
+ ]
+}

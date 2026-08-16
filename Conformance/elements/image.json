@@ -1,0 +1,72 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "image",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift",
+  "attributes": {
+    "icon": {
+      "type": "sf-symbol",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:18-19"
+    },
+    "systemImage": {
+      "type": "sf-symbol",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:18-19 (alias of icon)"
+    },
+    "iconSize": {
+      "type": "number",
+      "default": 24,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:20-21 (iconSize ?? fontSize ?? 24)"
+    },
+    "fontSize": {
+      "type": "number",
+      "default": 24,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:21 (fallback alias for iconSize)"
+    },
+    "color": {
+      "type": "color",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:24 — system-defaults.md base pass: default rides the semantic token (was the pinned `white`)"
+    },
+    "asset": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:28 (bundled image set; scaledToFit)"
+    },
+    "src": {
+      "type": "url",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:34 (remote; cached by default, scaledToFill)"
+    },
+    "cache": {
+      "type": "enum(default|none)",
+      "default": "default",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:38"
+    },
+    "a11yLabel": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:17 (absent = decorative, hidden from assistive tech)"
+    }
+  },
+  "geometry": {
+    "iconSize": {
+      "value": 24,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:21"
+    },
+    "placeholderOpacity": {
+      "value": 0.06,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:46 (Color.white.opacity(0.06) fallback block; also the AsyncImage placeholder "
+    }
+  },
+  "colors": {
+    "icon": {
+      "token": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift:24 — system-defaults.md base pass: default rides the semantic token (was the pinned `white`)"
+    }
+  },
+  "notes": "Icon glyph renders at font weight .semibold (Image.swift:23). Android resolves SF names through OpenSource/Conformance/icons/sf-map.json (StackIcons.kt)."
+}

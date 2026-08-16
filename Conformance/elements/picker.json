@@ -1,0 +1,54 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "picker",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:15"
+    },
+    "options": {
+      "type": "csv",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:21"
+    },
+    "optionsKey": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:17"
+    },
+    "valueField": {
+      "type": "string",
+      "default": "id",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:18"
+    },
+    "labelField": {
+      "type": "string",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:18"
+    },
+    "label": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:26"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:31 (menu style only)"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Picker/swift/Picker.swift:31"
+    }
+  },
+  "notes": "pickerStyle(.menu). <segmented> shares this builder with .segmented style."
+}

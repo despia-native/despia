@@ -1,0 +1,79 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "combobox",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:34"
+    },
+    "options": {
+      "type": "csv",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:94"
+    },
+    "optionsKey": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:90"
+    },
+    "valueField": {
+      "type": "string",
+      "default": "id",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:91"
+    },
+    "labelField": {
+      "type": "string",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:91"
+    },
+    "placeholder": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:44"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:38"
+    },
+    "on:select": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:65"
+    }
+  },
+  "geometry": {
+    "maxVisibleRows": {
+      "value": 6,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:31"
+    },
+    "rowHeight": {
+      "value": 41,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:81 (card maxHeight = min(rows,6) * 41)"
+    },
+    "rowPaddingH": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:71"
+    },
+    "rowPaddingV": {
+      "value": 10,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:72"
+    },
+    "cardCornerRadius": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:82"
+    }
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:38"
+    }
+  },
+  "notes": ""
+}

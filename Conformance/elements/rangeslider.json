@@ -1,0 +1,65 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "rangeslider",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift",
+  "attributes": {
+    "bindLow": {
+      "type": "expr(number)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:45"
+    },
+    "bindHigh": {
+      "type": "expr(number)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:46"
+    },
+    "min": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:47"
+    },
+    "max": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:48"
+    },
+    "step": {
+      "type": "number",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:50 (nil = continuous)"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:51"
+    }
+  },
+  "geometry": {
+    "thumb": {
+      "value": 24,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:40"
+    },
+    "track": {
+      "value": 4,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:41"
+    },
+    "controlHeight": {
+      "value": 28,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:42"
+    },
+    "trackOpacity": {
+      "value": 0.18,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:66 (Color.primary.opacity(0.18))"
+    }
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:51"
+    }
+  },
+  "notes": ""
+}

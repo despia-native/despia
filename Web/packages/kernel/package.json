@@ -1,0 +1,53 @@
+{
+  "name": "@despia/kernel",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "DSX web kernel \u2014 path-keyed signal store, JSE (interpreter + compiled helpers), action runner, module bus. TypeScript twin of OpenSource/Engine/.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./config-validate": {
+      "types": "./dist/config-validate.d.ts",
+      "import": "./dist/config-validate.js",
+      "default": "./dist/config-validate.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "import": "./dist/mcp.js",
+      "default": "./dist/mcp.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/despia-native/despia-framework.git",
+    "directory": "OpenSource/Web/packages/kernel"
+  },
+  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/kernel",
+  "bugs": {
+    "url": "https://github.com/despia-native/despia-framework/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\""
+  }
+}

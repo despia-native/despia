@@ -1,0 +1,45 @@
+{
+ "_note": "The DSX Scene TEXT3D corpus (dsx-scene.md P4): the billboard-quad LAYOUT LAW. THE LAW: `<text3d value size position>` renders its value onto a camera-facing billboard quad (the billboard law — the quad ALWAYS faces the camera; its orientation is derived from the view matrix at draw time and is therefore not part of this layout corpus). The QUAD GEOMETRY is platform-law: quad height = `size` (default 0.5 — the glyph height in scene units), quad width = size × 0.6 × characterCount where characterCount counts UNICODE CODE POINTS (not UTF-16/UTF-8 units — pinned by the surrogate-pair case), the quad is centered on the node's `position` (the anchor is the CENTER). An empty value lays out NO quad (null — the node draws nothing). This corpus pins GEOMETRY ONLY — the quad center and half-extents — NEVER glyph pixels: each platform rasterizes the value with its own system font (canvas 2D on web, android.graphics on Android, java.awt on desktop, Core Text on iOS), fonts differ per platform, and the glyph raster is deliberately unpinned (the honest scope line). A malformed `size` falls back to 0.5 with one diagnostic (Article 7, the shared malformed-number law). Case shape: `attrs` = the authored text3d attribute strings (holes allowed, `vars` is the resolver map); `expect` = { center: [x,y,z], halfWidth, halfHeight } or null for the no-quad law; `diagnostics` = expected count (absent = 0). All floats to 6 decimals, tolerance 1.5e-6. Runners: TS (per-PR), Kotlin (:core). Swift is the NAMED P4 follow-up (dsx-scene.md P4 row).",
+ "cases": [
+  {
+   "name": "defaults — size 0.5, origin anchor",
+   "attrs": { "value": "Hi" },
+   "expect": { "center": [0, 0, 0], "halfWidth": 0.3, "halfHeight": 0.25 },
+   "note": "width = 0.5 × 0.6 × 2 = 0.6"
+  },
+  {
+   "name": "authored size and position",
+   "attrs": { "value": "DSX", "size": "2", "position": "0 2 0" },
+   "expect": { "center": [0, 2, 0], "halfWidth": 1.8, "halfHeight": 1 },
+   "note": "width = 2 × 0.6 × 3 = 3.6"
+  },
+  {
+   "name": "a longer value widens the quad linearly",
+   "attrs": { "value": "1234567890", "position": "-1 0.5 2.25" },
+   "expect": { "center": [-1, 0.5, 2.25], "halfWidth": 1.5, "halfHeight": 0.25 }
+  },
+  {
+   "name": "a hole-resolved value drives the width",
+   "attrs": { "value": "{{ label }}", "size": "1" },
+   "vars": { "label": "Go!" },
+   "expect": { "center": [0, 0, 0], "halfWidth": 0.9, "halfHeight": 0.5 }
+  },
+  {
+   "name": "characters are code points — a surrogate pair is ONE character",
+   "attrs": { "value": "🙂!", "size": "1" },
+   "expect": { "center": [0, 0, 0], "halfWidth": 0.6, "halfHeight": 0.5 },
+   "note": "🙂 is one code point (two UTF-16 units); width = 1 × 0.6 × 2"
+  },
+  {
+   "name": "empty value — no quad, nothing drawn",
+   "attrs": { "value": "" },
+   "expect": null
+  },
+  {
+   "name": "malformed size falls back to 0.5 with one diagnostic",
+   "attrs": { "value": "ok", "size": "banana" },
+   "expect": { "center": [0, 0, 0], "halfWidth": 0.3, "halfHeight": 0.25 },
+   "diagnostics": 1
+  }
+ ]
+}

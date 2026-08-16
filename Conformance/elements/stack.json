@@ -1,0 +1,44 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "stack",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stack/swift/StackContainerElement.swift",
+  "attributes": {
+    "spacing": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stack/swift/StackContainerElement.swift:32 (web-true"
+    },
+    "flexDirection": {
+      "type": "enum(column|row)",
+      "default": "column",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stack/swift/StackContainerElement.swift:38 (hasPrefix(\"row\") -> horizontal, else column)"
+    },
+    "alignItems": {
+      "type": "enum(flex-start|center|flex-end|baseline|stretch)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stack/swift/StackContainerElement.swift:33 (falls back to legacy align)"
+    },
+    "align": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stack/swift/StackContainerElement.swift:33"
+    },
+    "display": {
+      "type": "enum(flex|grid)",
+      "default": "flex",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stack/swift/StackContainerElement.swift:35 (grid -> single-cell overlap / depth stack)"
+    }
+  },
+  "geometry": {
+    "spacing": {
+      "value": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stack/swift/StackContainerElement.swift:32"
+    }
+  },
+  "colors": {
+  },
+  "notes": "The generic CSS-driven container. Cross-axis default: column -> leading, row -> center (crossHAlign/crossVAlign, StackContainerElement.swift:58-72)."
+}

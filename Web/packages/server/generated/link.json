@@ -1,0 +1,68 @@
+{
+  "format": "despia:client-link@1",
+  "version": 0,
+  "digest": "sha256:04f72462f4f60b417e931c0612a02624a56ee723dac9ac0e7fc47ee801b17f76",
+  "routes": [
+    {
+      "chain": "server.http",
+      "action": "health",
+      "method": "GET",
+      "path": "/health"
+    },
+    {
+      "chain": "server.http",
+      "action": "listNotes",
+      "method": "GET",
+      "path": "/notes",
+      "auth": "required"
+    },
+    {
+      "chain": "server.http",
+      "action": "createNote",
+      "method": "POST",
+      "path": "/notes",
+      "auth": "required"
+    },
+    {
+      "chain": "server.http",
+      "action": "deleteNote",
+      "method": "DELETE",
+      "path": "/notes/:id",
+      "auth": "required"
+    },
+    {
+      "chain": "server.http",
+      "action": "getNote",
+      "method": "GET",
+      "path": "/notes/:id",
+      "auth": "required"
+    },
+    {
+      "chain": "server.http",
+      "action": "updateNote",
+      "method": "PATCH",
+      "path": "/notes/:id",
+      "auth": "required"
+    },
+    {
+      "chain": "server.http",
+      "action": "noteSummary",
+      "method": "GET",
+      "path": "/notes/summary",
+      "auth": "required"
+    },
+    {
+      "chain": "server.http",
+      "action": "subscribe",
+      "method": "GET",
+      "path": "/subscribe/:channel",
+      "auth": "required"
+    },
+    {
+      "chain": "server.http",
+      "action": "receiveWebhook",
+      "method": "POST",
+      "path": "/webhooks/:source"
+    }
+  ]
+}

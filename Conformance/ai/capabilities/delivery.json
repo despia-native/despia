@@ -1,0 +1,274 @@
+{
+ "_note": "Model delivery and the four locks (local-ai-engine.md §4.4, D16 RESOLVED: arbitrary-origin models are OPEN at launch, under a named regime). THE LAW ENCODED HERE: an app may allow ANY model URL, and four locks apply to every model regardless of source. (1) ORIGIN ALLOWLIST — `allowed_model_hosts` in the AI module's settings, https-only, with the DevSettings wildcard-host grammar; the app names which hosts it trusts and nothing else is reachable, so a catalog entry cannot talk an app into a new peer. (2) DIGEST DISCIPLINE — a declared digest verifies as always, and an UNDECLARED one is pinned on first download and verified forever after, so a changed byte at the origin is a typed refusal rather than a shrug; verification happens BEFORE the engine loads and a mismatch DELETES the file rather than leaving it to be retried into the loader. (3) THE PRE-FLIGHT VALIDATOR — a bounded format parse clears every file before any tensor loader maps it, so a file that passed its digest but is not what it claims still never reaches the engine. (4) FIT AND QUARANTINE apply unchanged (capabilities/fit.json). The engine never loads a byte that failed any of the four. Also pinned here: `urls[]` is a MIRROR list, so one host being down is not an outage; and storage is accounted before the bytes move.",
+ "cases": [
+  {
+   "name": "delivery: a model from an allowed host downloads and verifies before load",
+   "delivery": { "allowed_model_hosts": [ "cdn.example.com" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+                   "perf_priors": { "phone-mid": { "decode_tps": 20 } },
+                   "files": [ { "name": "model.gguf", "bytes": 400000000,
+                                "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                                "urls": [ "https://cdn.example.com/m1.gguf" ] } ] } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "origins": { "https://cdn.example.com/m1.gguf": { "sha256": "1111111111111111111111111111111111111111111111111111111111111111", "gguf": true } },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "m1" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "downloadAttempts": [ { "url": "https://cdn.example.com/m1.gguf" } ],
+    "downloaded": [ { "model": "m1", "verified": true } ],
+    "results": { "d": { "ok": true } }
+   }
+  },
+  {
+   "name": "delivery: a host the app never allowed is refused, and nothing is fetched",
+   "_note": "The allowlist is the app's, not the catalog's. An entry pointing somewhere the app never named is refused BEFORE any request goes out — the count of attempts is zero, which is the assertion that matters.",
+   "delivery": { "allowed_model_hosts": [ "cdn.example.com" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+                   "files": [ { "name": "model.gguf", "bytes": 400000000,
+                                "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+                                "urls": [ "https://attacker.example.net/m1.gguf" ] } ] } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "m1" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "origin_not_allowed", "data": { "host": "attacker.example.net" } } ],
+    "downloadAttemptCount": 0
+   }
+  },
+  {
+   "name": "delivery: http is refused even when the host is allowed",
+   "_note": "https-only is part of the lock, not a preference. A plaintext transport would let anyone on the path swap the bytes, and the digest check happens after the download, not during it.",
+   "delivery": { "allowed_model_hosts": [ "cdn.example.com" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+                   "files": [ { "name": "model.gguf", "bytes": 400000000,
+                                "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+                                "urls": [ "http://cdn.example.com/m1.gguf" ] } ] } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "m1" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "origin_not_allowed", "data": { "reason": "insecure_scheme" } } ],
+    "downloadAttemptCount": 0
+   }
+  },
+  {
+   "name": "delivery: a wildcard host matches a subdomain but not the apex or a suffix",
+   "_note": "The DevSettings wildcard grammar, applied here so an app can trust a CDN's subdomains without trusting everything that merely ENDS with the same letters. `*.example.com` matches models.example.com; it does not match example.com, and it certainly does not match notexample.com.",
+   "delivery": { "allowed_model_hosts": [ "*.example.com" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [
+     { "id": "sub", "engine": "gguf", "format": "gguf",
+       "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+       "perf_priors": { "phone-mid": { "decode_tps": 20 } },
+       "files": [ { "name": "a.gguf", "bytes": 1000, "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+                    "urls": [ "https://models.example.com/a.gguf" ] } ] },
+     { "id": "apex", "engine": "gguf", "format": "gguf",
+       "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+       "files": [ { "name": "b.gguf", "bytes": 1000, "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+                    "urls": [ "https://example.com/b.gguf" ] } ] },
+     { "id": "lookalike", "engine": "gguf", "format": "gguf",
+       "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+       "files": [ { "name": "c.gguf", "bytes": 1000, "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+                    "urls": [ "https://notexample.com/c.gguf" ] } ] }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "origins": { "https://models.example.com/a.gguf": { "sha256": "4444444444444444444444444444444444444444444444444444444444444444", "gguf": true } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "sub" }, "mode": "await", "as": "d1" } },
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "apex" }, "mode": "await", "as": "d2" } },
+    { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "lookalike" }, "mode": "await", "as": "d3" } }
+   ],
+   "expect": {
+    "downloaded": [ { "model": "sub" } ],
+    "absent": [
+     { "action": "download", "code": "origin_not_allowed", "data": { "host": "example.com" } },
+     { "action": "download", "code": "origin_not_allowed", "data": { "host": "notexample.com" } }
+    ]
+   }
+  },
+  {
+   "name": "delivery: a digest mismatch refuses, deletes the file, and never loads it",
+   "_note": "The tamper path, end to end. The bytes arrived, they are not the bytes the catalog named, and the response is not to retry into the loader: the file is DELETED and the engine is never handed it. Keeping a failed file around is how a mismatch becomes a load on the next launch.",
+   "delivery": { "allowed_model_hosts": [ "cdn.example.com" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+                   "files": [ { "name": "model.gguf", "bytes": 1000,
+                                "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+                                "urls": [ "https://cdn.example.com/m1.gguf" ] } ] } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "origins": { "https://cdn.example.com/m1.gguf": { "sha256": "dead0000000000000000000000000000000000000000000000000000000000ff", "gguf": true } },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "m1" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "digest_mismatch", "data": { "model": "m1" } } ],
+    "deletedOnMismatch": [ "m1" ],
+    "downloaded": [],
+    "engineLoadCount": 0
+   }
+  },
+  {
+   "name": "delivery: an undeclared digest is pinned on first download",
+   "_note": "The arbitrary-origin half of lock two. A user-supplied model has no digest in the catalog because nobody curated it — so the FIRST download records one, and every later fetch is verified against it. This is what makes 'any model you like' safe without making it curated.",
+   "delivery": { "allowed_model_hosts": [ "*.huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "byo", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+                   "perf_priors": { "phone-mid": { "decode_tps": 20 } },
+                   "files": [ { "name": "model.gguf", "bytes": 1000,
+                                "urls": [ "https://cdn.huggingface.co/someone/model/resolve/abc123/model.gguf" ] } ] } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "origins": { "https://cdn.huggingface.co/someone/model/resolve/abc123/model.gguf": { "sha256": "8888888888888888888888888888888888888888888888888888888888888888", "gguf": true } },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "byo" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "downloaded": [ { "model": "byo", "verified": true } ],
+    "pinnedDigests": { "byo": "8888888888888888888888888888888888888888888888888888888888888888" }
+   }
+  },
+  {
+   "name": "delivery: a pinned digest that changes at the origin is refused forever after",
+   "_note": "The other half: once pinned, a changed byte is a typed refusal. An origin that silently republishes a different model under the same URL is exactly the case this catches, and it catches it without anyone having curated anything.",
+   "delivery": { "allowed_model_hosts": [ "*.huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "byo", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+                   "files": [ { "name": "model.gguf", "bytes": 1000,
+                                "urls": [ "https://cdn.huggingface.co/someone/model/resolve/abc123/model.gguf" ] } ] } ],
+    "pinned": { "byo": "8888888888888888888888888888888888888888888888888888888888888888" }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "origins": { "https://cdn.huggingface.co/someone/model/resolve/abc123/model.gguf": { "sha256": "9999999999999999999999999999999999999999999999999999999999999999", "gguf": true } },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "byo" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "digest_mismatch", "data": { "reason": "pinned_on_first_download" } } ],
+    "deletedOnMismatch": [ "byo" ],
+    "engineLoadCount": 0
+   }
+  },
+  {
+   "name": "delivery: a file that passes its digest but fails pre-flight never reaches the engine",
+   "_note": "Lock three earns its place here. The digest only says the bytes are the bytes someone named; it says nothing about whether they are a model. A file whose header does not parse is refused with the validator's own reason, and the tensor loader never sees it.",
+   "delivery": { "allowed_model_hosts": [ "cdn.example.com" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+                   "files": [ { "name": "model.gguf", "bytes": 1000,
+                                "sha256": "aaaa111111111111111111111111111111111111111111111111111111111111",
+                                "urls": [ "https://cdn.example.com/m1.gguf" ] } ] } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "origins": { "https://cdn.example.com/m1.gguf": { "sha256": "aaaa111111111111111111111111111111111111111111111111111111111111", "gguf": false } },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "m1" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "format_unrecognized", "data": { "model": "m1" } } ],
+    "deletedOnMismatch": [ "m1" ],
+    "engineLoadCount": 0
+   }
+  },
+  {
+   "name": "delivery: urls are a mirror list, so one host being down is not an outage",
+   "_note": "Curated entries mirror to Despia-owned storage with the upstream as secondary. The first URL fails, the second serves, and the digest check is identical on whichever one answered — a mirror is not a trust shortcut.",
+   "delivery": { "allowed_model_hosts": [ "cdn.example.com", "*.huggingface.co" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+                   "perf_priors": { "phone-mid": { "decode_tps": 20 } },
+                   "files": [ { "name": "model.gguf", "bytes": 1000,
+                                "sha256": "bbbb111111111111111111111111111111111111111111111111111111111111",
+                                "urls": [ "https://cdn.example.com/m1.gguf",
+                                          "https://cdn.huggingface.co/org/repo/resolve/rev/model.gguf" ] } ] } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "origins": {
+    "https://cdn.example.com/m1.gguf": { "unreachable": true },
+    "https://cdn.huggingface.co/org/repo/resolve/rev/model.gguf": { "sha256": "bbbb111111111111111111111111111111111111111111111111111111111111", "gguf": true }
+   },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "m1" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "downloadAttempts": [
+     { "url": "https://cdn.example.com/m1.gguf" },
+     { "url": "https://cdn.huggingface.co/org/repo/resolve/rev/model.gguf" }
+    ],
+    "downloaded": [ { "model": "m1", "verified": true } ]
+   }
+  },
+  {
+   "name": "delivery: every mirror being down is a typed failure, not a silent skip",
+   "delivery": { "allowed_model_hosts": [ "cdn.example.com" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+                   "files": [ { "name": "model.gguf", "bytes": 1000,
+                                "sha256": "cccc111111111111111111111111111111111111111111111111111111111111",
+                                "urls": [ "https://cdn.example.com/m1.gguf" ] } ] } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "origins": { "https://cdn.example.com/m1.gguf": { "unreachable": true } },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "m1" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "download_failed", "data": { "model": "m1" } } ],
+    "downloaded": []
+   }
+  },
+  {
+   "name": "delivery: an allowlist that is empty allows nothing at all",
+   "_note": "Fail closed. An app that has not named a host has not opted into arbitrary origins, so the default is no downloads rather than all downloads — the opposite default would make the lock opt-OUT, which is not a lock.",
+   "delivery": { "allowed_model_hosts": [] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "m1", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 400 },
+                   "files": [ { "name": "model.gguf", "bytes": 1000,
+                                "sha256": "dddd111111111111111111111111111111111111111111111111111111111111",
+                                "urls": [ "https://cdn.example.com/m1.gguf" ] } ] } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 20000 },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "m1" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "origin_not_allowed" } ],
+    "downloadAttemptCount": 0
+   }
+  },
+  {
+   "name": "delivery: storage is accounted before a byte moves",
+   "_note": "The same refusal fit.json pins, asserted from the delivery side: a model that cannot fit is refused BEFORE the request goes out, not after the disk fills.",
+   "delivery": { "allowed_model_hosts": [ "cdn.example.com" ] },
+   "catalog": {
+    "installed": [],
+    "entries": [ { "id": "big", "engine": "gguf", "format": "gguf",
+                   "requirements": { "footprint_mb": 500, "disk_mb": 8000 },
+                   "files": [ { "name": "model.gguf", "bytes": 8000000000,
+                                "sha256": "eeee111111111111111111111111111111111111111111111111111111111111",
+                                "urls": [ "https://cdn.example.com/big.gguf" ] } ] } ]
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 1000 },
+   "steps": [ { "call": { "scheme": "intelligence", "action": "download", "args": { "model": "big" }, "mode": "await", "as": "d" } } ],
+   "expect": {
+    "absent": [ { "action": "download", "code": "insufficient_storage", "data": { "needed_mb": 8000, "free_mb": 1000 } } ],
+    "downloadAttemptCount": 0
+   }
+  }
+ ]
+}

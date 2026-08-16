@@ -1,0 +1,33 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "spinner",
+  "aliases": [
+    "activity"
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Spinner/swift/SpinnerElement.swift",
+  "attributes": {
+    "color": {
+      "type": "color",
+      "default": "secondary",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Spinner/swift/SpinnerElement.swift:11 — system-defaults.md base pass: the system spinner gray (was the pinned `white`)"
+    },
+    "scale": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Spinner/swift/SpinnerElement.swift:13"
+    }
+  },
+  "geometry": {
+    "size": {
+      "value": 20,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Spinner/swift/SpinnerElement.swift:11 (native UIActivityIndicator medium ~= 20pt; Android draws a 20dp arc)"
+    }
+  },
+  "colors": {
+    "tint": {
+      "token": "secondary",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Spinner/swift/SpinnerElement.swift:11 — system-defaults.md base pass: the system spinner gray (was the pinned `white`)"
+    }
+  },
+  "notes": "SYSTEM IDENTITY (system-defaults.md, the Android M3-identity wave): iOS renders the native ProgressView always — untinted when no color is authored, .tint(color) otherwise (SpinnerElement.swift); web is the .dsx-spinner control; Android renders the real M3 CircularProgressIndicator when unstyled OR color-only (StackSystemControls.kt SystemControl.SPINNER). THE TINT DECISION (stated): an authored color rides the M3 component as its indicator color — the compatible tint, the iOS ProgressView().tint twin — it never ejects the system rendering; every other styling attr (scale= included, it rides the style chain) ejects to the legacy 270-degree arc byte-identically. Metrics follow the cross-platform contract (the StackButtons iconSize precedent): the M3 indicator renders at the fixture's 20dp/2dp stroke, not M3's native 40dp. Uncolored = the component's own theme color (M3 primary — the platform's own choice; iOS's untinted spinner is ITS gray, which colors.tint above pins for the legacy path). Android joining COMPLETES the three-renderer parity for this element."
+}

@@ -1,0 +1,215 @@
+{
+ "_note": "L1, THE ANTI-DELETION LAW (g2p-pack.md, 'The law this exists to enforce'). A frontend's failure mode is not a crash. It is a word that disappears. The upstream reference implementation assigns an unknown word a placeholder its own tokenizer then strips, so the word is not mispronounced, it is DELETED from the speech; nobody reviewing the code sees it, and the user hears a sentence missing its subject. Measured, that path fires on 1.0 to 2.1 % of general prose and 9.5 % of technical text, and the residual a second permissive dictionary cannot fix is almost entirely PROPER NOUNS AND IDENTIFIERS, which is exactly what an app speaks.\n\nSo this file is not about pronunciation at all. It is about ARITHMETIC, and it states the law twice on purpose. `nothingDropped.words` is the exact ordered list of the input's words and must equal the emitted tokens' `text` fields in order. `tilesInput` is the stronger form: every token carries the exact input bytes before it as `gap` and its own bytes as `text`, and the answer carries whatever followed the last token as `trailing`, so concatenating gap and text across the tokens and appending trailing must reproduce THE ENTIRE INPUT, byte for byte. A word cannot go missing from a string that reassembles. Every case that phonemizes carries both, including the cases whose answer is a refusal, because a refusal is still a token and a token is still coverage. A runner that cannot check them must FAIL this file, never skip it: silence is the bug.\n\nOne shape this file settles and the rest of the corpus inherits: a token's `text` is the input's OWN bytes BEFORE folding. Folding feeds the lookup, never the receipt. If a token reported its folded form, `Zyleth` would come back as `zyleth`, the reassembly would produce a string the caller never sent, and the whole check would be unfalsifiable.",
+
+ "requires": [ "nothingDropped", "tilesInput", "tokens", "tokenCount", "trailing", "coverage" ],
+
+ "cases": [
+  {
+   "name": "g2p: an invented proper noun is pronounced, never deleted",
+   "_note": "The whole corpus in one line. `Zyleth` is in no dictionary, will never be in one, and is the exact class of word a contact list is made of. It comes back as a token with a guessed pronunciation and a `via` that says the guess is a guess. `walks` is not in the lexicon either and arrives through the morphology rules, so its phonemes are `walk` plus the allomorph the rule picks for a stem ending in `p3`.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth walks", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "walks" ], "joined": "Zyleth walks" },
+    "tilesInput": true,
+    "tokenCount": 2,
+    "tokens": [
+     { "gap": "", "text": "Zyleth", "via": "lts", "phonemes": "record", "phonemesNonEmpty": true, "sentence": 0 },
+     { "gap": " ", "text": "walks", "via": "stem", "phonemes": "p0p7p3p6", "sentence": 0 }
+    ]
+   }
+  },
+  {
+   "name": "g2p: a product name no dictionary holds keeps its place in the sentence",
+   "_note": "The technical-text case, where the miss rate is 9.5 %. The two words around it resolve from the lexicon with the pack's own declared phones, so a failure here is unambiguous: either the product name survived or it did not. The coverage block is the same claim counted rather than listed, and `guessed` is the one number a surface reads to decide whether to warn.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Kubernetes is here", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "Kubernetes", "is", "here" ], "joined": "Kubernetes is here" },
+    "tilesInput": true,
+    "tokenCount": 3,
+    "tokens": [
+     { "text": "Kubernetes", "via": "lts", "phonemes": "record", "phonemesNonEmpty": true },
+     { "text": "is", "via": "lexicon", "phonemes": "p2p9" },
+     { "text": "here", "via": "lexicon", "phonemes": "p3p4p5" }
+    ],
+    "coverage": { "lexicon": 2, "lts": 1, "total": 3, "guessed": 1 }
+   }
+  },
+  {
+   "name": "g2p: a mixed-case identifier survives whole, and reports its original bytes",
+   "_note": "Folding lowercases `getUserById` so the lookup can be attempted; the RECEIPT still says `getUserById`. That is what makes the reassembly checkable against the input, and it is why `tilesInput` and case folding have to be discussed together rather than one at a time.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "getUserById is null", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "getUserById", "is", "null" ], "joined": "getUserById is null" },
+    "tilesInput": true,
+    "tokenCount": 3,
+    "tokens": [
+     { "text": "getUserById", "via": "lts", "phonemes": "record", "phonemesNonEmpty": true },
+     { "text": "is", "via": "lexicon", "phonemes": "p2p9" },
+     { "text": "null", "via": "lexicon", "phonemes": "p6p1p2" }
+    ]
+   }
+  },
+  {
+   "name": "g2p: a hyphenate is four words, and the hyphens are still audible",
+   "_note": "The hyphen is punctuation the pack declares, so it ends a word: each half reaches the lexicon, which a hyphenate kept whole never would. The hyphens are not tokens and they are not lost either. They ride in the next token's `gap` with their own `gap_phonemes` from the pack's SPEL row for `-`, which is what stops a pause from being silently deleted alongside the word it separated.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "state-of-the-art", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "state", "of", "the", "art" ], "joined": "state of the art" },
+    "tilesInput": true,
+    "tokenCount": 4,
+    "tokens": [
+     { "gap": "", "text": "state", "via": "lexicon", "phonemes": "p7p0p3" },
+     { "gap": "-", "gap_phonemes": "p8", "text": "of", "via": "lexicon", "phonemes": "p8p5" },
+     { "gap": "-", "gap_phonemes": "p8", "text": "the", "via": "lexicon", "phonemes": "p9p4" },
+     { "gap": "-", "gap_phonemes": "p8", "text": "art", "via": "lexicon", "phonemes": "p0pAp3" }
+    ]
+   }
+  },
+  {
+   "name": "g2p: an emoji is refused in place, so the sentence keeps its shape",
+   "_note": "Outside META.accept, outside `fold`, and therefore unpronounceable by construction, which is a REFUSAL and not a removal (L4). The token is present, it carries the offending text, it is flagged `unaccepted`, and its rendered phonemes are empty because the speller has no row for it. A caller that wants to skip it can; the frontend never decides that for them.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "ship 🚀 today", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "ship", "🚀", "today" ], "joined": "ship 🚀 today" },
+    "tilesInput": true,
+    "tokenCount": 3,
+    "tokens": [
+     { "text": "ship", "via": "lexicon", "phonemes": "p4p2pB" },
+     { "text": "🚀", "via": "refused", "phonemes": "", "unaccepted": true },
+     { "text": "today", "via": "lexicon", "phonemes": "p3p8p9p0" }
+    ]
+   }
+  },
+  {
+   "name": "g2p: a Cyrillic word inside English text is refused, never removed",
+   "_note": "A pack declares the character set it accepts; it does not declare that everything else is noise. The foreign word is one refused token, the English around it is unaffected, and a caller with a second voice can act on the `refused` marker because it is still there to act on.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "he said привет twice", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "he", "said", "привет", "twice" ], "joined": "he said привет twice" },
+    "tilesInput": true,
+    "tokenCount": 4,
+    "tokens": [
+     { "text": "he", "via": "lexicon", "phonemes": "p5p4" },
+     { "text": "said", "via": "lexicon", "phonemes": "p2p0p9" },
+     { "text": "привет", "via": "refused", "phonemes": "", "unaccepted": true },
+     { "text": "twice", "via": "lexicon", "phonemes": "p3pAp2" }
+    ]
+   }
+  },
+  {
+   "name": "g2p: an all-caps initialism folds to letters and survives",
+   "_note": "`API` folds to `api`, misses the lexicon, and is guessed. Without the case-folding rows in the pack's `fold` map every capital would be a character outside `accept` and the whole token would be refused. That is the reason those rows are declared and the reason this case exists.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "the API is up", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "the", "API", "is", "up" ], "joined": "the API is up" },
+    "tilesInput": true,
+    "tokenCount": 4,
+    "tokens": [
+     { "text": "the", "via": "lexicon", "phonemes": "p9p4" },
+     { "text": "API", "via": "lts", "phonemes": "record", "phonemesNonEmpty": true },
+     { "text": "is", "via": "lexicon", "phonemes": "p2p9" },
+     { "text": "up", "via": "lexicon", "phonemes": "p8pB" }
+    ]
+   }
+  },
+  {
+   "name": "g2p: a digit survives a pack that carries no number words",
+   "_note": "NORM is optional, so this pack has none: 'those expansions are absent, not wrong'. Absent must still mean present-as-a-token. The digit is in META.accept, SPEL names it, and it comes back spelled with the pack's own row. A build that treats a missing NORM as licence to skip the digit fails here, which is the same silent-deletion shape L1 names. The two derivations show the morphology rules choosing different allomorphs: `ship` ends in `pB` and `build` ends in `p9`, so neither takes the `after: [p3]` variant, and `shipped` reaches its stem only because the `-ed` rule undoubles.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "we shipped 3 builds", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "we", "shipped", "3", "builds" ], "joined": "we shipped 3 builds" },
+    "tilesInput": true,
+    "tokenCount": 4,
+    "tokens": [
+     { "text": "we", "via": "lexicon", "phonemes": "pAp4" },
+     { "text": "shipped", "via": "stem", "phonemes": "p4p2pBp3" },
+     { "text": "3", "via": "spelled", "phonemes": "p6" },
+     { "text": "builds", "via": "stem", "phonemes": "p1p2p6p9pA" }
+    ]
+   }
+  },
+  {
+   "name": "g2p: refusing a word is still covering it",
+   "_note": "The same input as the first case under the `refuse` policy. The pronunciation is gone and the TOKEN IS NOT: same count, same texts, same order, empty phonemes and a `via` that says why. This is the case that makes L1 and L4 one law rather than two, because there is no policy under which a word leaves the stream.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth walks", "fallback": "refuse" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "walks" ], "joined": "Zyleth walks" },
+    "tilesInput": true,
+    "tokenCount": 2,
+    "tokens": [
+     { "text": "Zyleth", "via": "refused", "phonemes": "" },
+     { "text": "walks", "via": "stem", "phonemes": "p0p7p3p6" }
+    ],
+    "coverage": { "stem": 1, "refused": 1, "total": 2, "guessed": 1 }
+   }
+  },
+  {
+   "name": "g2p: a word said three times is emitted three times",
+   "_note": "Cheap, and it closes a real hole: a lookup cache keyed by word that emits per KEY rather than per OCCURRENCE passes every other case in this file and drops the repeats.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "walk walk walk", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "walk", "walk", "walk" ], "joined": "walk walk walk" },
+    "tilesInput": true,
+    "tokenCount": 3,
+    "tokens": [
+     { "text": "walk", "via": "lexicon", "phonemes": "p0p7p3" },
+     { "text": "walk", "via": "lexicon", "phonemes": "p0p7p3" },
+     { "text": "walk", "via": "lexicon", "phonemes": "p0p7p3" }
+    ],
+    "coverage": { "lexicon": 3, "total": 3, "guessed": 0 }
+   }
+  },
+  {
+   "name": "g2p: punctuation never swallows the word beside it",
+   "_note": "A comma glued to the previous word and a full stop closing the utterance. Neither is a token and neither is lost: the comma and the space after it are the second token's `gap`, and the final stop is the answer's `trailing`. `tilesInput` is what proves both, and it is why this case does not need to say where each byte went.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "Zyleth, walk.", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [ "Zyleth", "walk" ], "joined": "Zyleth walk" },
+    "tilesInput": true,
+    "tokenCount": 2,
+    "tokens": [
+     { "gap": "", "text": "Zyleth", "via": "lts", "phonemes": "record", "phonemesNonEmpty": true, "sentence": 0 },
+     { "gap": ", ", "gap_phonemes": "p3p1", "text": "walk", "via": "lexicon", "phonemes": "p0p7p3", "sentence": 0 }
+    ],
+    "trailing": "."
+   }
+  },
+  {
+   "name": "g2p: input that is only spaces produces no tokens and loses nothing",
+   "_note": "The degenerate end of the law, and the one an implementation is most likely to get wrong by returning early. There are no words, so `words` is empty; there are still bytes, so they come back as `trailing` and the reassembly still reproduces the input exactly.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "   ", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [], "joined": "" },
+    "tilesInput": true,
+    "tokenCount": 0,
+    "tokens": [],
+    "trailing": "   "
+   }
+  },
+  {
+   "name": "g2p: empty input produces no tokens and no error",
+   "_note": "Nothing in means nothing out, and nothing out is not a failure. A caller that phonemizes an empty field gets an empty answer rather than a typed refusal it has to special-case.",
+   "pack": "fixture-en-1",
+   "phonemize": { "text": "", "fallback": "lts" },
+   "expect": {
+    "nothingDropped": { "words": [], "joined": "" },
+    "tilesInput": true,
+    "tokenCount": 0,
+    "tokens": [],
+    "trailing": ""
+   }
+  }
+ ]
+}

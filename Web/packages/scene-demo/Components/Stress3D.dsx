@@ -1,0 +1,51 @@
+<!-- Deterministic CI certification fixture for the 3D renderer and fixed-tick solver.
+     160 visual boxes plus 96 independently falling bodies exercise the raw WebGL draw
+     path and the current pairwise physics broadphase without creating unstable piles. -->
+<stack grow="true" style="gap: 0rem; background: groupedBackground">
+  <head>
+    <variable as="visuals">
+      return Array.from({ length: 160 }, (_, i) => ({
+        id: 'visual-' + i,
+        x: ((i % 20) - 9.5) * 0.9,
+        y: 0.15 + (i % 5) * 0.16,
+        z: -4.8 + Math.floor(i / 20) * 0.18,
+        tint: i % 3 === 0 ? '#2563eb' : (i % 3 === 1 ? '#0ea5e9' : '#22c55e')
+      }))
+    </variable>
+    <variable as="bodies">
+      return Array.from({ length: 96 }, (_, i) => ({
+        id: 'body-' + i,
+        x: ((i % 12) - 5.5) * 1.45,
+        y: 2.4 + (i % 4) * 1.2,
+        z: (Math.floor(i / 12) - 3.5) * 1.45,
+        tint: i % 2 === 0 ? '#f59e0b' : '#a855f7'
+      }))
+    </variable>
+    <variable as="ticks">return 0</variable>
+  </head>
+
+  <NavBar title="3D + Physics Stress Certification" back="true" on:back="dsx.module.route.pop()"/>
+  <stack style="gap: 0.75rem; padding: 1rem">
+    <text value="160 visual boxes · 96 dynamic bodies · ticks {{ dsx.variable.ticks }}" style="font-size: 0.8rem; font-weight: 700"/>
+    <scene id="stress-3d" gravity="0 -9.81 0" background="#08111f" fog="#08111f 18 34"
+           a11yLabel="CI stress field containing 160 boxes and 96 dynamic physics bodies"
+           on:tick="dsx.variable.ticks = dsx.variable.ticks + 1">
+      <camera position="0 10 20" look-at="0 2 0" fov="58"/>
+      <light kind="ambient" intensity="0.45"/>
+      <light kind="directional" position="5 9 7" intensity="0.8"/>
+      <box id="stress-floor" physics="static" position="0 -0.5 0" size="22 1 16" color="#164e3b"/>
+      <group id="visual-bank" bind="dsx.variable.visuals" key="id">
+        <box position="{{ item.x }} {{ item.y }} {{ item.z }}" size="0.68 0.68 0.68" color="{{ item.tint }}"/>
+      </group>
+      <group id="physics-bank" bind="dsx.variable.bodies" key="id">
+        <box physics="dynamic" mass="1" bounce="0.05" friction="0.7"
+             position="{{ item.x }} {{ item.y }} {{ item.z }}" size="0.7 0.7 0.7" color="{{ item.tint }}"/>
+      </group>
+      <!-- Keeps the draw path running after every falling body has slept so a fixed
+           sample has the same render-node population on fast and slow CI hosts. -->
+      <box id="stress-3d-clock" position="0 8 -5" size="0.45 0.45 0.45" color="#f8fafc">
+        <animate target="rotation" from="0 0 0" to="0 360 0" duration="3s" easing="linear" loop="true"/>
+      </box>
+    </scene>
+  </stack>
+</stack>

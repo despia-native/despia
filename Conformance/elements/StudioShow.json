@@ -1,0 +1,20 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "StudioShow",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioShow.swift",
+  "attributes": {
+    "kind": {
+      "type": "string",
+      "default": "tune",
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioShow.swift:214"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

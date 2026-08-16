@@ -1,0 +1,130 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "video",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift",
+  "attributes": {
+    "src": {
+      "type": "url",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:72"
+    },
+    "active": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:73"
+    },
+    "autoplay": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:74"
+    },
+    "loop": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:75"
+    },
+    "muted": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:76"
+    },
+    "gravity": {
+      "type": "enum(fill|fit)",
+      "default": "fill",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:77"
+    },
+    "speed": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:78"
+    },
+    "start": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:79"
+    },
+    "subtitles": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:80"
+    },
+    "reload": {
+      "type": "number",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:81"
+    },
+    "audio": {
+      "type": "enum(playback|ambient)",
+      "default": "ambient",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:82 (claimsAudio when \"playback\")"
+    },
+    "pip": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:83"
+    },
+    "nowPlaying": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:84"
+    },
+    "nowTitle": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:85"
+    },
+    "nowArtist": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:86"
+    },
+    "remoteSkip": {
+      "type": "number",
+      "default": 5,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:87"
+    },
+    "paused": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:64"
+    },
+    "bind": {
+      "type": "expr(number)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:65 (two-way position)"
+    },
+    "time": {
+      "type": "state-key",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:66 (published currentTime, read-only)"
+    },
+    "duration": {
+      "type": "state-key",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:67"
+    },
+    "buffering": {
+      "type": "state-key",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:68"
+    },
+    "scrubbing": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:69"
+    },
+    "preview": {
+      "type": "state-key",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Media/Video/swift/Video.swift:70"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

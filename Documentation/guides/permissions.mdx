@@ -1,0 +1,230 @@
+---
+title: "Permissions"
+description: "Control which native permissions your build declares from Settings, and read the shipped set back at runtime through window.permissions."
+icon: "shield-halved"
+---
+
+Every permission your app declares is an editable field under **App → Settings → Usage Descriptions**. You write the wording of each iOS purpose string, and clearing a field removes that permission from the build on both platforms.
+
+The same decision is readable from your page at runtime. `window.permissions` is a frozen array of the permission keys this specific binary shipped with, so a build without the camera can hide its camera UI instead of calling into a capability that is not there.
+
+***
+
+## Installation
+
+<Tabs>
+  <Tab title="Bundle">
+    <CodeGroup>
+      ```bash npm theme={null}
+      npm install despia-native
+      ```
+
+      ```bash pnpm theme={null}
+      pnpm add despia-native
+      ```
+
+      ```bash yarn theme={null}
+      yarn add despia-native
+      ```
+    </CodeGroup>
+
+    ```javascript theme={null}
+    import despia from 'despia-native';
+    ```
+  </Tab>
+
+  <Tab title="CDN">
+    <CodeGroup>
+      ```html UMD theme={null}
+      <script src="https://cdn.jsdelivr.net/npm/despia-native/index.min.js"></script>
+      ```
+
+      ```html ESM theme={null}
+      <script type="module">
+          import despia from 'https://cdn.jsdelivr.net/npm/despia-native/+esm'
+      </script>
+      ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+***
+
+## How it works
+
+Each field you fill in does two things: it writes your text as the iOS purpose string the OS shows in the permission prompt, and it adds the matching Android permission to the manifest. Clearing the field removes both.
+
+The build then reflects that decision all the way down. The native code behind an excluded permission is compiled out rather than merely disabled, so a camera-less build contains no capture code at all, and the excluded feature answers a structured error instead of prompting for something it can never receive.
+
+```javascript theme={null}
+import despia from 'despia-native'
+
+// The keys this build actually shipped with
+console.log(window.permissions)
+// ["camera_usage", "location_when_in_use", "push_notifications", ...]
+
+if (!window.permissions.includes('microphone')) {
+    hideVoiceRecordingButton()
+}
+```
+
+`window.permissions` is injected before your JavaScript runs, so it is available on first render with no loading state. It is frozen — treat it as a read-only fact about the binary.
+
+<Info>
+  The array reports the **capability compiled into the build**, not whether the user has granted it. A key being present means the app is able to ask; the user may still decline at the prompt. Handle the runtime denial separately, in each feature's own callback.
+</Info>
+
+***
+
+## The permission keys
+
+Nineteen permissions are supported. The iOS column is the `Info.plist` key your text is written to; the Android column is what appears in the manifest.
+
+| Key | iOS | Android |
+| :-- | :-- | :-- |
+| `location_when_in_use` | `NSLocationWhenInUseUsageDescription` | `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` |
+| `background_location_always_and_when_in_use` | `NSLocationAlwaysAndWhenInUseUsageDescription` | `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE_LOCATION` |
+| `location_always` | `NSLocationAlwaysUsageDescription` (legacy spelling) | same as the row above |
+| `camera_usage` | `NSCameraUsageDescription` | `CAMERA`, `FLASHLIGHT` |
+| `microphone` | `NSMicrophoneUsageDescription` | `RECORD_AUDIO` |
+| `speech_recognition` | `NSSpeechRecognitionUsageDescription` | rides `RECORD_AUDIO`; requires `microphone` |
+| `photo_library` | `NSPhotoLibraryUsageDescription` | permission-free on Android |
+| `photo_library_add` | `NSPhotoLibraryAddUsageDescription` | permission-free on Android |
+| `contacts` | `NSContactsUsageDescription` | `READ_CONTACTS` |
+| `calendar_usage` | `NSCalendarsUsageDescription` | no Android equivalent |
+| `face_id_usage` | `NSFaceIDUsageDescription` | `USE_BIOMETRIC` |
+| `nfc_reader` | `NFCReaderUsageDescription` | `NFC` |
+| `push_notifications` | no real iOS key exists; the OS owns the prompt text | `POST_NOTIFICATIONS` |
+| `health_share` | `NSHealthShareUsageDescription` | no Android equivalent |
+| `health_update` | `NSHealthUpdateUsageDescription` | no Android equivalent |
+| `bluetooth_always` | `NSBluetoothAlwaysUsageDescription` | no Android equivalent |
+| `tracking_usage` | `NSUserTrackingUsageDescription` | `com.google.android.gms.permission.AD_ID` |
+| `motion_usage` | `NSMotionUsageDescription` | `ACTIVITY_RECOGNITION`, `HIGH_SAMPLING_RATE_SENSORS` |
+| `local_network_usage` | `NSLocalNetworkUsageDescription` and `NSBonjourServices` | `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT`, `NEARBY_WIFI_DEVICES`, plus version-bounded legacy radio grants |
+
+Health and Tracking are iOS-only. Photo library access needs no Android permission on modern versions, so those rows are deliberately one-sided rather than incomplete.
+
+***
+
+## Clearing a field removes the permission
+
+<Warning>
+  A field must be **completely empty** for the permission to be removed. A single space counts as a value and the key stays in the build.
+</Warning>
+
+Removal is permanent for that binary, and this is the part worth reading twice:
+
+- **No over-the-air update can add a permission back.** Usage descriptions are baked into the native build. A web update that starts calling a removed capability does not gain the permission — it just fails.
+- **On iOS, calling an API whose usage description was removed terminates the app.** This is the OS enforcing its own rule, not a Despia behaviour, and it looks like a crash to your users.
+- **Ship the binary first, then the web update.** Gate the feature on the app version with `getappversion://`, release the native build that carries the new usage description, and only then push the web code that uses it.
+
+```javascript theme={null}
+// Safe rollout: never call a capability this binary may not have
+if (window.permissions.includes('motion_usage')) {
+    startActivityTracking()
+} else {
+    showManualEntryFallback()
+}
+```
+
+Existing apps keep their current permission set until you edit it, and changes apply on the next native build.
+
+***
+
+## Why Apple made this necessary
+
+Apple runs an automated analysis of purpose strings at submission and rejects binaries under **Guideline 5.1.1** when a string is generic, or when a permission is declared for something the app never actually uses.
+
+That is why the default is no longer a broad permission set. A build that declares the camera but never opens it is a rejection, and so is one whose purpose string reads like boilerplate. Write each string as a specific sentence about what your app does with the data — "Take a photo of a receipt to attach it to an expense" rather than "This app uses the camera."
+
+The reverse is enforced too: a build is checked before submission for any purpose string left behind by a capability that was compiled out, because an orphaned string is the same 5.1.1 exposure as a generic one.
+
+***
+
+## Feature notes
+
+A few permissions cover more than their name suggests, or deliberately cover less.
+
+<AccordionGroup>
+  <Accordion title="motion_usage covers the fitness store, not the raw sensors">
+    Clearing `motion_usage` removes activity classification and step counting — `motion://activity` and `motion://pedometer`, which answer `permission_denied` instead.
+
+    The raw inertial stream and the barometer keep working. Neither requires a permission on either platform, so a build with motion cleared can still call `motion://start` and `motion://barometer`, and `gyroscope://` is unaffected entirely. See [Motion Sensors](/native-features/motion).
+  </Accordion>
+
+  <Accordion title="local_network_usage carries the Bonjour declaration too">
+    On iOS this key writes both the purpose string and the `NSBonjourServices` array. The array is not optional: iOS never shows the local-network prompt for a service type the app has not declared, so a build with the string but no array would fail to discover anyone with no error to explain why.
+
+    Both are written and removed together, so this is handled for you. Clearing the key makes `nearby://start` answer `unavailable`. See [Nearby](/native-features/nearby).
+  </Accordion>
+
+  <Accordion title="camera_usage covers burst capture and every other camera path">
+    One key gates the QR and document scanners, the torch, `<input capture>`, web `getUserMedia`, and headless [Burst Capture](/native-features/camera-burst). Clearing it makes `camera://burst` answer `permission_denied` and reports both lenses as unavailable in the capability probe.
+  </Accordion>
+
+  <Accordion title="push_notifications gates silent push as well as visible ones">
+    Silent push has no permission of its own; it rides the push toggle. Clearing `push_notifications` removes push registration from the build entirely, and with no device token neither a visible nor a [Silent Push](/native-features/silent-push) can ever arrive.
+
+    Note the asymmetry in the other direction: a user who declines the *visible* notification prompt on iOS still receives silent pushes, because that prompt governs alerts rather than background delivery.
+  </Accordion>
+
+  <Accordion title="speech_recognition requires the microphone">
+    Speech records audio through the system audio engine, so it cannot ship without `microphone`. Clearing the microphone key forces speech off as well, whatever the speech field says.
+  </Accordion>
+</AccordionGroup>
+
+***
+
+## Checking capabilities before you call
+
+For anything conditional, branch on `window.permissions` at the point of use rather than at boot, so the check sits next to the call it protects.
+
+```javascript theme={null}
+import despia from 'despia-native'
+
+const has = (key) => Array.isArray(window.permissions) && window.permissions.includes(key)
+
+async function attachReceipt() {
+    if (!has('camera_usage')) {
+        return openFilePicker()   // this build cannot capture
+    }
+
+    window.onBurstComplete = function (data) {
+        if (data.status === 'error') {
+            // permission_denied here means the user declined at the prompt
+            return openFilePicker()
+        }
+        uploadFrames(data.photos)
+    }
+
+    despia('camera://burst?count=3&quality=0.8')
+}
+```
+
+The two failure modes are genuinely different and worth handling separately: a missing key means the capability is not in the binary and never will be for this version, while a `permission_denied` error means the user was asked and said no, which they can change in Settings.
+
+<Info>
+  On older builds that predate this system, `window.permissions` may be undefined. The `Array.isArray` guard above keeps that case falling back cleanly rather than throwing.
+</Info>
+
+***
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="NPM Package" icon="npm" href="https://www.npmjs.com/package/despia-native">
+    despia-native
+  </Card>
+
+  <Card title="App Store Review Guideline 5.1.1" icon="apple" href="https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage">
+    Data collection and storage
+  </Card>
+
+  <Card title="App Privacy" icon="user-shield" href="/native-features/app-privacy">
+    Reading tracking consent at runtime
+  </Card>
+
+  <Card title="Support" icon="envelope" href="mailto:support@despia.com">
+    [support@despia.com](mailto:support@despia.com)
+  </Card>
+</CardGroup>

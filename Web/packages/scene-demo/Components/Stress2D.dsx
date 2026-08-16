@@ -1,0 +1,51 @@
+<!-- Deterministic CI certification fixture for the 2D renderer. Two independently
+     capped bind groups deliberately fill the kernel's 256-row safety limit, yielding
+     512 live sprites without relying on random data or unbounded author input. -->
+<stack grow="true" style="gap: 0rem; background: groupedBackground">
+  <head>
+    <variable as="spritesA">
+      return Array.from({ length: 256 }, (_, i) => ({
+        id: 'a-' + i,
+        x: ((i % 32) - 15.5) * 0.8,
+        y: (Math.floor(i / 32) - 7.5) * 0.8,
+        frame: i % 8,
+        tint: i % 2 === 0 ? '#ffffff' : '#bfe8ff'
+      }))
+    </variable>
+    <!-- This input intentionally exceeds the per-group limit. The scene must retain
+         exactly 256 rows from it, proving hostile data cannot mint an unbounded list. -->
+    <variable as="spritesB">
+      return Array.from({ length: 300 }, (_, i) => ({
+        id: 'b-' + i,
+        x: ((i % 32) - 15.5) * 0.8,
+        y: (Math.floor((i + 256) / 32) - 7.5) * 0.8,
+        frame: (i + 3) % 8,
+        tint: i % 2 === 0 ? '#ffd8a8' : '#ffffff'
+      }))
+    </variable>
+  </head>
+
+  <NavBar title="2D Stress Certification" back="true" on:back="dsx.module.route.pop()"/>
+  <stack style="gap: 0.75rem; padding: 1rem">
+    <text value="512 deterministic sheet sprites · two capped 256-row groups" style="font-size: 0.8rem; font-weight: 700"/>
+    <scene id="stress-2d" mode="2d" size="7.5" background="#101826"
+           a11yLabel="CI stress field containing 512 animated-sheet sprites">
+      <camera position="0 0 10" look-at="0 0 0" size="7.5"/>
+      <light kind="ambient" intensity="1"/>
+      <group id="sprite-bank-a" bind="dsx.variable.spritesA" key="id">
+        <sprite src="/packages/scene-demo/assets/hero-sheet.png" frames="4 2"
+                frame="{{ item.frame }}" position="{{ item.x }} {{ item.y }} 0"
+                size="0.62 0.62" color="{{ item.tint }}"/>
+      </group>
+      <group id="sprite-bank-b" bind="dsx.variable.spritesB" key="id">
+        <sprite src="/packages/scene-demo/assets/hero-sheet.png" frames="4 2"
+                frame="{{ item.frame }}" position="{{ item.x }} {{ item.y }} 0.1"
+                size="0.62 0.62" color="{{ item.tint }}"/>
+      </group>
+      <!-- One clock-driven sprite keeps the render loop live while the oracle samples
+           frame pacing; the 512-row population itself remains deterministic. -->
+      <sprite id="stress-2d-clock" src="/packages/scene-demo/assets/hero-sheet.png"
+              frames="4 2" fps="8" position="0 7 0.2" size="0.4 0.4"/>
+    </scene>
+  </stack>
+</stack>

@@ -1,0 +1,205 @@
+{
+ "_schema": "despia-markdown-blocks-v1",
+ "_note": "BLOCK-LEVEL markdown (A4) — the `<markdown>` element. This is the twin of, not a replacement for, `<text markdown=\"true\">`: that one renders the INLINE intents only (emphasis, code, links) because SwiftUI's Text collapses block intents, and it stays exactly as it was. `<markdown>` is the block vocabulary a README needs — headings, paragraphs, lists, fenced code, blockquotes, tables, images, rules. Cases are (source → a neutral block tree) with no host types in them, so the Kotlin and Swift renderers implement the same file rather than a description of it. INLINE content inside a block is NOT re-specified here: each block carries its raw inline source and every renderer feeds it to the inline parser this corpus's sibling already pins.",
+ "_safety": "Every case that could inject markup is here on purpose. No renderer may reach innerHTML: the DOM side constructs nodes and the SSR side escapes every run, so an authored or BOUND document is structurally incapable of injecting script. Link and image targets ride the same http/https/mailto/tel/relative allowlist the inline parser uses; a refused target renders as text, never as a live navigation the author did not write.",
+ "limits": {
+  "characters": 65536,
+  "blocks": 512,
+  "listDepth": 6,
+  "_why": "A markdown document here is a package README — authored copy or fetched data. Each bound caps a different allocation axis, and the remainder past a bound renders as plain text rather than throwing."
+ },
+ "cases": [
+  {
+   "name": "paragraphs-split-on-blank-lines",
+   "source": "First paragraph.\n\nSecond paragraph.",
+   "blocks": [
+    { "type": "paragraph", "inline": "First paragraph." },
+    { "type": "paragraph", "inline": "Second paragraph." }
+   ]
+  },
+  {
+   "name": "a-soft-wrap-stays-one-paragraph",
+   "_why": "Hard-wrapped prose is the normal shape of a README; treating each line as a block would double-space every document.",
+   "source": "one line\nstill the same paragraph",
+   "blocks": [{ "type": "paragraph", "inline": "one line still the same paragraph" }]
+  },
+  {
+   "name": "atx-headings-one-through-six",
+   "source": "# One\n## Two\n### Three\n#### Four\n##### Five\n###### Six",
+   "blocks": [
+    { "type": "heading", "level": 1, "inline": "One" },
+    { "type": "heading", "level": 2, "inline": "Two" },
+    { "type": "heading", "level": 3, "inline": "Three" },
+    { "type": "heading", "level": 4, "inline": "Four" },
+    { "type": "heading", "level": 5, "inline": "Five" },
+    { "type": "heading", "level": 6, "inline": "Six" }
+   ]
+  },
+  {
+   "name": "seven-hashes-is-not-a-heading",
+   "source": "####### not a heading",
+   "blocks": [{ "type": "paragraph", "inline": "####### not a heading" }]
+  },
+  {
+   "name": "a-hash-with-no-space-is-not-a-heading",
+   "_why": "`#hashtag` is ordinary prose and must survive as such.",
+   "source": "#hashtag stays text",
+   "blocks": [{ "type": "paragraph", "inline": "#hashtag stays text" }]
+  },
+  {
+   "name": "bullet-list-with-every-marker",
+   "source": "- alpha\n* beta\n+ gamma",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [
+     { "inline": "alpha" }, { "inline": "beta" }, { "inline": "gamma" }
+    ] }
+   ]
+  },
+  {
+   "name": "ordered-list-keeps-its-start",
+   "source": "3. three\n4. four",
+   "blocks": [
+    { "type": "list", "ordered": true, "start": 3, "items": [
+     { "inline": "three" }, { "inline": "four" }
+    ] }
+   ]
+  },
+  {
+   "name": "a-nested-list-becomes-a-nested-block",
+   "source": "- outer\n  - inner\n- second",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [
+     { "inline": "outer", "blocks": [
+      { "type": "list", "ordered": false, "items": [{ "inline": "inner" }] }
+     ] },
+     { "inline": "second" }
+    ] }
+   ]
+  },
+  {
+   "name": "a-list-interrupts-a-paragraph",
+   "source": "intro text\n- one\n- two",
+   "blocks": [
+    { "type": "paragraph", "inline": "intro text" },
+    { "type": "list", "ordered": false, "items": [{ "inline": "one" }, { "inline": "two" }] }
+   ]
+  },
+  {
+   "name": "fenced-code-keeps-its-language-and-its-bytes",
+   "_why": "Code is the one place markdown must NOT interpret anything: the asterisks and underscores inside a fence are code, and a renderer that runs the inline parser over them corrupts the sample.",
+   "source": "```ts\nconst a = *not emphasis*;\n```",
+   "blocks": [{ "type": "code", "language": "ts", "text": "const a = *not emphasis*;" }]
+  },
+  {
+   "name": "a-fence-with-no-language",
+   "source": "```\nplain\n```",
+   "blocks": [{ "type": "code", "language": "", "text": "plain" }]
+  },
+  {
+   "name": "an-unterminated-fence-still-closes-at-the-end",
+   "_why": "A truncated document must render, not swallow the rest of the page.",
+   "source": "```\nunterminated",
+   "blocks": [{ "type": "code", "language": "", "text": "unterminated" }]
+  },
+  {
+   "name": "a-tilde-fence-works-too",
+   "source": "~~~sh\nnpm install\n~~~",
+   "blocks": [{ "type": "code", "language": "sh", "text": "npm install" }]
+  },
+  {
+   "name": "blockquote",
+   "source": "> quoted line\n> second line",
+   "blocks": [
+    { "type": "quote", "blocks": [{ "type": "paragraph", "inline": "quoted line second line" }] }
+   ]
+  },
+  {
+   "name": "thematic-break",
+   "source": "above\n\n---\n\nbelow",
+   "blocks": [
+    { "type": "paragraph", "inline": "above" },
+    { "type": "rule" },
+    { "type": "paragraph", "inline": "below" }
+   ]
+  },
+  {
+   "name": "a-table-with-a-header-row",
+   "source": "| Name | Role |\n|---|---|\n| kernel | the bus |\n| dom | the renderer |",
+   "blocks": [
+    { "type": "table",
+      "header": ["Name", "Role"],
+      "rows": [["kernel", "the bus"], ["dom", "the renderer"]] }
+   ]
+  },
+  {
+   "name": "a-table-tolerates-missing-outer-pipes",
+   "source": "Name | Role\n--- | ---\nkernel | the bus",
+   "blocks": [
+    { "type": "table", "header": ["Name", "Role"], "rows": [["kernel", "the bus"]] }
+   ]
+  },
+  {
+   "name": "a-ragged-table-row-is-padded-rather-than-dropped",
+   "_why": "A row short of cells is an authoring slip in a README; dropping it silently loses content the author wrote.",
+   "source": "| A | B |\n|---|---|\n| only one |",
+   "blocks": [{ "type": "table", "header": ["A", "B"], "rows": [["only one", ""]] }]
+  },
+  {
+   "name": "a-standalone-image-is-its-own-block",
+   "source": "![a diagram](https://example.test/d.png)",
+   "blocks": [{ "type": "image", "src": "https://example.test/d.png", "alt": "a diagram" }]
+  },
+  {
+   "name": "a-relative-image-is-allowed",
+   "source": "![local](./shot.png)",
+   "blocks": [{ "type": "image", "src": "./shot.png", "alt": "local" }]
+  },
+  {
+   "name": "an-image-with-a-refused-scheme-renders-as-TEXT",
+   "_why": "The XSS pin. A refused target never becomes a live element; the author's label survives as prose so nothing silently disappears.",
+   "source": "![x](javascript:alert(1))",
+   "blocks": [{ "type": "paragraph", "inline": "![x](javascript:alert(1))" }]
+  },
+  {
+   "name": "a-data-uri-image-is-refused",
+   "source": "![x](data:text/html;base64,PHNjcmlwdD4=)",
+   "blocks": [{ "type": "paragraph", "inline": "![x](data:text/html;base64,PHNjcmlwdD4=)" }]
+  },
+  {
+   "name": "raw-html-in-the-source-is-TEXT-not-markup",
+   "_why": "The other XSS pin, and the reason no renderer may reach innerHTML. A README fetched from a registry is untrusted input.",
+   "source": "<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>",
+   "blocks": [
+    { "type": "paragraph", "inline": "<script>alert(1)</script>" },
+    { "type": "paragraph", "inline": "<img src=x onerror=alert(1)>" }
+   ]
+  },
+  {
+   "name": "an-empty-document-produces-no-blocks",
+   "source": "",
+   "blocks": []
+  },
+  {
+   "name": "whitespace-only-produces-no-blocks",
+   "source": "   \n\n  \n",
+   "blocks": []
+  },
+  {
+   "name": "a-realistic-readme-fragment",
+   "_why": "The composition case: every block kind adjacent to every other, which is where a line-oriented parser's state machine actually breaks.",
+   "source": "# Package\n\nA short description with `code` and a [link](https://example.test).\n\n## Install\n\n```sh\nnpm i thing\n```\n\n## Options\n\n| Key | Type |\n|---|---|\n| mode | string |\n\n- first\n- second\n\n> a note\n\n---\n\n![shot](./shot.png)",
+   "blocks": [
+    { "type": "heading", "level": 1, "inline": "Package" },
+    { "type": "paragraph", "inline": "A short description with `code` and a [link](https://example.test)." },
+    { "type": "heading", "level": 2, "inline": "Install" },
+    { "type": "code", "language": "sh", "text": "npm i thing" },
+    { "type": "heading", "level": 2, "inline": "Options" },
+    { "type": "table", "header": ["Key", "Type"], "rows": [["mode", "string"]] },
+    { "type": "list", "ordered": false, "items": [{ "inline": "first" }, { "inline": "second" }] },
+    { "type": "quote", "blocks": [{ "type": "paragraph", "inline": "a note" }] },
+    { "type": "rule" },
+    { "type": "image", "src": "./shot.png", "alt": "shot" }
+   ]
+  }
+ ]
+}

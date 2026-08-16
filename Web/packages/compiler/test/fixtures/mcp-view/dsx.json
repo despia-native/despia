@@ -1,0 +1,7 @@
+{
+  "_note": "Fixture module for the MCP Apps view compiler (proposals/mcp-apps.md). Not shipped, not a release package — it exists so buildMcpView is gated against a REAL registry build rather than a mock, the same way pack:check consumes real tarballs instead of workspace aliases.",
+  "name": "McpViewFixture",
+  "id": "6a1f0c94-1f2e-4c8a-9d3b-2b7e5a0c4d11",
+  "scheme": "mcpfx",
+  "version": "1.0.0"
+}

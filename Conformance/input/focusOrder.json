@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "_note": "Platform-neutral focusOrder= traversal resolution. A disabled control is always OUT of keyboard traversal (index -1), regardless of any authored order. Otherwise a finite integer focusOrder is the explicit traversal index, and anything absent or non-finite leaves the element at its toolkit default (null = no explicit index). The web maps the result to tabIndex; the native focus engines map it at M1/D1.",
+  "cases": [
+    { "name": "positive order becomes the explicit index", "focusOrder": "3", "disabled": false, "index": 3 },
+    { "name": "zero is a valid explicit index", "focusOrder": "0", "disabled": false, "index": 0 },
+    { "name": "a disabled control leaves traversal even with an authored order", "focusOrder": "7", "disabled": true, "index": -1 },
+    { "name": "a disabled control with no order is also out of traversal", "focusOrder": null, "disabled": true, "index": -1 },
+    { "name": "no focusOrder leaves the toolkit default", "focusOrder": null, "disabled": false, "index": null },
+    { "name": "a non-finite order is ignored", "focusOrder": "abc", "disabled": false, "index": null },
+    { "name": "an empty order is ignored", "focusOrder": "", "disabled": false, "index": null },
+    { "name": "an explicit negative order is honored when enabled", "focusOrder": "-1", "disabled": false, "index": -1 },
+    { "name": "surrounding whitespace is tolerated", "focusOrder": "  5 ", "disabled": false, "index": 5 }
+  ]
+}

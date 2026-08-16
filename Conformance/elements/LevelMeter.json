@@ -1,0 +1,20 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "LevelMeter",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/LevelMeter.swift",
+  "attributes": {
+    "level": {
+      "type": "number(0..1)",
+      "default": 0,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/LevelMeter.swift:13 (clamped)"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

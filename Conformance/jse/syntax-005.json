@@ -1,0 +1,78 @@
+{
+  "_note": "JSE conformance corpus — OPTIONAL CALL + DESTRUCTURING ASSIGNMENT (2026-08-12, the syntax-004 follow-up). Two constructs previously ratified as 'absent with a workaround' are now grammar, because the workaround kept being written: `o.f?.()` (a nullish callee answers null with the ARGS UNEVALUATED — the JS rule; a non-lambda callee also answers null where JS throws, because JSE is total) and `[a, b] = [b, a]` (the declaration-less array-pattern write — parseDeclarators reads the same shape a `const` reads, bound with the ASSIGNMENT writer, RHS evaluated ONCE before any binding). Object-pattern assignment `({a} = o)` remains undeclared grammar — a declaration covers it — and labelled break remains ratified-absent. Scope: Swift = reference, Kotlin :core via ConformanceTest, TS both tiers via conformance.test.ts.",
+  "cases": [
+    {
+      "name": "optional-call-nullish-callee-answers-null",
+      "scope": {},
+      "expression": "[0].map(z => { const o = { f: null }\nreturn o.f?.() ?? 'none' })[0]",
+      "expected": "none"
+    },
+    {
+      "name": "optional-call-absent-property",
+      "scope": {},
+      "expression": "[0].map(z => { const o = { a: 1 }\nreturn o.g?.() ?? 'absent' })[0]",
+      "expected": "absent"
+    },
+    {
+      "name": "optional-call-invokes-a-lambda",
+      "scope": {},
+      "expression": "[0].map(z => { const o = { f: (x) => x + 1 }\nreturn o.f?.(4) })[0]",
+      "expected": 5
+    },
+    {
+      "name": "optional-call-bare-ident-callee",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (x) => x * 2\nreturn f?.(21) })[0]",
+      "expected": 42
+    },
+    {
+      "name": "optional-call-non-lambda-is-total-null",
+      "scope": {},
+      "expression": "[0].map(z => { const o = { f: 3 }\nreturn o.f?.() ?? 'not-callable' })[0]",
+      "expected": "not-callable"
+    },
+    {
+      "name": "optional-call-with-arguments",
+      "scope": {},
+      "expression": "[0].map(z => { const o = { add: (a, b) => a + b }\nreturn o.add?.(2, 3) })[0]",
+      "expected": 5
+    },
+    {
+      "name": "destructure-assign-swap",
+      "scope": {},
+      "expression": "[0].map(z => { let a = 1\nlet b = 2\n[a, b] = [b, a]\nreturn a * 10 + b })[0]",
+      "expected": 21
+    },
+    {
+      "name": "destructure-assign-rhs-evaluates-once-before-binding",
+      "scope": {},
+      "expression": "[0].map(z => { let a = 1\nlet b = 2\nlet c = 3\n[a, b, c] = [c, a, b]\nreturn a * 100 + b * 10 + c })[0]",
+      "expected": 312
+    },
+    {
+      "name": "destructure-assign-rest",
+      "scope": {},
+      "expression": "[0].map(z => { let first = 0\nlet tail = null\n[first, ...tail] = [7, 8, 9]\nreturn first + tail.length })[0]",
+      "expected": 9
+    },
+    {
+      "name": "destructure-assign-hole",
+      "scope": {},
+      "expression": "[0].map(z => { let b = 0\n[, b] = [1, 2]\nreturn b })[0]",
+      "expected": 2
+    },
+    {
+      "name": "destructure-assign-default",
+      "scope": {},
+      "expression": "[0].map(z => { let a = 0\n[a = 5] = []\nreturn a })[0]",
+      "expected": 5
+    },
+    {
+      "name": "bare-array-statement-is-not-an-assignment",
+      "scope": {},
+      "expression": "[0].map(z => { let n = 3\n[n, 9]\nreturn n })[0]",
+      "expected": 3,
+      "_note": "The guard case: a bare array EXPRESSION statement has no top-level `=`, so it must never be read as a pattern — `n` stays 3. (No loop here on purpose: the expression tier has no loop statements, its own ratified bound.)"
+    }
+  ]
+}

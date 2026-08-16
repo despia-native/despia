@@ -1,0 +1,245 @@
+{
+ "_note": "The <cli> document corpus — the FIFTH node (cli-authoring.md). A command-line program is a .dsx document: the head declares what the program may reach (env names, executables, filesystem roots) plus the <action> bodies, and the body declares the command surface, because the structure of a CLI is its command surface exactly as the structure of a server is its route surface. These cases define PARSING and the closed vocabulary; dispatch.json defines argv binding and seams.json defines what a body may reach. Platform-neutral by construction: a case is (source, expected-table) or (source, expected-abort), so a Kotlin or Swift CLI host implements against the same file. `abort` cases assert the MESSAGE FRAGMENT and the LINE, because a build that half-works because a typo'd attribute was ignored is the silent class these gates exist to make impossible — and on a CLI the attribute in question is usually `action` or `handler`, which decides whether author code runs at all.",
+ "cases": [
+  {
+   "name": "minimal-document",
+   "source": "<cli as=\"tool\" version=\"1.0.0\" summary=\"a tool\">\n  <head>\n    <action as=\"greet\">\n      return { code: 0 }\n    </action>\n  </head>\n  <command as=\"greet\" action=\"greet\" summary=\"say hello\"/>\n</cli>\n",
+   "expect": {
+    "name": "tool",
+    "version": "1.0.0",
+    "summary": "a tool",
+    "env": [],
+    "exec": [],
+    "roots": [],
+    "actions": [
+     "greet"
+    ],
+    "commands": [
+     {
+      "name": "greet",
+      "action": "greet",
+      "summary": "say hello",
+      "flags": [],
+      "positionals": []
+     }
+    ]
+   }
+  },
+  {
+   "name": "declares-env-exec-and-roots",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <env as=\"HOME\"/>\n    <env as=\"CI\"/>\n    <exec as=\"git\"/>\n    <root as=\"project\" path=\".\"/>\n    <action as=\"noop\">return 0</action>\n  </head>\n  <command as=\"noop\" action=\"noop\"/>\n</cli>\n",
+   "expect": {
+    "name": "tool",
+    "version": "1.0.0",
+    "summary": "",
+    "env": [
+     "CI",
+     "HOME"
+    ],
+    "exec": [
+     "git"
+    ],
+    "roots": [
+     {
+      "name": "project",
+      "path": "."
+     }
+    ],
+    "actions": [
+     "noop"
+    ],
+    "commands": [
+     {
+      "name": "noop",
+      "action": "noop",
+      "summary": "",
+      "flags": [],
+      "positionals": []
+     }
+    ]
+   }
+  },
+  {
+   "name": "command-declares-flags-and-positionals",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"run\">return 0</action>\n  </head>\n  <command as=\"run\" action=\"run\" summary=\"run it\">\n    <flag as=\"project\" type=\"string\" summary=\"project root\"/>\n    <flag as=\"strict\" type=\"boolean\" summary=\"warnings fail too\"/>\n    <flag as=\"package\" type=\"string\" repeatable=\"true\"/>\n    <positional as=\"files\" variadic=\"true\" summary=\"files to read\"/>\n  </command>\n</cli>\n",
+   "expect": {
+    "name": "tool",
+    "version": "1.0.0",
+    "summary": "",
+    "env": [],
+    "exec": [],
+    "roots": [],
+    "actions": [
+     "run"
+    ],
+    "commands": [
+     {
+      "name": "run",
+      "action": "run",
+      "summary": "run it",
+      "flags": [
+       {
+        "name": "project",
+        "type": "string",
+        "repeatable": false,
+        "summary": "project root"
+       },
+       {
+        "name": "strict",
+        "type": "boolean",
+        "repeatable": false,
+        "summary": "warnings fail too"
+       },
+       {
+        "name": "package",
+        "type": "string",
+        "repeatable": true,
+        "summary": ""
+       }
+      ],
+      "positionals": [
+       {
+        "name": "files",
+        "variadic": true,
+        "summary": "files to read"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "a-command-may-eject-to-a-named-host-handler",
+   "_why": "The server's TypeScript ejection hatch, applied here. A CLI that shells out, streams a build, or drives a watcher wants a real host function; the point of the document is that such a command is still DECLARED, so --help, the command table and the argument contract stay in one place even when the body is not markup.",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <command as=\"build\" handler=\"build\" summary=\"compile\"/>\n</cli>\n",
+   "expect": {
+    "name": "tool",
+    "version": "1.0.0",
+    "summary": "",
+    "env": [],
+    "exec": [],
+    "roots": [],
+    "actions": [],
+    "commands": [
+     {
+      "name": "build",
+      "handler": "build",
+      "summary": "compile",
+      "flags": [],
+      "positionals": []
+     }
+    ]
+   }
+  },
+  {
+   "name": "an-action-body-is-raw-text-and-keeps-its-operators",
+   "_why": "A body is JSE, and JSE contains <, > and &&. An XML parser must reject those or silently mangle them, so action content is read as RAW TEXT to its closing tag — the same rule lint_dsx.rb applies. This case exists because mangling here is silent: the body still parses, it just means something else. The command declares a and b because `inputs=` is a checked contract: an action may only name arguments its command actually offers.",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"cmp\" inputs=\"a, b\">\n      if (a &lt; b &amp;&amp; b &gt; 0) { return 0 }\n      return 1\n    </action>\n  </head>\n  <command as=\"cmp\" action=\"cmp\">\n    <flag as=\"a\" type=\"string\"/>\n    <flag as=\"b\" type=\"string\"/>\n  </command>\n</cli>\n",
+   "expectActionBodyContains": [
+    "a < b",
+    "&&",
+    "b > 0"
+   ]
+  },
+  {
+   "name": "reject-unknown-tag",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <route as=\"nope\"/>\n  </head>\n</cli>\n",
+   "abort": {
+    "contains": "unknown tag <route>",
+    "line": 3
+   }
+  },
+  {
+   "name": "reject-unknown-attribute",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"x\" auth=\"required\">return 0</action>\n  </head>\n  <command as=\"x\" action=\"x\"/>\n</cli>\n",
+   "abort": {
+    "contains": "unknown attribute",
+    "line": 3
+   }
+  },
+  {
+   "name": "reject-command-with-neither-action-nor-handler",
+   "_why": "A command that names no implementation is the one shape that looks complete and does nothing.",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <command as=\"ghost\" summary=\"does nothing\"/>\n</cli>\n",
+   "abort": {
+    "contains": "must declare exactly one of action= or handler=",
+    "line": 2
+   }
+  },
+  {
+   "name": "reject-command-with-both-action-and-handler",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"x\">return 0</action>\n  </head>\n  <command as=\"x\" action=\"x\" handler=\"x\"/>\n</cli>\n",
+   "abort": {
+    "contains": "must declare exactly one of action= or handler=",
+    "line": 5
+   }
+  },
+  {
+   "name": "reject-command-naming-an-undeclared-action",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <command as=\"x\" action=\"missing\"/>\n</cli>\n",
+   "abort": {
+    "contains": "no <action as=\"missing\">",
+    "line": 2
+   }
+  },
+  {
+   "name": "reject-duplicate-command",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"x\">return 0</action>\n  </head>\n  <command as=\"x\" action=\"x\"/>\n  <command as=\"x\" action=\"x\"/>\n</cli>\n",
+   "abort": {
+    "contains": "duplicate command",
+    "line": 6
+   }
+  },
+  {
+   "name": "reject-duplicate-flag-within-a-command",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"x\">return 0</action>\n  </head>\n  <command as=\"x\" action=\"x\">\n    <flag as=\"out\" type=\"string\"/>\n    <flag as=\"out\" type=\"boolean\"/>\n  </command>\n</cli>\n",
+   "abort": {
+    "contains": "duplicate flag",
+    "line": 7
+   }
+  },
+  {
+   "name": "reject-unknown-flag-type",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"x\">return 0</action>\n  </head>\n  <command as=\"x\" action=\"x\">\n    <flag as=\"n\" type=\"integer\"/>\n  </command>\n</cli>\n",
+   "abort": {
+    "contains": "flag type must be one of",
+    "line": 6
+   }
+  },
+  {
+   "name": "reject-a-non-final-variadic-positional",
+   "_why": "A variadic that is not last silently swallows the arguments meant for the ones after it.",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"x\">return 0</action>\n  </head>\n  <command as=\"x\" action=\"x\">\n    <positional as=\"files\" variadic=\"true\"/>\n    <positional as=\"target\"/>\n  </command>\n</cli>\n",
+   "abort": {
+    "contains": "variadic positional must be last",
+    "line": 7
+   }
+  },
+  {
+   "name": "reject-a-document-with-no-commands",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"x\">return 0</action>\n  </head>\n</cli>\n",
+   "abort": {
+    "contains": "declares no <command>",
+    "line": 1
+   }
+  },
+  {
+   "name": "reject-a-reserved-command-name",
+   "_why": "help and version are answered by the host from the document itself, so a command claiming either would be shadowed and never run.",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"x\">return 0</action>\n  </head>\n  <command as=\"help\" action=\"x\"/>\n</cli>\n",
+   "abort": {
+    "contains": "reserved command name",
+    "line": 5
+   }
+  },
+  {
+   "name": "reject-an-input-the-command-does-not-offer",
+   "_why": "A body reads its arguments by bare name, so a typo in inputs= does not fail — the name is simply absent and every branch reading it takes the empty path. Pinning the list against the command's own flags and positionals turns that silence into a build error.",
+   "source": "<cli as=\"tool\" version=\"1.0.0\">\n  <head>\n    <action as=\"run\" inputs=\"projekt\">return 0</action>\n  </head>\n  <command as=\"run\" action=\"run\">\n    <flag as=\"project\" type=\"string\"/>\n  </command>\n</cli>\n",
+   "abort": {
+    "contains": "declares input \"projekt\"",
+    "line": 3
+   }
+  }
+ ]
+}

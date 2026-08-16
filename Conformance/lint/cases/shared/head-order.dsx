@@ -1,0 +1,8 @@
+<stack>
+  <head>
+    <action as="go">console.log('x')</action>
+    <attribute as="title"/>
+    <variable as="count" default="0"/>
+  </head>
+  <text value="{{ dsx.variable.count }}"/>
+</stack>

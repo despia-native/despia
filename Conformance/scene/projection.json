@@ -1,0 +1,184 @@
+{
+ "_note": "The DSX Scene PROJECTION corpus (dsx-scene.md P1). THE LAW: the view matrix is right-handed lookAt (f = normalize(target−eye), s = normalize(f×up), u = s×f, up = +Y), the projection is the GL convention — perspective(fovY degrees, aspect, near, far) with NDC z ∈ [-1,1], and mode=\"2d\" is ORTHOGRAPHIC with `size` = the vertical HALF-extent (half-width = size·aspect) — the same graph, z as layer order. ndc = clip.xyz / clip.w with clip = P · V · [world,1]. Camera defaults (the parse corpus pins them too): position \"0 0 5\", look-at \"0 0 0\", fov 60, near 0.1, far 1000, size 5. Case shape: `camera` (authored words incl. aspect, which the element takes from its canvas) + `points` = [{world, ndc}] at 6 decimals. Expected numbers were computed by an independent scratch implementation, never by the kernel under test. Runners: TS (per-PR); Kotlin/Swift are the P2 row of dsx-scene.md.",
+ "cases": [
+  {
+   "name": "camera on +Z looking at origin — center and off-axis points",
+   "camera": {
+    "fov": 60,
+    "position": "0 0 5",
+    "look-at": "0 0 0",
+    "near": 0.1,
+    "far": 100,
+    "aspect": 1
+   },
+   "points": [
+    {
+     "world": [0,0,0],
+     "ndc": [0,0,0.961962]
+    },
+    {
+     "world": [1,1,0],
+     "ndc": [0.34641,0.34641,0.961962]
+    },
+    {
+     "world": [-1,0.5,2],
+     "ndc": [-0.57735,0.288675,0.935269]
+    }
+   ],
+   "note": "fov 60 ⇒ cot(30°) = √3 ≈ 1.732051; view depth of the origin is -5"
+  },
+  {
+   "name": "camera on +X looking at origin — axis remap",
+   "camera": {
+    "fov": 60,
+    "position": "5 0 0",
+    "look-at": "0 0 0",
+    "near": 0.1,
+    "far": 100,
+    "aspect": 1
+   },
+   "points": [
+    {
+     "world": [0,0,0],
+     "ndc": [0,0,0.961962]
+    },
+    {
+     "world": [0,1,0],
+     "ndc": [0,0.34641,0.961962]
+    },
+    {
+     "world": [0,0,-1],
+     "ndc": [0.34641,0,0.961962]
+    }
+   ],
+   "note": "looking down -X: world -Z maps to view +X (right-handed s = f × up)"
+  },
+  {
+   "name": "near-plane point lands exactly on ndc z = -1",
+   "camera": {
+    "fov": 60,
+    "position": "0 0 5",
+    "look-at": "0 0 0",
+    "near": 0.1,
+    "far": 100,
+    "aspect": 1
+   },
+   "points": [
+    {
+     "world": [0,0,4.9],
+     "ndc": [0,0,-1]
+    },
+    {
+     "world": [0,0,-95],
+     "ndc": [0,0,1]
+    }
+   ],
+   "note": "world (0,0,4.9) is view depth -0.1 = -near"
+  },
+  {
+   "name": "wide fov and non-square aspect",
+   "camera": {
+    "fov": 90,
+    "position": "0 0 4",
+    "look-at": "0 0 0",
+    "near": 0.5,
+    "far": 50,
+    "aspect": 2
+   },
+   "points": [
+    {
+     "world": [2,2,0],
+     "ndc": [0.25,0.5,0.767677]
+    },
+    {
+     "world": [-4,1,2],
+     "ndc": [-1,0.5,0.515152]
+    }
+   ],
+   "note": "fov 90 ⇒ cot(45°) = 1; aspect 2 halves x"
+  },
+  {
+   "name": "elevated camera with a look-at target",
+   "camera": {
+    "fov": 60,
+    "position": "0 2 5",
+    "look-at": "0 0 0",
+    "near": 0.1,
+    "far": 100,
+    "aspect": 1.5
+   },
+   "points": [
+    {
+     "world": [0,0,0],
+     "ndc": [0,0,0.964826]
+    },
+    {
+     "world": [1,0,0],
+     "ndc": [0.214423,0,0.964826]
+    },
+    {
+     "world": [0,1,-1],
+     "ndc": [0,0.378886,0.968311]
+    }
+   ],
+   "note": "irrational view basis exercises full precision"
+  },
+  {
+   "name": "orthographic camera — mode 2d",
+   "camera": {
+    "mode": "2d",
+    "size": 5,
+    "position": "0 0 10",
+    "look-at": "0 0 0",
+    "near": 0.1,
+    "far": 100,
+    "aspect": 2
+   },
+   "points": [
+    {
+     "world": [0,0,0],
+     "ndc": [0,0,-0.801802]
+    },
+    {
+     "world": [2.5,2.5,0],
+     "ndc": [0.25,0.5,-0.801802]
+    },
+    {
+     "world": [10,-5,3],
+     "ndc": [1,-1,-0.861862]
+    },
+    {
+     "world": [2.5,2.5,5],
+     "ndc": [0.25,0.5,-0.901902]
+    }
+   ],
+   "note": "half-height 5 (the `size` word), aspect 2 ⇒ half-width 10; z is layer order, no foreshortening"
+  },
+  {
+   "name": "orthographic — off-center look-at pans the view",
+   "camera": {
+    "mode": "2d",
+    "size": 4,
+    "position": "1 1 10",
+    "look-at": "1 1 0",
+    "near": 1,
+    "far": 20,
+    "aspect": 1
+   },
+   "points": [
+    {
+     "world": [1,1,0],
+     "ndc": [0,0,-0.052632]
+    },
+    {
+     "world": [5,1,0],
+     "ndc": [1,0,-0.052632]
+    },
+    {
+     "world": [1,-3,4],
+     "ndc": [0,-1,-0.473684]
+    }
+   ]
+  }
+ ]
+}

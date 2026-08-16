@@ -1,0 +1,33 @@
+{
+  "_note": "The popTo matching rule — see README.md. paths = the back-stack's concrete frame paths (root → top; null = a pathless frame, which never matches). expect = the matching index (deepest wins), -1 = no match. Query strings strip from BOTH sides before comparing; matching is concrete string equality, never a route pattern.",
+  "cases": [
+    { "name": "deepest match wins (nearest previous instance)",
+      "paths": ["/", "/a", "/b", "/a", "/c"], "target": "/a", "expect": 3 },
+    { "name": "root frame matches",
+      "paths": ["/", "/a", "/b"], "target": "/", "expect": 0 },
+    { "name": "frame carries a query, bare target still matches",
+      "paths": ["/", "/p?x=1", "/b"], "target": "/p", "expect": 1 },
+    { "name": "bare frame, query-carrying target still matches",
+      "paths": ["/", "/p", "/b"], "target": "/p?x=9", "expect": 1 },
+    { "name": "different query values on both sides still match (query-insensitive)",
+      "paths": ["/", "/p?x=1", "/b"], "target": "/p?x=2", "expect": 1 },
+    { "name": "identical path incl. query matches",
+      "paths": ["/", "/p?x=1", "/b"], "target": "/p?x=1", "expect": 1 },
+    { "name": "no match anywhere",
+      "paths": ["/", "/a", "/b"], "target": "/zzz", "expect": -1 },
+    { "name": "never a prefix match",
+      "paths": ["/", "/prefix"], "target": "/pre", "expect": -1 },
+    { "name": "pathless frames are skipped",
+      "paths": ["/", null, "/a", null], "target": "/a", "expect": 2 },
+    { "name": "pathless frames never match a real target",
+      "paths": ["/", null, null], "target": "/x", "expect": -1 },
+    { "name": "empty target never matches",
+      "paths": ["/", "/a"], "target": "", "expect": -1 },
+    { "name": "query-only target strips to empty and never matches",
+      "paths": ["/", "/a?x=1"], "target": "?x=1", "expect": -1 },
+    { "name": "top-frame match reports the top index (the runtime then no-ops)",
+      "paths": ["/", "/a", "/b"], "target": "/b", "expect": 2 },
+    { "name": "deepest wins across query variants of the same page",
+      "paths": ["/", "/p?a=1", "/x", "/p?b=2", "/y"], "target": "/p", "expect": 3 }
+  ]
+}

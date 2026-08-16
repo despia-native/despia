@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Every published :platform consumer receives the kernel HTTP capability. No
+         cleartext opt-in lives here; production remains Android's secure default. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The kernel PROVENANCE fact `dsx.source.online` (SourceBackend.kt — the NWPathMonitor
+         twin). A NORMAL permission: granted at install, never prompted, no dangerous-permission
+         review surface. Absent it the plane reports honest absence rather than a guess. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>

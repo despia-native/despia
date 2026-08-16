@@ -1,0 +1,44 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "text",
+  "aliases": [
+    "label"
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift:14 (bind > value > inner text — StackReference precedence)"
+    },
+    "value": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift:14"
+    },
+    "markdown": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift:16"
+    },
+    "color": {
+      "type": "color",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift:22 — system-defaults.md base pass: default text rides the `label` token (was the pinned `white`)"
+    },
+    "lineLimit": {
+      "type": "number",
+      "default": null,
+      "_src": "OpenSource/Engine/iOS/Stack.swift StackStyle.styleText (lineLimit -> maxLines + ellipsis truncation)"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+    "content": {
+      "token": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift:22 — system-defaults.md base pass: default text rides the `label` token (was the pinned `white`)"
+    }
+  },
+  "notes": "PLATFORM GAP, DECLARED (no silent gaps): `markdown` is implemented on the iOS reference (Text.swift — Text(AttributedString(markdown:))) and on web (packages/dom/src/markdown.ts, the same INLINE vocabulary: emphasis · strong · code · strikethrough · links; block intents deliberately collapse). :render has NO twin — StackNodeView's \"text\" branch renders a plain String through BasicText, so on Android `markdown=\"true\"` shows the RAW SOURCE. That is a missing implementation, not an OS floor: Compose can express the same spans through AnnotatedString, so this is a DEFERRAL and must not be ratified as a permanent divergence (contrast fontDesign=\"rounded\"/wheelpicker/stars, which have no Material equivalent). The twin lands with the block-level <Markdown> wave (v4-launch execution-plan A4/A4b), which brings a shared markdown corpus all three renderers answer; until then the attribute is iOS+web and this fixture says so rather than implying parity."
+}

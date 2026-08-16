@@ -1,0 +1,113 @@
+{
+  "_note": "JSE syntax-completeness wave 3 — call & loop grammar. Pins: arrow-param DEFAULTS (`(a, b = 5) => …` — the default expression evaluates at CALL time in the CALLEE scope, earlier params and the captured creation scope visible, whenever the arg is missing/null — JSE's ONE missing value) and REST params (`(a, ...rest) => …` binds the remaining args as an array; empty when none) for NAMED params only (destructured `{a,b}` params take neither), call-position spread (`f(...xs)` through every arg-collection path — stored lambdas, user functions, method calls, variadic builtins like Math.max — same iterable coercion as literal spread), and call-on-value (`((x) => x + 1)(4)` / `fs[1](5)` / curried `f(1)(2)` — a lambda VALUE followed by `( )` invokes under the shared 32-frame guard; a non-lambda base leaves the parens unconsumed). Statement-level twins (prefix ++i/--i, for…in over dict keys / array indices) live in the actions corpus.",
+  "cases": [
+    {
+      "name": "arrow-default-missing-arg",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (a, b = 5) => a + b\nreturn f(1) })[0]",
+      "expected": 6
+    },
+    {
+      "name": "arrow-default-provided-arg",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (a, b = 5) => a + b\nreturn f(1, 2) })[0]",
+      "expected": 3
+    },
+    {
+      "name": "arrow-default-null-arg",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (a, b = 7) => a + b\nreturn f(1, null) })[0]",
+      "expected": 8
+    },
+    {
+      "name": "arrow-default-earlier-param",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (a, b = a * 2) => a + b\nreturn f(3) })[0]",
+      "expected": 9
+    },
+    {
+      "name": "arrow-default-captured-scope",
+      "scope": {},
+      "expression": "[0].map(z => { const k = 10\nconst f = (a, b = k) => a + b\nreturn f(1) })[0]",
+      "expected": 11
+    },
+    {
+      "name": "arrow-default-with-rest",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (a = 1, ...r) => a + r.length\nreturn f() })[0]",
+      "expected": 1
+    },
+    {
+      "name": "arrow-rest-collects",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (a, ...rest) => a + rest.length\nreturn f(1, 2, 3, 4) })[0]",
+      "expected": 4
+    },
+    {
+      "name": "arrow-rest-joins",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (...xs) => xs.join('-')\nreturn f('a', 'b') })[0]",
+      "expected": "a-b"
+    },
+    {
+      "name": "arrow-rest-empty",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (a, ...rest) => rest.length\nreturn f(1) })[0]",
+      "expected": 0
+    },
+    {
+      "name": "call-spread-stored-lambda",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (a, b, c) => a + b + c\nconst xs = [1, 2, 3]\nreturn f(...xs) })[0]",
+      "expected": 6
+    },
+    {
+      "name": "call-spread-mixed-args",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (a, b, c) => a * 100 + b * 10 + c\nreturn f(1, ...[2, 3]) })[0]",
+      "expected": 123
+    },
+    {
+      "name": "call-spread-string",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (a, b) => a + b\nreturn f(...'xy') })[0]",
+      "expected": "xy"
+    },
+    {
+      "name": "call-spread-into-rest",
+      "scope": {},
+      "expression": "[0].map(z => { const f = (...xs) => xs.length\nreturn f(...[1, 2], 3) })[0]",
+      "expected": 3
+    },
+    {
+      "name": "call-spread-math-max",
+      "scope": {},
+      "expression": "Math.max(...[3, 9, 4])",
+      "expected": 9
+    },
+    {
+      "name": "iife-direct",
+      "scope": {},
+      "expression": "((x) => x + 1)(4)",
+      "expected": 5
+    },
+    {
+      "name": "iife-no-args",
+      "scope": {},
+      "expression": "(() => 7)()",
+      "expected": 7
+    },
+    {
+      "name": "indexed-callee",
+      "scope": {},
+      "expression": "[0].map(z => { const fs = [(x) => x * 2, (x) => x * 3]\nreturn fs[1](5) })[0]",
+      "expected": 15
+    },
+    {
+      "name": "call-on-value-curried",
+      "scope": {},
+      "expression": "((a) => (b) => a + b)(1)(2)",
+      "expected": 3
+    }
+  ]
+}

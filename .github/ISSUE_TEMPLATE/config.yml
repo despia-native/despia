@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/despia-native/despia/security/advisories/new
+    about: Never open a public issue for a security problem. Report it privately here.
+  - name: Questions and help
+    url: https://github.com/despia-native/despia/discussions
+    about: Ask questions, share what you built, discuss ideas before they become feature requests.

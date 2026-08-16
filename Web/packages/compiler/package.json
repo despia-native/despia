@@ -1,0 +1,88 @@
+{
+  "name": "@despia/compiler",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "DSX web compiler \u2014 .dsx \u2192 node-tree IR, head contract extraction, CSS emission (layers + owner scoping), module registry. Build-time twin of prepare_config.rb + compile_dsx_css.rb + StackXML.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./specifiers": {
+      "types": "./dist/specifiers.d.ts",
+      "import": "./dist/specifiers.js",
+      "default": "./dist/specifiers.js"
+    },
+    "./cssmap": {
+      "types": "./dist/cssmap.d.ts",
+      "import": "./dist/cssmap.js",
+      "default": "./dist/cssmap.js"
+    },
+    "./resolve": {
+      "types": "./dist/resolve.d.ts",
+      "import": "./dist/resolve.js",
+      "default": "./dist/resolve.js"
+    },
+    "./component": {
+      "types": "./dist/component.d.ts",
+      "import": "./dist/component.js",
+      "default": "./dist/component.js"
+    },
+    "./options": {
+      "types": "./dist/options.d.ts",
+      "import": "./dist/options.js",
+      "default": "./dist/options.js"
+    },
+    "./xml": {
+      "types": "./dist/xml.d.ts",
+      "import": "./dist/xml.js",
+      "default": "./dist/xml.js"
+    },
+    "./expose": {
+      "types": "./dist/expose.d.ts",
+      "import": "./dist/expose.js",
+      "default": "./dist/expose.js"
+    },
+    "./web-manifest": {
+      "types": "./dist/web-manifest.d.ts",
+      "import": "./dist/web-manifest.js",
+      "default": "./dist/web-manifest.js"
+    },
+    "./universal-links": {
+      "types": "./dist/universal-links.d.ts",
+      "import": "./dist/universal-links.js",
+      "default": "./dist/universal-links.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/despia-native/despia-framework.git",
+    "directory": "OpenSource/Web/packages/compiler"
+  },
+  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/compiler",
+  "bugs": {
+    "url": "https://github.com/despia-native/despia-framework/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\""
+  }
+}

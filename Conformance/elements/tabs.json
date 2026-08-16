@@ -1,0 +1,49 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "tabs",
+  "aliases": [
+    "tabview"
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift",
+  "attributes": {
+    "value": {
+      "type": "expr(int)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:30 (two-way selected tab by child index; Android this wave reads bind= — divergence, see elements-gaps.json partial)"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:26"
+    },
+    "on:change": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:35 (never for the mount tab)"
+    },
+    "tabTitle": {
+      "type": "string(per child)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:51"
+    },
+    "tabIcon": {
+      "type": "sf-symbol(per child)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:50"
+    },
+    "tabBadge": {
+      "type": "string(per child)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:48 (empty/absent = none)"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:26"
+    }
+  },
+  "notes": ""
+}

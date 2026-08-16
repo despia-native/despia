@@ -1,0 +1,157 @@
+{
+ "_note": "The MCP Apps SERVER-half corpus (architecture/proposals/mcp-apps.md §4/§5). Pins the shaping every runtime that serves rows must agree on — the TS kernel today, the Kotlin and Swift routers in OpenSource/MCP as they land — so the metadata and the fallback cannot drift per platform. THE LAWS ENCODED HERE: (1) NESTED META ONLY — `_meta.ui.resourceUri`; the flat `_meta[\"ui/resourceUri\"]` is deprecated upstream and is never emitted. (2) A UI TOOL IS A TEXT TOOL THAT ALSO HAS A VIEW — `content` always carries meaningful text, whatever the host can render, so a text-only host loses presentation and never function. (3) CAPABILITY GATES THE METADATA, NOT THE TOOL — a host that did not declare io.modelcontextprotocol/ui gets the identical result WITHOUT `_meta`, off the same code path, because two code paths are how two representations drift. (4) AN OMITTED CSP STAYS OMITTED — absence is the unambiguous spelling of the locked-down default; an empty object is not. (5) THE RESOURCE URI IS DERIVED, NEVER AUTHORED — ui://despia/<scheme>.<action>, so it is stable across builds and a host may prefetch it. Case ops: `capabilities` = the client capabilities the server negotiated with, `value` = the action's resolved value, `options` = the emit options; expects `supportsUi` (the negotiation answer), `result` (the exact CallToolResult), and `uri` for the derivation cases.",
+ "cases": [
+  {
+   "name": "uri-is-derived-from-scheme-and-action",
+   "derive": { "scheme": "catalogue", "action": "search" },
+   "expect": { "uri": "ui://despia/catalogue.search" }
+  },
+  {
+   "name": "a-nested-chain-keeps-its-dots",
+   "derive": { "scheme": "watch.health", "action": "steps" },
+   "expect": { "uri": "ui://despia/watch.health.steps" }
+  },
+  {
+   "name": "a-host-declaring-the-extension-supports-ui",
+   "capabilities": { "extensions": { "io.modelcontextprotocol/ui": { "mimeTypes": ["text/html;profile=mcp-app"] } } },
+   "expect": { "supportsUi": true }
+  },
+  {
+   "name": "a-host-declaring-the-extension-without-mimetypes-supports-ui",
+   "capabilities": { "extensions": { "io.modelcontextprotocol/ui": {} } },
+   "expect": { "supportsUi": true }
+  },
+  {
+   "name": "a-host-with-no-extensions-does-not-support-ui",
+   "capabilities": { "roots": {} },
+   "expect": { "supportsUi": false }
+  },
+  {
+   "name": "absent-capabilities-do-not-support-ui",
+   "capabilities": null,
+   "expect": { "supportsUi": false }
+  },
+  {
+   "name": "a-host-offering-only-a-foreign-mimetype-does-not-support-ui",
+   "capabilities": { "extensions": { "io.modelcontextprotocol/ui": { "mimeTypes": ["application/vnd.example+json"] } } },
+   "expect": { "supportsUi": false }
+  },
+  {
+   "name": "a-ui-host-gets-text-and-nested-meta",
+   "value": { "items": [ { "id": "a" }, { "id": "b" } ], "total": 2 },
+   "options": { "resourceUri": "ui://despia/catalogue.search", "uiSupported": true },
+   "expect": {
+    "result": {
+     "content": [ { "type": "text", "text": "items: [2 items]\ntotal: 2" } ],
+     "structuredContent": { "items": [ { "id": "a" }, { "id": "b" } ], "total": 2 },
+     "_meta": { "ui": { "resourceUri": "ui://despia/catalogue.search" } }
+    }
+   }
+  },
+  {
+   "name": "a-text-only-host-gets-the-identical-result-without-meta",
+   "value": { "items": [ { "id": "a" }, { "id": "b" } ], "total": 2 },
+   "options": { "resourceUri": "ui://despia/catalogue.search", "uiSupported": false },
+   "expect": {
+    "result": {
+     "content": [ { "type": "text", "text": "items: [2 items]\ntotal: 2" } ],
+     "structuredContent": { "items": [ { "id": "a" }, { "id": "b" } ], "total": 2 }
+    }
+   }
+  },
+  {
+   "name": "visibility-rides-through-when-declared",
+   "value": 1,
+   "options": { "resourceUri": "ui://despia/x.y", "uiSupported": true, "visibility": ["app"] },
+   "expect": {
+    "result": {
+     "content": [ { "type": "text", "text": "1" } ],
+     "structuredContent": 1,
+     "_meta": { "ui": { "resourceUri": "ui://despia/x.y", "visibility": ["app"] } }
+    }
+   }
+  },
+  {
+   "name": "a-declared-csp-rides-through",
+   "value": null,
+   "options": { "resourceUri": "ui://despia/x.y", "uiSupported": true, "csp": { "resourceDomains": ["cdn.example.com"] } },
+   "expect": {
+    "result": {
+     "content": [ { "type": "text", "text": "(no result)" } ],
+     "structuredContent": null,
+     "_meta": { "ui": { "resourceUri": "ui://despia/x.y", "csp": { "resourceDomains": ["cdn.example.com"] } } }
+    }
+   }
+  },
+  {
+   "name": "an-empty-csp-is-omitted-not-emitted",
+   "value": null,
+   "options": { "resourceUri": "ui://despia/x.y", "uiSupported": true, "csp": {} },
+   "expect": {
+    "result": {
+     "content": [ { "type": "text", "text": "(no result)" } ],
+     "structuredContent": null,
+     "_meta": { "ui": { "resourceUri": "ui://despia/x.y" } }
+    }
+   }
+  },
+  {
+   "name": "a-missing-resource-uri-degrades-to-a-plain-text-tool",
+   "value": "ok",
+   "options": { "uiSupported": true },
+   "expect": {
+    "result": { "content": [ { "type": "text", "text": "ok" } ], "structuredContent": "ok" }
+   }
+  },
+  {
+   "name": "an-array-value-renders-as-an-ordered-list",
+   "value": ["alpha", "beta"],
+   "options": {},
+   "expect": {
+    "result": {
+     "content": [ { "type": "text", "text": "1. alpha\n2. beta" } ],
+     "structuredContent": ["alpha", "beta"]
+    }
+   }
+  },
+  {
+   "name": "an-empty-array-says-so-rather-than-rendering-nothing",
+   "value": [],
+   "options": {},
+   "expect": {
+    "result": { "content": [ { "type": "text", "text": "(no items)" } ], "structuredContent": [] }
+   }
+  },
+  {
+   "name": "an-empty-dict-says-so-rather-than-rendering-nothing",
+   "value": {},
+   "options": {},
+   "expect": {
+    "result": { "content": [ { "type": "text", "text": "(empty)" } ], "structuredContent": {} }
+   }
+  },
+  {
+   "name": "an-explicit-text-overrides-the-derivation",
+   "value": { "n": 1 },
+   "options": { "text": "One widget matched." },
+   "expect": {
+    "result": {
+     "content": [ { "type": "text", "text": "One widget matched." } ],
+     "structuredContent": { "n": 1 }
+    }
+   }
+  },
+  {
+   "name": "an-error-result-still-carries-text",
+   "value": { "code": "not_found" },
+   "options": { "isError": true },
+   "expect": {
+    "result": {
+     "content": [ { "type": "text", "text": "code: not_found" } ],
+     "structuredContent": { "code": "not_found" },
+     "isError": true
+    }
+   }
+  }
+ ]
+}

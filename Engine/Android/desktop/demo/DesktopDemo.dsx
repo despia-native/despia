@@ -1,0 +1,72 @@
+<!-- Self-contained native QA entry for the Compose desktop lane. It intentionally uses
+     only the Windows/Linux renderer intersection and has no sibling component or asset dependency. -->
+<stack id="qa-root" grow="true" background="systemBackground">
+  <head>
+    <variable as="name">return 'Desktop developer'</variable>
+    <variable as="notifications">return true</variable>
+    <variable as="volume">return 42</variable>
+    <variable as="density">return 'Comfortable'</variable>
+    <variable as="count">return 0</variable>
+    <variable as="status">return 'Ready for interaction'</variable>
+    <variable as="hovered">return false</variable>
+    <action as="activate">
+      dsx.variable.count = dsx.variable.count + 1;
+      dsx.variable.status = 'Native action ' + dsx.variable.count + ' completed'
+    </action>
+  </head>
+
+  <scroll grow="true" align="center" spacing="16" padding="24">
+    <vstack width="{{ min(1120, max(240, (dsx.screen.width || 1024) - 48)) }}" spacing="16">
+      <vstack grow="width" spacing="8" padding="24" radius="18" background="surface" borderColor="outline" borderWidth="1">
+        <text value="DSX Desktop QA" fontSize="30" fontWeight="bold" color="accent" a11yHeading="true"/>
+        <text value="One first-party Compose surface for Windows and Linux. Resize the native window to exercise compact and regular layouts; no web view is mounted." color="secondary"/>
+        <text value="{{ platform.os }} · native={{ platform.native }} · desktop={{ platform.desktop }}" fontDesign="monospaced" color="secondary"/>
+      </vstack>
+
+      <vstack id="qa-breakpoint" grow="width" spacing="8" padding="18" radius="14" background="surface" borderColor="outline" borderWidth="1">
+        <text value="LIVE WINDOW CONTRACT" fontSize="12" fontWeight="bold" color="secondary"/>
+        <text value="{{ Math.round(dsx.screen.width || 0) }} x {{ Math.round(dsx.screen.height || 0) }} dp" fontSize="22" fontWeight="semibold"/>
+        <text value="breakpoint={{ dsx.screen.breakpoint || 'pending' }} · sizeClass={{ dsx.screen.sizeClass || 'pending' }} · {{ dsx.screen.orientation || 'pending' }}" fontDesign="monospaced" color="secondary"/>
+      </vstack>
+
+      <stack id="qa-responsive-layout" grow="width" flexDirection="{{ (dsx.screen.width || 1024) >= 800 ? 'row' : 'column' }}" spacing="16" align="top">
+        <vstack width="{{ (dsx.screen.width || 1024) >= 800 ? min(536, ((dsx.screen.width || 1024) - 64) / 2) : min(720, max(240, (dsx.screen.width || 360) - 48)) }}" spacing="12" padding="18" radius="14" background="surface" borderColor="outline" borderWidth="1">
+          <text value="NATIVE CONTROLS" fontSize="12" fontWeight="bold" color="secondary"/>
+          <textfield id="qa-name" bind="dsx.variable.name" label="Display name" placeholder="Type with the hardware keyboard" focusOrder="1"/>
+          <toggle id="qa-toggle" bind="dsx.variable.notifications" label="Notifications" focusOrder="2"/>
+          <text value="Volume · {{ Math.round(dsx.variable.volume) }}" color="secondary"/>
+          <slider id="qa-slider" bind="dsx.variable.volume" min="0" max="100" focusOrder="3"/>
+          <progress bind="dsx.variable.volume / 100"/>
+          <segmented id="qa-segment" bind="dsx.variable.density" options="Compact,Comfortable,Spacious" focusOrder="4"/>
+        </vstack>
+
+        <vstack width="{{ (dsx.screen.width || 1024) >= 800 ? min(536, ((dsx.screen.width || 1024) - 64) / 2) : min(720, max(240, (dsx.screen.width || 360) - 48)) }}" spacing="12" padding="18" radius="14" background="surface" borderColor="outline" borderWidth="1">
+          <text value="POINTER · KEYBOARD · STATE" fontSize="12" fontWeight="bold" color="secondary"/>
+          <vstack id="qa-hover" grow="width" spacing="4" padding="14" radius="10" background="fill"
+                  on:hoverStart="dsx.variable.hovered = true" on:hoverEnd="dsx.variable.hovered = false"
+                  a11yLabel="Pointer hover test">
+            <text value="{{ dsx.variable.hovered ? 'Pointer entered' : 'Move the pointer over this card' }}" fontWeight="semibold"/>
+            <text value="Hover lifecycle is balanced when the node unmounts." color="secondary"/>
+          </vstack>
+          <button id="qa-action" label="Run native action · {{ dsx.variable.count }}" variant="prominent"
+                  on:tap="activate" shortcut="primary+k" focusOrder="5"
+                  a11yHint="Activates with click, Enter, Space, or Command or Control K"/>
+          <text value="{{ dsx.variable.status }}" color="secondary"/>
+          <divider/>
+          <text value="Keyboard QA: Tab and Shift-Tab traverse controls; Enter or Space activates; Command-K on macOS and Control-K on Windows/Linux invokes the button shortcut." color="secondary"/>
+        </vstack>
+      </stack>
+
+      <vstack grow="width" spacing="8" padding="18" radius="14" background="surface" borderColor="outline" borderWidth="1">
+        <text value="SCROLL · RESIZE CHECKLIST" fontSize="12" fontWeight="bold" color="secondary"/>
+        <text value="1. Resize below 800 dp: cards stack vertically."/>
+        <text value="2. Resize through 480, 768, and 1024 dp: the live breakpoint label changes."/>
+        <text value="3. Type Unicode and IME text, toggle, drag the slider, select every segment, and activate the shortcut."/>
+        <text value="4. Verify light/dark system appearance, high-DPI scaling, focus rings, hover, and wheel/trackpad scroll."/>
+        <text value="5. Minimize, restore, maximize, and close using native window chrome."/>
+        <spacer height="96"/>
+        <text id="qa-scroll-tail" value="End of native scroll surface" color="accent" fontWeight="semibold"/>
+      </vstack>
+    </vstack>
+  </scroll>
+</stack>

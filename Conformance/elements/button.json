@@ -1,0 +1,76 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "button",
+  "aliases": [
+    "glassButton",
+    "transport"
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift",
+  "attributes": {
+    "label": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift:20"
+    },
+    "icon": {
+      "type": "sf-symbol",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift:23,30"
+    },
+    "iconSize": {
+      "type": "number",
+      "default": 20,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift:33 (icon-only default 20; leading-icon-with-label default 17 — "
+    },
+    "color": {
+      "type": "color",
+      "default": "white",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift:19 — the LEGACY (ejected) path's label default, restored to the pre-law `white`: the system path computes its own role colors (iOS tint / Android M3 — StackButtons.kt), so the base-pass `accent` here only leaked accent onto ejected pre-law buttons"
+    },
+    "variant": {
+      "type": "enum(bordered|prominent)",
+      "default": null,
+      "_src": "system-defaults.md 'Staying in system space' — .bordered/.borderedProminent on iOS, FilledTonal/Filled on Android (StackButtons.kt), tonal/filled skin on web (elements.ts)"
+    },
+    "role": {
+      "type": "enum(destructive|cancel)",
+      "default": null,
+      "_src": "system-defaults.md 'Staying in system space' — the BUTTON_ROLES pair (web elements.ts); any other value keeps its accessibility meaning"
+    },
+    "on:tap": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift:14 (dsx.run())"
+    },
+    "href": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift:16 (dsx.followHref() — tap navigates the route table after on"
+    }
+  },
+  "geometry": {
+    "iconSize": {
+      "value": 20,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift:33 (icon-only)"
+    },
+    "labelIconSize": {
+      "value": 17,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift:25 (leading icon beside a label)"
+    },
+    "labelIconSpacing": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift:22 (HStack(spacing"
+    },
+    "pressScale": {
+      "value": 0.92,
+      "_src": "OpenSource/Engine/iOS/Stack.swift StackButtonStyle (0.92 pressed snap on .easeOut(0.12); the Android twin rides the LEGACY/authored path — StackNodeView.kt + StackMotion.PRESS_SNAP — since an unstyled button renders the real M3 control, whose platform state layer is the system-defaults.md twin)"
+    }
+  },
+  "colors": {
+    "content": {
+      "token": "white",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Button/swift/Button.swift:19 — the LEGACY (ejected) path's label color, restored to the pre-law `white` (byte-identical ejection); the system path's content colors are the platform's own role computation (never pinned here)"
+    }
+  },
+  "notes": "Icon glyphs render semibold (Button.swift:25,33). Content precedence: icon-only > label(+icon) > children slot (Button.swift:18-38). Variant sizing: iOS variant buttons ride .controlSize(.large) — the modern full-size system button (Button.swift); Android rides the M3 spec's own metrics (the platform's real button — no cross-platform pin); web mirrors the large feel in theme.ts (0.75rem vertical padding, 2.75rem min-height)."
+}

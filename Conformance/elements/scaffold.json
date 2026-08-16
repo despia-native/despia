@@ -1,0 +1,45 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "scaffold",
+  "aliases": [],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Scaffold/swift/Scaffold.swift",
+  "attributes": {
+    "pin": {
+      "type": "enum(top|bottom) (per child)",
+      "default": null,
+      "_src": "Pins are partitioned before panes and remain outside the adaptive body."
+    },
+    "pane": {
+      "type": "enum(sidebar|content|inspector) (per child)",
+      "default": "content for an unpinned child without pane",
+      "_src": "sidebar + content are required for adaptive mode; inspector is optional."
+    },
+    "shell": {
+      "type": "enum(custom|automatic|native)",
+      "default": "custom",
+      "_src": "Omitted/custom preserves legacy authored layout; automatic/native opt in."
+    },
+    "collapse": {
+      "type": "enum(platform|stack|content|none)",
+      "default": "platform"
+    },
+    "compactAt": {
+      "type": "number(320..4096)",
+      "default": 760
+    },
+    "sidebarMin": { "type": "number(120..1024)", "default": 220 },
+    "sidebarIdeal": { "type": "number(120..1600)", "default": 280 },
+    "sidebarMax": { "type": "number(120..1600)", "default": 360 },
+    "inspectorMin": { "type": "number(120..1024)", "default": 240 },
+    "inspectorIdeal": { "type": "number(120..1600)", "default": 320 },
+    "inspectorMax": { "type": "number(120..1600)", "default": 420 },
+    "sidebarLabel": { "type": "string", "default": "Sidebar" },
+    "contentLabel": { "type": "string", "default": "Content" },
+    "inspectorLabel": { "type": "string", "default": "Inspector" }
+  },
+  "geometry": {
+    "widthNormalization": "min, then ideal=max(min, ideal), then max=max(ideal, max)"
+  },
+  "colors": {},
+  "notes": "Apple uses a real NavigationSplitView when available. Compose/Web use semantic split/stack layouts and do not claim WinUI or GTK. See OpenSource/Conformance/layout/adaptive-shell.json."
+}

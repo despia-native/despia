@@ -1,0 +1,49 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "Skeleton",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Skeleton.swift",
+  "attributes": {
+    "height": {
+      "type": "number",
+      "default": 14,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Skeleton.swift:22"
+    },
+    "radius": {
+      "type": "number",
+      "default": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Skeleton.swift:23"
+    }
+  },
+  "geometry": {
+    "height": {
+      "value": 14,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Skeleton.swift:22"
+    },
+    "radius": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Skeleton.swift:23"
+    },
+    "fillOpacity": {
+      "value": 0.08,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Skeleton.swift:35 (Color.primary.opacity(0.08))"
+    },
+    "shimmerOpacity": {
+      "value": 0.1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Skeleton.swift:37"
+    },
+    "shimmerWidthFraction": {
+      "value": 0.6,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Skeleton.swift:39"
+    },
+    "shimmerDuration": {
+      "value": 1.1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Skeleton.swift:47 (linear, repeatForever)"
+    }
+  },
+  "colors": {
+  },
+  "notes": "Always hidden from assistive tech (Skeleton.swift:45)."
+}

@@ -1,0 +1,103 @@
+<cli as="dsx" version="0.1.0" summary="the DSX web toolchain">
+  <head>
+    <!--
+      THE DESPIA CLI'S OWN COMMAND SURFACE, AUTHORED IN DSX.
+
+      This document is the single source of truth for what `dsx` accepts: the command table,
+      every flag, the usage text, and — for `doctor` — the implementation. `cli.ts` reads it
+      at startup and dispatches from it, so a command cannot exist in the help and not in the
+      parser, or take a flag the help never mentions. Those are the two bugs every hand-rolled
+      CLI has, and they are structural rather than careless: the table is written twice.
+
+      `build`, `dev` and `lint` keep `handler=` — the declared ejection hatch. They stream a
+      watcher, start a server and walk a package tree through TypeScript that already exists
+      and is already tested, and rewriting working code to prove a point is not dogfooding, it
+      is theatre. What matters is that they are DECLARED here: their argument contract and
+      their help live with every other command's, whatever runs underneath.
+
+      `doctor` is the proof. It is a real command doing real work with no author TypeScript
+      anywhere — the whole implementation is the JSE below, running on the same runner an
+      `on:tap` handler runs on, reaching only the seams this head declares.
+    -->
+    <root as="project" path="."/>
+
+    <action as="check" inputs="label, ok, detail">
+      if (ok) {
+        dsx.module.out.print({ text: '  ok    ' + label })
+      } else {
+        dsx.variable.problems = dsx.variable.problems + 1
+        dsx.module.out.warn({ text: '  FAIL  ' + label + (detail ? ' — ' + detail : '') })
+      }
+    </action>
+
+    <action as="doctor" inputs="project">
+      dsx.variable.problems = 0
+      dsx.module.out.print({ text: 'dsx doctor — ' + (project ? project : '.') })
+      dsx.module.out.print({ text: '' })
+
+      const identity = await dsx.module.fs.read({ root: 'project', path: 'dsx.json' })
+      dsx.action.check({ label: 'dsx.json is present', ok: identity.ok, detail: 'run `npm create dsx` to scaffold one' })
+
+      let scheme = ''
+      if (identity.ok) {
+        const parsed = JSON.parse(identity.data)
+        scheme = parsed.scheme ? parsed.scheme : ''
+        dsx.action.check({ label: 'dsx.json declares a scheme', ok: scheme !== '', detail: 'every component is namespaced by it' })
+      }
+
+      const configured = await dsx.module.fs.read({ root: 'project', path: 'dsx.config.json' })
+      dsx.action.check({ label: 'dsx.config.json is present', ok: configured.ok, detail: 'the entry component and output directory live there' })
+
+      let entry = ''
+      if (configured.ok) {
+        const config = JSON.parse(configured.data)
+        entry = config.entry ? config.entry : ''
+        dsx.action.check({ label: 'dsx.config.json names an entry component', ok: entry !== '' })
+      }
+
+      const components = await dsx.module.fs.list({ root: 'project', path: 'Components' })
+      const files = components.ok ? components.data : []
+      const screens = files.filter(name => name.endsWith('.dsx'))
+      dsx.action.check({ label: 'Components/ holds at least one .dsx', ok: screens.length > 0, detail: 'a project with no screens builds to an empty page' })
+
+      if (entry !== '') {
+        const found = await dsx.module.fs.exists({ root: 'project', path: 'Components/' + entry + '.dsx' })
+        dsx.action.check({ label: 'the entry component exists', ok: found.data === true, detail: 'dsx.config.json names ' + entry })
+      }
+
+      const kernel = await dsx.module.fs.exists({ root: 'project', path: 'node_modules/@despia/kernel' })
+      dsx.action.check({ label: '@despia/kernel is installed', ok: kernel.data === true, detail: 'run `npm install`' })
+
+      dsx.module.out.print({ text: '' })
+      if (dsx.variable.problems > 0) {
+        throw { reason: 'failed', message: dsx.variable.problems + ' check(s) failed' }
+      }
+      dsx.module.out.print({ text: 'all checks passed — ' + (screens.length) + ' component(s)' + (scheme ? ', scheme "' + scheme + '"' : '') })
+      return 0
+    </action>
+  </head>
+
+  <command as="build" handler="build" summary="compile a project's .dsx sources into a deployable static site">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="out" type="string" summary="override the configured output directory"/>
+    <flag as="demo" type="boolean" summary="act on this repository's demo instead of a project"/>
+  </command>
+
+  <command as="dev" handler="dev" summary="build, serve, watch and reload on change">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="port" type="string" summary="listen port (default 5273)"/>
+    <flag as="host" type="string" summary="listen address (default all interfaces)"/>
+    <flag as="demo" type="boolean" summary="act on this repository's demo instead of a project"/>
+  </command>
+
+  <command as="lint" handler="lint" summary="static validation of DSX markup + JSE bodies">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="package" type="string" repeatable="true" summary="fold every package under this dir into the component pool + scheme universe"/>
+    <flag as="strict" type="boolean" summary="warnings are failures too (CI)"/>
+    <positional as="files" variadic="true" summary="lint these files instead of the project"/>
+  </command>
+
+  <command as="doctor" action="doctor" summary="check a project for the mistakes that make a build fail later">
+    <flag as="project" type="string" summary="project root to check (default: the working directory)"/>
+  </command>
+</cli>

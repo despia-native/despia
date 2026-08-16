@@ -1,0 +1,30 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "popover",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Popover/swift/Popover.swift",
+  "attributes": {
+    "present": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Popover/swift/Popover.swift:29"
+    },
+    "arrow": {
+      "type": "enum(top|bottom|leading|trailing)",
+      "default": "top",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Popover/swift/Popover.swift:38-44"
+    },
+    "on:dismiss": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Popover/swift/Popover.swift:34"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "Default slot = the always-visible anchor; the content slot = the bubble."
+}

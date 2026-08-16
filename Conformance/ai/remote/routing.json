@@ -1,0 +1,174 @@
+{
+ "_note": "The model router (local-ai-engine.md §4.13, Appendix A4). THE LAW ENCODED HERE: (1) `completion` accepts a TASK HINT as the alternative to a hard model id, and resolution is DETERMINISTIC — `router.json` preference order, intersected with what is installed, filtered by required engine capabilities and by the fit verdict floor. (2) Stickiness is real economics, not a nicety: swapping models costs seconds and hundreds of megabytes, so a resident model that satisfies the task WINS over a nominally-preferred one, and the reason says `sticky-loaded`. (3) Every decision is a `routing` stream event carrying the chosen model and the reason, emitted BEFORE the first token, so a surface can always show which model answered. (4) Task ids are an OPEN vocabulary defined by the table itself — an unknown hint resolves through the declared default chain, which is what makes next year's task class a data edit instead of a release. (5) A hard `model` argument bypasses routing entirely: explicit beats clever. (6) `router.json` rides the same signed content generation as the catalog, so retuning the fleet is an OTA edit — these cases pin the semantics that edit is allowed to change.",
+ "cases": [
+  {
+   "name": "routing: a task hint resolves through the preference order",
+   "catalog": {
+    "installed": [ "small", "large" ],
+    "entries": [
+     { "id": "small", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 30 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } },
+     { "id": "large", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 12 } }, "requirements": { "footprint_mb": 1200, "disk_mb": 900 } }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ "large", "small" ], "min_verdict": "runs_slow" } }, "default": "chat", "remote": { "policy": "local" } },
+   "mock": { "models": { "large": { "script": [ { "token": "hi" }, { "complete": { } } ] }, "small": { "script": [ { "token": "hi" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "chat", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "events": [ { "req": "a", "event": "routing", "data": { "task": "chat", "model": "large", "reason": "preference-order" } } ],
+    "engineRequests": [ { "kind": "completion", "model": "large" } ]
+   }
+  },
+  {
+   "name": "routing: a model that does not fit is skipped for the next candidate",
+   "_note": "The fit floor is what makes routing honest on a small device: the preferred model is too big for this phone's limit, so the router picks the next one that actually runs rather than picking the 'best' and failing at load.",
+   "catalog": {
+    "installed": [ "small", "large" ],
+    "entries": [
+     { "id": "small", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-low": { "decode_tps": 14 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } },
+     { "id": "large", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-low": { "decode_tps": 4 } }, "requirements": { "footprint_mb": 1200, "disk_mb": 900 } }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-low", "available_memory_mb": 900, "free_disk_mb": 4000 },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ "large", "small" ], "min_verdict": "runs_slow" } }, "default": "chat", "remote": { "policy": "local" } },
+   "mock": { "models": { "small": { "script": [ { "token": "hi" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "chat", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "events": [ { "req": "a", "event": "routing", "data": { "model": "small", "reason": "preference-order" } } ],
+    "verdicts": { "large": { "verdict": "too_big", "reason": "memory" }, "small": { "verdict": "runs_well" } }
+   }
+  },
+  {
+   "name": "routing: the resident model wins when it satisfies the task",
+   "_note": "Stickiness. `small` is already loaded and is a legal candidate for the task, so the router does not pay for a swap to the nominally-preferred `large` — and it says why.",
+   "catalog": {
+    "installed": [ "small", "large" ],
+    "entries": [
+     { "id": "small", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 30 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } },
+     { "id": "large", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 12 } }, "requirements": { "footprint_mb": 1200, "disk_mb": 900 } }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "loaded": "small"
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ "large", "small" ], "min_verdict": "runs_slow" } }, "default": "chat", "stickiness": { "prefer_loaded": true }, "remote": { "policy": "local" } },
+   "mock": { "models": { "small": { "script": [ { "token": "hi" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "chat", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "events": [ { "req": "a", "event": "routing", "data": { "model": "small", "reason": "sticky-loaded" } } ],
+    "engineRequests": [ { "kind": "completion", "model": "small" } ]
+   }
+  },
+  {
+   "name": "routing: stickiness never overrides the task's capability requirement",
+   "_note": "The limit of stickiness. The resident model cannot do constrained tool calling, the task requires it, so the router pays for the swap — cheapness never beats correctness.",
+   "catalog": {
+    "installed": [ "plain", "toolish" ],
+    "entries": [
+     { "id": "plain", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 30 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } },
+     { "id": "toolish", "engine": "gguf", "format": "gguf", "tool_dialect": "hermes-json", "requires": { "engine_caps": [ "gbnf" ] }, "perf_priors": { "phone-mid": { "decode_tps": 18 } }, "requirements": { "footprint_mb": 900, "disk_mb": 800 } }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 },
+    "loaded": "plain"
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "engine": { "capabilities": { "engines": [ "gguf", "mock" ], "formats": [ "gguf" ], "features": [ "gbnf" ] } },
+   "router": { "schema_version": 1, "tasks": { "agentic-tools": { "prefer": [ "plain", "toolish" ], "require_caps": [ "gbnf" ], "min_verdict": "runs_well" } }, "default": "agentic-tools", "stickiness": { "prefer_loaded": true }, "remote": { "policy": "local" } },
+   "mock": { "models": { "toolish": { "script": [ { "token": "hi" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "agentic-tools", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "events": [ { "req": "a", "event": "routing", "data": { "model": "toolish", "reason": "preference-order" } } ]
+   }
+  },
+  {
+   "name": "routing: an unknown task falls through the declared default chain",
+   "_note": "The open-vocabulary law. `summarize-legal-arabic` is a task nobody coded for; it resolves through the table's `default` chain and answers, which is what lets a new task class ship as a content edit.",
+   "catalog": {
+    "installed": [ "small" ],
+    "entries": [ { "id": "small", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 30 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ "small" ], "min_verdict": "runs_slow" } }, "default": "chat", "remote": { "policy": "local" } },
+   "mock": { "models": { "small": { "script": [ { "token": "hi" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "summarize-legal-arabic", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "events": [ { "req": "a", "event": "routing", "data": { "task": "summarize-legal-arabic", "model": "small", "reason": "default-chain" } } ]
+   }
+  },
+  {
+   "name": "routing: an explicit model argument bypasses the router",
+   "_note": "Explicit beats clever, and it is auditable: naming a model emits a `routing` event with reason `explicit` so the UI still knows what answered, but no preference order is consulted.",
+   "catalog": {
+    "installed": [ "small", "large" ],
+    "entries": [
+     { "id": "small", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 30 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } },
+     { "id": "large", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 12 } }, "requirements": { "footprint_mb": 1200, "disk_mb": 900 } }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ "large" ] } }, "default": "chat", "remote": { "policy": "local" } },
+   "mock": { "models": { "small": { "script": [ { "token": "hi" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "model": "small", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "events": [ { "req": "a", "event": "routing", "data": { "model": "small", "reason": "explicit" } } ],
+    "engineRequests": [ { "kind": "completion", "model": "small" } ]
+   }
+  },
+  {
+   "name": "routing: a quarantined model is never routed to",
+   "_note": "Crash containment reaches the router: a model that took the app down is not a candidate on the next launch, no matter where it sits in the preference order.",
+   "catalog": {
+    "installed": [ "crashy", "safe" ],
+    "entries": [
+     { "id": "crashy", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 40 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } },
+     { "id": "safe", "engine": "gguf", "format": "gguf", "perf_priors": { "phone-mid": { "decode_tps": 20 } }, "requirements": { "footprint_mb": 500, "disk_mb": 400 } }
+    ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000, "quarantined": [ "crashy" ] },
+   "router": { "schema_version": 1, "tasks": { "chat": { "prefer": [ "crashy", "safe" ], "min_verdict": "runs_slow" } }, "default": "chat", "remote": { "policy": "local" } },
+   "mock": { "models": { "safe": { "script": [ { "token": "hi" }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "chat", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "verdicts": { "crashy": { "verdict": "quarantined" } },
+    "events": [ { "req": "a", "event": "routing", "data": { "model": "safe" } } ]
+   }
+  },
+  {
+   "name": "routing: no candidate under policy local answers typed absence",
+   "catalog": {
+    "installed": [ "tiny" ],
+    "entries": [ { "id": "tiny", "engine": "gguf", "format": "gguf", "requires": { "engine_caps": [ "gbnf" ] }, "perf_priors": { "phone-mid": { "decode_tps": 30 } }, "requirements": { "footprint_mb": 400, "disk_mb": 300 } } ],
+    "fit_policy": { "slow_decode_tps": 8 }
+   },
+   "device": { "class": "phone-mid", "available_memory_mb": 2000, "free_disk_mb": 8000 },
+   "engine": { "capabilities": { "engines": [ "gguf", "mock" ], "formats": [ "gguf" ], "features": [] } },
+   "router": { "schema_version": 1, "tasks": { "agentic-tools": { "prefer": [ "tiny" ], "require_caps": [ "gbnf" ], "min_verdict": "runs_well" } }, "default": "agentic-tools", "remote": { "policy": "local" } },
+   "steps": [
+    { "call": { "scheme": "intelligence", "action": "completion", "args": { "task": "agentic-tools", "messages": [] }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "absent": [ { "action": "completion", "code": "no_model_available", "reason": "no_candidate" } ],
+    "engineRequestCount": 0
+   }
+  }
+ ]
+}

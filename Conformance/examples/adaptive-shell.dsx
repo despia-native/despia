@@ -1,0 +1,56 @@
+<scaffold shell="automatic"
+          collapse="platform"
+          collapse:web="stack"
+          compactAt="760"
+          compactAt:ios="{{ dsx.screen.height }}"
+          compactAt:macos="900"
+          sidebarMin="220"
+          sidebarIdeal="280"
+          sidebarIdeal:desktop="300"
+          sidebarMax="360"
+          inspectorMin="240"
+          inspectorIdeal="320"
+          inspectorMax="420"
+          sidebarLabel="Library navigation"
+          contentLabel="Now playing"
+          inspectorLabel="Track details">
+  <head>
+    <variable as="section">return 'Listen Now'</variable>
+  </head>
+
+  <stack pin="top" direction="horizontal" align="center"
+         style="padding: 0.75rem 1rem; background: bar">
+    <text value="My Music" a11yTrait="header"/>
+    <spacer/>
+    <button label="Search" a11yLabel="Search library"/>
+  </stack>
+
+  <stack pane="sidebar" style="padding: 1rem; gap: 0.5rem; background: groupedBackground">
+    <text value="Library" a11yTrait="header"/>
+    <button label="Listen Now" on:tap="section = 'Listen Now'"/>
+    <button label="Recently Added" on:tap="section = 'Recently Added'"/>
+    <button label="Artists" on:tap="section = 'Artists'"/>
+  </stack>
+
+  <scroll pane="content">
+    <stack style="padding: 1.5rem; gap: 1rem">
+      <text value="{{ section }}" a11yTrait="header"/>
+      <text value="The main custom content remains fully author controlled."/>
+    </stack>
+  </scroll>
+
+  <stack pane="inspector" style="padding: 1rem; gap: 0.75rem; background: secondaryBackground">
+    <text value="Track Details" a11yTrait="header"/>
+    <text value="Artist · Album · 2026"/>
+    <button label="Add to Favorites"/>
+  </stack>
+
+  <stack pin="bottom" direction="horizontal" align="center"
+         style="padding: 0.75rem 1rem; background: bar">
+    <button label="Previous"/>
+    <button label="Play"/>
+    <button label="Next"/>
+    <spacer/>
+    <text value="Global player controls stay pinned through every shell transition."/>
+  </stack>
+</scaffold>

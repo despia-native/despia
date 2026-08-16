@@ -1,0 +1,20 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "StudioTimecode",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioTimeline.swift",
+  "attributes": {
+    "fontSize": {
+      "type": "number",
+      "default": 30,
+      "_src": "ClosedSource/DSX/Modules/Core/StudioEditor/swift/StudioTimeline.swift:321"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

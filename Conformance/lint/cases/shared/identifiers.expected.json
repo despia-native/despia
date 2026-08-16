@@ -1,0 +1,7 @@
+[
+  { "line": 3, "level": "error", "rule": "legacy-name" },
+  { "line": 4, "level": "error", "rule": "missing-as" },
+  { "line": 5, "level": "error", "rule": "api-as-identifier" },
+  { "line": 6, "level": "warning", "rule": "head-order" },
+  { "line": 6, "level": "error", "rule": "expects-variable" }
+]

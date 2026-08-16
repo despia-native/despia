@@ -1,0 +1,37 @@
+{
+  "name": "vscode-dsx",
+  "displayName": "DSX",
+  "description": "Syntax highlighting for DSX (.dsx) - XML markup + {{ JS }} expressions + inline JSON.",
+  "version": "0.0.1",
+  "publisher": "despia",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/despia-native/vscode-dsx.git"
+  },
+  "homepage": "https://github.com/despia-native/vscode-dsx#readme",
+  "bugs": "https://github.com/despia-native/vscode-dsx/issues",
+  "keywords": ["dsx", "despiascript", "despia", "syntax", "highlighting", "grammar"],
+  "engines": { "vscode": "^1.60.0" },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "dsx",
+        "aliases": ["DSX", "DespiaScript", "dsx"],
+        "extensions": [".dsx"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dsx",
+        "scopeName": "text.dsx",
+        "path": "./syntaxes/dsx.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.expression.dsx": "javascript"
+        }
+      }
+    ]
+  }
+}

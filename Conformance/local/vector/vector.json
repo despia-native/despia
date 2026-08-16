@@ -1,0 +1,114 @@
+{
+ "_note": "Vectors in Despia Local (local-ai-engine.md §4.7, §9 'Embedding drift'). THE LAW ENCODED HERE: (1) vectors live in Base, not in the AI module — the in-house index inside the intelligence module stops being bespoke code and becomes sqlite-vec in the data plane. (2) EVERY index entry records the embedding that produced it: model id, dimension and revision. This is not optional metadata — without it the first embedder upgrade silently corrupts every answer the app gives. (3) A search whose query embedding disagrees with the stored one is a TYPED ERROR carrying an explicit reindex path, never a silently wrong ranking. Dimension mismatch, model mismatch and revision mismatch are three distinct reasons, because the fix differs. (4) Search results are ordered by distance and carry it, so a caller can apply its own threshold instead of trusting a black box. (5) Deleting a document removes its vectors — an orphaned vector is a wrong answer waiting to happen.",
+ "cases": [
+  {
+   "name": "vector: upsert records the embedding provenance with every entry",
+   "seed": { "docs": [] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "index.upsert", "args": { "index": "docs", "key": "d1", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { "title": "alpha" } }, "mode": "await", "as": "u" } },
+    { "call": { "scheme": "base", "action": "index.info", "args": { "index": "docs" }, "mode": "await", "as": "i" } }
+   ],
+   "expect": {
+    "results": {
+     "u": { "ok": true },
+     "i": { "count": 1, "embedding": { "model": "emb", "dimension": 4, "revision": "r1" } }
+    }
+   }
+  },
+  {
+   "name": "vector: search returns nearest first with distances attached",
+   "seed": { "docs": [
+    { "key": "d1", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { "title": "alpha" } },
+    { "key": "d2", "vector": [ 0.0, 1.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { "title": "beta" } },
+    { "key": "d3", "vector": [ 0.9, 0.1, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { "title": "gamma" } }
+   ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "index.search", "args": { "index": "docs", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "k": 2 }, "mode": "await", "as": "s" } }
+   ],
+   "expect": {
+    "results": { "s": { "hits": [ { "key": "d1" }, { "key": "d3" } ] } },
+    "hitsCarryDistance": true
+   }
+  },
+  {
+   "name": "vector: a dimension mismatch is typed and names the reindex path",
+   "_note": "The most common upgrade break: a new embedder with a different output width. The search refuses rather than truncating or padding, and it says what to do about it.",
+   "seed": { "docs": [
+    { "key": "d1", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { } }
+   ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "index.search", "args": { "index": "docs", "vector": [ 1.0, 0.0, 0.0, 0.0, 0.5, 0.5 ], "embedding": { "model": "emb2", "dimension": 6, "revision": "r1" }, "k": 1 }, "mode": "await", "as": "s" } }
+   ],
+   "expect": {
+    "errors": [ { "req": "s", "code": "embedding_mismatch", "data": { "reason": "dimension", "stored": 4, "query": 6, "reindex": "docs" } } ]
+   }
+  },
+  {
+   "name": "vector: a model mismatch at the same dimension is still a mismatch",
+   "_note": "The dangerous one. Two embedders can share a width and mean completely different things; without the model id this search would return confident nonsense.",
+   "seed": { "docs": [
+    { "key": "d1", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { } }
+   ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "index.search", "args": { "index": "docs", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "other-emb", "dimension": 4, "revision": "r1" }, "k": 1 }, "mode": "await", "as": "s" } }
+   ],
+   "expect": {
+    "errors": [ { "req": "s", "code": "embedding_mismatch", "data": { "reason": "model", "stored": "emb", "query": "other-emb" } } ]
+   }
+  },
+  {
+   "name": "vector: a revision bump of the same model is a mismatch with its own reason",
+   "seed": { "docs": [
+    { "key": "d1", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { } }
+   ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "index.search", "args": { "index": "docs", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r2" }, "k": 1 }, "mode": "await", "as": "s" } }
+   ],
+   "expect": {
+    "errors": [ { "req": "s", "code": "embedding_mismatch", "data": { "reason": "revision", "stored": "r1", "query": "r2" } } ]
+   }
+  },
+  {
+   "name": "vector: mixing embeddings inside one index is refused at write time",
+   "_note": "Catch it on the way in, not on the way out. An index is homogeneous by construction, so the corrupting upsert fails instead of poisoning every later search.",
+   "seed": { "docs": [
+    { "key": "d1", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { } }
+   ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "index.upsert", "args": { "index": "docs", "key": "d2", "vector": [ 0.0, 1.0 ], "embedding": { "model": "emb2", "dimension": 2, "revision": "r1" }, "value": { } }, "mode": "await", "as": "u" } }
+   ],
+   "expect": {
+    "errors": [ { "req": "u", "code": "embedding_mismatch", "data": { "reason": "dimension" } } ],
+    "results": { }
+   }
+  },
+  {
+   "name": "vector: reindex adopts the new embedding and searches again cleanly",
+   "_note": "The escape hatch the error points at. After a reindex the index reports the new provenance and the previously refused query works.",
+   "seed": { "docs": [
+    { "key": "d1", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { } }
+   ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "index.reindex", "args": { "index": "docs", "embedding": { "model": "emb2", "dimension": 2, "revision": "r1" }, "vectors": [ { "key": "d1", "vector": [ 0.0, 1.0 ] } ] }, "mode": "await", "as": "x" } },
+    { "call": { "scheme": "base", "action": "index.search", "args": { "index": "docs", "vector": [ 0.0, 1.0 ], "embedding": { "model": "emb2", "dimension": 2, "revision": "r1" }, "k": 1 }, "mode": "await", "as": "s" } }
+   ],
+   "expect": {
+    "results": { "s": { "hits": [ { "key": "d1" } ] } }
+   }
+  },
+  {
+   "name": "vector: deleting a document removes its vectors",
+   "seed": { "docs": [
+    { "key": "d1", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { } },
+    { "key": "d2", "vector": [ 0.0, 1.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "value": { } }
+   ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "index.delete", "args": { "index": "docs", "key": "d1" }, "mode": "await", "as": "d" } },
+    { "call": { "scheme": "base", "action": "index.search", "args": { "index": "docs", "vector": [ 1.0, 0.0, 0.0, 0.0 ], "embedding": { "model": "emb", "dimension": 4, "revision": "r1" }, "k": 5 }, "mode": "await", "as": "s" } }
+   ],
+   "expect": {
+    "results": { "s": { "hits": [ { "key": "d2" } ] } }
+   }
+  }
+ ]
+}

@@ -1,0 +1,47 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "Accordion",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Accordion.swift",
+  "attributes": {
+    "title": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Accordion.swift:64"
+    },
+    "open": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Accordion.swift:42"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Accordion.swift:67"
+    },
+    "on:toggle": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Accordion.swift:49 (payload { open"
+    }
+  },
+  "geometry": {
+    "headerSpacing": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Accordion.swift:63"
+    },
+    "chevronOpenRotation": {
+      "value": 90,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Accordion.swift:68"
+    }
+  },
+  "colors": {
+    "chevron": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Accordion.swift:67"
+    }
+  },
+  "notes": "Slots: default = collapsible body; \"header\" replaces the default Text(title)+chevron (Accordion.swift:59-71)."
+}

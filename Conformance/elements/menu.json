@@ -1,0 +1,20 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "menu",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Menu/swift/Menu.swift",
+  "attributes": {
+    "menu": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Menu/swift/Menu.swift:34 (JSON tree"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

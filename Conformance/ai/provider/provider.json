@@ -1,0 +1,72 @@
+{
+ "_note": "Provider registration — inner extensibility without a second kernel (local-ai-engine.md §4.11). THE LAW ENCODED HERE: (1) a provider is a MODULE (a child under `Core/LocalAI/Modules/`, or any module including a per-app Custom one) that declares `facets.provider` rows: a modality id, the action that serves it, the backend it needs. (2) The registry is derived from those rows at build time — nothing downloads code, nothing registers dynamically at runtime (the dynamic-split law). (3) A provider whose backend this build does not carry is INERT and answers typed absence; it never shadows a working one. (4) Two enabled modules claiming the same modality id is a BUILD abort, not a runtime coin-flip — the same enabled-claimant collision rule the facet grammar already enforces. (5) A per-app provider is a full citizen: it plugs into the same loop, the same streaming envelope, the same approval flow, and the same fit and routing — 'add an output nobody has built' means exactly this and nothing more magical. (6) The residency law holds: parent actions stay on `intelligence`, and a child adds NEW actions on its own chain.",
+ "cases": [
+  {
+   "name": "provider: a declared row serves its modality through the container",
+   "_note": "The voice child declares it serves the `speech` modality with `synthesize`, backed by the `tts` engine. A call to the child chain reaches it and streams; the parent scheme keeps its own actions untouched.",
+   "providers": [ { "chain": "intelligence.voice", "modality": "speech", "serves": "synthesize", "engine": "tts", "capabilities": { "streaming": true } } ],
+   "engine": { "capabilities": { "engines": [ "gguf", "mock", "tts" ] } },
+   "catalog": { "installed": [ "voice-en" ], "entries": [ { "id": "voice-en", "engine": "tts", "languages": [ "en" ], "outputs": [ "audio-stream" ] } ] },
+   "mock": { "models": { "voice-en": { "script": [ { "block": { "type": "audio", "url": "loopback:///utt/1.wav", "duration_ms": 900 } }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "intelligence.voice", "action": "synthesize", "args": { "model": "voice-en", "text": "hello" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "providers": [ { "modality": "speech", "chain": "intelligence.voice", "available": true } ],
+    "results": { "a": { "snapshot": [ { "type": "audio", "url": "loopback:///utt/1.wav", "duration_ms": 900 } ] } }
+   }
+  },
+  {
+   "name": "provider: a per-app module registers a modality nobody shipped",
+   "_note": "The extensibility promise, executed. A Custom module declares a `music` modality served by its own action over its own backend; it appears in the registry, streams through the same envelope, and is routable — with zero kernel changes and zero changes to the AI package.",
+   "providers": [ { "chain": "custom.songwriter", "modality": "music", "serves": "compose", "engine": "custom-music", "capabilities": { "streaming": true } } ],
+   "engine": { "capabilities": { "engines": [ "gguf", "mock", "custom-music" ] } },
+   "catalog": { "installed": [ "riff-1" ], "entries": [ { "id": "riff-1", "engine": "custom-music", "inputs": [ "text" ], "outputs": [ "audio-file" ] } ] },
+   "mock": { "models": { "riff-1": { "script": [ { "block": { "type": "audio", "url": "content:///gen/riff.wav" } }, { "complete": { } } ] } } },
+   "steps": [
+    { "call": { "scheme": "custom.songwriter", "action": "compose", "args": { "model": "riff-1", "prompt": "oud in D minor" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "providers": [ { "modality": "music", "chain": "custom.songwriter", "available": true } ],
+    "results": { "a": { "snapshot": [ { "type": "audio", "url": "content:///gen/riff.wav" } ] } }
+   }
+  },
+  {
+   "name": "provider: a provider whose backend is missing is inert and typed",
+   "_note": "The row is declared but this build carries no such backend — the provider registers as unavailable with the reason, and the call answers typed absence. It must NOT shadow anything or pretend to serve.",
+   "providers": [ { "chain": "intelligence.imagine", "modality": "image", "serves": "generate", "engine": "diffusion" } ],
+   "engine": { "capabilities": { "engines": [ "gguf", "mock" ] } },
+   "steps": [
+    { "call": { "scheme": "intelligence.imagine", "action": "generate", "args": { "prompt": "a falcon" }, "mode": "await", "as": "a" } }
+   ],
+   "expect": {
+    "providers": [ { "modality": "image", "chain": "intelligence.imagine", "available": false, "reason": "engine_not_carried" } ],
+    "absent": [ { "action": "generate", "code": "not_available", "reason": "engine_not_carried", "data": { "engine": "diffusion" } } ]
+   }
+  },
+  {
+   "name": "provider: two enabled claimants of one modality abort the build",
+   "_note": "The collision guard, at the layer where it belongs. This is a PREPARE-time abort (the enabled-claimant key collision the facet grammar already enforces), never a runtime last-writer-wins — a per-app module colliding with a framework child must fail loudly at build time.",
+   "providers": [
+    { "chain": "intelligence.voice", "modality": "speech", "serves": "synthesize", "engine": "tts" },
+    { "chain": "custom.mytts", "modality": "speech", "serves": "say", "engine": "tts" }
+   ],
+   "expect": {
+    "buildAbort": { "code": "facet_key_collision", "word": "provider", "key": "speech", "claimants": [ "intelligence.voice", "custom.mytts" ] }
+   }
+  },
+  {
+   "name": "provider: an excluded claimant frees the modality for the other",
+   "_note": "The other half of the collision rule: exclusion is the resolution. With the framework child excluded, the per-app provider claims `speech` cleanly — which is exactly how an app replaces a built-in modality with its own.",
+   "providers": [
+    { "chain": "intelligence.voice", "modality": "speech", "serves": "synthesize", "engine": "tts" },
+    { "chain": "custom.mytts", "modality": "speech", "serves": "say", "engine": "tts" }
+   ],
+   "excludedOverlay": { "intelligence.voice": { "reason": "excluded" } },
+   "engine": { "capabilities": { "engines": [ "gguf", "mock", "tts" ] } },
+   "expect": {
+    "providers": [ { "modality": "speech", "chain": "custom.mytts", "available": true } ]
+   }
+  }
+ ]
+}

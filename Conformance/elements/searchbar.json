@@ -1,0 +1,60 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "searchbar",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift:33"
+    },
+    "placeholder": {
+      "type": "string",
+      "default": "Search",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift:41"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift:36"
+    },
+    "on:submit": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift:46"
+    },
+    "on:clear": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift:50"
+    }
+  },
+  "geometry": {
+    "contentSpacing": {
+      "value": 6,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift:38"
+    },
+    "paddingH": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift:59"
+    },
+    "paddingV": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift:60"
+    }
+  },
+  "colors": {
+    "tint": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift:36"
+    },
+    "chrome": {
+      "token": "secondarySystemFill",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SearchBar/swift/SearchBar.swift:61 (capsule, over .regularMaterial "
+    }
+  },
+  "notes": "Leading magnifyingglass + trailing xmark.circle.fill clear button (shown while non-empty), both .secondary (SearchBar.swift:39-40,52-53)."
+}

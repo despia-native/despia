@@ -1,0 +1,45 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "lightbox",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Lightbox/swift/Lightbox.swift",
+  "attributes": {
+    "present": {
+      "type": "expr(bool)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Lightbox/swift/Lightbox.swift:28"
+    },
+    "images": {
+      "type": "expr(list)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Lightbox/swift/Lightbox.swift:32"
+    },
+    "srcField": {
+      "type": "string",
+      "default": "src",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Lightbox/swift/Lightbox.swift:33"
+    },
+    "urls": {
+      "type": "csv",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Lightbox/swift/Lightbox.swift:36"
+    },
+    "index": {
+      "type": "expr(int)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Lightbox/swift/Lightbox.swift:39"
+    },
+    "color": {
+      "type": "color",
+      "default": "white",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Lightbox/swift/Lightbox.swift:41"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": ""
+}

@@ -1,0 +1,76 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "segmentedButton",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift",
+  "attributes": {
+    "bind": {
+      "type": "expr(csv-string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:27"
+    },
+    "options": {
+      "type": "csv",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:32"
+    },
+    "icons": {
+      "type": "csv(sf-symbols)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:33"
+    },
+    "multiple": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:28"
+    },
+    "color": {
+      "type": "color",
+      "default": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:29"
+    }
+  },
+  "geometry": {
+    "fontSize": {
+      "value": 15,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:72 (.medium)"
+    },
+    "iconSpacing": {
+      "value": 6,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:66"
+    },
+    "paddingV": {
+      "value": 9,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:75"
+    },
+    "cornerRadius": {
+      "value": 10,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:82"
+    },
+    "borderWidth": {
+      "value": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:85"
+    }
+  },
+  "colors": {
+    "selectedFill": {
+      "token": "accent",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:29,76"
+    },
+    "selectedText": {
+      "token": "white",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:73"
+    },
+    "unselectedText": {
+      "token": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:73 (UIColor.label)"
+    },
+    "border": {
+      "token": "separator",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SegmentedButton/swift/SegmentedButton.swift:85"
+    }
+  },
+  "notes": ""
+}

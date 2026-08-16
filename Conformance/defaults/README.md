@@ -1,0 +1,59 @@
+# defaults — the system-defaults corpus
+
+The fixture home of `architecture/proposals/system-defaults.md` (ACCEPTED): **the
+unstyled baseline IS the platform**. Renderer defaults, semantic tokens, and the
+variant words are cross-runtime surface, so their contract lives here — fixtures
+first, every runtime consumes the same JSON (the `api/api-blocks.json` shape).
+
+## `tokens.json` — the semantic-token mapping corpus
+
+One entry per ratified vocabulary word — `label · secondary · tertiary · background ·
+groupedBackground · secondaryGroupedBackground · fill · separator · accent ·
+destructive` — each carrying per-target values:
+
+| Column | Type | Meaning |
+|---|---|---|
+| `ios` | UIColor slot name | the semantic slot the SwiftUI renderer resolves (`label`, `systemGroupedBackground`, `tintColor`, `systemRed`, …) |
+| `watchos` | UIColor slot name | same slot family; the wrist runtime resolves it under watchOS's always-dark system appearance (so `systemBackground` IS the black canvas) |
+| `android` | M3 role name | the Material 3 color role under `dynamicColorScheme()` (static M3 fallback < API 31): `label→onSurface`, `accent→primary`, … |
+| `wear` | Wear role name | the Compose Material for Wear OS color role (`background` = the black canvas, `surface` = the Chip/Card container) |
+| `web` | `{ css, light, dark }` | the `--dsx-*` custom property of the web skin's `dsx-tokens` layer plus its light/dark scheme pair |
+
+The law (spelled out in the file's `_note`): **native columns are role names, never
+values** — the OS owns the values so inherited looks self-update; **only web carries
+literals**, because the web has no system palette to inherit, and those literals are
+honest NEUTRAL grays + a blue accent (`color-scheme: light dark`, light/dark scheme
+pairs) — never fake-Cupertino. Words may legitimately coalesce per target (iOS dark
+resolves `background` and `groupedBackground` to the same color; so does the corpus).
+
+## Runners (per the spec's migration order)
+
+- **TS (live)**: `OpenSource/Web/packages/dom/test/theme.test.ts` — the drift gate:
+  every corpus word must ship in `theme.ts` as floor-safe scheme TWINS — its `light`
+  value in the base `:root` block, its `dark` value in the
+  `@media (prefers-color-scheme: dark)` block AND the `[data-dsx-theme="dark"]` pin
+  table, its `light` value again in the `[data-dsx-theme="light"]` pin table (pins
+  after the media block at equal specificity, so an explicit pin beats the OS scheme
+  in both directions). Bare `light-dark()` is BANNED in the emitted sheet: the stamped
+  browser floor is last-2 evergreen + Safari 16.4 (`/web/10` W0) and `light-dark()`
+  needs Safari 17.5 — below that, every `var(--dsx-*)` use would be invalid at
+  computed-value time. The vocabulary word list is pinned. The web precedence-ladder
+  test (`packages/compiler/test/defaults.test.ts`) exercises the suffix fold + layer
+  order.
+- **Kotlin (live)**: `OpenSource/Engine/Android/render/src/test/kotlin/despia/engine/render/DefaultsTokensTest.kt`
+  — the M3-role drift gate, run by the gradle suites per PR (`android-kernel` lane).
+- **Swift (live, script-gated)**: the corpus cross-check inside
+  `ClosedSource/scripts/check_style_catalog.rb` (part of the existing `--strict` CI
+  invocation) — every corpus word must have a `case` in `StackStyle.color`
+  (`OpenSource/Engine/iOS/Stack.swift`) resolving EXACTLY the UIColor slot the `ios`
+  column names (`accent` → `Color.accentColor`, the tintColor role). The check runs
+  per PR; the renderer itself stays compile-pending (Swift builds only on Codemagic).
+- **The wrists (pending)**: land with their renderer-defaults phases, consuming the
+  same file.
+
+Follow-on fixtures that join this folder as those phases land: per-element
+system-default descriptors (unstyled markup → component identity + token slots per
+target — never pixels) and the full-ladder precedence corpus run on every runtime.
+
+A change to the vocabulary or a mapping is illegal without a spec change and green
+gates on every runtime that ships it — same discipline as `../jse`.

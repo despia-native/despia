@@ -1,0 +1,195 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "schema": "dev.dsx.adaptive-shell/v1",
+  "description": "Renderer-neutral adaptive scaffold planning. Native means a real platform split host is available; semantic renderers must report split/stack, never native.",
+  "defaults": {
+    "shell": "custom",
+    "collapse": "platform",
+    "compactAt": 760,
+    "sidebar": { "min": 220, "ideal": 280, "max": 360 },
+    "inspector": { "min": 240, "ideal": 320, "max": 420 },
+    "bounds": {
+      "compactAt": { "min": 320, "max": 4096 },
+      "columnMin": { "min": 120, "max": 1024 },
+      "columnIdeal": { "min": 120, "max": 1600 },
+      "columnMax": { "min": 120, "max": 1600 }
+    }
+  },
+  "cases": [
+    {
+      "name": "omitted shell preserves custom layout",
+      "attrs": {},
+      "width": 1200,
+      "nativeAvailable": false,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "custom", "mode": "custom", "collapse": "platform", "compact": false }
+    },
+    {
+      "name": "automatic uses native three-column Apple shell",
+      "attrs": { "shell": "automatic" },
+      "width": 1200,
+      "nativeAvailable": true,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "native3", "mode": "automatic", "collapse": "platform", "compact": false }
+    },
+    {
+      "name": "automatic uses honest semantic three-column split",
+      "attrs": { "shell": "automatic" },
+      "width": 1200,
+      "nativeAvailable": false,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "split3", "mode": "automatic", "collapse": "platform", "compact": false }
+    },
+    {
+      "name": "automatic uses honest semantic two-column split without inspector",
+      "attrs": { "shell": "automatic" },
+      "width": 1200,
+      "nativeAvailable": false,
+      "panes": { "sidebar": true, "content": true, "inspector": false },
+      "expect": { "layout": "split2", "mode": "automatic", "collapse": "platform", "compact": false }
+    },
+    {
+      "name": "platform collapse delegates compact Apple adaptation to native host",
+      "attrs": { "shell": "automatic" },
+      "width": 600,
+      "nativeAvailable": true,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "native3", "mode": "automatic", "collapse": "platform", "compact": true }
+    },
+    {
+      "name": "native preference keeps compact two-column Apple host",
+      "attrs": { "shell": "native" },
+      "width": 600,
+      "nativeAvailable": true,
+      "panes": { "sidebar": true, "content": true, "inspector": false },
+      "expect": { "layout": "native2", "mode": "native", "collapse": "platform", "compact": true }
+    },
+    {
+      "name": "native preference falls back to semantic compact stack",
+      "attrs": { "shell": "native" },
+      "width": 600,
+      "nativeAvailable": false,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "stack", "mode": "native", "collapse": "platform", "compact": true }
+    },
+    {
+      "name": "explicit stack overrides native compact presentation",
+      "attrs": { "shell": "automatic", "collapse": "stack" },
+      "width": 600,
+      "nativeAvailable": true,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "stack", "mode": "automatic", "collapse": "stack", "compact": true }
+    },
+    {
+      "name": "explicit content shows only content at compact width",
+      "attrs": { "shell": "automatic", "collapse": "content" },
+      "width": 600,
+      "nativeAvailable": false,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "content", "mode": "automatic", "collapse": "content", "compact": true }
+    },
+    {
+      "name": "none keeps semantic split below breakpoint",
+      "attrs": { "shell": "automatic", "collapse": "none" },
+      "width": 600,
+      "nativeAvailable": false,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "split3", "mode": "automatic", "collapse": "none", "compact": true }
+    },
+    {
+      "name": "none prevents a compact native host from collapsing panes",
+      "attrs": { "shell": "automatic", "collapse": "none" },
+      "width": 600,
+      "nativeAvailable": true,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "split3", "mode": "automatic", "collapse": "none", "compact": true }
+    },
+    {
+      "name": "missing required sidebar falls back to authored custom layout",
+      "attrs": { "shell": "automatic" },
+      "width": 1200,
+      "nativeAvailable": true,
+      "panes": { "sidebar": false, "content": true, "inspector": true },
+      "expect": { "layout": "custom", "mode": "automatic", "collapse": "platform", "compact": false }
+    },
+    {
+      "name": "invalid words normalize safely",
+      "attrs": { "shell": "spaceship", "collapse": "vanish" },
+      "width": 1200,
+      "nativeAvailable": true,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "custom", "mode": "custom", "collapse": "platform", "compact": false }
+    },
+    {
+      "name": "numeric column triplets normalize min then ideal then max",
+      "attrs": {
+        "shell": "automatic",
+        "sidebarMin": "500",
+        "sidebarIdeal": "100",
+        "sidebarMax": "300",
+        "inspectorMin": "NaN",
+        "inspectorIdeal": "360",
+        "inspectorMax": "300"
+      },
+      "width": 1200,
+      "nativeAvailable": false,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": {
+        "layout": "split3",
+        "mode": "automatic",
+        "collapse": "platform",
+        "compact": false,
+        "compactAt": 760,
+        "sidebar": { "min": 500, "ideal": 500, "max": 500 },
+        "inspector": { "min": 240, "ideal": 360, "max": 360 }
+      }
+    },
+    {
+      "name": "mode and collapse normalization trims whitespace and ignores case",
+      "attrs": { "shell": "  AuToMaTiC  ", "collapse": "  NONE  " },
+      "width": 600,
+      "nativeAvailable": false,
+      "panes": { "sidebar": true, "content": true, "inspector": false },
+      "expect": { "layout": "split2", "mode": "automatic", "collapse": "none", "compact": true }
+    },
+    {
+      "name": "numeric grammar is decimal only across renderers",
+      "attrs": {
+        "shell": "automatic",
+        "compactAt": "0x200",
+        "sidebarMin": "0b11110000",
+        "sidebarIdeal": ".5e3",
+        "sidebarMax": "+6e2",
+        "inspectorMin": "1_024",
+        "inspectorIdeal": "3.5e2",
+        "inspectorMax": "4.2e2"
+      },
+      "width": 800,
+      "nativeAvailable": false,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": {
+        "layout": "split3",
+        "mode": "automatic",
+        "collapse": "platform",
+        "compact": false,
+        "compactAt": 760,
+        "sidebar": { "min": 220, "ideal": 500, "max": 600 },
+        "inspector": { "min": 240, "ideal": 350, "max": 420 }
+      }
+    },
+    {
+      "name": "nonfinite width deterministically resolves as zero",
+      "attrs": { "shell": "automatic" },
+      "width": "nonfinite",
+      "nativeAvailable": false,
+      "panes": { "sidebar": true, "content": true, "inspector": true },
+      "expect": { "layout": "stack", "mode": "automatic", "collapse": "platform", "compact": true }
+    }
+  ],
+  "notes": [
+    "Partition pin=top|bottom before pane assignment; an unpinned child without pane is content.",
+    "sidebar and content are required for an adaptive shell; inspector is optional.",
+    "Selection remains owned by authored controls inside each pane. Focus/traversal order is sidebar, content, inspector.",
+    "Apple native2/native3 maps to NavigationSplitView. Compose and Web use split2/split3 or stack/content and must not claim WinUI, GTK, or another native toolkit."
+  ]
+}

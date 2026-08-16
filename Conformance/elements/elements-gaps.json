@@ -1,0 +1,35 @@
+{
+  "_note": "The KNOWN-GAP allowlist for ElementParityTest.kt (OpenSource/Engine/Android/render). A fixture whose tag is listed under `missing`, `module`, or `dclass` is REPORTED, not failed, when :render has no ElementSpec for it — this is how CI stays green while the implementation waves close the gaps. `partial` suppresses (but still reports) a NAMED mismatch key (`attributes.<name>` / `geometry.<name>` / `colors.<name>` / `aliases`) for an element that IS implemented — use it only for divergences pinned in a .kt header. Shrink this file as waves land: an empty file = full enforcement. A registered ElementSpec is ALWAYS enforced against its fixture, even if its tag is (stale-)listed here.",
+  "missing": [
+    "Godot"
+  ],
+  "_missing_note": "Godot is demand-driven (no <Godot/> tag anywhere in the .dsx corpus, `godot` ios-only in the platform map) — it lands with the first customer demand, not a parity wave.",
+  "module": {
+    "_note": "Implemented on Android by a module android/ facet's ComposeStackComponents registration — outside :render's test classpath, so the JVM parity test cannot load their specs. Their parity is owned by the module header + device QA.",
+    "tags": [
+      "DSXWebView",
+      "DSXView",
+      "LevelMeter",
+      "MenuBar",
+      "StudioPitchEditor",
+      "StudioShow",
+      "StudioTimecode",
+      "StudioTimeline",
+      "StudioTrim",
+      "Waveform",
+      "WebView",
+      "chart",
+      "lottie",
+      "map"
+    ]
+  },
+  "dclass": {
+    "_note": "iOS-only by decision (android-status.md section 3) — never expected to grow an Android spec.",
+    "tags": [
+      "Scene3D",
+      "Scene360"
+    ]
+  },
+  "partial": {},
+  "_partial_reasons": {}
+}

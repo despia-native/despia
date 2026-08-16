@@ -1,0 +1,1060 @@
+{
+  "version": 1,
+  "_note": "G4 unified input \u2014 the AXIS FOLD and the EDGE LAW (dsx-game.md \u00a72 G4). digital[]: a 4-key set folds to a vector with +y UP and +x RIGHT; a diagonal normalizes to length 1; opposing keys cancel. analog[]: a raw stick pair (raw y is DOWN-positive, so y is negated) with the deadzone applied RADIALLY then rescaled so the live range stays 0..1; magnitude never exceeds 1. combined[]: an analog stick past its deadzone WINS over the digital keys, otherwise the keys apply; keys and a declared dpad union per direction. frames[]: a pinned device-event stream folded frame by frame \u2014 an event fires ONCE on the transition to pressed, never per frame, and a momentary touch word is pressed for exactly the frame it arrives in.",
+  "digital": [
+    {
+      "name": "neutral",
+      "up": false,
+      "left": false,
+      "down": false,
+      "right": false,
+      "vector": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "up",
+      "up": true,
+      "left": false,
+      "down": false,
+      "right": false,
+      "vector": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "left",
+      "up": false,
+      "left": true,
+      "down": false,
+      "right": false,
+      "vector": [
+        -1.0,
+        0.0
+      ]
+    },
+    {
+      "name": "down",
+      "up": false,
+      "left": false,
+      "down": true,
+      "right": false,
+      "vector": [
+        0.0,
+        -1.0
+      ]
+    },
+    {
+      "name": "right",
+      "up": false,
+      "left": false,
+      "down": false,
+      "right": true,
+      "vector": [
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "name": "up-right",
+      "up": true,
+      "left": false,
+      "down": false,
+      "right": true,
+      "vector": [
+        0.707107,
+        0.707107
+      ]
+    },
+    {
+      "name": "up-left",
+      "up": true,
+      "left": true,
+      "down": false,
+      "right": false,
+      "vector": [
+        -0.707107,
+        0.707107
+      ]
+    },
+    {
+      "name": "down-left",
+      "up": false,
+      "left": true,
+      "down": true,
+      "right": false,
+      "vector": [
+        -0.707107,
+        -0.707107
+      ]
+    },
+    {
+      "name": "down-right",
+      "up": false,
+      "left": false,
+      "down": true,
+      "right": true,
+      "vector": [
+        0.707107,
+        -0.707107
+      ]
+    },
+    {
+      "name": "opposing-vertical",
+      "up": true,
+      "left": false,
+      "down": true,
+      "right": false,
+      "vector": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "opposing-horizontal",
+      "up": false,
+      "left": true,
+      "down": false,
+      "right": true,
+      "vector": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "three-keys",
+      "up": true,
+      "left": false,
+      "down": true,
+      "right": true,
+      "vector": [
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "name": "all-four",
+      "up": true,
+      "left": true,
+      "down": true,
+      "right": true,
+      "vector": [
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "analog": [
+    {
+      "name": "center",
+      "raw": [
+        0.0,
+        0.0
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        0.0,
+        0.0
+      ],
+      "magnitude": 0.0
+    },
+    {
+      "name": "inside-deadzone",
+      "raw": [
+        0.1,
+        0.0
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        0.0,
+        0.0
+      ],
+      "magnitude": 0.0
+    },
+    {
+      "name": "exactly-at-deadzone",
+      "raw": [
+        0.15,
+        0.0
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        0.0,
+        0.0
+      ],
+      "magnitude": 0.0
+    },
+    {
+      "name": "just-past-deadzone",
+      "raw": [
+        0.2,
+        0.0
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        0.058824,
+        0.0
+      ],
+      "magnitude": 0.058824
+    },
+    {
+      "name": "half-right",
+      "raw": [
+        0.5,
+        0.0
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        0.411765,
+        0.0
+      ],
+      "magnitude": 0.411765
+    },
+    {
+      "name": "full-right",
+      "raw": [
+        1.0,
+        0.0
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        1.0,
+        0.0
+      ],
+      "magnitude": 1.0
+    },
+    {
+      "name": "full-up-raw-negative-y",
+      "raw": [
+        0.0,
+        -1.0
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        0.0,
+        1.0
+      ],
+      "magnitude": 1.0
+    },
+    {
+      "name": "full-down-raw-positive-y",
+      "raw": [
+        0.0,
+        1.0
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        0.0,
+        -1.0
+      ],
+      "magnitude": 1.0
+    },
+    {
+      "name": "diagonal-partial",
+      "raw": [
+        0.6,
+        -0.6
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        0.581099,
+        0.581099
+      ],
+      "magnitude": 0.821798
+    },
+    {
+      "name": "overshoot-clamps-to-unit",
+      "raw": [
+        0.9,
+        0.9
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        0.707107,
+        -0.707107
+      ],
+      "magnitude": 1.0
+    },
+    {
+      "name": "deadzone-zero",
+      "raw": [
+        0.3,
+        0.0
+      ],
+      "deadzone": 0.0,
+      "vector": [
+        0.3,
+        0.0
+      ],
+      "magnitude": 0.3
+    },
+    {
+      "name": "deadzone-wide",
+      "raw": [
+        0.5,
+        0.0
+      ],
+      "deadzone": 0.3,
+      "vector": [
+        0.285714,
+        0.0
+      ],
+      "magnitude": 0.285714
+    },
+    {
+      "name": "deadzone-wide-inside",
+      "raw": [
+        0.25,
+        0.0
+      ],
+      "deadzone": 0.3,
+      "vector": [
+        0.0,
+        0.0
+      ],
+      "magnitude": 0.0
+    },
+    {
+      "name": "diagonal-inside-deadzone",
+      "raw": [
+        0.1,
+        -0.1
+      ],
+      "deadzone": 0.15,
+      "vector": [
+        0.0,
+        0.0
+      ],
+      "magnitude": 0.0
+    }
+  ],
+  "combined": [
+    {
+      "name": "stick-neutral-keys-win",
+      "declaration": {
+        "as": "move",
+        "keys": "WASD",
+        "gamepad": "leftStick",
+        "axis": "true"
+      },
+      "keysDown": [
+        "D"
+      ],
+      "gamepad": {
+        "buttons": [],
+        "axes": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "vector": [
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "name": "stick-live-beats-keys",
+      "declaration": {
+        "as": "move",
+        "keys": "WASD",
+        "gamepad": "leftStick",
+        "axis": "true"
+      },
+      "keysDown": [
+        "D"
+      ],
+      "gamepad": {
+        "buttons": [],
+        "axes": [
+          0.0,
+          -1.0,
+          0.0,
+          0.0
+        ]
+      },
+      "vector": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "stick-inside-deadzone-keys-win",
+      "declaration": {
+        "as": "move",
+        "keys": "WASD",
+        "gamepad": "leftStick",
+        "axis": "true"
+      },
+      "keysDown": [
+        "A"
+      ],
+      "gamepad": {
+        "buttons": [],
+        "axes": [
+          0.1,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "vector": [
+        -1.0,
+        0.0
+      ]
+    },
+    {
+      "name": "no-pad-keys-only",
+      "declaration": {
+        "as": "move",
+        "keys": "WASD",
+        "gamepad": "leftStick",
+        "axis": "true"
+      },
+      "keysDown": [
+        "W",
+        "D"
+      ],
+      "gamepad": null,
+      "vector": [
+        0.707107,
+        0.707107
+      ]
+    },
+    {
+      "name": "right-stick-declared",
+      "declaration": {
+        "as": "look",
+        "gamepad": "rightStick",
+        "axis": "true"
+      },
+      "keysDown": [],
+      "gamepad": {
+        "buttons": [],
+        "axes": [
+          0.0,
+          0.0,
+          0.8,
+          0.0
+        ]
+      },
+      "vector": [
+        0.764706,
+        0.0
+      ]
+    },
+    {
+      "name": "dpad-digital",
+      "declaration": {
+        "as": "move",
+        "gamepad": "DPadUp DPadLeft DPadDown DPadRight",
+        "axis": "true"
+      },
+      "keysDown": [],
+      "gamepad": {
+        "buttons": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        "axes": []
+      },
+      "vector": [
+        0.707107,
+        0.707107
+      ]
+    },
+    {
+      "name": "keys-or-dpad-union",
+      "declaration": {
+        "as": "move",
+        "keys": "WASD",
+        "gamepad": "DPadUp DPadLeft DPadDown DPadRight",
+        "axis": "true"
+      },
+      "keysDown": [
+        "A"
+      ],
+      "gamepad": {
+        "buttons": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0
+        ],
+        "axes": []
+      },
+      "vector": [
+        -0.707107,
+        0.707107
+      ]
+    }
+  ],
+  "frames": [
+    {
+      "name": "button-edge-law",
+      "declarations": [
+        {
+          "as": "jump",
+          "keys": "Space",
+          "gamepad": "A",
+          "touch": "tap"
+        }
+      ],
+      "frames": [
+        {
+          "ops": [],
+          "values": {
+            "jump": false
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "keyDown",
+              "key": "Space"
+            }
+          ],
+          "values": {
+            "jump": true
+          },
+          "events": [
+            {
+              "name": "jump",
+              "x": 0.0,
+              "y": 0.0
+            }
+          ]
+        },
+        {
+          "ops": [],
+          "values": {
+            "jump": true
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "keyUp",
+              "key": "Space"
+            }
+          ],
+          "values": {
+            "jump": false
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "keyDown",
+              "key": "Space"
+            }
+          ],
+          "values": {
+            "jump": true
+          },
+          "events": [
+            {
+              "name": "jump",
+              "x": 0.0,
+              "y": 0.0
+            }
+          ]
+        },
+        {
+          "ops": [
+            {
+              "op": "keyUp",
+              "key": "Space"
+            },
+            {
+              "op": "keyDown",
+              "key": "Space"
+            }
+          ],
+          "values": {
+            "jump": true
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "keyUp",
+              "key": "Space"
+            }
+          ],
+          "values": {
+            "jump": false
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "touch",
+              "word": "tap"
+            }
+          ],
+          "values": {
+            "jump": true
+          },
+          "events": [
+            {
+              "name": "jump",
+              "x": 0.0,
+              "y": 0.0
+            }
+          ]
+        },
+        {
+          "ops": [
+            {
+              "op": "touch",
+              "word": "tap"
+            }
+          ],
+          "values": {
+            "jump": true
+          },
+          "events": [
+            {
+              "name": "jump",
+              "x": 0.0,
+              "y": 0.0
+            }
+          ]
+        },
+        {
+          "ops": [],
+          "values": {
+            "jump": false
+          },
+          "events": []
+        }
+      ]
+    },
+    {
+      "name": "gamepad-and-hold",
+      "declarations": [
+        {
+          "as": "jump",
+          "gamepad": "A",
+          "touch": "hold"
+        }
+      ],
+      "frames": [
+        {
+          "ops": [
+            {
+              "op": "gamepad",
+              "buttons": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "axes": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          ],
+          "values": {
+            "jump": false
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "gamepad",
+              "buttons": [
+                1,
+                0,
+                0,
+                0
+              ],
+              "axes": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          ],
+          "values": {
+            "jump": true
+          },
+          "events": [
+            {
+              "name": "jump",
+              "x": 0.0,
+              "y": 0.0
+            }
+          ]
+        },
+        {
+          "ops": [
+            {
+              "op": "gamepad",
+              "buttons": [
+                1,
+                0,
+                0,
+                0
+              ],
+              "axes": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          ],
+          "values": {
+            "jump": true
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "gamepad",
+              "buttons": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "axes": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          ],
+          "values": {
+            "jump": false
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "touch",
+              "word": "hold"
+            }
+          ],
+          "values": {
+            "jump": true
+          },
+          "events": [
+            {
+              "name": "jump",
+              "x": 0.0,
+              "y": 0.0
+            }
+          ]
+        },
+        {
+          "ops": [],
+          "values": {
+            "jump": true
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "touchRelease",
+              "word": "hold"
+            }
+          ],
+          "values": {
+            "jump": false
+          },
+          "events": []
+        }
+      ]
+    },
+    {
+      "name": "axis-stream",
+      "declarations": [
+        {
+          "as": "move",
+          "keys": "WASD",
+          "gamepad": "leftStick",
+          "axis": "true"
+        }
+      ],
+      "frames": [
+        {
+          "ops": [],
+          "values": {
+            "move": {
+              "x": 0.0,
+              "y": 0.0
+            }
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "keyDown",
+              "key": "D"
+            }
+          ],
+          "values": {
+            "move": {
+              "x": 1.0,
+              "y": 0.0
+            }
+          },
+          "events": [
+            {
+              "name": "move",
+              "x": 1.0,
+              "y": 0.0
+            }
+          ]
+        },
+        {
+          "ops": [
+            {
+              "op": "keyDown",
+              "key": "W"
+            }
+          ],
+          "values": {
+            "move": {
+              "x": 0.707107,
+              "y": 0.707107
+            }
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "keyUp",
+              "key": "D"
+            }
+          ],
+          "values": {
+            "move": {
+              "x": 0.0,
+              "y": 1.0
+            }
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "keyUp",
+              "key": "W"
+            }
+          ],
+          "values": {
+            "move": {
+              "x": 0.0,
+              "y": 0.0
+            }
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "gamepad",
+              "buttons": [],
+              "axes": [
+                0.5,
+                -0.5,
+                0.0,
+                0.0
+              ]
+            }
+          ],
+          "values": {
+            "move": {
+              "x": 0.463452,
+              "y": 0.463452
+            }
+          },
+          "events": [
+            {
+              "name": "move",
+              "x": 0.463452,
+              "y": 0.463452
+            }
+          ]
+        },
+        {
+          "ops": [
+            {
+              "op": "gamepad",
+              "buttons": [],
+              "axes": [
+                0.05,
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "op": "keyDown",
+              "key": "A"
+            }
+          ],
+          "values": {
+            "move": {
+              "x": -1.0,
+              "y": 0.0
+            }
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "keyUp",
+              "key": "A"
+            },
+            {
+              "op": "gamepad",
+              "buttons": [],
+              "axes": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          ],
+          "values": {
+            "move": {
+              "x": 0.0,
+              "y": 0.0
+            }
+          },
+          "events": []
+        }
+      ]
+    },
+    {
+      "name": "two-bindings-order",
+      "declarations": [
+        {
+          "as": "jump",
+          "keys": "Space"
+        },
+        {
+          "as": "move",
+          "keys": "Arrows",
+          "axis": "true"
+        }
+      ],
+      "frames": [
+        {
+          "ops": [
+            {
+              "op": "keyDown",
+              "key": "Space"
+            },
+            {
+              "op": "keyDown",
+              "key": "ArrowRight"
+            }
+          ],
+          "values": {
+            "jump": true,
+            "move": {
+              "x": 1.0,
+              "y": 0.0
+            }
+          },
+          "events": [
+            {
+              "name": "jump",
+              "x": 0.0,
+              "y": 0.0
+            },
+            {
+              "name": "move",
+              "x": 1.0,
+              "y": 0.0
+            }
+          ]
+        },
+        {
+          "ops": [],
+          "values": {
+            "jump": true,
+            "move": {
+              "x": 1.0,
+              "y": 0.0
+            }
+          },
+          "events": []
+        },
+        {
+          "ops": [
+            {
+              "op": "keyUp",
+              "key": "Space"
+            },
+            {
+              "op": "keyUp",
+              "key": "ArrowRight"
+            }
+          ],
+          "values": {
+            "jump": false,
+            "move": {
+              "x": 0.0,
+              "y": 0.0
+            }
+          },
+          "events": []
+        }
+      ]
+    }
+  ]
+}

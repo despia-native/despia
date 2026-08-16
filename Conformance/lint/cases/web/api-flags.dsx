@@ -1,0 +1,9 @@
+<stack>
+  <head>
+    <api as="orders" url="/api/orders"/>
+    <api as="orders" url="/api/orders2"/>
+    <api as="save" url="/api/save" method="POST" ssr="true"/>
+    <api as="push" url="/api/push" method="post" defer="true"/>
+  </head>
+  <text value="ok"/>
+</stack>

@@ -1,0 +1,6 @@
+# Gradle's own output. The native is BUILT from the package's own CMakeLists by
+# the `buildTestNative` / `buildShipNative` tasks, and the classifier jar is
+# assembled from it, so both are products and never committed artifacts.
+build/
+.gradle/
+.kotlin/

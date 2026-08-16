@@ -1,0 +1,5 @@
+[
+  { "line": 4, "level": "error", "rule": "api-duplicate-as" },
+  { "line": 5, "level": "warning", "rule": "api-ssr-non-get" },
+  { "line": 6, "level": "warning", "rule": "api-defer-non-get" }
+]

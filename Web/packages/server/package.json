@@ -1,0 +1,33 @@
+{
+  "name": "@despia/server",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "DSX server renderer v0 - IR → HTML strings (SEO/first paint), static route export, redirect pages. Adopt-hydration + streaming are the W6 gate; v0 client boot replace-mounts. Plus the T1 server module host (full-stack.md): createHost + the node/deno bootloaders, and the T2 identity boundary (JWT → ctx.identity).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" },
+    "./host": { "types": "./dist/host.d.ts", "import": "./dist/host.js", "default": "./dist/host.js" },
+    "./identity": { "types": "./dist/identity.d.ts", "import": "./dist/identity.js", "default": "./dist/identity.js" },
+    "./bootloader-node": { "types": "./dist/bootloader-node.d.ts", "import": "./dist/bootloader-node.js", "default": "./dist/bootloader-node.js" },
+    "./bootloader-deno": { "types": "./dist/bootloader-deno.d.ts", "import": "./dist/bootloader-deno.js", "default": "./dist/bootloader-deno.js" }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "engines": { "node": ">=20" },
+  "repository": { "type": "git", "url": "git+https://github.com/despia-native/despia-framework.git", "directory": "OpenSource/Web/packages/server" },
+  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/server",
+  "bugs": { "url": "https://github.com/despia-native/despia-framework/issues" },
+  "publishConfig": { "access": "public", "provenance": true },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\""
+  },
+  "dependencies": {
+    "@despia/kernel": "0.0.1",
+    "@despia/compiler": "0.0.1",
+    "@despia/dom": "0.0.1"
+  }
+}

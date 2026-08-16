@@ -1,0 +1,85 @@
+{
+  "_note": "Classification corpus (build-expressions-spec.md §2.1 — the THREE-WAY rule). A body is :path when the pipeline's LEGACY token grammar substitutes it (byte-identical legacy behavior); :expression when its shape is not a dotted chain OR it is a dotted chain rooted in a context root (config/env/app/platform/modules) that the legacy grammar cannot substitute — the `config.a.b` / `config.list.length` class, which previously shipped VERBATIM BRACES into build output (the latent bug, closed); :foreign when it is a dotted chain under any other root (`dsx.variable.*`) — verbatim passthrough, the ActivityKit widget-span law. The two pipelines' legacy grammars differ in exactly one way (iOS speaks dotted `app.*` tokens; Android never grew them), so a case carries one `kind` when uniform or `kind_ios`/`kind_android` when they diverge. `strings` pin span extraction over whole manifest strings: the first `}}` after a `{{` closes it (JSE.interpolate parity, no nesting), an unterminated `{{` rides through as literal text, and the escape `\\{\\{` (backslash-brace pairs, so no bare `{{` ever appears) unescapes to literal `{{` AFTER extraction, so an escaped open is never classified; span kinds in `strings` use the iOS grammar (no case diverges).",
+  "cases": [
+    { "name": "config-simple", "body": "config.host", "kind": "path" },
+    { "name": "env-simple", "body": "env.APP_NAME", "kind": "path" },
+    { "name": "bare-ident", "body": "name", "kind": "path" },
+    { "name": "bare-platform-stays-legacy", "body": "platform", "kind": "path" },
+    { "name": "underscore-ident", "body": "config.usage_description", "kind": "path" },
+    { "name": "surrounding-space-trims", "body": "  config.host  ", "kind": "path" },
+    { "name": "app-dotted", "body": "app.identifiers.ios", "kind_ios": "path", "kind_android": "expression" },
+
+    { "name": "config-deep-dotted", "body": "config.a.b", "kind": "expression" },
+    { "name": "config-length-chain", "body": "config.hosts_list.length", "kind": "expression" },
+    { "name": "parenthesized-root-is-expression", "body": "(platform)", "kind": "expression" },
+    { "name": "call-is-expression", "body": "config.domains.flatMap(h => h)", "kind": "expression" },
+    { "name": "ternary-is-expression", "body": "platform === 'ios' ? 1 : null", "kind": "expression" },
+    { "name": "nullish-is-expression", "body": "config.x ?? 'd'", "kind": "expression" },
+    { "name": "array-literal-is-expression", "body": "[1, 2]", "kind": "expression" },
+    { "name": "includes-is-expression", "body": "modules.includes('dom')", "kind": "expression" },
+    { "name": "arith-is-expression", "body": "config.n * 2", "kind": "expression" },
+    { "name": "number-literal-is-expression", "body": "123", "kind": "expression" },
+    { "name": "hyphen-is-expression", "body": "config-host", "kind": "expression" },
+    { "name": "trailing-dot-is-expression", "body": "config.", "kind": "expression" },
+    { "name": "empty-is-expression", "body": "", "kind": "expression" },
+    { "name": "whitespace-only-is-expression", "body": "   ", "kind": "expression" },
+
+    { "name": "foreign-root-preserved", "body": "dsx.variable.progress", "kind": "foreign" },
+    { "name": "foreign-deep-preserved", "body": "dsx.variable.percent", "kind": "foreign" },
+    { "name": "unknown-root-chain-is-foreign", "body": "somelib.value", "kind": "foreign" }
+  ],
+  "strings": [
+    {
+      "name": "whole-token",
+      "string": "{{ config.host }}",
+      "spans": [{ "body": " config.host ", "kind": "path" }]
+    },
+    {
+      "name": "inline-token",
+      "string": "api.{{ config.host }}/v1",
+      "spans": [{ "text": "api." }, { "body": " config.host ", "kind": "path" }, { "text": "/v1" }]
+    },
+    {
+      "name": "two-tokens",
+      "string": "{{ config.a }}{{ config.b }}",
+      "spans": [{ "body": " config.a ", "kind": "path" }, { "body": " config.b ", "kind": "path" }]
+    },
+    {
+      "name": "expression-whole",
+      "string": "{{ config.domains.flatMap(h => 'applinks:' + h) }}",
+      "spans": [{ "body": " config.domains.flatMap(h => 'applinks:' + h) ", "kind": "expression" }]
+    },
+    {
+      "name": "foreign-span-preserved",
+      "string": "{{ dsx.variable.progress }}",
+      "spans": [{ "body": " dsx.variable.progress ", "kind": "foreign" }]
+    },
+    {
+      "name": "unterminated-open-is-literal",
+      "string": "{{ config.a",
+      "spans": [{ "text": "{{ config.a" }]
+    },
+    {
+      "name": "single-braces-are-literal",
+      "string": "{ single }",
+      "spans": [{ "text": "{ single }" }]
+    },
+    {
+      "name": "escaped-open-is-literal",
+      "string": "\\{\\{ not a placeholder }}",
+      "spans": [{ "text": "\\{\\{ not a placeholder }}" }],
+      "literal": "{{ not a placeholder }}"
+    },
+    {
+      "name": "escape-beside-real-token",
+      "string": "\\{\\{x}} and {{ config.host }}",
+      "spans": [{ "text": "\\{\\{x}} and " }, { "body": " config.host ", "kind": "path" }],
+      "literal_texts": ["{{x}} and "]
+    },
+    {
+      "name": "first-close-wins-no-nesting",
+      "string": "{{ '}}' }}",
+      "spans": [{ "body": " '", "kind": "expression" }, { "text": "' }}" }]
+    }
+  ]
+}

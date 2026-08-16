@@ -1,0 +1,231 @@
+{
+ "_note": "THE KEYBOARD VIEWPORT LAW, encoded (d-ios#1028 / d-android#287, ported). The bug it answers is the VIEWPORT MISMATCH: when the soft keyboard opens, the layout viewport does not shrink, so the page keeps its full height behind a keyboard covering the bottom of it. Everything anchored to the viewport bottom — a chat composer, a footer, a sticky CTA — sits underneath the keyboard, and the platform's autoscroll then drags the document up to reveal the focused field, leaving a blank band where the keyboard is not. Suppressing autoscroll was the old fix and it treats the symptom; the cause is the SCROLL SLACK autoscroll operates on, and `resize` removes it. THREE MODES, one contract: `legacy` (default, frozen: keyboard overlays, viewport unchanged — every shipped app keeps exactly what it has), `resize` (the layout viewport shrinks to the keyboard-adjusted height; nothing to scroll, so nothing autoscrolls), `overlay` (keyboard overlays as in legacy, but the height is PUBLISHED so a page can animate its own chrome). THE WEB-FACING API IS AVAILABLE IN ALL THREE MODES and is purely additive: `--keyboard-inset-height` (a CSS custom property on the document element) and `navigator.virtualKeyboard` ({ boundingRect, overlaysContent, geometrychange }). A page can therefore be written once and behave correctly whichever mode the build ships. THE INSET IS WHAT THE KEYBOARD STILL OBSCURES OF THE LAYOUT VIEWPORT — so in `resize` it is 0 even while the keyboard is up, because the viewport already shrank; publishing the raw keyboard height there would double-count and push content off screen. `overlaysContent` is the same fact as a boolean. CAPABILITY GATING: `resize` and `overlay` need reliable IME geometry, which Android only has from API 30 (WindowInsets Type.ime); below that the mode DEGRADES TO legacy rather than half-working, and the degradation is reported so a build can be diagnosed. iOS and web are always capable. THE RUNTIME PLANE (d-ios#1043/#1050 / d-android#300/#308, ported): the declared word is the build's DEFAULT, not a ceiling. A page selects between the two live states at runtime by assigning `navigator.virtualKeyboard.overlaysContent` — the setter Chromium's VirtualKeyboard API already defines, so one line of JavaScript picks the behaviour on every platform — and that assignment (`requested`) outranks `declared` for the rest of the session. `legacy` is deliberately unreachable from the runtime plane: it is the frozen build default, not a state a page can ask to return to. CAPABILITY GATING APPLIES TO WHICHEVER PLANE WON, which is what makes `overlaysContent` in the result a READ-BACK CONTRACT rather than an echo — a request the platform refuses (Android below the IME floor) degrades, and the page is told what is IN FORCE instead of being left believing it got what it asked for. Cases are {declared, requested?, platform, api?, keyboard, viewport} -> {mode, degraded, insetHeight, overlaysContent, boundingRect}. Runners: TS (packages/kernel/src/keyboard.ts), Kotlin (:core KeyboardViewportConformanceTest), Swift (KeyboardViewportPolicy, record lane).",
+ "cases": [
+  {
+   "name": "legacy is the default when nothing is declared",
+   "declared": null,
+   "platform": "ios",
+   "keyboard": { "visible": false, "height": 0 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "legacy", "degraded": false, "insetHeight": 0, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 0, "width": 0, "height": 0 } }
+  },
+  {
+   "name": "an unknown mode word falls back to legacy rather than failing a build",
+   "declared": "shrink",
+   "platform": "ios",
+   "keyboard": { "visible": false, "height": 0 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "legacy", "degraded": false, "insetHeight": 0, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 0, "width": 0, "height": 0 } }
+  },
+  {
+   "name": "mode words are case- and space-insensitive (a dashboard field, not a schema)",
+   "declared": "  ReSize ",
+   "platform": "ios",
+   "keyboard": { "visible": false, "height": 0 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "resize", "degraded": false, "insetHeight": 0, "overlaysContent": false,
+               "boundingRect": { "x": 0, "y": 0, "width": 0, "height": 0 } }
+  },
+
+  {
+   "name": "legacy: the keyboard overlays, and the inset is what it obscures",
+   "declared": "legacy",
+   "platform": "ios",
+   "keyboard": { "visible": true, "height": 336 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "legacy", "degraded": false, "insetHeight": 336, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 464, "width": 390, "height": 336 } }
+  },
+  {
+   "name": "resize: the viewport already shrank, so the inset is 0 — publishing the raw height would double-count",
+   "declared": "resize",
+   "platform": "ios",
+   "keyboard": { "visible": true, "height": 336 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "resize", "degraded": false, "insetHeight": 0, "overlaysContent": false,
+               "boundingRect": { "x": 0, "y": 464, "width": 390, "height": 336 } }
+  },
+  {
+   "name": "overlay: overlays like legacy, but the height is published for the page to animate against",
+   "declared": "overlay",
+   "platform": "ios",
+   "keyboard": { "visible": true, "height": 336 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "overlay", "degraded": false, "insetHeight": 336, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 464, "width": 390, "height": 336 } }
+  },
+
+  {
+   "name": "a dismissed keyboard reports an empty rect in every mode",
+   "declared": "overlay",
+   "platform": "ios",
+   "keyboard": { "visible": false, "height": 0 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "overlay", "degraded": false, "insetHeight": 0, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 0, "width": 0, "height": 0 } }
+  },
+  {
+   "name": "a keyboard taller than the viewport cannot obscure more than the viewport",
+   "declared": "legacy",
+   "platform": "ios",
+   "keyboard": { "visible": true, "height": 900 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "legacy", "degraded": false, "insetHeight": 800, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 0, "width": 390, "height": 800 } }
+  },
+  {
+   "name": "a negative height is nonsense and reads as dismissed, never as a negative inset",
+   "declared": "legacy",
+   "platform": "ios",
+   "keyboard": { "visible": true, "height": -20 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "legacy", "degraded": false, "insetHeight": 0, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 0, "width": 0, "height": 0 } }
+  },
+  {
+   "name": "visible with zero height (an undocked/floating keyboard) obscures nothing",
+   "declared": "resize",
+   "platform": "ios",
+   "keyboard": { "visible": true, "height": 0 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "resize", "degraded": false, "insetHeight": 0, "overlaysContent": false,
+               "boundingRect": { "x": 0, "y": 0, "width": 0, "height": 0 } }
+  },
+
+  {
+   "name": "android API 30 supports resize",
+   "declared": "resize",
+   "platform": "android",
+   "api": 30,
+   "keyboard": { "visible": true, "height": 300 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "resize", "degraded": false, "insetHeight": 0, "overlaysContent": false,
+               "boundingRect": { "x": 0, "y": 500, "width": 390, "height": 300 } }
+  },
+  {
+   "name": "android API 29 DEGRADES resize to legacy — Type.ime is not reliable below R",
+   "declared": "resize",
+   "platform": "android",
+   "api": 29,
+   "keyboard": { "visible": true, "height": 300 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "legacy", "degraded": true, "insetHeight": 300, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 500, "width": 390, "height": 300 } }
+  },
+  {
+   "name": "android API 29 degrades overlay too, for the same reason",
+   "declared": "overlay",
+   "platform": "android",
+   "api": 29,
+   "keyboard": { "visible": true, "height": 300 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "legacy", "degraded": true, "insetHeight": 300, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 500, "width": 390, "height": 300 } }
+  },
+  {
+   "name": "android API 29 does not 'degrade' legacy — it was already what it asked for",
+   "declared": "legacy",
+   "platform": "android",
+   "api": 29,
+   "keyboard": { "visible": true, "height": 300 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "legacy", "degraded": false, "insetHeight": 300, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 500, "width": 390, "height": 300 } }
+  },
+  {
+   "name": "iOS has no API floor for this — resize holds on the oldest supported release",
+   "declared": "resize",
+   "platform": "ios",
+   "api": 15,
+   "keyboard": { "visible": true, "height": 300 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "resize", "degraded": false, "insetHeight": 0, "overlaysContent": false,
+               "boundingRect": { "x": 0, "y": 500, "width": 390, "height": 300 } }
+  },
+  {
+   "name": "web is always capable — the browser owns the visual viewport",
+   "declared": "resize",
+   "platform": "web",
+   "keyboard": { "visible": true, "height": 260 },
+   "viewport": { "height": 740, "width": 412 },
+   "expect": { "mode": "resize", "degraded": false, "insetHeight": 0, "overlaysContent": false,
+               "boundingRect": { "x": 0, "y": 480, "width": 412, "height": 260 } }
+  },
+
+  {
+   "name": "runtime: a page assigning overlaysContent=false takes the space out of the layout viewport, whatever the build declared",
+   "declared": "legacy",
+   "requested": false,
+   "platform": "ios",
+   "keyboard": { "visible": true, "height": 336 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "resize", "degraded": false, "insetHeight": 0, "overlaysContent": false,
+               "boundingRect": { "x": 0, "y": 464, "width": 390, "height": 336 } }
+  },
+  {
+   "name": "runtime: a page assigning overlaysContent=true outranks a build that declared resize",
+   "declared": "resize",
+   "requested": true,
+   "platform": "ios",
+   "keyboard": { "visible": true, "height": 336 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "overlay", "degraded": false, "insetHeight": 336, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 464, "width": 390, "height": 336 } }
+  },
+  {
+   "name": "runtime: an assignment that agrees with the build still resolves through the runtime plane",
+   "declared": "overlay",
+   "requested": true,
+   "platform": "ios",
+   "keyboard": { "visible": false, "height": 0 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "overlay", "degraded": false, "insetHeight": 0, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 0, "width": 0, "height": 0 } }
+  },
+  {
+   "name": "runtime: no assignment leaves the declared word in charge — the build default is not a floor a page has to re-state",
+   "declared": "resize",
+   "requested": null,
+   "platform": "ios",
+   "keyboard": { "visible": true, "height": 336 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "resize", "degraded": false, "insetHeight": 0, "overlaysContent": false,
+               "boundingRect": { "x": 0, "y": 464, "width": 390, "height": 336 } }
+  },
+  {
+   "name": "runtime: android API 30 honours a page's request for the shortened viewport",
+   "declared": "legacy",
+   "requested": false,
+   "platform": "android",
+   "api": 30,
+   "keyboard": { "visible": true, "height": 300 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "resize", "degraded": false, "insetHeight": 0, "overlaysContent": false,
+               "boundingRect": { "x": 0, "y": 500, "width": 390, "height": 300 } }
+  },
+  {
+   "name": "runtime: a REFUSED request reads back as what is in force, not as what was asked for",
+   "declared": "legacy",
+   "requested": false,
+   "platform": "android",
+   "api": 29,
+   "keyboard": { "visible": true, "height": 300 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "legacy", "degraded": true, "insetHeight": 300, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 500, "width": 390, "height": 300 } }
+  },
+  {
+   "name": "runtime: asking for overlay below the IME floor degrades the same way a declared overlay does",
+   "declared": "legacy",
+   "requested": true,
+   "platform": "android",
+   "api": 29,
+   "keyboard": { "visible": true, "height": 300 },
+   "viewport": { "height": 800, "width": 390 },
+   "expect": { "mode": "legacy", "degraded": true, "insetHeight": 300, "overlaysContent": true,
+               "boundingRect": { "x": 0, "y": 500, "width": 390, "height": 300 } }
+  }
+ ]
+}

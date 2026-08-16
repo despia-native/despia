@@ -1,0 +1,28 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "divider",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Divider/swift/Divider.swift",
+  "attributes": {
+    "color": {
+      "type": "color",
+      "default": "separator",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Divider/swift/Divider.swift:10 (native Divider is separator-colored; Android accepts an explicit override with the same default — StackNodeView.kt divider branch)"
+    }
+  },
+  "geometry": {
+    "thickness": {
+      "value": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Divider/swift/Divider.swift:10 (native SwiftUI Divider = hairline separator; Android renders 1dp)"
+    }
+  },
+  "colors": {
+    "line": {
+      "token": "separator",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Divider/swift/Divider.swift:10 (native Divider uses the system separator color)"
+    }
+  },
+  "notes": ""
+}

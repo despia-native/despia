@@ -1,0 +1,518 @@
+{
+  "_note": "L3, THE FLOOR IS TOTAL AND THE READER PROVES IT (g2p-pack.md). `Pack::validate` walks the accepted set at LOAD and fails if one character has no spelling, so a pack that could go silent cannot be loaded and the silent path does not exist at runtime. It is a load error at build time. Everything in this file is that idea applied to the rest of the format: an extent that leaves the file, a duplicate tag, a phone count a one-byte id cannot address, an LTS child index that would let a walk loop forever on someone's device at 3am. THE SHAPE OF THE ASSERTION IS THE POINT: a malformed pack FAILS TO LOAD with a typed code and a stated reason, rather than loading and going quiet later. A reader that accepts a pack and degrades is exactly the failure L1 was written against, moved one layer down. One case is the mirror image of all of them: an UNKNOWN section tag is IGNORED and the pack loads fine, because must-ignore is what lets a v1 reader load a pack that grew a section it has never heard of. Must-ignore applies to DATA a pack carries; it never applies to a constraint a pack violates.\n\nTHE ERROR SHAPE. A pack loads as an ordinary model, so a refusal arrives as the ABI's `load_failed` and the pack's own reason rides in the message, prefixed before the first colon. `packCode` in these expectations IS that prefix (`pack_malformed`, `pack_version_unsupported`, `pack_floor_incomplete`, `pack_unreadable`, `pack_too_large`), and `messageContains` is a short identifying fragment of the rest. Matching prose is the weak part of this file and it is weak because the error carries no typed `reason` field yet; adding one is the single contract change this corpus recommends, and these expectations would then name it instead of a substring.\n\nTHE MUTATION RECIPE, and its whole vocabulary: `set` and `remove` edit the DECLARATION before the bytes are built (a dotted path into `fixture-pack.json`'s pack; a path segment that itself contains a dot is written as an array of segments instead). `sectionLength` edits the BUILT bytes: it adds a signed delta to one section-table row's `length` and leaves the section data untouched, which is how an extent is made to run past the end of the file or to cut its own contents short. `addSection` appends a section-table row plus that many zero bytes of body and bumps `section_count`. Four verbs, ONE mutation per case so a failure names the check that fired rather than a soup of them, with one stated exception below. No case ships bytes; the runner builds them.",
+  "requires": [
+    "loaded",
+    "loadError",
+    "nothingDropped",
+    "tilesInput",
+    "tokens",
+    "tokenCount"
+  ],
+  "cases": [
+    {
+      "name": "g2p pack: the unmutated fixture pack loads",
+      "_note": "The control. Without it every refusal below could be passing for the wrong reason, because a reader that rejects everything is not a reader that validates.",
+      "pack": "fixture-en-1",
+      "expect": {
+        "loaded": true
+      }
+    },
+    {
+      "name": "g2p pack: a SPEL row missing for a code point META.accept lists fails the load",
+      "_note": "L3 STATED DIRECTLY, and it gets its own code because it is the check the whole format exists to make possible. `-` is in the accepted set, the speller no longer names it, and the pack is refused NOW rather than going quiet on the first hyphen a user types. The error names the code point, because 'malformed' with no subject is a bug report nobody can act on.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "remove": "spel.-"
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_floor_incomplete",
+          "messageContains": "U+2D"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: an accepted code point with an EMPTY spelling fails the load",
+      "_note": "L3's second draft, and it was written because of real data rather than review. The first draft asked only whether a SPEL row EXISTED, so a pack could accept a character, give it a row with no phones, and satisfy the law while going quiet at runtime. The first real English pack did exactly that for nine code points and produced 2,697 silent tokens across 93,898 of real text. An empty row is not a spelling.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "spel.-",
+            "to": []
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_floor_incomplete",
+          "messageContains": "never declared"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: the same empty spelling loads once META.silent declares it",
+      "_note": "Intent is the whole difference. A bracket genuinely has no sound, and a pack is allowed to say so - in a field a reviewer sees in the diff and a validator can read. What is refused is silence nobody wrote down.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "spel.-",
+            "to": []
+          },
+          {
+            "set": "meta.silent",
+            "to": "-"
+          }
+        ]
+      },
+      "expect": {
+        "loaded": true
+      }
+    },
+    {
+      "name": "g2p pack: a silent code point META.accept does not hold fails the load",
+      "_note": "Declaring a character silent says HOW to handle it, not WHETHER to allow it. A silent entry outside accept is a contradiction, and it is the kind that would otherwise sit in a pack unnoticed because nothing ever reaches it.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "meta.silent",
+            "to": "%"
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "META.silent"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: widening accept without widening SPEL fails the load",
+      "_note": "The same law from the authoring side, and the likelier mistake: someone adds a character to `accept` and forgets the speller. The walk is over `accept`, so a pack cannot accept what it cannot say.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "meta.accept",
+            "to": "abcdefghijklmnopqrstuvwxyz'0123456789 .,;:!?-%"
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_floor_incomplete",
+          "messageContains": "U+25"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: a letter the pack does not accept fails the load",
+      "_note": "`accept` is a superset of `letters` by construction, so a pack that narrows one without the other has a letter the trees can be asked about and the folder will refuse. Removing `z` from `accept` is a one-character mistake with a whole-alphabet consequence, which is why it is checked rather than assumed.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "meta.accept",
+            "to": "abcdefghijklmnopqrstuvwxy'0123456789 .,;:!?-"
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "META.accept does not"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: an LTS child index not greater than its own node fails the load",
+      "_note": "THE INFINITE-WALK GUARD. Node 3 now points at itself, so a lookup that reaches it never leaves it. Validated before the FIRST lookup, which is what turns a hang on a customer's device into a load error on a build machine. Strictly greater, not merely different: a back edge to any earlier node loops just as well.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "lts.nodes.3.yes",
+            "to": 3
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "does not come after it"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: an LTS child index past the node table fails the load",
+      "_note": "The other half of the same check. Node 0's `no` branch names a node that does not exist, and a reader that trusts it reads whatever follows the table.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "lts.nodes.0.no",
+            "to": 99
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "points past the node array"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: an LTS branch asking about a context position outside the window fails the load",
+      "_note": "`pos` runs 0 to 2 × window and the fixture's window is 2, so 5 is off the end of the context a question can see.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "lts.nodes.0.pos",
+            "to": 5
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "outside its window"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: an LTS branch asking about a letter id that does not exist fails the load",
+      "_note": "Letter ids run 0 to letter_count - 1, with letter_count itself reserved as the padding id for the ends of a word. 28 is past both.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "lts.nodes.0.chr",
+            "to": 28
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "letter id that does not exist"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: an LTS window of zero fails the load",
+      "_note": "A window of zero means a branch can only ask about the letter itself, which is a decision tree with no context and not a letter-to-sound system. The reader refuses the shape rather than serving degraded guesses from it.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "lts.window",
+            "to": 0
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "outside 1..16"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: LTS letter_count disagreeing with META.letters fails the load",
+      "_note": "'A letter id is an index into it, so the trees and the string agree by construction', but only if the reader checks that they do. Two lengths that disagree means every letter id past the shorter one reads a different letter in the trees than in the pack.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "lts.letter_count",
+            "to": 26
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "LTS names 26 letters"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: more than 255 phones fails the load",
+      "_note": "A phone id is ONE BYTE in LEXV, SPEL and the LTS output blob. A pack that needs more is a format_version 2, not a silently truncated v1, so the reader refuses rather than reading a wrong byte and pronouncing something plausible. THE ONE TWO-MUTATION CASE, stated rather than smuggled: PHON and META.phone_count have to agree or the count check fires first and this check is never reached. An integer in place of the `phones` list means 'generate this many'.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "phones",
+            "to": 300
+          },
+          {
+            "set": "meta.phone_count",
+            "to": 300
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "255 is the limit"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: phone_count disagreeing with the PHON line count fails the load",
+      "_note": "The count and the section have to be the same number or every id past the shorter one names a phone that is not there. The fixture carries twelve lines; META now claims eleven.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "meta.phone_count",
+            "to": 11
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "META.phone_count is 11 but PHON holds 12"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: a section extent that leaves the file fails the load",
+      "_note": "The section-table row for LEXV now claims 4096 bytes more than the file holds. This is the check that runs before anything is read in place, and it is why a pack from an arbitrary origin is safe to open at all: the reader rejects a row whose extent leaves the file, exactly as it rejects one that overlaps the header.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "sectionLength": "LEXV",
+            "delta": 4096
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "runs past the file"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: a value offset past a truncated section fails the load",
+      "_note": "LEXV's row is cut by ten bytes and its data is left alone, so the index still points at values the section no longer covers. The reader bounds every offset against the SECTION it belongs to rather than against the file, which is the difference between refusing this pack and reading the LTS trees as pronunciations. The fragment is only the tag, because which bound trips first depends on where the cut lands and every one of those messages names LEXV.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "sectionLength": "LEXV",
+            "delta": -10
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "LEXV"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: a duplicate section tag fails the load",
+      "_note": "Two rows claiming SPEL. There is no first-wins or last-wins rule worth having here. Whichever a reader picked, a pack built by a broken tool would load and behave differently on two implementations of the same format.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "addSection": "SPEL",
+            "bytes": 8
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "appears twice"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: a required section that is missing fails the load",
+      "_note": "META, PHON and SPEL are required. Without SPEL there is no speller, so the accepted-set walk has nothing to walk and L3 cannot be proven, which is a refusal and not a degraded mode.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "remove": "spel"
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "no SPEL section"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: a form-1 entry whose first sense is not DEFAULT fails the load",
+      "_note": "'pos 0 is DEFAULT and must be present.' A build with no tagger resolves every heteronym to DEFAULT, so an entry without one has no answer at all, and the time to discover that is the load and not the first sentence containing `read`.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "remove": "lexicon.read.senses.0"
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "must be DEFAULT"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: a reserved header field that is not zero fails the load",
+      "_note": "Reserved means reserved. A non-zero value is either a corrupted file or a newer format using the field for something this reader would silently ignore, and there is no version of that which ends well.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "reserved",
+            "to": 1
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "reserved header word is not zero"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: a format_version this reader does not implement is refused with its own code",
+      "_note": "Not malformed but UNSUPPORTED, which is a different fact and gets a different word. A v1 reader meeting a v2 pack says so plainly so a caller can offer an update rather than report corruption.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "format_version",
+            "to": 2
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_version_unsupported",
+          "messageContains": "format_version 2"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: a file that is not a pack at all is refused on its magic",
+      "_note": "The magic does not match, so nothing after it is worth parsing. Distinct reasons for distinct facts (this is not a pack, this is a pack from the future, this is a broken pack, this is a pack that could go silent), because a caller acts differently on each.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "set": "magic",
+            "to": "XXPG"
+          }
+        ]
+      },
+      "expect": {
+        "loaded": false,
+        "loadError": {
+          "code": "load_failed",
+          "packCode": "pack_malformed",
+          "messageContains": "bad magic"
+        }
+      }
+    },
+    {
+      "name": "g2p pack: an unknown section tag is ignored and the pack loads normally",
+      "_note": "MUST-IGNORE, the same rule the JSON envelopes carry, and the reason a pack can grow a section without a reader release. The unknown tag is skipped and the pack then does its job. This case phonemizes afterwards precisely so 'loaded' cannot mean 'loaded and inert'. What it does NOT assert is a typed notice recording the skip, because the reader emits none today; the modality corpus pairs must-ignore with an audible half (`unknown_block_ignored`) and this reader should grow the same thing, at which point the assertion belongs here.",
+      "pack": {
+        "base": "fixture-en-1",
+        "mutate": [
+          {
+            "addSection": "XTRA",
+            "bytes": 8
+          }
+        ]
+      },
+      "phonemize": {
+        "text": "walk",
+        "fallback": "lts"
+      },
+      "expect": {
+        "loaded": true,
+        "nothingDropped": {
+          "words": [
+            "walk"
+          ],
+          "joined": "walk"
+        },
+        "tilesInput": true,
+        "tokenCount": 1,
+        "tokens": [
+          {
+            "text": "walk",
+            "via": "lexicon",
+            "phonemes": "p0p7p3"
+          }
+        ]
+      }
+    }
+  ]
+}

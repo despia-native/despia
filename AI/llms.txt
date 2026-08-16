@@ -1,0 +1,20 @@
+# Despia AI
+
+On-device inference for iOS, Android, macOS, Windows and Linux. Apache-2.0, no
+account, no API key, no telemetry, no licence check. The engine runs locally and
+keeps running offline once a model is downloaded.
+
+## Docs
+
+- docs/abi.md: the C ABI, its threading and reentrancy contract, and how it is allowed to change
+- docs/getting-started-ios.md: adding the package to an iOS app and running a first completion
+- docs/getting-started-android.md: the same on Android, over JNI
+- docs/models-and-licenses.md: the catalog format, digests, fit metadata, and per-model terms
+- docs/catalog-channel.md: shipping models OTA from the app's own content root
+- docs/tools-and-loop.md: tool calling, the agentic loop, approvals and transactional writes
+- docs/routing.md: fit verdicts and the task router
+- docs/conformance.md: running the vendored fixture corpus
+- docs/vendoring.md: which engines are vendored, at which commits, and the two patches on them
+- docs/desktop.md: the Windows and Linux JVM natives, and how the loader finds them
+- docs/voices.md: the two speech tiers, the copyleft audit, and the measured neural-voice budget
+- docs/g2p-pack.md: the grapheme-to-phoneme pack format, and the four rules that stop a word going missing

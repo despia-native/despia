@@ -1,0 +1,22 @@
+name: Documentation issue
+description: A docs page that is wrong, unclear, outdated, or missing
+title: "[docs]: "
+labels: ["area: docs", "status: triage"]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: URL or file path of the page (leave empty if the problem is a missing page)
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What is wrong, unclear, or missing, and what you were trying to do
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix (optional)
+      description: If you know what the page should say, say it here. Docs PRs are welcome too.

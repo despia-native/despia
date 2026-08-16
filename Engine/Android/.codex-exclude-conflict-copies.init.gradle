@@ -1,0 +1,10 @@
+// Qualification-only isolation for untracked Finder conflict copies.
+def qualificationBuildRoot = new File('/private/tmp/dsx-cross-host-build-v4')
+allprojects {
+    layout.buildDirectory.set(new File(qualificationBuildRoot, project.name))
+    tasks.configureEach { task ->
+        if (task.class.name.startsWith('org.jetbrains.kotlin.gradle.tasks.KotlinCompile')) {
+            task.exclude('**/* 2.kt')
+        }
+    }
+}

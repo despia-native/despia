@@ -1,0 +1,50 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "svg",
+  "aliases": [
+
+  ],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SVG/swift/SVG.swift",
+  "attributes": {
+    "asset": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SVG/swift/SVG.swift resolve (asset -> src -> d priority)"
+    },
+    "src": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SVG/swift/SVG.swift resolve (inline markup or bundle resource name)"
+    },
+    "d": {
+      "type": "path-data",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SVG/swift/SVG.swift resolve (single path)"
+    },
+    "width": {
+      "type": "number",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SVG/swift/SVG.swift:30 (unset -> fills container, aspect-fit)"
+    },
+    "height": {
+      "type": "number",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SVG/swift/SVG.swift:31"
+    },
+    "viewBox": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SVG/swift/SVG.swift header (rides the tag with d=)"
+    },
+    "fill": {
+      "type": "color",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/SVG/swift/SVG.swift header"
+    }
+  },
+  "geometry": {
+  },
+  "colors": {
+  },
+  "notes": "Native SVG subset renderer (no WebView): rect/circle/ellipse/line/polygon/polyline/path M L H V C S Q T Z; fill/stroke/stroke-width/opacity/viewBox."
+}

@@ -1,0 +1,371 @@
+{
+  "_note": "JSE stdlib fill wave — the JS core-library floor. Pins: String repeat/substring/lastIndexOf/trimStart/trimEnd/charAt/charCodeAt/codePointAt/normalize (grapheme-indexed like every JSE string op; charCodeAt/codePointAt return the CODE POINT of the i-th grapheme's first scalar — JSE exposes no UTF-16 halves) and matchAll (g-semantics, arrays of match arrays); Array lastIndexOf/fill/toSorted/toReversed/with/toSpliced/entries/keys/values + findLast/findLastIndex/reduceRight and the flat(Infinity) full-flatten; Number toFixed (half-away-from-zero on the scaled double, identical on all three kernels) and the STRICT Number.is* statics (no coercion); String.fromCharCode / Array.of / Object.hasOwn; the Math fill (atan + inverse/hyperbolic trig, log1p/expm1, fround/clz32/imul); Date UTC getters + Date.UTC (TZ-independent) — Date SETTERS are statement-position mutations (the actions corpus pins them, like every core-object mutation).",
+  "cases": [
+    {
+      "name": "string-repeat",
+      "scope": {},
+      "expression": "'ab'.repeat(3)",
+      "expected": "ababab"
+    },
+    {
+      "name": "string-repeat-zero",
+      "scope": {},
+      "expression": "'x'.repeat(0) + 'y'",
+      "expected": "y"
+    },
+    {
+      "name": "string-substring",
+      "scope": {},
+      "expression": "'despia'.substring(1, 3)",
+      "expected": "es"
+    },
+    {
+      "name": "string-substring-swaps",
+      "scope": {},
+      "expression": "'despia'.substring(3, 1)",
+      "expected": "es"
+    },
+    {
+      "name": "string-substring-clamps",
+      "scope": {},
+      "expression": "'abc'.substring(-2, 99)",
+      "expected": "abc"
+    },
+    {
+      "name": "string-last-index-of",
+      "scope": {},
+      "expression": "'abcabc'.lastIndexOf('b')",
+      "expected": 4
+    },
+    {
+      "name": "array-last-index-of",
+      "scope": {},
+      "expression": "[1, 2, 1].lastIndexOf(1)",
+      "expected": 2
+    },
+    {
+      "name": "last-index-of-miss",
+      "scope": {},
+      "expression": "'abc'.lastIndexOf('q')",
+      "expected": -1
+    },
+    {
+      "name": "string-trim-start",
+      "scope": {},
+      "expression": "'  a  '.trimStart()",
+      "expected": "a  "
+    },
+    {
+      "name": "string-trim-end",
+      "scope": {},
+      "expression": "'  a  '.trimEnd()",
+      "expected": "  a"
+    },
+    {
+      "name": "string-char-at",
+      "scope": {},
+      "expression": "'abc'.charAt(1)",
+      "expected": "b"
+    },
+    {
+      "name": "string-char-at-out-of-range",
+      "scope": {},
+      "expression": "'abc'.charAt(9) + 'end'",
+      "expected": "end"
+    },
+    {
+      "name": "string-char-code-at",
+      "scope": {},
+      "expression": "'A'.charCodeAt(0)",
+      "expected": 65
+    },
+    {
+      "name": "string-code-point-at-emoji",
+      "scope": {},
+      "expression": "'😀'.codePointAt(0)",
+      "expected": 128512
+    },
+    {
+      "name": "string-normalize-nfc",
+      "scope": {},
+      "expression": "'é'.normalize().codePointAt(0)",
+      "expected": 233
+    },
+    {
+      "name": "string-normalize-nfd",
+      "scope": {},
+      "expression": "'é'.normalize('NFD').charCodeAt(0)",
+      "expected": 101
+    },
+    {
+      "name": "string-match-all",
+      "scope": {},
+      "expression": "'a1b2'.matchAll(/[a-z](\\d)/g).length",
+      "expected": 2
+    },
+    {
+      "name": "string-match-all-groups",
+      "scope": {},
+      "expression": "'a1b2'.matchAll(/[a-z](\\d)/g)[1][1]",
+      "expected": "2"
+    },
+    {
+      "name": "array-fill-from",
+      "scope": {},
+      "expression": "[1, 2, 3].fill(0, 1).join('')",
+      "expected": "100"
+    },
+    {
+      "name": "array-fill-all",
+      "scope": {},
+      "expression": "[1, 2, 3].fill(9).join('')",
+      "expected": "999"
+    },
+    {
+      "name": "array-to-sorted",
+      "scope": {},
+      "expression": "[3, 1, 2].toSorted((a, b) => a - b).join('')",
+      "expected": "123"
+    },
+    {
+      "name": "array-to-reversed",
+      "scope": {},
+      "expression": "[1, 2, 3].toReversed().join('')",
+      "expected": "321"
+    },
+    {
+      "name": "array-with",
+      "scope": {},
+      "expression": "[1, 2, 3].with(1, 9).join('')",
+      "expected": "193"
+    },
+    {
+      "name": "array-with-negative",
+      "scope": {},
+      "expression": "[1, 2, 3].with(-1, 7).join('')",
+      "expected": "127"
+    },
+    {
+      "name": "array-to-spliced",
+      "scope": {},
+      "expression": "[1, 2, 3, 4].toSpliced(1, 2, 9).join('')",
+      "expected": "194"
+    },
+    {
+      "name": "array-entries",
+      "scope": {},
+      "expression": "['a', 'b'].entries()[1][0]",
+      "expected": 1
+    },
+    {
+      "name": "array-keys",
+      "scope": {},
+      "expression": "['a', 'b'].keys().join('')",
+      "expected": "01"
+    },
+    {
+      "name": "array-values",
+      "scope": {},
+      "expression": "['a'].values()[0]",
+      "expected": "a"
+    },
+    {
+      "name": "array-find-last",
+      "scope": {},
+      "expression": "[1, 2, 3, 4].findLast(x => x < 4)",
+      "expected": 3
+    },
+    {
+      "name": "array-find-last-index",
+      "scope": {},
+      "expression": "[1, 2, 3, 4].findLastIndex(x => x < 4)",
+      "expected": 2
+    },
+    {
+      "name": "array-reduce-right",
+      "scope": {},
+      "expression": "['a', 'b', 'c'].reduceRight((acc, x) => acc + x)",
+      "expected": "cba"
+    },
+    {
+      "name": "array-flat-infinity",
+      "scope": {},
+      "expression": "[1, [2, [3, [4]]]].flat(Infinity).length",
+      "expected": 4
+    },
+    {
+      "name": "number-to-fixed",
+      "scope": {},
+      "expression": "(3.14159).toFixed(2)",
+      "expected": "3.14"
+    },
+    {
+      "name": "number-to-fixed-rounds-half-away",
+      "scope": {},
+      "expression": "(2.5).toFixed(0)",
+      "expected": "3"
+    },
+    {
+      "name": "number-to-fixed-negative",
+      "scope": {},
+      "expression": "(-1.25).toFixed(1)",
+      "expected": "-1.3"
+    },
+    {
+      "name": "number-to-fixed-pads",
+      "scope": {},
+      "expression": "(5).toFixed(2)",
+      "expected": "5.00"
+    },
+    {
+      "name": "number-is-integer",
+      "scope": {},
+      "expression": "Number.isInteger(2)",
+      "expected": true
+    },
+    {
+      "name": "number-is-integer-fraction",
+      "scope": {},
+      "expression": "Number.isInteger(2.5)",
+      "expected": false
+    },
+    {
+      "name": "number-is-finite-is-strict",
+      "scope": {},
+      "expression": "Number.isFinite('5')",
+      "expected": false
+    },
+    {
+      "name": "number-is-safe-integer",
+      "scope": {},
+      "expression": "Number.isSafeInteger(9007199254740991)",
+      "expected": true
+    },
+    {
+      "name": "number-is-nan-strict",
+      "scope": {},
+      "expression": "Number.isNaN(NaN)",
+      "expected": true
+    },
+    {
+      "name": "string-from-char-code",
+      "scope": {},
+      "expression": "String.fromCharCode(72, 105)",
+      "expected": "Hi"
+    },
+    {
+      "name": "array-of",
+      "scope": {},
+      "expression": "Array.of(1, 2, 3).join('')",
+      "expected": "123"
+    },
+    {
+      "name": "object-has-own",
+      "scope": {},
+      "expression": "Object.hasOwn({ a: 1 }, 'a')",
+      "expected": true
+    },
+    {
+      "name": "object-has-own-miss",
+      "scope": {},
+      "expression": "Object.hasOwn({ a: 1 }, 'q')",
+      "expected": false
+    },
+    {
+      "name": "math-atan",
+      "scope": {},
+      "expression": "Math.atan(1)",
+      "expected": 0.7853981633974483
+    },
+    {
+      "name": "math-asin-domain",
+      "scope": {},
+      "expression": "Math.asin(1)",
+      "expected": 1.5707963267948966
+    },
+    {
+      "name": "math-sinh-zero",
+      "scope": {},
+      "expression": "Math.sinh(0)",
+      "expected": 0
+    },
+    {
+      "name": "math-tanh",
+      "scope": {},
+      "expression": "Math.tanh(0)",
+      "expected": 0
+    },
+    {
+      "name": "math-log1p",
+      "scope": {},
+      "expression": "Math.log1p(0)",
+      "expected": 0
+    },
+    {
+      "name": "math-expm1",
+      "scope": {},
+      "expression": "Math.expm1(0)",
+      "expected": 0
+    },
+    {
+      "name": "math-clz32",
+      "scope": {},
+      "expression": "Math.clz32(1)",
+      "expected": 31
+    },
+    {
+      "name": "math-imul",
+      "scope": {},
+      "expression": "Math.imul(3, 4)",
+      "expected": 12
+    },
+    {
+      "name": "math-imul-wraps",
+      "scope": {},
+      "expression": "Math.imul(0xFFFFFFFF, 5)",
+      "expected": -5
+    },
+    {
+      "name": "math-fround",
+      "scope": {},
+      "expression": "Math.fround(5.5)",
+      "expected": 5.5
+    },
+    {
+      "name": "date-utc-year",
+      "scope": {},
+      "expression": "new Date(86400000).getUTCFullYear()",
+      "expected": 1970
+    },
+    {
+      "name": "date-utc-date",
+      "scope": {},
+      "expression": "new Date(86400000).getUTCDate()",
+      "expected": 2
+    },
+    {
+      "name": "date-utc-hours",
+      "scope": {},
+      "expression": "new Date(90000000).getUTCHours()",
+      "expected": 1
+    },
+    {
+      "name": "date-utc-day",
+      "scope": {},
+      "expression": "new Date(0).getUTCDay()",
+      "expected": 4
+    },
+    {
+      "name": "date-utc-static",
+      "scope": {},
+      "expression": "Date.UTC(2026, 0, 1)",
+      "expected": 1767225600000
+    },
+    {
+      "name": "date-timezone-offset-is-a-number",
+      "scope": {},
+      "expression": "typeof new Date(0).getTimezoneOffset()",
+      "expected": "number"
+    }
+  ]
+}

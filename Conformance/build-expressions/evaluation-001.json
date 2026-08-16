@@ -1,0 +1,246 @@
+{
+  "_note": "Build-expression evaluator conformance (build-expressions-spec.md §3–§8). Each case is one protocol request: `source` is the {{ }} body, `context` carries the five frozen roots, `expect` pins ok+value or ok:false+code (codes are frozen; messages may sharpen). Two deliberate divergences from RUNTIME JSE are pinned here: build-time is FAIL-LOUD (a truncated `1 +` errors BX01 instead of fail-open evaluating), and the wall-clock/random builtins error BX05 (builds must be reproducible). Everything else defers to the ../jse corpus — e.g. division by zero IS 0, exactly as core-001 pins it.",
+  "cases": [
+    {
+      "name": "path-like-single-value",
+      "source": "config.host",
+      "context": { "config": { "host": "example.com" }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": "example.com" }
+    },
+    {
+      "name": "domains-derivation",
+      "source": "config.domains.flatMap(h => ['applinks:' + h, 'webcredentials:' + h])",
+      "context": { "config": { "domains": ["example.com", "links.example.com"] }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": ["applinks:example.com", "webcredentials:example.com", "applinks:links.example.com", "webcredentials:links.example.com"] }
+    },
+    {
+      "name": "filter-map-join",
+      "source": "config.list.filter(x => x.enabled).map(x => x.id).join(',')",
+      "context": { "config": { "list": [{ "id": "a", "enabled": true }, { "id": "b", "enabled": false }, { "id": "c", "enabled": true }] }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": "a,c" }
+    },
+    {
+      "name": "ternary-null-arm-omits",
+      "source": "config.camera ? config.camera_usage : null",
+      "context": { "config": { "camera": false, "camera_usage": "We use the camera." }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": null }
+    },
+    {
+      "name": "template-literal",
+      "source": "`${config.scheme}://callback`",
+      "context": { "config": { "scheme": "myapp" }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": "myapp://callback" }
+    },
+    {
+      "name": "object-literal-to-dict",
+      "source": "{ host: config.h, paths: ['/a'] }",
+      "context": { "config": { "h": "x.com" }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": { "host": "x.com", "paths": ["/a"] } }
+    },
+    {
+      "name": "object-fromentries",
+      "source": "Object.fromEntries(config.pairs.map(p => [p.k, p.v]))",
+      "context": { "config": { "pairs": [{ "k": "a", "v": 1 }, { "k": "b", "v": 2 }] }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": { "a": 1, "b": 2 } }
+    },
+    {
+      "name": "platform-root",
+      "source": "platform",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "android", "modules": [] },
+      "expect": { "ok": true, "value": "android" }
+    },
+    {
+      "name": "platform-conditional",
+      "source": "platform === 'ios' ? config.name : null",
+      "context": { "config": { "name": "N" }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": "N" }
+    },
+    {
+      "name": "modules-presence",
+      "source": "modules.includes('auth.oauth') ? ['/callback'] : []",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "android", "modules": ["app", "auth.oauth"] },
+      "expect": { "ok": true, "value": ["/callback"] }
+    },
+    {
+      "name": "modules-absence",
+      "source": "modules.includes('auth.oauth') ? ['/callback'] : []",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "android", "modules": ["app"] },
+      "expect": { "ok": true, "value": [] }
+    },
+    {
+      "name": "app-dotted-read",
+      "source": "app.identifiers.ios",
+      "context": { "config": {}, "app": { "identifiers": { "ios": "com.x.y" } }, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": "com.x.y" }
+    },
+    {
+      "name": "env-read",
+      "source": "env.APP_NAME + ' Keyboard'",
+      "context": { "config": {}, "app": {}, "env": { "APP_NAME": "Demo" }, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": "Demo Keyboard" }
+    },
+    {
+      "name": "env-missing-reads-null",
+      "source": "env.MISSING",
+      "context": { "config": {}, "app": {}, "env": { "OTHER": "1" }, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": null }
+    },
+    {
+      "name": "nullish-default",
+      "source": "config.x ?? 'fallback'",
+      "context": { "config": { "x": null }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": "fallback" }
+    },
+    {
+      "name": "config-missing-key-reads-null",
+      "source": "config.absent",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": null }
+    },
+    {
+      "name": "config-deep-dotted-read",
+      "source": "config.oauth.callback",
+      "context": { "config": { "oauth": { "callback": "/cb" } }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": "/cb" }
+    },
+    {
+      "name": "config-list-length",
+      "source": "config.hosts_list.length",
+      "context": { "config": { "hosts_list": ["a.com", "b.com"] }, "app": {}, "env": {}, "platform": "android", "modules": [] },
+      "expect": { "ok": true, "value": 2 }
+    },
+    {
+      "name": "number-arith",
+      "source": "config.n * 2",
+      "context": { "config": { "n": 21 }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": 42 }
+    },
+    {
+      "name": "division-by-zero-is-zero-like-runtime",
+      "source": "5 / 0",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": 0 }
+    },
+    {
+      "name": "explicit-date-is-pure",
+      "source": "new Date(0).toISOString()",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": "1970-01-01T00:00:00.000Z" }
+    },
+    {
+      "name": "json-stringify",
+      "source": "JSON.stringify({ a: config.n })",
+      "context": { "config": { "n": 1 }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": "{\"a\":1}" }
+    },
+    {
+      "name": "bare-literals",
+      "source": "true ? 1 : 2",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": true, "value": 1 }
+    },
+
+    {
+      "name": "bx01-unknown-op",
+      "source": "config.x # y",
+      "context": { "config": { "x": 1 }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX01" }
+    },
+    {
+      "name": "bx01-truncated-tail-op",
+      "source": "1 +",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX01" }
+    },
+    {
+      "name": "bx01-empty",
+      "source": "",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX01" }
+    },
+    {
+      "name": "bx02-unknown-root",
+      "source": "configs.host",
+      "context": { "config": { "host": "x" }, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX02" }
+    },
+    {
+      "name": "bx02-global-plane",
+      "source": "global.user",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX02" }
+    },
+    {
+      "name": "bx02-cookie-plane",
+      "source": "cookie.session",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX02" }
+    },
+    {
+      "name": "bx02-route-plane",
+      "source": "route.path",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX02" }
+    },
+    {
+      "name": "bx02-has-is-runtime",
+      "source": "has('push')",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": ["push"] },
+      "expect": { "ok": false, "code": "BX02" }
+    },
+    {
+      "name": "bx05-date-now",
+      "source": "Date.now()",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX05" }
+    },
+    {
+      "name": "bx05-new-date-no-arg",
+      "source": "new Date()",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX05" }
+    },
+    {
+      "name": "bx05-math-random",
+      "source": "Math.random()",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX05" }
+    },
+    {
+      "name": "bx05-random-uuid",
+      "source": "crypto.randomUUID()",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX05" }
+    },
+    {
+      "name": "bx05-performance-now",
+      "source": "performance.now()",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX05" }
+    },
+    {
+      "name": "bx10-infinity",
+      "source": "2 ** 1024",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX10" }
+    },
+    {
+      "name": "bx10-nested-infinity",
+      "source": "[1, 2 ** 1024]",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX10" }
+    },
+    {
+      "name": "bx10-function-value",
+      "source": "h => h",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX10" }
+    },
+    {
+      "name": "bx10-date-object-value",
+      "source": "new Date(0)",
+      "context": { "config": {}, "app": {}, "env": {}, "platform": "ios", "modules": [] },
+      "expect": { "ok": false, "code": "BX10" }
+    }
+  ]
+}

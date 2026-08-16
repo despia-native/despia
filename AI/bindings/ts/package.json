@@ -1,0 +1,13 @@
+{
+  "name": "@despia/ai",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Despia AI types and MockEngine. Not a browser inference runtime.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "conformance": "node ../../conformance/run.ts ai"
+  }
+}
