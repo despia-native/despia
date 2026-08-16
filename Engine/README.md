@@ -5,9 +5,10 @@ message bus and its primitives, and the `dsx` API every module is written agains
 Apache-2.0. Everything here is meant to be read, vendored, audited, and ported; that is the
 whole point of publishing it.
 
-The kernel **names nobody**: no module, no scheme, no platform, and zero WebKit. What sits
-on top of it (the module catalog, the host shells, the build machinery, the hosted
-platform) is commercial, and the boundary is described below.
+The kernel **names nobody**: no module, no scheme, no platform, and zero WebKit. The
+Despia application framework and language are Apache-2.0; what sits on top of this kernel
+(the production module catalog, the host shells, the managed deployment infrastructure) is
+commercial, and the boundary is drawn exactly, below.
 
 This repository is the standalone mirror of the kernel. The full framework, the
 documentation tree, the issue tracker, and the contribution flow live at
@@ -33,13 +34,20 @@ implementation) lives in `iOS/`; the **Kotlin kernel twin** lives in `Android/`
 
 ## What is intentionally not here
 
-Despia is open-core, and this is the open half. Kept commercial on purpose:
+The framework and the language are Apache-2.0. What remains commercial is Despia's
+production layer, and the line is exact:
 
-- **The module catalog**: payments, auth, sync and search, health, vision, audio, on-device
-  AI, and the rest. A module is where a capability lives; this is the value.
+- **The production module catalog**: Despia's DSX integrations for payments, auth, sync
+  and search, health, vision, audio, on-device AI, and other platform capabilities. A
+  module is where a capability is wired into the bus; that wiring is the value. The
+  infrastructure several of those modules stand on is independently open source as
+  Apache-2.0 packages: [Despia AI](https://github.com/despia-native/despia-ai),
+  [Despia Local](https://github.com/despia-native/despia-local), and
+  [Despia MCP](https://github.com/despia-native/despia-mcp).
 - **The host app shells**: the composed application that boots a kernel, hosts the web
   surface, and serves content locally.
-- **The build and release machinery**: codegen, packaging, signing, store delivery.
+- **The build and release machinery**: codegen, packaging, signing, store delivery. As a
+  managed service this is Despia Cloud, the production layer.
 - **Generated configuration**, which carries per-customer URLs and license material and
   therefore never ships anywhere.
 

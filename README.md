@@ -1,6 +1,6 @@
 # Despia
 
-**One document, every platform, front end to backend.** Despia is a full-stack application
+**Native to every platform.** Despia is a full-stack application
 framework built around DSX (DespiaScript): you describe an application once, in plain text,
 and it runs as real SwiftUI on iOS, real Jetpack Compose on Android, and real DOM on the
 web. The same grammar builds your backend: APIs, data, workers, and MCP tools, and your
@@ -17,9 +17,9 @@ developed by the full Despia team, and open to contributions from day one.
 
 ## The names, so nothing gets confused
 
-- **Despia** is the framework and its ecosystem: this repository.
-- **DSX** is the language, the application document format everything is written in.
-- **Despia Cloud** is the managed infrastructure option: builds, signing, store delivery,
+- **Despia** is the framework and its ecosystem: this repository. Native to every platform.
+- **DSX** is the language: one application document, and everything is written in it.
+- **Despia Cloud** is the managed production layer: builds, signing, store delivery,
   hosting. Optional; everything here works without it.
 - **Convert** is the migration path that turns an existing web app into a native one. It is
   the easiest way in if you already have a product, and it is one capability of the
@@ -120,8 +120,10 @@ use that flow through the cloud today. That capability lives on as **Convert**, 
 still the fastest door in for a team with an existing web product. But it is one door, not
 the house. Despia today is the full application framework in this repository: the language,
 the kernels, the backend, the tooling, independently operated by
-[Despia LLC-FZ](https://despia.com) and open source under Apache 2.0. You can build and
-ship entirely from this repository, or use [Despia Cloud](https://despia.com) when you want
+[Despia LLC-FZ](https://despia.com). The framework and the language are open source under
+Apache 2.0; the managed deployment infrastructure and selected production modules remain
+commercial, and that line is stated plainly wherever it runs. You can build and ship
+entirely from this repository, or use [Despia Cloud](https://despia.com) when you want
 managed builds, signing, store delivery, and hosting.
 
 ## Despia is built with Despia
@@ -167,10 +169,10 @@ the rest of the framework at whatever pace suits you.
 | Repository | Role |
 |---|---|
 | [`despia`](https://github.com/despia-native/despia) | This repository: the framework, the docs, the issue tracker |
-| [`despia-kernel`](https://github.com/despia-native/despia-kernel) | The native kernel, standalone |
-| [`despia-ai`](https://github.com/despia-native/despia-ai) | On-device AI, standalone package |
-| [`despia-local`](https://github.com/despia-native/despia-local) | The on-device database, standalone package (not the backend; that is `@despia/server`) |
-| [`despia-mcp`](https://github.com/despia-native/despia-mcp) | MCP for apps, standalone package |
+| [`despia-kernel`](https://github.com/despia-native/despia-kernel) | The portable execution contract: the native kernel, standalone |
+| [`despia-ai`](https://github.com/despia-native/despia-ai) | Local intelligence: on-device inference, standalone package |
+| [`despia-local`](https://github.com/despia-native/despia-local) | Local data: the on-device database, standalone package (not the backend; that is `@despia/server`) |
+| [`despia-mcp`](https://github.com/despia-native/despia-mcp) | Apps that speak agent: MCP client and server, standalone package |
 | [`despia-docs`](https://github.com/despia-native/despia-docs) | The documentation site, itself a Despia app |
 | [`despia-example`](https://github.com/despia-native/despia-example) | One app on four surfaces, from published packages |
 
@@ -200,9 +202,12 @@ We would rather earn a version number than claim one.
 
 ## License
 
-[Apache License 2.0](LICENSE). Each distributed folder carries its own `LICENSE` file, so
-every package you install or mirror you clone is self-contained. The license grants no
-rights to the Despia name or logo.
+[Apache License 2.0](LICENSE). The application framework and the language in this
+repository are Apache-2.0, and each distributed folder carries its own `LICENSE` file, so
+every package you install or mirror you clone is self-contained. The managed deployment
+infrastructure (Despia Cloud) and the production module catalog remain commercial; where a
+repository touches that boundary, its README says so plainly. The license grants no rights
+to the Despia name or logo.
 
 ---
 
