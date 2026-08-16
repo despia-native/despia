@@ -29,6 +29,13 @@ Examples of unacceptable behavior:
 - Publishing others' private information without their explicit permission
 - Other conduct which could reasonably be considered inappropriate in a professional setting
 
+## Project focus and applicable law
+
+Despia community spaces exist for technical collaboration around Despia and related
+software. Participants should keep discussions relevant to the project. Unrelated
+political, religious, sexual, or social campaigning may be moderated or removed. All
+participation must comply with applicable law.
+
 ## Enforcement
 
 Community leaders are responsible for clarifying and enforcing these standards and will take
