@@ -1,7 +1,7 @@
 # Read-only mirror
 
 This repository is generated from the Despia monorepo folder `OpenSource`
-(commit `18407e1ac3fb51dd6e11e7f74a4f9a376c54a6d3`).
+(commit `15d58511c35680dce10bb322d5568b21b73505a6`).
 
 - Please do not open pull requests here. Changes land in the monorepo, where
   the engine conformance gates run, and the next sync replaces this tree.
