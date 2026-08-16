@@ -27,12 +27,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/despia-native/despia-framework.git",
-    "directory": "OpenSource/Web/packages/cli"
+    "url": "git+https://github.com/despia-native/despia.git",
+    "directory": "Web/packages/cli"
   },
   "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/cli",
   "bugs": {
-    "url": "https://github.com/despia-native/despia-framework/issues"
+    "url": "https://github.com/despia-native/despia/issues"
   },
   "publishConfig": {
     "access": "public",

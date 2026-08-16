@@ -1,5 +1,11 @@
 # Transport & OTA integrity — HTTP/HTTPS and signed updates (the visual guide)
 
+> **A note on paths.** This guide is written in the Despia monorepo, where the open tree
+> you are reading lives under `OpenSource/` and the commercial layer (the production
+> module catalog, host shells, and build machinery) lives under `ClosedSource/`. Paths
+> with those prefixes refer to the monorepo; only the open tree ships in the public
+> repository, and an `OpenSource/X` path is `X/` there.
+
 > **Who this is for.** Anyone who needs to answer "does my app need HTTPS?", "can I load an HTTP
 > site?", or "what is `bundle_signing` and do I need it?" without reading the crypto spec. This is
 > the plain-language map. The two authoritative docs it ties together:

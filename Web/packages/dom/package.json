@@ -106,12 +106,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/despia-native/despia-framework.git",
-    "directory": "OpenSource/Web/packages/dom"
+    "url": "git+https://github.com/despia-native/despia.git",
+    "directory": "Web/packages/dom"
   },
   "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/dom",
   "bugs": {
-    "url": "https://github.com/despia-native/despia-framework/issues"
+    "url": "https://github.com/despia-native/despia/issues"
   },
   "publishConfig": {
     "access": "public",

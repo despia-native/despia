@@ -1,5 +1,11 @@
 # Styling DSX with CSS
 
+> **A note on paths.** This guide is written in the Despia monorepo, where the open tree
+> you are reading lives under `OpenSource/` and the commercial layer (the production
+> module catalog, host shells, and build machinery) lives under `ClosedSource/`. Paths
+> with those prefixes refer to the monorepo; only the open tree ships in the public
+> repository, and an `OpenSource/X` path is `X/` there.
+
 > The practical authoring guide for DSX-CSS — what works **today** in this
 > engine, the conventions, and what lands with the Taffy layout phase.
 > Spec: `architecture/proposals/dsx-css.md` · property catalog:

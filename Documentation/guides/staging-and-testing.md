@@ -1,5 +1,11 @@
 # Staging, testing & the dev center
 
+> **A note on paths.** This guide is written in the Despia monorepo, where the open tree
+> you are reading lives under `OpenSource/` and the commercial layer (the production
+> module catalog, host shells, and build machinery) lives under `ClosedSource/`. Paths
+> with those prefixes refer to the monorepo; only the open tree ships in the public
+> repository, and an `OpenSource/X` path is `X/` there.
+
 How to test a Despia app against staging environments — inside the **same TestFlight binary**
 that later ships to the App Store — plus the environment plane every surface can branch on,
 and sandbox best practices for payments, push, data and App Review.

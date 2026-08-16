@@ -1,5 +1,11 @@
 # Building an iOS app — Codemagic & the `iOS/` assets folder
 
+> **Scope.** This guide documents Despia's managed build pipeline, part of
+> [Despia Cloud](https://despia.com), the commercial layer. It ships in the open tree for
+> transparency: the contract is public even though running the pipeline is not. Building
+> and shipping web apps, PWAs, backends, and CLI tools needs none of this; see the
+> [quickstart](quickstart.md).
+
 This repo is the **framework** (the native shell + the DSX engine + every module).
 Your **app** is a small overlay folder — `iOS/` at the root of your assets zip —
 that the build pipeline drops on top. You never edit Swift or the project: you ship

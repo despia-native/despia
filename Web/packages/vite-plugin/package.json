@@ -12,9 +12,9 @@
   "files": ["dist", "README.md", "LICENSE"],
   "sideEffects": false,
   "engines": { "node": ">=22.18" },
-  "repository": { "type": "git", "url": "git+https://github.com/despia-native/despia-framework.git", "directory": "OpenSource/Web/packages/vite-plugin" },
+  "repository": { "type": "git", "url": "git+https://github.com/despia-native/despia.git", "directory": "Web/packages/vite-plugin" },
   "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/vite-plugin",
-  "bugs": { "url": "https://github.com/despia-native/despia-framework/issues" },
+  "bugs": { "url": "https://github.com/despia-native/despia/issues" },
   "publishConfig": { "access": "public", "provenance": true },
   "dependencies": {
     "@despia/compiler": "0.0.1"

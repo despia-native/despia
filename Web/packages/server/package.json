@@ -16,9 +16,9 @@
   "files": ["dist", "README.md", "LICENSE"],
   "sideEffects": false,
   "engines": { "node": ">=20" },
-  "repository": { "type": "git", "url": "git+https://github.com/despia-native/despia-framework.git", "directory": "OpenSource/Web/packages/server" },
+  "repository": { "type": "git", "url": "git+https://github.com/despia-native/despia.git", "directory": "Web/packages/server" },
   "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/server",
-  "bugs": { "url": "https://github.com/despia-native/despia-framework/issues" },
+  "bugs": { "url": "https://github.com/despia-native/despia/issues" },
   "publishConfig": { "access": "public", "provenance": true },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",

@@ -122,9 +122,11 @@ the house. Despia today is the full application framework in this repository: th
 the kernels, the backend, the tooling, independently operated by
 [Despia LLC-FZ](https://despia.com). The framework and the language are open source under
 Apache 2.0; the managed deployment infrastructure and selected production modules remain
-commercial, and that line is stated plainly wherever it runs. You can build and ship
-entirely from this repository, or use [Despia Cloud](https://despia.com) when you want
-managed builds, signing, store delivery, and hosting.
+commercial, and that line is stated plainly wherever it runs. What that means practically:
+web apps, PWAs, backends, and command-line tools build and ship entirely from this
+repository; the native kernels are open source, embeddable, and portable; and the turnkey
+production iOS and Android app assembly, signing, and store delivery are
+[Despia Cloud](https://despia.com), the managed layer.
 
 ## Despia is built with Despia
 
@@ -178,7 +180,9 @@ the rest of the framework at whatever pace suits you.
 
 Docs live at [docs.despia.com](https://docs.despia.com) and in
 [`Documentation/`](Documentation) right here. `llms.txt` at the root of this repository
-indexes the tree for agents.
+indexes the tree for agents. One path note: this repository is generated from the Despia
+monorepo, where the open tree lives in a folder named `OpenSource/`. A documentation path
+written `OpenSource/X` is simply `X/` here.
 
 ## Contributing
 

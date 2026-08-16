@@ -69,12 +69,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/despia-native/despia-framework.git",
-    "directory": "OpenSource/Web/packages/compiler"
+    "url": "git+https://github.com/despia-native/despia.git",
+    "directory": "Web/packages/compiler"
   },
   "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/compiler",
   "bugs": {
-    "url": "https://github.com/despia-native/despia-framework/issues"
+    "url": "https://github.com/despia-native/despia/issues"
   },
   "publishConfig": {
     "access": "public",
