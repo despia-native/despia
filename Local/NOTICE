@@ -1,0 +1,38 @@
+Despia Local
+Copyright Despia
+
+This product includes software developed at Despia.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+Vendored dependencies are pinned in vendor/VERSIONS with their upstream commit
+and license id, and each vendored tree keeps its own upstream LICENSE file in
+place.
+
+SQLite
+    3.53.4 (source id 2026-07-24 19:02:57
+    bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc)
+    Public domain - https://sqlite.org
+    Vendored at vendor/sqlite/, terms reproduced at vendor/sqlite/LICENSE.
+    Compiled into the library on the CMake lane (Android, desktop JNI). The
+    Apple lane links the platform's own SQLite instead and does not compile
+    this copy.
+
+sqlite-vec
+    v0.1.9 (commit e9f598abfa0c06b328d8fe5da9c3760cce74be10)
+    Apache-2.0 OR MIT - https://github.com/asg017/sqlite-vec
+    Copyright (c) 2024 Alex Garcia
+    Vendored at vendor/sqlite-vec/ with both upstream licence texts
+    (LICENSE-APACHE, LICENSE-MIT). Despia consumes it under Apache-2.0.
+
+The TypeScript binding vendors neither: it runs on the SQLite that ships inside
+Node (node:sqlite), which is real SQLite and therefore a real test of the
+semantics the corpus pins.

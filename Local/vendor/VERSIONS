@@ -1,0 +1,162 @@
+# Vendored dependencies - the pin record.
+#
+# Format: <name> <upstream-commit-or-tag> <license-id> <upstream-url>
+#
+# One uncommented line per vendor/<name>/ tree, and `<name>` must equal the
+# directory name. The four fields are machine-read by generate_release_sbom.rb
+# (`parse_vendor_pins`) and by ai_package_gate.rb; everything else on this page
+# is a comment, including the per-pin detail blocks. A commented line is NOT a
+# pin, deliberately - an intended-but-not-yet-imported dependency must not be
+# mistaken for shipped bytes.
+#
+# Sources are COMMITTED, not fetched at build time. SPM source targets need the
+# files present in the mirror, and a package whose build reaches the network is
+# a package that stops building the day a host moves.
+#
+# PERMISSIVE ONLY, as in the AI package: an Apache-2.0 package whose promise is
+# unrestricted commercial use by the apps that statically link it can never
+# carry copyleft. ai_package_gate.rb checks the licence id below against the
+# schema's copyleft dimension.
+
+## sqlite  -  vendor/sqlite/
+#
+# Release          3.53.4
+# Source id        2026-07-24 19:02:57
+#                  bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc
+# Artifact         https://sqlite.org/2026/sqlite-amalgamation-3530400.zip
+# SHA3-256         628a44cfe82c66aed1ccbbe85a562d2e33ebe64b3288981ed76285612227934e
+#                  (sqlite.org publishes SHA3-256, not SHA-256, for its downloads;
+#                   the SHA-256 of the same zip is
+#                   1e71ddf93849c6a6ecf58b827c0692073d2dd7ee40196158068f7b29f422e87d)
+# License          public domain. SQLite ships no LICENSE file; the author's
+#                  disclaimer and blessing are carried in every source file's
+#                  header and reproduced in vendor/sqlite/LICENSE.
+# Pruned to        sqlite3.c, sqlite3.h, sqlite3ext.h. shell.c (the CLI) is not
+#                  vendored - a library has no business carrying a REPL.
+#
+# WHERE IT IS USED, and where it deliberately is not:
+#
+#   - The CMake lane (Android AAR, the desktop JNI natives, the local C++ gate)
+#     compiles this amalgamation INTO libdespia_local with hidden visibility.
+#     Android has no NDK-public SQLite, so a bundled copy is not a preference,
+#     it is the only option.
+#   - The Apple lane now compiles THIS file too. It used to link the platform's
+#     libsqlite3 instead, on the reasoning that iOS always ships SQLite and a
+#     second static copy beside a sync vendor's own is a duplicate-symbol
+#     argument nobody wins. That reasoning was sound about symbols and wrong
+#     about everything else: the platform SQLite has no sqlite-vec, so the Apple
+#     lane had no vectors at all, and the binding above it was a SECOND
+#     implementation of the store semantics that the 26 fixtures never ran
+#     against. Two implementations drift; that is what fixtures exist to catch,
+#     and they could only see one of them.
+#
+#     The duplicate-symbol concern is answered rather than ignored: SQLITE_API
+#     decoration hides every sqlite3_* entry point on the Apple build too, so a
+#     sync vendor's own copy does not collide. vec_* is NOT hidden there, because
+#     SPM forbids the `unsafeFlags` that would do it - Package.swift states that
+#     limit exactly.
+#
+#   The consequence is now the good one: both lanes run the SAME SQLite build and
+#   the same vector extension, and the 26 cases in OpenSource/Conformance/base
+#   run against one implementation instead of holding two apart.
+#
+# THE ANDROID RULE: the library exports NO sqlite3_* symbols. A Despia app can
+# carry a sync vendor that ships its own SQLite (PowerSync does), and two
+# libraries exporting the same symbols is a load-order coin flip - the vendor's
+# calls can bind to our SQLite or ours to theirs, whichever the dynamic linker
+# saw first. Enforced by, in order:
+#
+#   1. -fvisibility=hidden on every translation unit (CMake's
+#      C_VISIBILITY_PRESET/CXX_VISIBILITY_PRESET), so nothing is exported that
+#      was not asked to be;
+#   2. -DSQLITE_API=__attribute__((visibility("hidden"))) - SQLite's own
+#      supported build define, so the public API decorations are explicitly
+#      hidden even if a lane forgets (1). This is a BUILD DEFINE: the vendored
+#      source is never edited, because a patched amalgamation is a fork with a
+#      CVE watch of its own;
+#   3. -DSQLITE_VEC_STATIC, which collapses sqlite-vec's export decoration to
+#      nothing for the same reason;
+#   4. the empirical check - `nm -D --defined-only` over the built library must
+#      list only the despia_local_* ABI. `ruby OpenSource/Local/tools/symbol_check.rb`
+#      runs it and fails on any sqlite3_ or vec_ symbol.
+#
+# Hardening defines carried on both lanes, all of them SQLite's own:
+#
+#   SQLITE_DQS=0                     a double-quoted string is a string, never a
+#                                    fallback identifier - the misspelled-column
+#                                    class of bug becomes an error
+#   SQLITE_THREADSAFE=1              serialized; one Base handle is reachable
+#                                    from the module's queue and the JNI lane
+#   SQLITE_DEFAULT_MEMSTATUS=0       drops the allocator's global counters
+#   SQLITE_DEFAULT_WAL_SYNCHRONOUS=1 WAL + NORMAL, the phone default
+#   SQLITE_LIKE_DOESNT_MATCH_BLOBS
+#   SQLITE_MAX_EXPR_DEPTH=0
+#   SQLITE_OMIT_DEPRECATED
+#   SQLITE_OMIT_LOAD_EXTENSION       nothing loads a .so into this database.
+#                                    sqlite-vec is linked in and registered by
+#                                    an explicit call, so the extension loader
+#                                    is pure attack surface
+#   SQLITE_OMIT_SHARED_CACHE
+#   SQLITE_USE_ALLOCA
+#   SQLITE_ENABLE_FTS5               full-text search: the other half of RAG,
+#                                    and the reason a hybrid query needs no
+#                                    second engine
+#
+# SQLITE_ENABLE_JSON1 is not passed: JSON has been built in since 3.38.
+#
+# The pin is the RELEASE, not a commit: sqlite.org is not the upstream VCS this
+# tree came from - the amalgamation is a generated release artifact, and its
+# release number is what a CVE feed and a bill of materials both key on.
+sqlite      3.53.4  public-domain  https://sqlite.org
+
+## sqlite-vec  -  vendor/sqlite-vec/
+#
+# Tag              v0.1.9  (the newest STABLE tag; v0.1.10-alpha.* exists and is
+#                  deliberately not taken - a pre-release pin is a pin that moves)
+# Commit           e9f598abfa0c06b328d8fe5da9c3760cce74be10
+# Committed        2026-03-31T00:59:06-07:00
+# Upstream         https://github.com/asg017/sqlite-vec
+# License          Apache-2.0 OR MIT, at the consumer's option. BOTH texts are
+#                  vendored beside the source (LICENSE-APACHE, LICENSE-MIT)
+#                  because upstream ships both and dropping one would silently
+#                  narrow the choice we were given. Despia consumes it under
+#                  Apache-2.0, matching this package.
+# Pruned to        sqlite-vec.c, sqlite-vec.h, LICENSE-APACHE, LICENSE-MIT.
+#                  Upstream's bindings/, tests/, benchmarks/, examples/ and site/
+#                  are not vendored.
+# sqlite-vec.h     GENERATED, not committed upstream: the repository carries
+#                  sqlite-vec.h.tmpl and the Makefile substitutes VERSION, DATE,
+#                  SOURCE and the three version components into it. Reproduce with
+#                  VERSION=0.1.9, VERSION_MAJOR=0, VERSION_MINOR=1,
+#                  VERSION_PATCH=9, SOURCE=e9f598abfa0c06b328d8fe5da9c3760cce74be10,
+#                  DATE=2026-03-31T07:59:06Z+0000 (the tagged commit's date in UTC,
+#                  rather than the mtime the Makefile would read, so the header is
+#                  reproducible from the pin alone).
+#
+# Build defines:
+#
+#   SQLITE_VEC_STATIC     linked in, never dlopen'd - see the Android rule above
+#   SQLITE_VEC_OMIT_FS    drops vec_npy_file() and the numpy-from-disk readers.
+#                         A data plane that can be asked to read an arbitrary
+#                         path off the filesystem through a SQL function is
+#                         surface we are not obliged to carry, and no Base action
+#                         exposes it
+#
+# Registered by an explicit sqlite3_vec_init() on each connection Base opens.
+# NOT by sqlite3_auto_extension(): that is a process-global hook, and a library
+# that reaches into every SQLite connection in the process - including a sync
+# vendor's - is exactly the coexistence failure the Android rule exists to
+# prevent.
+#
+# KNN queries are written `WHERE embedding MATCH ? AND k = ?` rather than with a
+# LIMIT clause. Both are supported; the LIMIT form needs SQLite >= 3.38 to deliver
+# the constraint to xBestIndex, and the `k` form works on every version. That
+# used to matter because the Apple lane ran on whatever SQLite the OS shipped;
+# it now compiles the pinned copy like every other lane, so the version is known
+# everywhere. The `k` form stays supported regardless - a consumer that wrote it
+# should not have to rewrite it.
+#
+# The pin is the COMMIT the tag resolves to, matching the AI package: a tag is a
+# movable ref and a commit is not. `Apache-2.0` is the licence Despia consumes it
+# under; upstream offers `Apache-2.0 OR MIT` and both texts are vendored.
+sqlite-vec  e9f598abfa0c06b328d8fe5da9c3760cce74be10  Apache-2.0  https://github.com/asg017/sqlite-vec

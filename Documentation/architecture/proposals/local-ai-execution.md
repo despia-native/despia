@@ -2,7 +2,7 @@
 
 **Status: EXECUTION COMPANION** to `local-ai-engine.md` (the program, PROPOSED v2). That doc is
 the law and the why; this one is the how: the workstreams, their gates, the merge order, and the
-operational design of the standalone packages (Despia AI · Despiabase · Despia MCP). Read the
+operational design of the standalone packages (Despia AI · Despia Local · Despia MCP). Read the
 program doc first. House model: `full-stack-execution.md`. Status markers here are updated
 in-place as workstreams land — LANDED with file pointers is how the next agent knows state.
 
@@ -30,7 +30,7 @@ in-place as workstreams land — LANDED with file pointers is how the next agent
 4. **Corpus-first.** Fixtures merge in the same or an earlier commit than the implementation; a
    contract surface with no fixture is a review reject. The corpus layout is decided on day one —
    `Conformance/ai/{stream,tools,loop,absence,provider,remote,mcp,capabilities,modality}/` and
-   `Conformance/base/{crud,vector,snapshot}/` — subfoldered so each package mirror can vendor
+   `Conformance/local/{crud,vector,snapshot}/` — subfoldered so each package mirror can vendor
    exactly its slice. `capabilities/` gates evolution itself: adapt-to-reported-surface and
    catalog schema-tolerance cases (newer `schema_version` / unmet `requires` ⇒ skipped with
    typed absence). `modality/` gates the open I/O grammar (§4.14): typed input parts, typed
@@ -277,7 +277,7 @@ refusals. Wired into the codemagic check chain + `DEFAULT_REQUIRED_TRACKED`;
   cached xcframework/.so, lock-pinned, SBOM-visible.
 
 **W-BASE** (program B1) — the data plane. · **PARTIAL** — the PACKAGE is landed and green:
-`OpenSource/Base/` with the same anatomy as AI (VERSION · LICENSE · NOTICE · README ·
+`OpenSource/Local/` with the same anatomy as AI (VERSION · LICENSE · NOTICE · README ·
 CHANGELOG · llms.txt · PrivacyInfo.xcprivacy · four `docs/` pages · `Package.swift` at the
 root · `vendor/VERSIONS`), the TS binding over **real SQLite** (`node:sqlite`, 3.51 — so
 savepoints, `ROLLBACK TO`, `VACUUM INTO` and the crash cases are genuine, not simulated), the
@@ -291,7 +291,7 @@ Swift binding face (compile-pending), the Kotlin manifest, and `conformance/run.
   where the module conventions and the `lint_docs` rules bite and neither lane compiles here.
   Also remaining: sqlite-vec (the TS binding scans JSON vectors, which is honest at fixture
   scale and is W-VEC's job to replace) and the Android no-exported-sqlite3-symbols proof.
-- Scope: `OpenSource/Base/` (SQLite + savepoint/snapshot/restore/export core, bindings, VERSION,
+- Scope: `OpenSource/Local/` (SQLite + savepoint/snapshot/restore/export core, bindings, VERSION,
   LICENSE/NOTICE/README/CHANGELOG/docs — same package anatomy as AI) + the wrapper
   `ClosedSource/DSX/Modules/Core/Base/` (scheme `base`; CRUD/savepoint/snapshot/restore/export
   actions; page + native + markup access). The wrapper README lands in the SAME commit as the
@@ -549,7 +549,7 @@ W-MAVEN (the staging lane + operator runbook), W-DOCS (the per-package docs sets
 3. `check_dependency_licenses.rb --public-release` green with LocalAI enabled; SBOM covers
    `vendor/` trees.
 4. First real `mirror_public.rb` push (after `--dry-run` review) → `despia-native/despia-ai`,
-   `despiabase`, `despia-mcp` live with `v<VERSION>` tags; SPM install verified FROM the mirror.
+   `despia-local`, `despia-mcp` live with `v<VERSION>` tags; SPM install verified FROM the mirror.
 5. Operator Maven publish per runbook (namespace + GPG done back in the E2 window).
 6. **W-FLIP**: `Core/LocalAI`/`Core/Base`/`Core/MCP` lock entries flip `path:` → `github:`
    locators against the mirror tags; one full gate cycle proves the flip.
@@ -631,11 +631,11 @@ for contract reasons (`contract_diff` MAJOR retirement) — the two never derive
 
 Model: `OpenSource/CanvasEditor/mirror.json` (its `_note` is the schema doc). Per package:
 
-- `repo`: `despia-native/despia-ai` · `despiabase` · `despia-mcp` (final naming = program D11).
+- `repo`: `despia-native/despia-ai` · `despia-local` · `despia-mcp` (final naming = program D11).
 - `include`: README, LICENSE, NOTICE, CHANGELOG, CONTRIBUTING, VERSION, Package.swift, llms.txt,
   `engine/`, `vendor/`, `mock/`, `bindings/`, `conformance/`, `docs/`.
 - `vendor`: AI grafts `{"conformance/ai": "OpenSource/Conformance/ai"}`; Base grafts
-  `conformance/base`; MCP grafts only `conformance/ai/mcp` — the reason the corpus is
+  `conformance/local`; MCP grafts only `conformance/ai/mcp` — the reason the corpus is
   subfoldered on day one.
 - `check`: a linux-runnable `check_despia_<pkg>.rb` — `ai_package_gate` + TS conformance vs the
   corpus + kotlin JVM tests. **Swift compilation is NOT in the mirror check** (the mirror lane
@@ -802,7 +802,7 @@ catalog entry that names `"engine": "mock"` — no product path can reach it.
 | The host (catalog · fit · router · loop · approvals · delivery) | complete in TS; partial in Kotlin; absent in Swift | all three complete |
 | Model download | delivery POLICY in TS; the four locks are fixtures | real background transfer on both phone lanes, verify-before-load |
 | Device probe · calibration | fixture inputs | real `os_proc_available_memory()`, entitlement, thermal, storage, and a real micro-benchmark |
-| Despiabase native | Swift partial, Kotlin absent, no vectors | full surface both lanes, sqlite-vec |
+| Despia Local native | Swift partial, Kotlin absent, no vectors | full surface both lanes, sqlite-vec |
 | MCP | nothing | client + loopback server |
 | `Core/LocalAI` engine seam | Cactus | Despia AI |
 
@@ -920,7 +920,7 @@ saying plainly rather than implying a session or two will finish it.
 4. **ggml duplication** — one vendored ggml, three pins, or duplicate symbols and doubled size.
 5. **sherpa-onnx size** — the voice child's own budget is an entry gate; the core's 8 MB gate
    deliberately excludes it; the child is excludable.
-6. **Android native coexistence** — unique `.so` names (`libdespia_ai.so`, `libdespia_base.so`),
+6. **Android native coexistence** — unique `.so` names (`libdespia_ai.so`, `libdespia_local.so`),
    static internal deps, no exported sqlite3 symbols; PowerSync's SQLite coexists by
    documentation, not luck; warn per-app Custom modules about vendoring onnxruntime beside the
    voice child.

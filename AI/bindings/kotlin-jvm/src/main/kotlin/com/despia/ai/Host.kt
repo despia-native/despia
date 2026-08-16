@@ -1167,7 +1167,7 @@ class Host(private val case: Json) : AutoCloseable {
     }
 
     /** The minimal store the ai corpus needs to prove that a pending approval
-     *  holds no write lock. Despia Base proper is OpenSource/Base. */
+     *  holds no write lock. Despia Local proper is OpenSource/Local. */
     private fun baseCall(label: String?, action: String, args: Json) {
         when (action) {
             "put" -> {

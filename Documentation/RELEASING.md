@@ -14,7 +14,7 @@ mirror. Closed packages and app builds are governed by the release lanes, not by
 |---|---|
 | The kernel, all three faces (npm `@despia/*`, Maven `com.despia.dsx`, SPM) | `OpenSource/Engine/VERSION` |
 | Despia AI | `OpenSource/AI/VERSION` |
-| Despiabase | `OpenSource/Base/VERSION` |
+| Despia Local | `OpenSource/Local/VERSION` |
 | Despia MCP | `OpenSource/MCP/VERSION` |
 | Canvas Editor, vscode-dsx | their own `package.json` |
 

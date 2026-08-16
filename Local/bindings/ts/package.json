@@ -1,0 +1,13 @@
+{
+  "name": "@despia/local",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Despia Local: the on-device data plane, over SQLite.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "conformance": "node ../../conformance/run.ts"
+  }
+}

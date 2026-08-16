@@ -1387,7 +1387,7 @@ public final class Host {
     }
 
     /// The minimal store the ai corpus needs to prove that a pending approval
-    /// holds no write lock. Despia Base proper is OpenSource/Base.
+    /// holds no write lock. Despia Local proper is OpenSource/Local.
     private func baseCall(_ label: String?, _ action: String, _ args: JSON) {
         let path = args["store"].string() + "/" + args["key"].string()
         switch action {

@@ -155,7 +155,7 @@ the rest of the framework at whatever pace suits you.
 | [`Engine/`](Engine) | The kernel: Swift (iOS) and Kotlin (Android), plus the shared runtime files |
 | [`Web/`](Web) | The TypeScript kernel: compiler, DOM renderer, SSR, CLI, scaffolder |
 | [`AI/`](AI) | On-device inference: completions, embeddings, speech, vision, tool calling |
-| [`Base/`](Base) | Despiabase, the on-device data plane: SQLite with vectors and snapshots |
+| [`Base/`](Base) | Despia Local, the on-device data plane: SQLite with vectors and snapshots |
 | [`MCP/`](MCP) | Model Context Protocol, client and server, for apps |
 | [`CanvasEditor/`](CanvasEditor) | The visual editor SDK: the node-tree view of a document |
 | [`Conformance/`](Conformance) | The fixture corpus every kernel is held to |
@@ -169,7 +169,7 @@ the rest of the framework at whatever pace suits you.
 | [`despia`](https://github.com/despia-native/despia) | This repository: the framework, the docs, the issue tracker |
 | [`despia-kernel`](https://github.com/despia-native/despia-kernel) | The native kernel, standalone |
 | [`despia-ai`](https://github.com/despia-native/despia-ai) | On-device AI, standalone package |
-| [`despiabase`](https://github.com/despia-native/despiabase) | The on-device data plane, standalone package |
+| [`despia-local`](https://github.com/despia-native/despia-local) | The on-device database, standalone package (not the backend; that is `@despia/server`) |
 | [`despia-mcp`](https://github.com/despia-native/despia-mcp) | MCP for apps, standalone package |
 | [`despia-docs`](https://github.com/despia-native/despia-docs) | The documentation site, itself a Despia app |
 | [`despia-example`](https://github.com/despia-native/despia-example) | One app on four surfaces, from published packages |

@@ -1,0 +1,5 @@
+# Gradle's own output. Both native libraries here are PRODUCTS - libdespia_local
+# is built from engine/ and vendor/ by the package's own CMakeLists, and the JNI
+# shim is linked against it - so neither is ever a committed artifact.
+build/
+.gradle/

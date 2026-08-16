@@ -29,7 +29,7 @@ restructuring anything here.
 | `facets/` | facet-contract fixtures: registered facet words, `provides`/`reach` | `facets/README.md` (Swift runner not yet implemented — disclosed there) |
 | `functions/` · `build-expressions/` | JSE function/`<formula>` semantics · build-time expression folding | own READMEs |
 | `icons/` · `scene/` · `tier/` · `platform/` · `legacy/` | icon resolution · 3D scene graph · the JS escalation tier boundary · platform-suffix folding · the v3 compat surface | own READMEs |
-| `ai/` · `base/` | the standalone Despia AI / Despiabase package corpora (also vendored into their public mirrors) | package READMEs |
+| `ai/` · `base/` | the standalone Despia AI / Despia Local package corpora (also vendored into their public mirrors) | package READMEs |
 
 Runner contracts: the Swift side is the RECORD-MODE runner on Codemagic — the manual
 `conformance-record` lane compiles the open kernel standalone (the Xcode project has no

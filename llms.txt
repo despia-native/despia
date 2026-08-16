@@ -54,8 +54,8 @@ in, and one capability of the framework, not its definition.
   @despia/server, @despia/cli, @despia/vite-plugin and create-dsx
 - AI/: on-device inference (completions, embeddings, speech, vision, tools); standalone at
   github.com/despia-native/despia-ai
-- Base/: Despiabase, the on-device data plane (SQLite with vectors, snapshots); standalone
-  at github.com/despia-native/despiabase
+- Base/: Despia Local, the on-device data plane (SQLite with vectors, snapshots); standalone
+  at github.com/despia-native/despia-local
 - MCP/: Model Context Protocol for apps, client and server; standalone at
   github.com/despia-native/despia-mcp
 - CanvasEditor/: the visual editor SDK; the node-tree rendering of a .dsx document

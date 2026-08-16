@@ -34,7 +34,7 @@
   description: The visual editor, canvas and logic
 - name: "area: ai"
   color: "0e8a16"
-  description: Despia AI, Despiabase, Despia MCP packages
+  description: Despia AI, Despia Local, Despia MCP packages
 - name: "area: docs"
   color: "0075ca"
   description: Documentation and examples

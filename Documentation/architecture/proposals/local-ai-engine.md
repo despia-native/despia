@@ -1,7 +1,7 @@
 # Despia AI — the owned, open, agentic local-AI stack (replacing Cactus)
 
 **Status: PROPOSED v2** (2026-07-29) — v1 answered "how hard would our own Cactus be"; v2 records
-the owner direction: the stack is named (**Despia AI** · **Despiabase** · **Despia MCP** — D1
+the owner direction: the stack is named (**Despia AI** · **Despia Local** · **Despia MCP** — D1
 resolved), the scope is **agentic-first and multi-modal** (tools, MCP client *and* local MCP
 servers, voice in and out, vision, criteria-gated image generation), fallbacks are **primitives we
 expose, never a layer we own**, and the AI module is an **extensible container** (nested provider
@@ -119,7 +119,7 @@ dependency-free, in every build, conformance-locked. An inference engine is the 
 axis: megabytes of vendored C++, optional per app, license/model metadata, a monthly upstream
 cadence. So:
 
-- **The engines are packages** — `OpenSource/AI/`, `OpenSource/Base/`, `OpenSource/MCP/`,
+- **The engines are packages** — `OpenSource/AI/`, `OpenSource/Local/`, `OpenSource/MCP/`,
   *siblings* of `Engine/` and `Web/`, never inside `Engine/`: their release cadence (llama.cpp
   bumps) must not ride kernel versioning, and the eventual repo split (D5) must not touch kernel
   history.
@@ -158,10 +158,10 @@ typed accessors already put `dsx.module.intelligence.*` on every surface.
 | Facet words + NESTED modules | `architecture/facet-contracts.md` — registered facet rows (`facets.legacy`, `facets.api`), `Modules/` containers, full-citizen children, cascade exclusion (the watch precedent) | The `facets.tools` grammar (§4.6) and the provider-module extensibility story (§4.10). |
 | Error system | `proposals/error-system.md` — typed absence, `dsx.error` hat, ledger | Engine-less builds answer typed absence, done properly. |
 | Platform OCR | `Core/Vision` (scheme `vision`) — VisionKit / ML Kit text recognition, shipped | A capability to **compose** (a tool row, a pipeline stage) — never re-implement (§4.9). |
-| Local SQLite + sync | `Core/PowerSync` (scheme `powersync`) — vendor-named sync over local SQLite | The boundary Despiabase must respect: vendor power stays vendor-named (§4.7). |
+| Local SQLite + sync | `Core/PowerSync` (scheme `powersync`) — vendor-named sync over local SQLite | The boundary Despia Local must respect: vendor power stays vendor-named (§4.7). |
 | The localhost pattern | Shipped Local CDN / Local Server (on-device HTTP at `localhost`) | Precedent for the local MCP server transport (§4.8). |
 | Desktop lanes | `proposals/desktop-platforms.md` — macOS = Swift lane; Windows/Linux = Kotlin/JVM Compose, x64 first | Where each desktop binary rides (§4.11). |
-| The server node | `Core/Server/` + `OpenSource/Web/packages/server` (`full-stack.md` T1 LANDED) | A later home for server-side MCP. Distinct runtime — never conflated with the Windows desktop story or with Despiabase. |
+| The server node | `Core/Server/` + `OpenSource/Web/packages/server` (`full-stack.md` T1 LANDED) | A later home for server-side MCP. Distinct runtime — never conflated with the Windows desktop story or with Despia Local. |
 
 ## 4 · The design
 
@@ -170,7 +170,7 @@ typed accessors already put `dsx.module.intelligence.*` on every surface.
 | Package | Home | Published as | DSX wrapper | What it is |
 |---|---|---|---|---|
 | **Despia AI** | `OpenSource/AI/` | SPM `DespiaAI` · Maven `com.despia:ai` | `Core/LocalAI` (scheme `intelligence`, kept) | The inference runtime: completions, embeddings, speech, vision, the agentic loop. |
-| **Despiabase** | `OpenSource/Base/` | SPM `DespiaBase` · Maven `com.despia:base` | `Core/Base` (scheme `base`) | The on-device data plane: SQLite + vectors + snapshots/backups + typed access. |
+| **Despia Local** | `OpenSource/Local/` | SPM `DespiaLocal` · Maven `com.despia:local` | `Core/Base` (scheme `base`) | The on-device data plane: SQLite + vectors + snapshots/backups + typed access. |
 | **Despia MCP** | `OpenSource/MCP/` | SPM `DespiaMCP` · Maven `com.despia:mcp` | `Core/MCP` (scheme `mcp`) | MCP client (remote servers) + local MCP server (the app's own tools, offline, loopback). |
 
 Standalone packages first, DSX wrappers second — that ordering **is** the marketing strategy: any
@@ -406,7 +406,7 @@ an **app-supplied output filter seam** — a gate-style hook that sees generated
 before delivery and can redact or refuse; Despia ships the seam and the store-compliance
 guidance, never the filter (a Despia-run filter would be a backdoor by another name).
 
-### 4.7 Despiabase — the on-device data plane
+### 4.7 Despia Local — the on-device data plane
 
 A standalone package + module the ecosystem stands on (and a product in its own right — plenty of
 apps want a real local database with zero AI involved):
@@ -420,7 +420,7 @@ apps want a real local database with zero AI involved):
 - **The AI joints:** LocalAI's `index.*`/`rag.*` actions re-point to Base (embeddings from Despia
   AI, storage and ANN search in Base) — the in-house vector index stops being bespoke code inside
   the AI module.
-- **The boundaries, stated hard:** Despiabase is the **device** data plane. The server node
+- **The boundaries, stated hard:** Despia Local is the **device** data plane. The server node
   (`full-stack.md`) is the **server** data plane — they do not unify, per the narrow-interface
   law. `Core/PowerSync` remains the vendor-named sync path (vendor power is vendor-named); a
   Base↔server sync seam is a future proposal, explicitly **not** v1 (D10). Encryption story is D9.
@@ -440,7 +440,7 @@ excludable module (`Core/MCP`), consumed over the bus (`dsx.module.mcp.*` — ru
   **Streamable-HTTP server framing is implemented on the existing in-house loopback daemon**
   (the content-server substrate, dynamic ports already the default) against the SDK's server
   API — no Ktor, no Vapor, and the content-server security-guard test suite extends to it. What
-  it serves is *declared, not coded*: `facets.mcp` rows map manifest actions and **Despiabase
+  it serves is *declared, not coded*: `facets.mcp` rows map manifest actions and **Despia Local
   queries** into MCP tools (same derivation as §4.6 — one grammar, two protocols). Consumers, in
   priority order: (1) the in-app agent loop (in-process fast path — HTTP only when a real
   boundary exists), (2) the app's own web surface, (3) on desktop, external agent hosts (Claude
@@ -632,7 +632,7 @@ fit, the same router, the same approval flow. The grammar is the contract; model
 | `completion`, `cancel`, `tokenize`, `score`, `prefill`, `embed` | llama.cpp (GBNF, sessions/KV) | **E2** |
 | `models`, `download`, `remove` | pinned-digest catalog on `dsx.content` | **E2** |
 | `transcribe`, `detectLanguage`, `listen`, `stopListening`, `vad` | whisper.cpp | **E3** |
-| `index.*`, `rag.*` (newly declared) | Despia AI embeddings + **Despiabase** (sqlite-vec) | **E3/B2** |
+| `index.*`, `rag.*` (newly declared) | Despia AI embeddings + **Despia Local** (sqlite-vec) | **E3/B2** |
 | Tool calling + the agentic loop + transactional writes | §4.6 (GBNF, `facets.tools`, Base snapshots) | **E4/M2** |
 | MCP client | official Swift/Kotlin SDKs | **M1** |
 | Local MCP server (`facets.mcp`) | Despia MCP on the localhost pattern | **M2** |
@@ -675,7 +675,7 @@ absence rather than lying.
   §4.13).
 - **E5 — desktop** (~2–3 wks): macOS slice; win-x64/linux-x64 JNI natives; `platforms` becomes true.
 
-**Track B — Despiabase.**
+**Track B — Despia Local.**
 - **B1 — the package + module** (~3–4 wks): SQLite + typed actions + savepoints/snapshots/restore/
   export; page + native + markup access.
 - **B2 — vectors** (folded into E3's timeline): sqlite-vec, the ANN surface the AI joints use.
@@ -725,7 +725,7 @@ corpus), green at least once before the swap lands:
 - `Conformance/ai/` — completion streaming envelopes (rid correlation, `final`), tool round-trips
   (derived schema → dispatch → `role:"tool"` → resume), depth-cap, cancellation, typed absence,
   provider registration, `remote` routing policy.
-- `Conformance/base/` — the data plane's action surface: CRUD, vector search, savepoint/snapshot/
+- `Conformance/local/` — the data plane's action surface: CRUD, vector search, savepoint/snapshot/
   restore semantics (the transactional-write guarantee is a *fixture*, not a promise).
 - MCP cases ride `Conformance/ai/` with a scripted in-process MCP server (client) and a loopback
   fixture (server), including the approval flow.
@@ -804,12 +804,12 @@ typed mismatch on drift.
 
 ## 10 · Decisions
 
-1. **D1 — names. RESOLVED (owner, 2026-07-29; Base respelled by the owner 2026-08-15):**
-   **Despia AI** · **Despiabase** · **Despia MCP**; published as SPM + Maven packages with DSX
-   wrapper modules; the module scheme stays `intelligence`. Base is **one word, no hyphen and no
-   space**, because the name is a play on Supabase and a separator breaks it. The Swift product
-   stays `DespiaBase` and the Maven artifact stays `com.despia:base`: those are code identifiers
-   in their own languages' casing, not spellings of the product name.
+1. **D1 — names. RESOLVED (owner, 2026-07-29; renamed by the owner 2026-08-16):**
+   **Despia AI** · **Despia Local** · **Despia MCP**; published as SPM + Maven packages with DSX
+   wrapper modules; the module scheme stays `intelligence`. The data plane shipped one wave as
+   "Despiabase" (a Supabase play); the owner retired that name before anything was published so
+   every repo follows the `despia-<product>` pattern. The Swift product is `DespiaLocal` and the
+   Maven artifact is `com.despia:local`: code identifiers in their own languages' casing.
 2. **D2 and D7 — speech extras and default voices. RESOLVED TOGETHER (2026-08-03), by
    dropping sherpa-onnx rather than by settling for worse voices.** The audit was done by
    reading sherpa-onnx's actual build graph: `SHERPA_ONNX_ENABLE_TTS=ON` unconditionally
@@ -871,14 +871,14 @@ typed mismatch on drift.
    with D2's phonemizer audit, before V1 lands.
 8. **D8 — image-generation entry criteria:** name the floor (permissively-licensed step-distilled
    model, device class, latency ≤ a few seconds, peak memory budget) that opens track G.
-9. **D9 — Despiabase encryption story:** platform file protection vs SQLCipher-class encryption
+9. **D9 — Despia Local encryption story:** platform file protection vs SQLCipher-class encryption
    at rest. Decide in B1 design; affects the "own your data" copy.
 10. **D10 — Base↔server sync seam:** explicitly not v1; PowerSync remains the vendor path. A
     future proposal owns it or it doesn't happen.
-11. **D11 — mirror repo naming. RESOLVED (owner, 2026-08-15):** `despia-native/despia-ai` ·
-    `despia-native/despiabase` · `despia-native/despia-mcp`. Base is the unhyphenated one for the
-    reason in D1; the tree carried `despia-base` until the owner corrected it, and the coordinate
-    moved rather than the repo.
+11. **D11 — mirror repo naming. RESOLVED (owner, re-ruled 2026-08-16):** `despia-native/despia-ai`
+    · `despia-native/despia-local` · `despia-native/despia-mcp`. The data-plane repo was briefly
+    `despiabase` (the D1 wordplay); the final ruling renames it `despia-local` so the whole org
+    reads `despia-<product>`, and the GitHub rename preserves redirects from the old name.
 12. **D12 — the shared content generation's owner + channel (channel RESOLVED by direction,
     2026-07-29):** the model catalog, `router.json`, the MCP server list, and agent presets ride
     one `dsx.content` folder served from **the app's own content root (`/dsx/ai/`) — models ship

@@ -124,7 +124,7 @@ as if they were.
 
   The program to end this state — **Despia AI**: replace Cactus with an owned, open engine
   (llama.cpp/whisper.cpp under a Despia ABI), make the privacy and licensing claims enforced, and
-  go agentic-first (tools, MCP both directions, voice, vision, the Despiabase data plane) —
+  go agentic-first (tools, MCP both directions, voice, vision, the Despia Local data plane) —
   is [`proposals/local-ai-engine.md`](proposals/local-ai-engine.md).
 
 Between them the framework has exercised audio (separation/DSP, shipping) and text/speech (LLM/ASR,
@@ -151,7 +151,7 @@ is the framework's, identical to a non-AI module. That is what makes Despia AI-r
 ## See also
 - [`proposals/local-ai-engine.md`](proposals/local-ai-engine.md) — the **Despia AI** program
   (replace Cactus with an open, agentic Despia stack: streaming, tools, MCP client + local MCP
-  servers, voice, vision, Despiabase).
+  servers, voice, vision, Despia Local).
 - [`module-weights.md`](../../Skills/module-weights.md) — bundling large models, securely.
 - [`native-languages.md`](../../Skills/native-languages.md) — C/C++/Rust in a module.
 - [`dsx-native-bus.md`](dsx-native-bus.md) — modules provide, surfaces consume.

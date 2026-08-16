@@ -16,7 +16,7 @@ truth, one public front door. It changes where things happen:
   authorship via `git am`), the full gate suite runs there, and the next mirror sync closes
   your PR with a reference to the landed commit. Your name stays on the commit.
 - **Do not** open PRs against the standalone package repositories (`despia-kernel`,
-  `despiabase`, `despia-ai`, `despia-mcp`). They are machine-written; anything pushed there
+  `despia-local`, `despia-ai`, `despia-mcp`). They are machine-written; anything pushed there
   is overwritten on the next sync.
 
 ## Before you open an issue

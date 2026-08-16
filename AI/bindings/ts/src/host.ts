@@ -1284,7 +1284,7 @@ export class Host {
   }
 
   /** The minimal store the ai corpus needs to prove that a pending approval
-   *  holds no write lock. Despia Base proper is OpenSource/Base - this is not
+   *  holds no write lock. Despia Local proper is OpenSource/Local - this is not
    *  it, and W-BASE replaces it with the real binding. */
   #baseCall(label: string | undefined, action: string, args: Dict): void {
     if (action === 'put') {

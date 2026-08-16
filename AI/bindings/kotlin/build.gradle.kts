@@ -60,7 +60,7 @@ android {
         // The JNI library name is unique across every module in a Despia app:
         // two modules shipping libai.so would collide at load time, and
         // dependencies are linked statically inside so nothing leaks symbols
-        // (notably: no exported sqlite3 symbols, so Despiabase and a sync
+        // (notably: no exported sqlite3 symbols, so Despia Local and a sync
         // vendor's own SQLite can coexist).
         ndk { moduleName = "despia_ai" }
     }

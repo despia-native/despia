@@ -1,0 +1,12 @@
+# Despia Local
+
+The on-device data plane: SQLite with vectors, snapshots and typed access, for
+iOS, Android, macOS, Windows and Linux. Apache-2.0. A real local database with
+zero AI involved, and the substrate the agentic write guarantee stands on.
+
+## Docs
+
+- docs/data-plane.md: stores, values, queries, and the type vocabulary
+- docs/snapshots.md: savepoints versus snapshots, restore, and the agent guarantee
+- docs/vectors.md: vector indexes and why every entry records its embedding
+- docs/conformance.md: running the vendored fixture corpus

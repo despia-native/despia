@@ -1,0 +1,91 @@
+{
+ "_note": "The Despia Local access surface (local-ai-engine.md §4.7). THE LAW ENCODED HERE: (1) one store, three shapes — relational rows, key/value documents and vectors live in ONE SQLite file, and the typed access is identical from native, from the page surface and from DSX markup. (2) The type vocabulary is the module-argument vocabulary: what a declared action accepts is what the store round-trips, so a value that went in as a number does not come back as a string. (3) Reads never mutate, writes are explicit, and a write to a store that does not exist is a typed error rather than an implicit create — silent schema creation is how data planes rot. (4) Queries are parameterized; a value never becomes SQL. The injection case pins it. (5) Deletes and misses are answered honestly: a missing key is `null`, not an error, and a delete of nothing reports zero rather than pretending.",
+ "cases": [
+  {
+   "name": "crud: put then get round-trips the value with its types intact",
+   "seed": { "notes": [] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "n1", "value": { "title": "Invoice", "amount": 42, "paid": false, "tags": [ "q3", "uae" ] } }, "mode": "await", "as": "w" } },
+    { "call": { "scheme": "base", "action": "get", "args": { "store": "notes", "key": "n1" }, "mode": "await", "as": "r" } }
+   ],
+   "expect": {
+    "results": {
+     "w": { "ok": true },
+     "r": { "value": { "title": "Invoice", "amount": 42, "paid": false, "tags": [ "q3", "uae" ] } }
+    }
+   }
+  },
+  {
+   "name": "crud: a missing key answers null, not an error",
+   "seed": { "notes": [] },
+   "steps": [ { "call": { "scheme": "base", "action": "get", "args": { "store": "notes", "key": "nope" }, "mode": "await", "as": "r" } } ],
+   "expect": { "results": { "r": { "value": null } }, "errors": [] }
+  },
+  {
+   "name": "crud: put overwrites and delete reports what it removed",
+   "seed": { "notes": [ { "key": "n1", "value": { "v": 1 } } ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "n1", "value": { "v": 2 } }, "mode": "await", "as": "w" } },
+    { "call": { "scheme": "base", "action": "delete", "args": { "store": "notes", "key": "n1" }, "mode": "await", "as": "d1" } },
+    { "call": { "scheme": "base", "action": "delete", "args": { "store": "notes", "key": "n1" }, "mode": "await", "as": "d2" } }
+   ],
+   "expect": {
+    "results": { "d1": { "deleted": 1 }, "d2": { "deleted": 0 } },
+    "store": { "notes": [] }
+   }
+  },
+  {
+   "name": "crud: a write to an undeclared store is a typed error, never an implicit create",
+   "seed": { "notes": [] },
+   "steps": [ { "call": { "scheme": "base", "action": "put", "args": { "store": "ghosts", "key": "g", "value": { } }, "mode": "await", "as": "w" } } ],
+   "expect": {
+    "errors": [ { "req": "w", "code": "unknown_store", "data": { "store": "ghosts" } } ],
+    "store": { "notes": [] }
+   }
+  },
+  {
+   "name": "crud: a query filters and orders deterministically",
+   "seed": { "notes": [
+    { "key": "a", "value": { "title": "alpha", "amount": 10 } },
+    { "key": "b", "value": { "title": "beta", "amount": 30 } },
+    { "key": "c", "value": { "title": "gamma", "amount": 20 } }
+   ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "query", "args": { "store": "notes", "where": { "amount": { "gte": 20 } }, "order": [ { "field": "amount", "dir": "desc" } ] }, "mode": "await", "as": "q" } }
+   ],
+   "expect": {
+    "results": { "q": { "rows": [ { "key": "b", "value": { "amount": 30 } }, { "key": "c", "value": { "amount": 20 } } ] } }
+   }
+  },
+  {
+   "name": "crud: a value never becomes SQL",
+   "_note": "The injection fixture. The parameter is a string that would drop the table if it were concatenated; it comes back as an ordinary no-match query and the store is intact afterwards.",
+   "seed": { "notes": [ { "key": "a", "value": { "title": "alpha" } } ] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "query", "args": { "store": "notes", "where": { "title": { "eq": "x'; DROP TABLE notes; --" } } }, "mode": "await", "as": "q" } },
+    { "call": { "scheme": "base", "action": "get", "args": { "store": "notes", "key": "a" }, "mode": "await", "as": "r" } }
+   ],
+   "expect": {
+    "results": { "q": { "rows": [] }, "r": { "value": { "title": "alpha" } } }
+   }
+  },
+  {
+   "name": "crud: a committed write survives an abrupt process loss",
+   "_note": "Durability, stated as a crash rather than as a promise. The write committed, the process died, the value is still there on reopen.",
+   "seed": { "notes": [] },
+   "steps": [
+    { "call": { "scheme": "base", "action": "put", "args": { "store": "notes", "key": "n1", "value": { "v": 1 } }, "mode": "await", "as": "w" } },
+    { "crash": { } },
+    { "call": { "scheme": "base", "action": "get", "args": { "store": "notes", "key": "n1" }, "mode": "await", "as": "r" } }
+   ],
+   "expect": { "results": { "r": { "value": { "v": 1 } } } }
+  },
+  {
+   "name": "crud: a store summary reports size so a UI can account for it",
+   "_note": "Storage accounting is part of the data plane, not an afterthought bolted on for the model catalog — the same summary answers 'what is this app using' for rows and for weights.",
+   "seed": { "notes": [ { "key": "a", "value": { "title": "alpha" } }, { "key": "b", "value": { "title": "beta" } } ] },
+   "steps": [ { "call": { "scheme": "base", "action": "stats", "args": { }, "mode": "await", "as": "s" } } ],
+   "expect": { "results": { "s": { "stores": [ { "name": "notes", "rows": 2 } ] } } }
+  }
+ ]
+}

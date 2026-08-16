@@ -1,0 +1,27 @@
+{
+  "_note": "Folder-owned PUBLIC MIRROR declaration (ClosedSource/scripts/mirror_public.rb; OpenSource/CanvasEditor/mirror.json documents the schema). Same laws as the AI mirror next door: the monorepo is the source of truth, the mirror root is the package root so Package.swift resolves for SPM, `vendor` grafts the base corpus in at conformance/local (the second path OpenSource/Local/conformance/run.ts already probes, so `node conformance/run.ts` runs standalone there), the `check` is Linux-only with no Swift step, and `tag_from` is the bare VERSION file. EVERY include path must be git-TRACKED when the lane runs: the mirror lane works from a fresh clone, git does not track empty folders, and a missing include path is a hard abort. That is the one thing to re-check when this list grows.",
+  "repo": "despia-native/despia-local",
+  "branch": "main",
+  "include": [
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "CHANGELOG.md",
+    "VERSION",
+    "llms.txt",
+    "PrivacyInfo.xcprivacy",
+    "Package.swift",
+    "CMakeLists.txt",
+    "engine/",
+    "tools/",
+    "vendor/",
+    "bindings/",
+    "conformance/",
+    "docs/"
+  ],
+  "vendor": {
+    "conformance/local": "OpenSource/Conformance/local"
+  },
+  "check": "ruby ClosedSource/scripts/check_despia_local.rb",
+  "tag_from": "VERSION"
+}
