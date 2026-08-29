@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "_note": "Core/Device (parity/F06-device.md), SAFE-AREA INSETS as a readable value. This is the gap the module closes: `ignoreSafeArea` and `pin` already existed, but the numbers were never readable, so a custom bottom bar could not sit above the home indicator without hard-coding 34. What is pinned: the payload shape, the REPUBLISH TRIGGERS (a static read is the bug this fixture exists to prevent), and the boundary between this value and the keyboard. WHAT THESE ARE: the safe area, meaning the notch or cutout, the status bar and the home indicator, in points on iOS and dp on Android, which are the same number for the same physical layout. WHAT THEY ARE NOT: the keyboard. What the keyboard covers is Core/Basics/Viewport's --keyboard-inset-height (Conformance/keyboard/), and F06-device.md's line about insets republishing on keyboard show and hide was corrected during the build: a keyboard frame change is a republish TRIGGER (a window geometry change can move the safe area, and re-reading is cheap and idempotent) but the keyboard's own height never appears in these four numbers.",
+  "_runner": "No runner is wired yet (registration is in the F06 handoff).",
+
+  "shape": {
+    "_note": "Four numbers, always all four, always present. An unknown inset is 0, not absent: a layout expression that reads insets.bottom must never produce NaN.",
+    "keys": ["top", "bottom", "left", "right"],
+    "unit": "points (dp on Android)",
+    "default": { "top": 0, "bottom": 0, "left": 0, "right": 0 }
+  },
+
+  "republish": {
+    "_note": "Every trigger is an OS callback. The context var must be re-read and re-published on each of these, and must NOT be cached at launch. A runner drives each trigger and asserts the published value followed.",
+    "triggers": [
+      { "name": "rotation", "expect": { "republished": true } },
+      { "name": "size class change (Split View, Stage Manager, a resized window)", "expect": { "republished": true } },
+      { "name": "keyboard frame change", "expect": { "republished": true, "insetsIncludeKeyboard": false } },
+      { "name": "returning to the foreground", "expect": { "republished": true } },
+      { "name": "a text size change", "expect": { "republished": true, "note": "fontScale moves with it, and both ride one publish" } }
+    ]
+  },
+
+  "cases": [
+    { "name": "a Dynamic Island phone in portrait",
+      "given": { "device": "dynamic-island-phone", "orientation": "portrait" },
+      "expect": { "insets": { "top": 59, "bottom": 34, "left": 0, "right": 0 }, "hasNotch": false, "hasDynamicIsland": true } },
+
+    { "name": "the same phone in landscape moves the inset to the side it belongs on",
+      "given": { "device": "dynamic-island-phone", "orientation": "landscapeLeft" },
+      "expect": { "insets": { "top": 0, "bottom": 21, "left": 59, "right": 0 }, "hasNotch": false, "hasDynamicIsland": true } },
+
+    { "name": "a notched phone is a notch, not an island: the top inset does not decide it",
+      "given": { "device": "notched-phone", "orientation": "portrait" },
+      "expect": { "insets": { "top": 47, "bottom": 34, "left": 0, "right": 0 }, "hasNotch": true, "hasDynamicIsland": false } },
+
+    { "name": "a squared-off screen has a status bar and no home indicator",
+      "given": { "device": "square-phone", "orientation": "portrait" },
+      "expect": { "insets": { "top": 20, "bottom": 0, "left": 0, "right": 0 }, "hasNotch": false, "hasDynamicIsland": false } },
+
+    { "name": "a tablet with no cutout",
+      "given": { "device": "tablet", "orientation": "portrait" },
+      "expect": { "insets": { "top": 24, "bottom": 20, "left": 0, "right": 0 }, "hasNotch": false, "hasDynamicIsland": false } },
+
+    { "name": "the keyboard being up does not change the safe area",
+      "given": { "device": "dynamic-island-phone", "orientation": "portrait", "keyboard": 336 },
+      "expect": { "insets": { "top": 59, "bottom": 34, "left": 0, "right": 0 } } },
+
+    { "name": "a surface with no window yet reads zeros rather than failing",
+      "given": { "device": "none", "orientation": "portrait" },
+      "expect": { "insets": { "top": 0, "bottom": 0, "left": 0, "right": 0 } } }
+  ]
+}

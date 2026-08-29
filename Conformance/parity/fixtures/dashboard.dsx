@@ -1,0 +1,80 @@
+<scroll style="background: groupedBackground">
+<head>
+  <!--
+    Parity fixture: the DASHBOARD. The desktop idiom set on the grouped language,
+    one document for every width: a stat-tile <grid> whose columns derive from
+    dsx.screen.width (4 desktop / 2 tablet / 1 phone; the oracle's 390pt viewport
+    captures the single-column form), a content grid of report cards on the same
+    breakpoints, section header rows with trailing actions, and a bound <Table>
+    that scrolls inside its own frame when the columns outgrow the page. Adaptive
+    by expression only - no per-platform fork, no motion.
+  -->
+  <variable as="stats">return [
+    { id: 'revenue', label: 'REVENUE', value: '$48,210', delta: '+12.4%', up: true },
+    { id: 'users', label: 'ACTIVE USERS', value: '1,982', delta: '+3.1%', up: true },
+    { id: 'orders', label: 'OPEN ORDERS', value: '214', delta: '-1.8%', up: false },
+    { id: 'refunds', label: 'REFUNDS', value: '12', delta: '-0.4%', up: false }
+  ]</variable>
+  <variable as="reports">return [
+    { id: 'digest', title: 'Weekly digest', body: 'Sales grew in every region and the EU lead widened again.' },
+    { id: 'churn', title: 'Churn watch', body: 'Fourteen accounts have been idle for thirty days or more.' },
+    { id: 'stock', title: 'Inventory', body: 'Three SKUs fall below the reorder floor before Friday.' }
+  ]</variable>
+  <variable as="orders">return [
+    { id: 'A-1042', customer: 'Halvorsen AS', total: '$1,290.00', status: 'Paid', placed: '2026-08-17' },
+    { id: 'A-1041', customer: 'Mori Trading', total: '$864.50', status: 'Paid', placed: '2026-08-17' },
+    { id: 'A-1040', customer: 'Beacon Labs', total: '$2,410.00', status: 'Pending', placed: '2026-08-16' },
+    { id: 'A-1039', customer: 'Cardan GmbH', total: '$96.00', status: 'Refunded', placed: '2026-08-15' },
+    { id: 'A-1038', customer: 'Ostrova Ltd', total: '$1,733.25', status: 'Paid', placed: '2026-08-14' },
+    { id: 'A-1037', customer: 'Pillar and Vine', total: '$402.80', status: 'Paid', placed: '2026-08-13' }
+  ]</variable>
+  <variable as="statCols" computed="true">dsx.screen.width >= 1280 ? 4 : dsx.screen.width >= 768 ? 2 : 1</variable>
+  <variable as="cardCols" computed="true">dsx.screen.width >= 1280 ? 3 : dsx.screen.width >= 768 ? 2 : 1</variable>
+</head>
+<stack style="gap: 1.5rem; padding: 2rem 1.5rem 3rem; max-width: 80rem; align-self: center; width: 100%">
+
+  <hstack style="align-items: center; gap: 1rem; padding-top: 2rem; width: 100%">
+    <stack style="gap: 0.25rem; flex: 1">
+      <text value="Dashboard" style="font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em"/>
+      <text value="Monday, August 17" style="color: secondary; font-size: 0.9375rem"/>
+    </stack>
+    <button label="New report" variant="prominent"/>
+  </hstack>
+
+  <grid bind="dsx.variable.stats" key="id" columns="{{ dsx.variable.statCols }}" spacing="12" scroll="false" style="width: 100%">
+    <stack style="gap: 0.5rem; padding: 1rem 1.125rem; border-radius: 14px; background: secondaryGroupedBackground; width: 100%">
+      <text bind="item.label" style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: tertiary"/>
+      <text bind="item.value" style="font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em"/>
+      <hstack style="align-items: center; gap: 0.375rem">
+        <stack style="border-radius: 999px; background: fill; padding: 0.125rem 0.5rem">
+          <text bind="item.delta" color="{{ item.up ? 'accent' : 'destructive' }}" style="font-size: 0.72rem; font-weight: 600"/>
+        </stack>
+        <text value="vs last week" style="color: tertiary; font-size: 0.72rem"/>
+      </hstack>
+    </stack>
+  </grid>
+
+  <stack style="gap: 0.75rem">
+    <hstack style="align-items: center; gap: 0.75rem; width: 100%">
+      <text value="THIS WEEK" style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: tertiary"/>
+      <spacer/>
+      <button label="See all" variant="bordered"/>
+    </hstack>
+    <grid bind="dsx.variable.reports" key="id" columns="{{ dsx.variable.cardCols }}" spacing="12" scroll="false" style="width: 100%">
+      <stack style="gap: 0.375rem; padding: 1rem 1.125rem; border-radius: 14px; background: secondaryGroupedBackground; width: 100%">
+        <text bind="item.title" style="font-weight: 600"/>
+        <text bind="item.body" style="color: secondary; font-size: 0.875rem"/>
+      </stack>
+    </grid>
+  </stack>
+
+  <stack style="gap: 0.75rem">
+    <hstack style="align-items: center; gap: 0.75rem; width: 100%">
+      <text value="RECENT ORDERS" style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: tertiary"/>
+      <spacer/>
+      <button label="Export" variant="bordered"/>
+    </hstack>
+    <Table bind="dsx.variable.orders" columns="Order,Customer,Total,Status,Placed" fields="id,customer,total,status,placed"/>
+  </stack>
+</stack>
+</scroll>

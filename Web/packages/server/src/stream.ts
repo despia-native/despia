@@ -22,7 +22,7 @@
 import type { Dict, ApiSeed } from "@despia/kernel";
 import type { Registry } from "@despia/compiler/resolve";
 import { executeSsrApis, executeStreamApis } from "./render.ts";
-import { renderPageWithSeeds, serializeHydrationPayload, type ShellOptions } from "./static.ts";
+import { renderPageWithSeeds, serializeHydrationPayload, type ShellOptions } from "./page-render.ts";
 
 /** doc 02: the error-marker chunk — a client/CDN reading a stream that carries this
  *  comment knows the tail is not a rendering artifact. */

@@ -1,0 +1,525 @@
+{
+ "_note": "<CollapsingHeader> (U10) — the collapse maths, which is a pure function of `--scroll-y` and therefore lives beside it. FRACTION is the offset over the collapse RANGE (height - minHeight), clamped 0..1. The degenerate case answers 0, not 1, matching metrics.json: a header with no range to collapse must publish the RESTING state, because booting into the collapsed look is the visible bug. OVER-SCROLL is where the two idioms live: with `stretch` the header and image GROW by the over-scroll (the iOS idiom), without it the header pins; either way the fraction stays 0. PARALLAX is how much slower the image moves than the content, so the image's translation is scrollY * parallax — 0 moves with the content, 1 pins the image. Parallax clamps to 0..1 rather than inverting. REDUCED MOTION zeroes parallax and keeps everything else: the collapse is LAYOUT and must still happen, and `stretch` survives too because it tracks the finger one-to-one rather than animating on its own, which is not what the vestibular guidance is about. THE TITLE IS ONE ACCESSIBILITY ELEMENT AT EVERY FRACTION, and that is enforced by construction rather than by review: `titleOwner` is a single value, the header's opacity reaches 0 exactly at the hand-off point (0.75) and the nav bar's leaves 0 exactly there, so the two never both render. A naive implementation cross-fades them over the whole range and a screen reader then finds the title twice. THE PINNED SLOT RAISES THE FLOOR: effectiveMinHeight is max(minHeight, pinnedHeight), so content that must survive the collapse cannot be clipped by a minHeight the author picked before adding it. on:collapse is quantised to a hundredth of the range with the endpoints always emitted, so a handler sees exactly 0 and exactly 1.",
+ "cases": [
+  {
+   "name": "resting: fully expanded, the title lives in the header",
+   "input": {
+    "scrollY": 0,
+    "height": 280,
+    "minHeight": 56
+   },
+   "expect": {
+    "fraction": 0.0,
+    "headerHeight": 280.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 0.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 1.0,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 280.0
+   }
+  },
+  {
+   "name": "halfway through the collapse range",
+   "input": {
+    "scrollY": 112,
+    "height": 280,
+    "minHeight": 56
+   },
+   "expect": {
+    "fraction": 0.5,
+    "headerHeight": 168.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 56.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 0.3333,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 168.0
+   }
+  },
+  {
+   "name": "fully collapsed: the header is exactly minHeight and the title has moved to the nav bar",
+   "input": {
+    "scrollY": 224,
+    "height": 280,
+    "minHeight": 56
+   },
+   "expect": {
+    "fraction": 1.0,
+    "headerHeight": 56.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 112.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 0.0,
+    "navBarTitleOpacity": 1.0,
+    "titleOwner": "navbar",
+    "blurRadius": 0.0,
+    "pinnedOffset": 56.0
+   }
+  },
+  {
+   "name": "scrolling past the collapse clamps the fraction at 1",
+   "input": {
+    "scrollY": 2000,
+    "height": 280,
+    "minHeight": 56
+   },
+   "expect": {
+    "fraction": 1.0,
+    "headerHeight": 56.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 112.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 0.0,
+    "navBarTitleOpacity": 1.0,
+    "titleOwner": "navbar",
+    "blurRadius": 0.0,
+    "pinnedOffset": 56.0
+   }
+  },
+  {
+   "name": "the title hands off at exactly 0.75, and the two opacities never overlap",
+   "input": {
+    "scrollY": 168,
+    "height": 280,
+    "minHeight": 56
+   },
+   "expect": {
+    "fraction": 0.75,
+    "headerHeight": 112.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 84.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 0.0,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "navbar",
+    "blurRadius": 0.0,
+    "pinnedOffset": 112.0
+   }
+  },
+  {
+   "name": "just before the hand-off the header still owns the title",
+   "input": {
+    "scrollY": 167,
+    "height": 280,
+    "minHeight": 56
+   },
+   "expect": {
+    "fraction": 0.7455,
+    "headerHeight": 113.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 83.5,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 0.006,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 113.0
+   }
+  },
+  {
+   "name": "over-scroll STRETCHES the image and the header, and the fraction stays 0",
+   "input": {
+    "scrollY": -140,
+    "height": 280,
+    "minHeight": 56
+   },
+   "expect": {
+    "fraction": 0.0,
+    "headerHeight": 420.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 0.0,
+    "imageScale": 1.5,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 1.0,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 420.0
+   }
+  },
+  {
+   "name": "stretch=false pins the header at its expanded height on over-scroll",
+   "input": {
+    "scrollY": -140,
+    "height": 280,
+    "minHeight": 56,
+    "stretch": false
+   },
+   "expect": {
+    "fraction": 0.0,
+    "headerHeight": 280.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 0.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 1.0,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 280.0
+   }
+  },
+  {
+   "name": "parallax 0 moves the image with the content",
+   "input": {
+    "scrollY": 200,
+    "height": 280,
+    "minHeight": 56,
+    "parallax": 0
+   },
+   "expect": {
+    "fraction": 0.8929,
+    "headerHeight": 80.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 0.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.0,
+    "headerTitleOpacity": 0.0,
+    "navBarTitleOpacity": 0.5714,
+    "titleOwner": "navbar",
+    "blurRadius": 0.0,
+    "pinnedOffset": 80.0
+   }
+  },
+  {
+   "name": "parallax 1 pins the image while the content scrolls under it",
+   "input": {
+    "scrollY": 200,
+    "height": 280,
+    "minHeight": 56,
+    "parallax": 1
+   },
+   "expect": {
+    "fraction": 0.8929,
+    "headerHeight": 80.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 200.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 1.0,
+    "headerTitleOpacity": 0.0,
+    "navBarTitleOpacity": 0.5714,
+    "titleOwner": "navbar",
+    "blurRadius": 0.0,
+    "pinnedOffset": 80.0
+   }
+  },
+  {
+   "name": "parallax clamps above 1 rather than inverting the image's direction",
+   "input": {
+    "scrollY": 200,
+    "height": 280,
+    "minHeight": 56,
+    "parallax": 4
+   },
+   "expect": {
+    "fraction": 0.8929,
+    "headerHeight": 80.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 200.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 1.0,
+    "headerTitleOpacity": 0.0,
+    "navBarTitleOpacity": 0.5714,
+    "titleOwner": "navbar",
+    "blurRadius": 0.0,
+    "pinnedOffset": 80.0
+   }
+  },
+  {
+   "name": "REDUCED MOTION disables parallax and keeps the collapse — collapse is layout, parallax is decoration",
+   "input": {
+    "scrollY": 200,
+    "height": 280,
+    "minHeight": 56,
+    "reduceMotion": true
+   },
+   "expect": {
+    "fraction": 0.8929,
+    "headerHeight": 80.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 0.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.0,
+    "headerTitleOpacity": 0.0,
+    "navBarTitleOpacity": 0.5714,
+    "titleOwner": "navbar",
+    "blurRadius": 0.0,
+    "pinnedOffset": 80.0
+   }
+  },
+  {
+   "name": "reduced motion keeps STRETCH: it tracks the finger one-to-one, it is not autonomous motion",
+   "input": {
+    "scrollY": -140,
+    "height": 280,
+    "minHeight": 56,
+    "reduceMotion": true
+   },
+   "expect": {
+    "fraction": 0.0,
+    "headerHeight": 420.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 0.0,
+    "imageScale": 1.5,
+    "effectiveParallax": 0.0,
+    "headerTitleOpacity": 1.0,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 420.0
+   }
+  },
+  {
+   "name": "blurOnCollapse ramps the material with the fraction",
+   "input": {
+    "scrollY": 112,
+    "height": 280,
+    "minHeight": 56,
+    "blurOnCollapse": true
+   },
+   "expect": {
+    "fraction": 0.5,
+    "headerHeight": 168.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 56.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 0.3333,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 10.0,
+    "pinnedOffset": 168.0
+   }
+  },
+  {
+   "name": "titleTransition=fade never hands the title to the nav bar",
+   "input": {
+    "scrollY": 224,
+    "height": 280,
+    "minHeight": 56,
+    "titleTransition": "fade"
+   },
+   "expect": {
+    "fraction": 1.0,
+    "headerHeight": 56.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 112.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 0.0,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 56.0
+   }
+  },
+  {
+   "name": "titleTransition=none leaves the header title alone at every fraction",
+   "input": {
+    "scrollY": 224,
+    "height": 280,
+    "minHeight": 56,
+    "titleTransition": "none"
+   },
+   "expect": {
+    "fraction": 1.0,
+    "headerHeight": 56.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 112.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 1.0,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 56.0
+   }
+  },
+  {
+   "name": "A PINNED SLOT RAISES THE FLOOR: minHeight can never collapse below the pinned content",
+   "input": {
+    "scrollY": 400,
+    "height": 280,
+    "minHeight": 56,
+    "pinnedHeight": 88
+   },
+   "expect": {
+    "fraction": 1.0,
+    "headerHeight": 88.0,
+    "effectiveMinHeight": 88.0,
+    "imageTranslation": 96.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 0.0,
+    "navBarTitleOpacity": 1.0,
+    "titleOwner": "navbar",
+    "blurRadius": 0.0,
+    "pinnedOffset": 0.0
+   }
+  },
+  {
+   "name": "the pinned slot sits on the header's bottom edge at every fraction",
+   "input": {
+    "scrollY": 100,
+    "height": 280,
+    "minHeight": 56,
+    "pinnedHeight": 88
+   },
+   "expect": {
+    "fraction": 0.5208,
+    "headerHeight": 180.0,
+    "effectiveMinHeight": 88.0,
+    "imageTranslation": 50.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 0.3056,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 92.0
+   }
+  },
+  {
+   "name": "minHeight above height is clamped rather than producing a negative range",
+   "input": {
+    "scrollY": 100,
+    "height": 280,
+    "minHeight": 400
+   },
+   "expect": {
+    "fraction": 0.0,
+    "headerHeight": 280.0,
+    "effectiveMinHeight": 280.0,
+    "imageTranslation": 0.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 1.0,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 280.0
+   }
+  },
+  {
+   "name": "height == minHeight has no range: the DEGENERATE case answers 0, the resting state",
+   "input": {
+    "scrollY": 100,
+    "height": 280,
+    "minHeight": 280
+   },
+   "expect": {
+    "fraction": 0.0,
+    "headerHeight": 280.0,
+    "effectiveMinHeight": 280.0,
+    "imageTranslation": 0.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 1.0,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 280.0
+   }
+  },
+  {
+   "name": "a zero-height header does not divide by zero",
+   "input": {
+    "scrollY": 100,
+    "height": 0,
+    "minHeight": 0
+   },
+   "expect": {
+    "fraction": 0.0,
+    "headerHeight": 0.0,
+    "effectiveMinHeight": 0.0,
+    "imageTranslation": 0.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 1.0,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 0.0
+   }
+  },
+  {
+   "name": "the default minHeight is the nav-bar height",
+   "input": {
+    "scrollY": 112,
+    "height": 280
+   },
+   "expect": {
+    "fraction": 0.5,
+    "headerHeight": 168.0,
+    "effectiveMinHeight": 56.0,
+    "imageTranslation": 56.0,
+    "imageScale": 1.0,
+    "effectiveParallax": 0.5,
+    "headerTitleOpacity": 0.3333,
+    "navBarTitleOpacity": 0.0,
+    "titleOwner": "header",
+    "blurRadius": 0.0,
+    "pinnedOffset": 168.0
+   }
+  },
+  {
+   "name": "the first sample always emits",
+   "previousFraction": null,
+   "fraction": 0.0,
+   "expect": {
+    "emit": true
+   }
+  },
+  {
+   "name": "a hundredth of the range is the quantum",
+   "previousFraction": 0.2,
+   "fraction": 0.21,
+   "expect": {
+    "emit": false
+   }
+  },
+  {
+   "name": "below the quantum, nothing is emitted",
+   "previousFraction": 0.2,
+   "fraction": 0.205,
+   "expect": {
+    "emit": false
+   }
+  },
+  {
+   "name": "hitting 0 exactly always emits, so a handler can rely on seeing the endpoints",
+   "previousFraction": 0.004,
+   "fraction": 0.0,
+   "expect": {
+    "emit": true
+   }
+  },
+  {
+   "name": "hitting 1 exactly always emits",
+   "previousFraction": 0.998,
+   "fraction": 1.0,
+   "expect": {
+    "emit": true
+   }
+  },
+  {
+   "name": "resting on an endpoint does not re-emit",
+   "previousFraction": 1.0,
+   "fraction": 1.0,
+   "expect": {
+    "emit": false
+   }
+  }
+ ]
+}

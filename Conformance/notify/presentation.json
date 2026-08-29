@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "_note": "FOREGROUND PRESENTATION (parity/F02-notifications.md §3a `presentation`, and the claimable `notify.received` hook). THE DEFAULT IS NOTHING, on every platform, and it surprises every author: a push that arrives while the app is open shows no banner, plays no sound and appears in no list unless the app says otherwise. iOS makes it a delegate callback nobody implements; Android makes it a channel-importance question; the browser shows the notification but the page usually never hears about it. One word, `presentation({ foreground: [...] })`, decides it everywhere, and this corpus is the fold.",
+
+  "_note_words": "The four words, canonical order. `banner` is an accepted alias of `alert` because that is what the platform calls it in its own settings UI; anything else is a refusal, never a silent drop.",
+  "words": ["alert", "sound", "badge", "list"],
+  "aliases": { "banner": "alert" },
+  "default": [],
+
+  "fold": [
+    { "name": "THE DEFAULT: nothing is presented while the app is open",
+      "platform": "ios", "configured": null, "claimed": false,
+      "expect": { "present": [], "suppressed": false, "headsUp": false, "dropped": [] } },
+
+    { "name": "iOS presents exactly what was configured, in canonical order",
+      "platform": "ios", "configured": ["sound", "alert"], "claimed": false,
+      "expect": { "present": ["alert", "sound"], "suppressed": false, "headsUp": true, "dropped": [] } },
+
+    { "name": "iOS: the full set",
+      "platform": "ios", "configured": ["alert", "sound", "badge", "list"], "claimed": false,
+      "expect": { "present": ["alert", "sound", "badge", "list"], "suppressed": false, "headsUp": true, "dropped": [] } },
+
+    { "name": "banner is an accepted spelling of alert and folds to it exactly once",
+      "platform": "ios", "configured": ["banner", "alert"], "claimed": false,
+      "expect": { "present": ["alert"], "suppressed": false, "headsUp": true, "dropped": [] } },
+
+    { "name": "A CLAIMED notify.received SUPPRESSES THE SYSTEM PRESENTATION, whatever was configured",
+      "platform": "ios", "configured": ["alert", "sound", "badge", "list"], "claimed": true,
+      "expect": { "present": [], "suppressed": true, "headsUp": false, "dropped": [] } },
+
+    { "name": "a claim suppresses on Android too, where the OS would otherwise post regardless",
+      "platform": "android", "sdk": 34, "importance": "high", "configured": ["alert"], "claimed": true,
+      "expect": { "present": [], "suppressed": true, "headsUp": false, "dropped": [] } },
+
+    { "name": "ANDROID ALWAYS PUTS IT IN THE SHADE: `list` is implicit and cannot be configured away",
+      "platform": "android", "sdk": 34, "importance": "default", "configured": [], "claimed": false,
+      "expect": { "present": ["list"], "suppressed": false, "headsUp": false, "dropped": [] } },
+
+    { "name": "Android: a heads-up needs BOTH the alert word and a high-importance channel",
+      "platform": "android", "sdk": 34, "importance": "high", "configured": ["alert", "sound"], "claimed": false,
+      "expect": { "present": ["alert", "sound", "list"], "suppressed": false, "headsUp": true, "dropped": [] } },
+
+    { "name": "Android: alert on a LOW channel is DEGRADED and reported, because the channel wins and the app cannot override it",
+      "platform": "android", "sdk": 34, "importance": "low", "configured": ["alert"], "claimed": false,
+      "expect": { "present": ["alert", "list"], "suppressed": false, "headsUp": false, "dropped": [], "degraded": ["alert"] } },
+
+    { "name": "Android: a max-importance channel heads up",
+      "platform": "android", "sdk": 34, "importance": "max", "configured": ["alert"], "claimed": false,
+      "expect": { "present": ["alert", "list"], "suppressed": false, "headsUp": true, "dropped": [] } },
+
+    { "name": "Web: there is no notification list to land in, so `list` is dropped and said so",
+      "platform": "web", "configured": ["alert", "list"], "claimed": false,
+      "expect": { "present": ["alert"], "suppressed": false, "headsUp": true, "dropped": ["list"] } },
+
+    { "name": "Web: badge rides the Badging API and survives",
+      "platform": "web", "configured": ["badge"], "claimed": false,
+      "expect": { "present": ["badge"], "suppressed": false, "headsUp": false, "dropped": [] } },
+
+    { "name": "a word that is not a presentation option is refused rather than ignored",
+      "platform": "ios", "configured": ["vibrate"], "claimed": false,
+      "expect": { "error": "invalid_argument" } },
+
+    { "name": "the vocabulary is exact case",
+      "platform": "ios", "configured": ["Alert"], "claimed": false,
+      "expect": { "error": "invalid_argument" } }
+  ]
+}

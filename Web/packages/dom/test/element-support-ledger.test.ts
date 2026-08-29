@@ -20,6 +20,8 @@ import {
 import { UNIVERSAL_GLOBAL_ELEMENTS } from "../src/globals.ts";
 import { FORM_ELEMENTS } from "../src/forms.ts";
 import { registerNativeControls } from "../src/native-controls.ts";
+import { DATA_CONTROL_ELEMENTS } from "../src/data-controls.ts";
+import { MEDIA_SURFACE_ELEMENTS } from "../src/media-surfaces.ts";
 import { registerStructuralControls, STRUCTURAL_CONTROL_ELEMENTS } from "../src/structural-controls.ts";
 import { registerOverlayControls } from "../src/overlay-controls.ts";
 import { registerDataControls } from "../src/data-controls.ts";
@@ -30,6 +32,7 @@ import { compileComponent } from "@despia/compiler/component";
 import { renderToString } from "../../server/src/render.ts";
 import type { Registry } from "@despia/compiler/resolve";
 import type { XmlNode } from "@despia/compiler/xml";
+import { registerCanvasSurface } from "../src/canvas.ts";
 
 type Status = "supported" | "partial" | "unsupported";
 type SupportRow = {
@@ -174,6 +177,7 @@ test("ledger support status agrees with the full-application DOM registry", () =
   registerDataControls();
   registerApplicationControls();
   registerMediaSurfaces();
+  registerCanvasSurface();
 
   const registered = new Set([...Object.keys(ELEMENTS), ...Object.keys(GLOBAL_ELEMENTS)]);
   const rows: Array<[string, SupportRow]> = [
@@ -191,7 +195,7 @@ test("ledger support status agrees with the full-application DOM registry", () =
 
 test("native-only, unimplemented rich-media, 3D, and Studio surfaces remain honest red gates", () => {
   const unimplemented = [
-    "DSXWebView", "DSXView", "Godot", "LevelMeter",
+    "LevelMeter",
     "Scene360", "Scene3D", "StudioPitchEditor", "StudioShow", "StudioTimecode",
     "StudioTimeline", "StudioTrim", "Waveform", "lottie",
   ];
@@ -275,6 +279,13 @@ class FakeElement {
   setAttribute(name: string, value: string): void { this.attrs.set(name, value); }
   getAttribute(name: string): string | null { return this.attrs.get(name) ?? null; }
   removeAttribute(name: string): void { this.attrs.delete(name); }
+  toggleAttribute(name: string, force?: boolean): boolean {
+    const on = force ?? !this.attrs.has(name);
+    if (on) this.attrs.set(name, "");
+    else this.attrs.delete(name);
+    if (name === "inert") this.inert = on;
+    return on;
+  }
   appendChild(child: FakeElement): FakeElement { this.kids.push(child); return child; }
   append(...children: FakeElement[]): void { this.kids.push(...children); }
   prepend(child: FakeElement): void { this.kids.unshift(child); }
@@ -340,6 +351,7 @@ function harness(values: Record<string, unknown> = {}): Harness {
     events,
     api: {
       bindText: (expression, apply) => { if (expression !== undefined) apply(expression); },
+      bindDisplay: (expression, apply) => { if (expression !== undefined) apply(expression); },
       bindValue: (expression, apply) => { if (expression !== undefined) apply(values[expression]); },
       writeBack: (path, value) => { writes.push([path, value]); },
       handler: (name, payload) => { events.push([name, payload]); },
@@ -392,7 +404,7 @@ test("unsupported native-only surfaces render the honest dsx-unsupported placeho
   ].filter((name) => ledger.elements[name]?.status === "unsupported"
     || ledger.aliases[name]?.status === "unsupported")
     .filter((name) => /^[A-Z]/.test(name));
-  assert.ok(capitalized.includes("Godot") && capitalized.includes("Scene3D") && capitalized.includes("DSXView"),
+  assert.ok(capitalized.includes("Scene360") && capitalized.includes("Scene3D") && capitalized.includes("StudioTrim"),
     "the capitalized native-only set is exercised");
   for (const tag of capitalized) {
     const parent = new FakeElement("div");
@@ -546,6 +558,48 @@ test("the L-01 partial→supported flips render their fixture contract (the flip
   assert.equal(marquee.getAttribute("data-dsx-axis"), "horizontal");
   assert.equal(marquee.getAttribute("data-dsx-autoscroll"), "false", "no rAF host ⇒ the marquee says so");
   assert.equal(marquee.childCount, 2, "the rail still renders its rows");
+});
+
+test("the W11 partial→supported flips render their fixture contract (the flip's proof)", () => {
+  // <svg> — the full asset/src/d contract; a NATIVE bundle key is reported, never a
+  // mystery blank (the image precedent). Valid-markup rendering is proved in the SSR
+  // twin (render.test.ts) and the real-engine media-surfaces oracle.
+  const bundled = callFactory(MEDIA_SURFACE_ELEMENTS["svg"]!, xml("svg", { asset: "AppMark" }));
+  assert.equal(bundled.getAttribute("data-dsx-valid"), "false");
+  assert.equal(bundled.getAttribute("data-dsx-unresolved"), "asset", "a native bundle key is reported, not swallowed");
+  const invalid = callFactory(MEDIA_SURFACE_ELEMENTS["svg"]!, xml("svg", { src: "<svg><g><rect width='1' height='1'/></g></svg>" }));
+  assert.equal(invalid.getAttribute("data-dsx-valid"), "false");
+  assert.equal(invalid.getAttribute("data-dsx-unresolved"), null, "refused markup is invalid, not a bundle key");
+
+  // <refreshable> — the fixture's on:refresh/busy contract with the built-in
+  // keyboard/mouse control (the stale 'touch-only' limit is gone).
+  const ctx = factoryCtx();
+  const h = harness({ busyExpr: false });
+  const refresh = DATA_CONTROL_ELEMENTS["refreshable"]!(
+    xml("refreshable", { busy: "busyExpr" }), ctx, h.api,
+  ) as unknown as FakeElement;
+  const button = refresh.find((node) => node.className === "dsx-refresh-button");
+  assert.ok(button !== null, "a built-in keyboard/mouse refresh control exists");
+  assert.equal(button!.getAttribute("aria-label"), "Refresh");
+  assert.ok(refresh.find((node) => node.getAttribute("role") === "status") !== null, "polite live status region");
+  assert.equal(refresh.getAttribute("aria-busy"), "false");
+  button!.dispatch("click");
+  assert.deepEqual(h.events.map(([name]) => name), ["refresh"], "the control fires on:refresh");
+  assert.equal(refresh.getAttribute("data-dsx-refreshing"), "true");
+  assert.equal(refresh.getAttribute("aria-busy"), "true");
+  for (const dispose of ctx.disposers) dispose();
+
+  // <audio>/<video> — the session category pair is proved at the pure seam here
+  // (normalizeAudioSessionCategory unit tests), attribute-for-attribute in the SSR twin
+  // (render.test.ts data-dsx-session), and live in the media-surfaces oracle.
+  const audioRow = ledger.elements["audio"]!;
+  const videoRow = ledger.elements["video"]!;
+  for (const row of [audioRow, videoRow]) {
+    assert.equal(row.status, "supported");
+    assert.equal(row.fallback, undefined);
+    assert.match(row.knownLimits.join(" "), /Audio Session API|data-dsx-session/,
+      "the session category adaptation is declared, never a silent no-op");
+  }
 });
 
 test("the list row is the ledger's last canonical flip and carries no fallback", () => {

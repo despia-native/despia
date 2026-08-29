@@ -1,0 +1,2 @@
+# `despia shot --check` renders into here before diffing against the committed set.
+.dsx-shot-check/

@@ -1,0 +1,35 @@
+<stack id="shot-card"
+       style="position: relative; width: 100%; height: 100%; overflow: hidden; background: #07041a">
+  <head>
+    <!-- THE FULL SLIDE: screen, headline, and a decoration layer driven entirely by DATA.
+         Nothing here is bespoke - `decor` is the JSON an agent writes into the shot profile,
+         and ShotDecor renders whatever rows it finds. Composing a new slide is composing an
+         array, which is the whole point of the AI path. -->
+    <attribute as="caption" sample="&quot;Every order,\nin one place&quot;"/>
+    <attribute as="subcaption" sample="&quot;Track every purchase the moment it ships.&quot;"/>
+    <attribute as="screen" sample="&quot;01-orders.png&quot;"/>
+    <attribute as="tone" sample="&quot;#6d5efc&quot;"/>
+    <attribute as="tone2" sample="&quot;#f0a6ff&quot;"/>
+    <attribute as="decor" sample="[{&quot;id&quot;:1,&quot;kind&quot;:&quot;asset&quot;,&quot;src&quot;:&quot;app-logo.png&quot;,&quot;x&quot;:&quot;8%&quot;,&quot;y&quot;:&quot;5%&quot;,&quot;w&quot;:&quot;13%&quot;,&quot;label&quot;:&quot;Orders&quot;},{&quot;id&quot;:2,&quot;kind&quot;:&quot;badge&quot;,&quot;x&quot;:&quot;8%&quot;,&quot;y&quot;:&quot;80.5%&quot;,&quot;icon&quot;:&quot;star.fill&quot;,&quot;label&quot;:&quot;4.9&quot;,&quot;sub&quot;:&quot;12,483 ratings&quot;},{&quot;id&quot;:3,&quot;kind&quot;:&quot;chip&quot;,&quot;x&quot;:&quot;57%&quot;,&quot;y&quot;:&quot;82.4%&quot;,&quot;icon&quot;:&quot;bolt.fill&quot;,&quot;label&quot;:&quot;Works offline&quot;},{&quot;id&quot;:4,&quot;kind&quot;:&quot;callout&quot;,&quot;x&quot;:&quot;20.5%&quot;,&quot;y&quot;:&quot;67.6%&quot;,&quot;w&quot;:&quot;61%&quot;,&quot;h&quot;:&quot;4.7%&quot;,&quot;label&quot;:&quot;Live totals, no refresh&quot;}]"/>
+  </head>
+
+  <stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0">
+    <ShotGlow a="{{ dsx.attribute.tone }}" b="{{ dsx.attribute.tone2 }}"/>
+  </stack>
+
+  <vstack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;
+                 padding: 132px 40px 0 40px; gap: 0rem">
+    <text value="{{ dsx.attribute.caption }}"
+          style="color: #ffffff; text-align: center; font-size: 42px; font-weight: 800;
+                 letter-spacing: -0.038em; line-height: 1.02; white-space: pre-wrap"/>
+    <text value="{{ dsx.attribute.subcaption }}"
+          style="margin-top: 16px; color: rgba(255,255,255,0.64); text-align: center;
+                 font-size: 15px; font-weight: 450; line-height: 1.4"/>
+    <stack style="margin-top: 40px; width: 100%">
+      <ShotFrame screen="{{ dsx.attribute.screen }}" label="{{ dsx.attribute.caption }}"
+                 width="80%" lift="0.6"/>
+    </stack>
+  </vstack>
+
+  <ShotDecor items="{{ dsx.attribute.decor }}"/>
+</stack>

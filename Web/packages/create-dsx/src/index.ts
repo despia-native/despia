@@ -1,8 +1,8 @@
 //
-//  create-dsx — scaffold a minimal, working DSX project.
+//  create-despia — scaffold a minimal, working DSX project.
 //
 //  The generated project is a real DSX package (dsx.json + Components/**.dsx) plus the app
-//  configuration `@despia/cli` reads, and it compiles with `dsx build` as generated — that is
+//  configuration `@despia/cli` reads, and it compiles with `despia build` as generated — that is
 //  the contract this package is judged by, and the end-to-end test in test/scaffold.test.ts
 //  runs exactly that loop.
 //
@@ -93,7 +93,8 @@ export function workspaceLinks(workspace: string): { [pkg: string]: string } {
   for (const dir of readdirSync(packagesDir)) {
     const manifest = join(packagesDir, dir, "package.json");
     if (!existsSync(manifest)) continue;
-    links[dir === "create-dsx" ? "create-dsx" : `@despia/${dir}`] = `file:${join(packagesDir, dir)}`;
+    // the folder is packages/create-dsx but the published name is create-despia
+    links[dir === "create-dsx" ? "create-despia" : `@despia/${dir}`] = `file:${join(packagesDir, dir)}`;
   }
   return links;
 }

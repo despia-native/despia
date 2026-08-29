@@ -1,5 +1,5 @@
 {
-  "name": "create-dsx",
+  "name": "create-despia",
   "version": "0.0.1",
   "license": "Apache-2.0",
   "type": "module",
@@ -7,18 +7,38 @@
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/src/index.d.ts", "import": "./dist/src/index.js", "default": "./dist/src/index.js" }
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    }
   },
   "bin": {
+    "create-despia": "./dist/bin/create-dsx.js",
     "create-dsx": "./dist/bin/create-dsx.js"
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
-  "engines": { "node": ">=22.18" },
-  "repository": { "type": "git", "url": "git+https://github.com/despia-native/despia.git", "directory": "Web/packages/create-dsx" },
-  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/create-dsx",
-  "bugs": { "url": "https://github.com/despia-native/despia/issues" },
-  "publishConfig": { "access": "public", "provenance": true },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/despia-native/despia.git",
+    "directory": "Web/packages/create-dsx"
+  },
+  "homepage": "https://github.com/despia-native/despia/tree/main/Web/packages/create-dsx",
+  "bugs": {
+    "url": "https://github.com/despia-native/despia/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
     "build": "npm run clean && tsc -p tsconfig.build.json",

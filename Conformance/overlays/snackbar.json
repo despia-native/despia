@@ -1,0 +1,203 @@
+{
+  "_note": "THE SNACKBAR LAW, encoded (U06 - ClosedSource/Documentation/v4-launch/parity/U06-overlays.md). Core/Toast grows an action button, a queue and an OUTCOME RESOLVE, and this corpus is the platform-neutral half of that: what a duration word means, how two overlapping shows order themselves, which of the four results each ending produces, and how far above the bottom edge the card sits. THREE SECTIONS, THREE PURE FUNCTIONS. (1) durationCases -> resolveDuration: the WORDS are Material's ('short' 4s, 'long' 10s) and a NUMBER STAYS SECONDS, because that is the unit Core/Toast has always shipped and silently redefining it under the same key would halve or double every toast already in the field; an unknown word falls back to the default rather than failing; the default is the shipped 2s, EXCEPT when the caller supplied an action button, where 2s is not enough time to reach Undo and 'short' takes over. (2) queueCases -> the reducer: ONE snackbar at a time, FIFO, because stacking is how a bottom sheet becomes unreachable. `replace: true` settles the visible card as `replaced` and takes its place WITHOUT draining the queue - it is a swap, not a reset. Every ending settles exactly once with one of dismissed | action | timeout | replaced, which is what makes `if ((await toast.show({…})).result === 'action') undo()` the whole undo pattern. A swipe on a card declared dismissible:false is a no-op; `hide()` is an API call, not a gesture, so it settles the card regardless, and `hide({id})` on a QUEUED card drops it from the queue as `dismissed` without disturbing the visible one. (3) liftCases -> resolveLift: the card lifts above whatever is at the bottom edge - the keyboard when it is up (it already covers the bar, the FAB and the safe area, so it is the whole obstruction), otherwise the safe area plus the bottom bar plus the FAB's occupied height - and then adds the 16pt gap. THE INVARIANT: the bottom inset is never less than the safe-area inset plus the gap, so the card NEVER COVERS THE HOME INDICATOR, whatever the caller reports. A top-positioned card is the safe-area top plus 12pt and the keyboard is irrelevant to it. Runners: TS packages/kernel/test/snackbar-conformance.test.ts, Kotlin :core SnackbarConformanceTest, Swift SnackbarConformance (record lane).",
+  "durationCases": [
+    { "name": "short is Material's 4 seconds", "duration": "short", "expect": 4000 },
+    { "name": "long is 10 seconds", "duration": "long", "expect": 10000 },
+    { "name": "words are trimmed and case-insensitive (a dashboard field, not a schema)", "duration": "  LONG ", "expect": 10000 },
+    { "name": "a number stays SECONDS - the unit Core/Toast already ships", "duration": 3, "expect": 3000 },
+    { "name": "a numeric string is a number (the shipped Swift facet accepted both)", "duration": "3", "expect": 3000 },
+    { "name": "a fractional second is honoured above the floor", "duration": 1.5, "expect": 1500 },
+    { "name": "under a second clamps to a second - a toast nobody can read is not a toast", "duration": 0.2, "expect": 1000 },
+    { "name": "a negative duration clamps to the floor rather than vanishing", "duration": -5, "expect": 1000 },
+    { "name": "no duration is the shipped 2 second default", "duration": null, "expect": 2000 },
+    { "name": "no duration WITH an action button is short - 2s is not enough time to reach Undo", "duration": null, "hasAction": true, "expect": 4000 },
+    { "name": "an unknown word falls back to the default instead of failing a build", "duration": "forever", "expect": 2000 },
+    { "name": "an unknown word with an action still gets the action default", "duration": "forever", "hasAction": true, "expect": 4000 }
+  ],
+  "queueCases": [
+    {
+      "name": "one show is simply shown",
+      "ops": [{ "op": "show", "id": "a", "message": "Saved" }],
+      "expect": { "current": "a", "pending": [], "settled": [] }
+    },
+    {
+      "name": "two rapid shows QUEUE rather than stack - one at a time, always",
+      "ops": [
+        { "op": "show", "id": "a", "message": "Saved" },
+        { "op": "show", "id": "b", "message": "Deleted" }
+      ],
+      "expect": { "current": "a", "pending": ["b"], "settled": [] }
+    },
+    {
+      "name": "the queue drains FIFO as each card ends",
+      "ops": [
+        { "op": "show", "id": "a" },
+        { "op": "show", "id": "b" },
+        { "op": "show", "id": "c" },
+        { "op": "elapse" }
+      ],
+      "expect": { "current": "b", "pending": ["c"], "settled": [{ "id": "a", "result": "timeout" }] }
+    },
+    {
+      "name": "timing out settles `timeout`",
+      "ops": [{ "op": "show", "id": "a" }, { "op": "elapse" }],
+      "expect": { "current": null, "pending": [], "settled": [{ "id": "a", "result": "timeout" }] }
+    },
+    {
+      "name": "tapping the action settles `action` - the whole undo pattern",
+      "ops": [
+        { "op": "show", "id": "a", "action": { "label": "Undo", "id": "undo" } },
+        { "op": "action" }
+      ],
+      "expect": { "current": null, "pending": [], "settled": [{ "id": "a", "result": "action" }] }
+    },
+    {
+      "name": "an action tap on a card with no action button is a no-op",
+      "ops": [{ "op": "show", "id": "a" }, { "op": "action" }],
+      "expect": { "current": "a", "pending": [], "settled": [] }
+    },
+    {
+      "name": "a swipe settles `dismissed`",
+      "ops": [{ "op": "show", "id": "a" }, { "op": "dismiss" }],
+      "expect": { "current": null, "pending": [], "settled": [{ "id": "a", "result": "dismissed" }] }
+    },
+    {
+      "name": "a swipe on a non-dismissible card is a no-op",
+      "ops": [{ "op": "show", "id": "a", "dismissible": false }, { "op": "dismiss" }],
+      "expect": { "current": "a", "pending": [], "settled": [] }
+    },
+    {
+      "name": "hide() is an API call, not a gesture - it settles even a non-dismissible card",
+      "ops": [{ "op": "show", "id": "a", "dismissible": false }, { "op": "hide" }],
+      "expect": { "current": null, "pending": [], "settled": [{ "id": "a", "result": "dismissed" }] }
+    },
+    {
+      "name": "replace swaps immediately and settles the outgoing card as `replaced`",
+      "ops": [
+        { "op": "show", "id": "a", "message": "Saving" },
+        { "op": "show", "id": "b", "message": "Saved", "replace": true }
+      ],
+      "expect": { "current": "b", "pending": [], "settled": [{ "id": "a", "result": "replaced" }] }
+    },
+    {
+      "name": "replace is a swap, not a reset - the queue behind it is untouched",
+      "ops": [
+        { "op": "show", "id": "a" },
+        { "op": "show", "id": "b" },
+        { "op": "show", "id": "c", "replace": true }
+      ],
+      "expect": { "current": "c", "pending": ["b"], "settled": [{ "id": "a", "result": "replaced" }] }
+    },
+    {
+      "name": "replace with nothing on screen simply shows",
+      "ops": [{ "op": "show", "id": "a", "replace": true }],
+      "expect": { "current": "a", "pending": [], "settled": [] }
+    },
+    {
+      "name": "hide by id drops a QUEUED card as dismissed and leaves the visible one alone",
+      "ops": [
+        { "op": "show", "id": "a" },
+        { "op": "show", "id": "b" },
+        { "op": "show", "id": "c" },
+        { "op": "hide", "id": "b" }
+      ],
+      "expect": { "current": "a", "pending": ["c"], "settled": [{ "id": "b", "result": "dismissed" }] }
+    },
+    {
+      "name": "hide by an unknown id changes nothing",
+      "ops": [{ "op": "show", "id": "a" }, { "op": "hide", "id": "zz" }],
+      "expect": { "current": "a", "pending": [], "settled": [] }
+    },
+    {
+      "name": "hide with nothing on screen changes nothing",
+      "ops": [{ "op": "hide" }],
+      "expect": { "current": null, "pending": [], "settled": [] }
+    },
+    {
+      "name": "an empty message is a no-op - the shipped rule, kept",
+      "ops": [{ "op": "show", "id": "a", "message": "" }],
+      "expect": { "current": null, "pending": [], "settled": [] }
+    },
+    {
+      "name": "every ending settles EXACTLY ONCE - a second elapse after the queue drains is inert",
+      "ops": [
+        { "op": "show", "id": "a" },
+        { "op": "elapse" },
+        { "op": "elapse" }
+      ],
+      "expect": { "current": null, "pending": [], "settled": [{ "id": "a", "result": "timeout" }] }
+    },
+    {
+      "name": "a full walk: queue, action, replace, drain",
+      "ops": [
+        { "op": "show", "id": "a", "action": { "label": "Undo", "id": "undo" } },
+        { "op": "show", "id": "b" },
+        { "op": "action" },
+        { "op": "show", "id": "c", "replace": true },
+        { "op": "dismiss" },
+        { "op": "elapse" }
+      ],
+      "expect": {
+        "current": null,
+        "pending": [],
+        "settled": [
+          { "id": "a", "result": "action" },
+          { "id": "b", "result": "replaced" },
+          { "id": "c", "result": "dismissed" }
+        ]
+      }
+    }
+  ],
+  "liftCases": [
+    {
+      "name": "a bare bottom card sits one gap above the safe area",
+      "lift": { "position": "bottom", "safeAreaTop": 47, "safeAreaBottom": 34, "bottomBar": 0, "fab": 0, "keyboard": 0 },
+      "expect": { "edge": "bottom", "inset": 50, "clearsHomeIndicator": true }
+    },
+    {
+      "name": "with no home indicator the gap is all there is",
+      "lift": { "position": "bottom", "safeAreaTop": 20, "safeAreaBottom": 0, "bottomBar": 0, "fab": 0, "keyboard": 0 },
+      "expect": { "edge": "bottom", "inset": 16, "clearsHomeIndicator": true }
+    },
+    {
+      "name": "a bottom bar lifts the card above it",
+      "lift": { "position": "bottom", "safeAreaTop": 47, "safeAreaBottom": 34, "bottomBar": 49, "fab": 0, "keyboard": 0 },
+      "expect": { "edge": "bottom", "inset": 99, "clearsHomeIndicator": true }
+    },
+    {
+      "name": "a FAB lifts the card above the FAB, which is itself above the bar",
+      "lift": { "position": "bottom", "safeAreaTop": 47, "safeAreaBottom": 34, "bottomBar": 49, "fab": 72, "keyboard": 0 },
+      "expect": { "edge": "bottom", "inset": 171, "clearsHomeIndicator": true }
+    },
+    {
+      "name": "the keyboard is the WHOLE obstruction - it already covers the bar, the FAB and the safe area",
+      "lift": { "position": "bottom", "safeAreaTop": 47, "safeAreaBottom": 34, "bottomBar": 49, "fab": 72, "keyboard": 336 },
+      "expect": { "edge": "bottom", "inset": 352, "clearsHomeIndicator": true }
+    },
+    {
+      "name": "a keyboard shorter than the chrome still wins - it is what is actually on top",
+      "lift": { "position": "bottom", "safeAreaTop": 47, "safeAreaBottom": 34, "bottomBar": 49, "fab": 0, "keyboard": 60 },
+      "expect": { "edge": "bottom", "inset": 76, "clearsHomeIndicator": true }
+    },
+    {
+      "name": "nonsense geometry cannot push the card onto the home indicator",
+      "lift": { "position": "bottom", "safeAreaTop": -10, "safeAreaBottom": 34, "bottomBar": -200, "fab": -50, "keyboard": -300 },
+      "expect": { "edge": "bottom", "inset": 50, "clearsHomeIndicator": true }
+    },
+    {
+      "name": "a top card is the safe-area top plus 12",
+      "lift": { "position": "top", "safeAreaTop": 47, "safeAreaBottom": 34, "bottomBar": 49, "fab": 72, "keyboard": 0 },
+      "expect": { "edge": "top", "inset": 59, "clearsHomeIndicator": true }
+    },
+    {
+      "name": "the keyboard is irrelevant to a top card",
+      "lift": { "position": "top", "safeAreaTop": 47, "safeAreaBottom": 34, "bottomBar": 0, "fab": 0, "keyboard": 336 },
+      "expect": { "edge": "top", "inset": 59, "clearsHomeIndicator": true }
+    },
+    {
+      "name": "an unknown position word is bottom - a typo must not fail a build",
+      "lift": { "position": "middle", "safeAreaTop": 47, "safeAreaBottom": 34, "bottomBar": 0, "fab": 0, "keyboard": 0 },
+      "expect": { "edge": "bottom", "inset": 50, "clearsHomeIndicator": true }
+    }
+  ]
+}

@@ -1,0 +1,398 @@
+{
+ "_note": "FORM VALIDITY AGGREGATION and the SUBMIT GATE (U08 · <form> on:invalid / dirty / valid / submitting / disabled). RULE LAW: `required` is the only rule an EMPTY value can fail — every other rule passes on empty, so `validate=\"email\"` alone never blocks an untouched optional field; pair it with `required`. The rule vocabulary is required · email · url · phone · minLength:n · maxLength:n · pattern (the regex arrives in the sibling `pattern=` attribute so a ',' inside a quantifier cannot collide with the validate= separator). The FIRST failing rule owns the message; `message=` overrides it. AGGREGATION: form.valid is 'no registered field carries an error', form.dirty is 'some field differs from its initial value', and the on:invalid payload is the offending field names in REGISTRATION order. SUBMIT GATE (the double-submit law): a submit while `submitting` is already true, or while the form is `disabled`, is BLOCKED and runs nothing — that is the framework-level answer to a double-tapped order button; an invalid submit marks every field touched, sets form.submitted so every error reveals at once, and fires on:invalid; a valid submit sets submitting=true and runs on:submit. Expected values come from an independent scratch implementation.",
+ "rules": [
+  {
+   "rule": "required",
+   "arg": "",
+   "value": "",
+   "pattern": "",
+   "expect": false
+  },
+  {
+   "rule": "required",
+   "arg": "",
+   "value": "  ",
+   "pattern": "",
+   "expect": false
+  },
+  {
+   "rule": "required",
+   "arg": "",
+   "value": "x",
+   "pattern": "",
+   "expect": true
+  },
+  {
+   "rule": "email",
+   "arg": "",
+   "value": "",
+   "pattern": "",
+   "expect": true
+  },
+  {
+   "rule": "email",
+   "arg": "",
+   "value": "ada@example.com",
+   "pattern": "",
+   "expect": true
+  },
+  {
+   "rule": "email",
+   "arg": "",
+   "value": "ada@example",
+   "pattern": "",
+   "expect": false
+  },
+  {
+   "rule": "email",
+   "arg": "",
+   "value": "a@b.co",
+   "pattern": "",
+   "expect": true
+  },
+  {
+   "rule": "url",
+   "arg": "",
+   "value": "https://despia.com/x?y=1",
+   "pattern": "",
+   "expect": true
+  },
+  {
+   "rule": "url",
+   "arg": "",
+   "value": "despia.com",
+   "pattern": "",
+   "expect": false
+  },
+  {
+   "rule": "url",
+   "arg": "",
+   "value": "mailto:a@b.co",
+   "pattern": "",
+   "expect": false
+  },
+  {
+   "rule": "phone",
+   "arg": "",
+   "value": "+1 (415) 555-2671",
+   "pattern": "",
+   "expect": true
+  },
+  {
+   "rule": "phone",
+   "arg": "",
+   "value": "12345",
+   "pattern": "",
+   "expect": false
+  },
+  {
+   "rule": "minLength",
+   "arg": "8",
+   "value": "1234567",
+   "pattern": "",
+   "expect": false
+  },
+  {
+   "rule": "minLength",
+   "arg": "8",
+   "value": "12345678",
+   "pattern": "",
+   "expect": true
+  },
+  {
+   "rule": "maxLength",
+   "arg": "4",
+   "value": "12345",
+   "pattern": "",
+   "expect": false
+  },
+  {
+   "rule": "maxLength",
+   "arg": "4",
+   "value": "1234",
+   "pattern": "",
+   "expect": true
+  },
+  {
+   "rule": "pattern",
+   "arg": "",
+   "value": "AB-1234",
+   "pattern": "^[A-Z]{2}-\\d{4}$",
+   "expect": true
+  },
+  {
+   "rule": "pattern",
+   "arg": "",
+   "value": "ab-1234",
+   "pattern": "^[A-Z]{2}-\\d{4}$",
+   "expect": false
+  },
+  {
+   "rule": "pattern",
+   "arg": "",
+   "value": "",
+   "pattern": "^[A-Z]{2}-\\d{4}$",
+   "expect": true
+  }
+ ],
+ "fieldErrors": [
+  {
+   "field": {
+    "name": "e",
+    "value": "",
+    "validate": "required,email"
+   },
+   "expect": "Required"
+  },
+  {
+   "field": {
+    "name": "e",
+    "value": "nope",
+    "validate": "required,email"
+   },
+   "expect": "Enter a valid email"
+  },
+  {
+   "field": {
+    "name": "e",
+    "value": "nope",
+    "validate": "required,email",
+    "message": "We need a real address"
+   },
+   "expect": "We need a real address"
+  },
+  {
+   "field": {
+    "name": "p",
+    "value": "abc",
+    "validate": "required,minLength:8"
+   },
+   "expect": "Must be at least 8 characters"
+  },
+  {
+   "field": {
+    "name": "p",
+    "value": "abcdefghi",
+    "validate": "required,maxLength:4"
+   },
+   "expect": "Must be at most 4 characters"
+  },
+  {
+   "field": {
+    "name": "c",
+    "value": "ab-1234",
+    "validate": "required,pattern",
+    "pattern": "^[A-Z]{2}-\\d{4}$"
+   },
+   "expect": "Invalid format"
+  },
+  {
+   "field": {
+    "name": "c",
+    "value": "AB-1234",
+    "validate": "required,pattern",
+    "pattern": "^[A-Z]{2}-\\d{4}$"
+   },
+   "expect": ""
+  }
+ ],
+ "aggregate": [
+  {
+   "name": "all valid",
+   "fields": [
+    {
+     "name": "email",
+     "value": "ada@example.com",
+     "initial": "",
+     "validate": "required,email"
+    },
+    {
+     "name": "pin",
+     "value": "12345678",
+     "initial": "",
+     "validate": "required,minLength:8"
+    }
+   ],
+   "expect": {
+    "valid": true,
+    "dirty": true,
+    "errors": {
+     "email": "",
+     "pin": ""
+    },
+    "invalid": []
+   }
+  },
+  {
+   "name": "two invalid, one pristine",
+   "fields": [
+    {
+     "name": "email",
+     "value": "nope",
+     "initial": "",
+     "validate": "required,email"
+    },
+    {
+     "name": "pin",
+     "value": "123",
+     "initial": "",
+     "validate": "required,minLength:8"
+    },
+    {
+     "name": "name",
+     "value": "Ada",
+     "initial": "Ada",
+     "validate": "required"
+    }
+   ],
+   "expect": {
+    "valid": false,
+    "dirty": true,
+    "errors": {
+     "email": "Enter a valid email",
+     "pin": "Must be at least 8 characters",
+     "name": ""
+    },
+    "invalid": [
+     "email",
+     "pin"
+    ]
+   }
+  },
+  {
+   "name": "empty form",
+   "fields": [],
+   "expect": {
+    "valid": true,
+    "dirty": false,
+    "errors": {},
+    "invalid": []
+   }
+  }
+ ],
+ "submit": [
+  {
+   "name": "valid submit arms submitting",
+   "state": {
+    "submitting": false,
+    "disabled": false
+   },
+   "fields": [
+    {
+     "name": "email",
+     "value": "ada@example.com",
+     "initial": "",
+     "validate": "required,email"
+    },
+    {
+     "name": "pin",
+     "value": "12345678",
+     "initial": "",
+     "validate": "required,minLength:8"
+    }
+   ],
+   "expect": {
+    "action": "submit",
+    "reason": "",
+    "fields": [],
+    "submitting": true,
+    "submitted": true,
+    "touchedAll": false,
+    "disabled": false
+   }
+  },
+  {
+   "name": "DOUBLE SUBMIT is blocked in flight",
+   "state": {
+    "submitting": true,
+    "disabled": false
+   },
+   "fields": [
+    {
+     "name": "email",
+     "value": "ada@example.com",
+     "initial": "",
+     "validate": "required,email"
+    },
+    {
+     "name": "pin",
+     "value": "12345678",
+     "initial": "",
+     "validate": "required,minLength:8"
+    }
+   ],
+   "expect": {
+    "action": "blocked",
+    "reason": "in-flight",
+    "submitting": true,
+    "disabled": false
+   }
+  },
+  {
+   "name": "a disabled form submits nothing",
+   "state": {
+    "submitting": false,
+    "disabled": true
+   },
+   "fields": [
+    {
+     "name": "email",
+     "value": "ada@example.com",
+     "initial": "",
+     "validate": "required,email"
+    },
+    {
+     "name": "pin",
+     "value": "12345678",
+     "initial": "",
+     "validate": "required,minLength:8"
+    }
+   ],
+   "expect": {
+    "action": "blocked",
+    "reason": "disabled",
+    "submitting": false,
+    "disabled": true
+   }
+  },
+  {
+   "name": "invalid submit reveals every error and fires on:invalid",
+   "state": {
+    "submitting": false,
+    "disabled": false
+   },
+   "fields": [
+    {
+     "name": "email",
+     "value": "nope",
+     "initial": "",
+     "validate": "required,email"
+    },
+    {
+     "name": "pin",
+     "value": "123",
+     "initial": "",
+     "validate": "required,minLength:8"
+    },
+    {
+     "name": "name",
+     "value": "Ada",
+     "initial": "Ada",
+     "validate": "required"
+    }
+   ],
+   "expect": {
+    "action": "invalid",
+    "reason": "",
+    "fields": [
+     "email",
+     "pin"
+    ],
+    "submitting": false,
+    "submitted": true,
+    "touchedAll": true,
+    "disabled": false
+   }
+  }
+ ]
+}

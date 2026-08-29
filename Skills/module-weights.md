@@ -1,4 +1,4 @@
-# Module weights — bundling large ML blobs without committing them
+# Module weights: bundling large ML blobs without committing them
 
 Some modules need a big binary they don't author: an ML model (CoreML / ONNX / GGUF),
 an embedding table, a lookup blob. Committing it to git is wrong — it's large, binary,

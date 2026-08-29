@@ -1,4 +1,4 @@
-# Quickstart — a DSX app from nothing
+# Quickstart: a DSX app from nothing
 
 Ten minutes, one command, no monorepo checkout. At the end you have a real DSX
 application: a `.dsx` document that the Swift, Kotlin, and TypeScript kernels all render,

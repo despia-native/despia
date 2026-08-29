@@ -30,6 +30,7 @@ class PlatformSupportTest {
 
     @AfterTest fun restoreSeams() {
         ModuleRegistry.shared.platformSupport = emptyMap()
+        ModuleRegistry.shared.platformSupportByAction = emptyMap()
         JSERunner.moduleHandle = { _, _, _ -> false }
         Platform.os = "android"
         Platform.nodeTarget = null
@@ -40,6 +41,53 @@ class PlatformSupportTest {
     @Test fun defaultEmptyMapIsTodaysBehavior() {
         assertNull(ModuleRegistry.shared.unsupportedPlatforms("scene3d"))
         assertEquals("android", ModuleRegistry.shared.currentPlatform)
+    }
+
+    // -- the ACTION rows (X2 §4 `platforms`) --
+
+    @Test fun anActionWithNoNarrowingAnswersExactlyAsItsModuleDoes() {
+        ModuleRegistry.shared.platformSupport = mapOf("scene3d" to listOf("ios"))
+        ModuleRegistry.shared.platformSupportByAction = mapOf("scene3d.load" to listOf("ios"))
+        // no row for `unload` — it inherits, byte for byte
+        assertEquals(listOf("ios"), ModuleRegistry.shared.unsupportedPlatforms("scene3d", "unload"))
+        assertEquals(listOf("ios"), ModuleRegistry.shared.unsupportedPlatforms("scene3d", null))
+        assertEquals(listOf("ios"), ModuleRegistry.shared.unsupportedPlatforms("scene3d", ""))
+    }
+
+    @Test fun anActionRowOutranksItsModuleRowInBothDirections() {
+        // The module IS implemented here; ONE action is not. The scheme-only lookup cannot see
+        // this, which is the whole reason the action table exists.
+        ModuleRegistry.shared.platformSupport = mapOf("health" to listOf("ios", "android"))
+        ModuleRegistry.shared.platformSupportByAction = mapOf("health.workouts" to listOf("ios"))
+        assertNull(ModuleRegistry.shared.unsupportedPlatforms("health"))
+        assertNull(ModuleRegistry.shared.unsupportedPlatforms("health", "read"))
+        assertEquals(listOf("ios"), ModuleRegistry.shared.unsupportedPlatforms("health", "workouts"))
+        // …and the other way: the module is off-platform, one action is not
+        ModuleRegistry.shared.platformSupport = mapOf("wallet" to listOf("ios"))
+        ModuleRegistry.shared.platformSupportByAction = mapOf("wallet.status" to listOf("ios", "android"))
+        assertEquals(listOf("ios"), ModuleRegistry.shared.unsupportedPlatforms("wallet", "add"))
+        assertNull(ModuleRegistry.shared.unsupportedPlatforms("wallet", "status"))
+    }
+
+    @Test fun actionKeysAreCaseInsensitiveAndSlashFolded() {
+        ModuleRegistry.shared.platformSupportByAction = mapOf("watch.health.heartrate" to listOf("ios"))
+        assertEquals(listOf("ios"), ModuleRegistry.shared.unsupportedPlatforms("Watch.Health", "HeartRate"))
+        assertEquals(listOf("ios"), ModuleRegistry.shared.unsupportedPlatforms("watch.health", "heartRate"))
+        // the wire spells a nested action path with '/', the manifest with '.'
+        ModuleRegistry.shared.platformSupportByAction = mapOf("files.pick.image" to listOf("ios"))
+        assertEquals(listOf("ios"), ModuleRegistry.shared.unsupportedPlatforms("files", "pick/image"))
+    }
+
+    @Test fun theLadderPutsAnActionNarrowingAheadOfUnknownAction() {
+        // A module that is present and correct here still cannot run an action its manifest
+        // declares impossible — and `unknown_action` would blame the caller for it.
+        assertEquals("unsupported_platform",
+                     FacetLadder.resolve(FacetFacts(module = true, offPlatformAction = true)).code)
+        assertEquals("unknown_action", FacetLadder.resolve(FacetFacts(module = true)).code)
+        assertEquals("unsupported_platform", FacetLadder.resolve(FacetFacts(offPlatform = true)).code)
+        // rung one still wins: a local handler never consults the catalog
+        assertEquals(FacetLadder.Rung.LOCAL,
+                     FacetLadder.resolve(FacetFacts(local = true, offPlatformAction = true)).rung)
     }
 
     @Test fun lookupIsCaseInsensitiveAndDataLowercases() {

@@ -9,32 +9,32 @@
     "value": {
       "type": "expr(int)",
       "default": null,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:30 (two-way selected tab by child index; Android this wave reads bind= — divergence, see elements-gaps.json partial)"
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:39 (two-way selected tab by child index; Android StackNodeView.kt Tabs reads value= the same way, with bind= kept as a documented alias of that index)"
     },
     "color": {
       "type": "color",
       "default": "accent",
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:26"
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:35"
     },
     "on:change": {
       "type": "action",
       "default": null,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:35 (never for the mount tab)"
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:44 (never for the mount tab)"
     },
     "tabTitle": {
       "type": "string(per child)",
       "default": null,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:51"
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:73"
     },
     "tabIcon": {
       "type": "sf-symbol(per child)",
       "default": null,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:50"
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:72"
     },
     "tabBadge": {
       "type": "string(per child)",
       "default": null,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:48 (empty/absent = none)"
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:70 (empty/absent = none)"
     }
   },
   "geometry": {
@@ -42,8 +42,8 @@
   "colors": {
     "tint": {
       "token": "accent",
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:26"
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift:35"
     }
   },
-  "notes": ""
+  "notes": "Desktop class (Tabs.swift:57 adaptive): iOS 18 / macOS 15+ adopt .tabViewStyle(.sidebarAdaptable) - iPhone keeps the bottom bar, regular-width iPad presents the top tab bar with the user-toggleable sidebar, macOS the sidebar; older OSes keep the classic TabView. Android (StackNodeView.kt Tabs) adopts the same shape through Material 3 NavigationSuiteScaffold - compact width renders the bottom navigation bar, medium/expanded the navigation rail, per the platform's own WindowSizeClass; color= rides the suite's item colors, tabIcon the sf-map subset, tabBadge the M3 Badge. All attributes are presentation-independent (same value Binding, same tabItem/badge). Native delegates the compact/regular switch to the OS size class, where web uses its >= 69rem rail breakpoint."
 }

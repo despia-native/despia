@@ -1,0 +1,248 @@
+{
+  "version": 1,
+  "_note": "The `files` module's PURE CORE: the root vocabulary, the per-platform physical base each token maps to, path normalisation, and the two containment checks that ARE the sandbox. This is a security boundary, not a convenience: a path that escapes its root is refused, and every renderer must refuse it the same way, so the corpus is the law and the three runners (TS files-conformance.test.ts, Kotlin FilesPathConformanceTest, Swift DSXFilePaths) execute this one file. parse[] pins the TEXTUAL half — a `root:relative` document path is trimmed, its root matched EXACT CASE against the closed five-word vocabulary, and its relative part normalised (`.` dropped, `..` popped, empty segments collapsed) BEFORE the escape test, because checking before normalisation is the classic bypass. contains[] pins the PHYSICAL half — after a facet has asked the OS to resolve symlinks (realpath), it asks here whether the resolved path is still inside the resolved base; `/a/bc` is NOT inside `/a/b`, which is the prefix-without-separator bug that every hand-rolled check ships at least once. Every refusal is `unsupported_root`: a path this module will not address is one condition with one code, whatever shape the attempt took (parity/F03-files.md §3a, §3c).",
+
+  "roots": ["documents", "cache", "temp", "shared", "bundle"],
+
+  "actions": [
+    "info", "read", "write", "delete", "move", "copy", "mkdir", "list",
+    "download", "upload", "free", "hash", "zip", "unzip", "exclude"
+  ],
+
+  "platforms": ["ios", "android", "web"],
+
+  "_note_bases": "The physical base each token resolves to, as a PLATFORM TOKEN rather than a container path — the container path is a runtime value (an app group id, an OPFS handle), the CHOICE of directory is the decision, and the decision is what has to agree on three renderers. A null base is the typed absence: the platform has no such place, so the facet resolves `unsupported_platform` rather than inventing one. `writable:false` is the read-only root: a write/mkdir/delete/move-to against it is `permission_denied`, never a silent no-op.",
+  "bases": [
+    { "root": "documents", "writable": true,  "backedUp": true,  "evictable": false, "ios": "Documents", "android": "filesDir",       "web": "opfs" },
+    { "root": "cache",     "writable": true,  "backedUp": false, "evictable": true,  "ios": "Caches",    "android": "cacheDir",        "web": "cacheStorage" },
+    { "root": "temp",      "writable": true,  "backedUp": false, "evictable": true,  "ios": "tmp",       "android": "cacheDir/tmp",    "web": "memory" },
+    { "root": "shared",    "writable": true,  "backedUp": false, "evictable": false, "ios": "AppGroup",  "android": "externalFilesDir", "web": null },
+    { "root": "bundle",    "writable": false, "backedUp": false, "evictable": false, "ios": "Bundle",    "android": "assets",          "web": "origin" }
+  ],
+
+  "parse": [
+    { "name": "a plain document path",
+      "path": "documents:notes/today.txt",
+      "expect": { "root": "documents", "relative": "notes/today.txt" } },
+
+    { "name": "a file at the top of a root",
+      "path": "cache:thumb.bin",
+      "expect": { "root": "cache", "relative": "thumb.bin" } },
+
+    { "name": "the root itself is the empty relative path",
+      "path": "temp:",
+      "expect": { "root": "temp", "relative": "" } },
+
+    { "name": "the shared root parses everywhere; whether it EXISTS is the bases table's question",
+      "path": "shared:handoff.json",
+      "expect": { "root": "shared", "relative": "handoff.json" } },
+
+    { "name": "the bundle root parses; writability is a separate question",
+      "path": "bundle:seed/index.html",
+      "expect": { "root": "bundle", "relative": "seed/index.html" } },
+
+    { "name": "a leading slash after the token is root-relative, not absolute",
+      "path": "documents:/reports/q3.csv",
+      "expect": { "root": "documents", "relative": "reports/q3.csv" } },
+
+    { "name": "duplicate separators collapse",
+      "path": "documents://a//b///c.txt",
+      "expect": { "root": "documents", "relative": "a/b/c.txt" } },
+
+    { "name": "a trailing separator is stripped",
+      "path": "documents:exports/",
+      "expect": { "root": "documents", "relative": "exports" } },
+
+    { "name": "a single-dot segment is dropped",
+      "path": "documents:./a.txt",
+      "expect": { "root": "documents", "relative": "a.txt" } },
+
+    { "name": "an interior single-dot segment is dropped",
+      "path": "documents:a/./b.txt",
+      "expect": { "root": "documents", "relative": "a/b.txt" } },
+
+    { "name": "a double-dot that stays inside the root is normalised, not refused",
+      "path": "documents:a/../b.txt",
+      "expect": { "root": "documents", "relative": "b.txt" } },
+
+    { "name": "several double-dots that stay inside the root are normalised",
+      "path": "documents:a/b/../../c/d.txt",
+      "expect": { "root": "documents", "relative": "c/d.txt" } },
+
+    { "name": "surrounding whitespace is trimmed",
+      "path": "   documents:a.txt   ",
+      "expect": { "root": "documents", "relative": "a.txt" } },
+
+    { "name": "interior spaces are ordinary filename characters",
+      "path": "documents:My Reports/Q3 final.csv",
+      "expect": { "root": "documents", "relative": "My Reports/Q3 final.csv" } },
+
+    { "name": "a dotfile is not a dot segment",
+      "path": "documents:.env.local",
+      "expect": { "root": "documents", "relative": ".env.local" } },
+
+    { "name": "a name merely beginning with two dots is not a dot segment",
+      "path": "documents:..config/keep.txt",
+      "expect": { "root": "documents", "relative": "..config/keep.txt" } },
+
+    { "name": "a percent escape that decodes to something harmless is left alone, never decoded",
+      "path": "documents:%20lead.txt",
+      "expect": { "root": "documents", "relative": "%20lead.txt" } },
+
+    { "name": "empty is not a path",
+      "path": "", "expect": { "error": "unsupported_root" } },
+
+    { "name": "whitespace-only is not a path",
+      "path": "    ", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a bare relative path names no root",
+      "path": "notes/today.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a root token with no separator is not a path",
+      "path": "documents", "expect": { "error": "unsupported_root" } },
+
+    { "name": "an empty root token is refused",
+      "path": ":a.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "an absolute OS path is refused — markup never names one",
+      "path": "/var/mobile/Containers/Data/Application/x/Documents/a.txt",
+      "expect": { "error": "unsupported_root" } },
+
+    { "name": "an absolute system path is refused",
+      "path": "/etc/passwd", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a file: URL is not a root token",
+      "path": "file:///etc/passwd", "expect": { "error": "unsupported_root" } },
+
+    { "name": "an http URL is not a root token",
+      "path": "https://example.com/a.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "the vocabulary is exact case",
+      "path": "Documents:a.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "the vocabulary is closed — an unknown token is refused, never guessed",
+      "path": "docs:a.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "external storage is not a root this module addresses",
+      "path": "external:Download/a.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a double-dot that escapes the root is refused",
+      "path": "documents:../outside.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a double-dot that escapes after descending is refused",
+      "path": "documents:a/../../outside.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a bare double-dot is an escape",
+      "path": "documents:..", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a leading slash does not rescue an escape",
+      "path": "documents:/../../etc/passwd", "expect": { "error": "unsupported_root" } },
+
+    { "name": "an escape hidden behind dot segments is still an escape",
+      "path": "documents:./a/./../../x", "expect": { "error": "unsupported_root" } },
+
+    { "name": "encoded dots are refused, never decoded into a traversal",
+      "path": "documents:%2e%2e/outside.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "encoded dots in upper-case hex are refused too",
+      "path": "documents:%2E%2E/outside.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a mixed encoded double-dot is refused",
+      "path": "documents:.%2e/outside.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "an encoded single dot is refused — no segment may hide behind an escape",
+      "path": "documents:%2e/a.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a deep encoded traversal is refused",
+      "path": "documents:a/%2e%2e/%2e%2e/b.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "an encoded separator is refused — a segment may not smuggle a path in",
+      "path": "documents:a%2Fb", "expect": { "error": "unsupported_root" } },
+
+    { "name": "an encoded separator after dots is refused",
+      "path": "documents:..%2Foutside.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "an encoded backslash is refused",
+      "path": "documents:a%5Cb", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a backslash is refused rather than treated as a name character",
+      "path": "documents:a\\..\\b", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a tilde segment is refused — this module expands no home directory",
+      "path": "documents:~/secrets", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a named tilde segment is refused for the same reason",
+      "path": "documents:~root/secrets", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a bare tilde path names no root",
+      "path": "~/secrets", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a second root token inside the relative part is refused",
+      "path": "documents:cache:steal.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a drive letter is refused",
+      "path": "documents:C:/Windows/win.ini", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a NUL byte is refused — the classic truncation trick",
+      "path": "documents:a\u0000.png", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a newline is refused",
+      "path": "documents:a\nb.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a carriage return is refused",
+      "path": "documents:a\rb.txt", "expect": { "error": "unsupported_root" } },
+
+    { "name": "a DEL control character is refused",
+      "path": "documents:a\u007fb.txt", "expect": { "error": "unsupported_root" } }
+  ],
+
+  "_note_glob": "`list`'s `glob` filter, matched against the path RELATIVE to the listed directory with `/` separators. A tiny, closed grammar on purpose: `*` matches any run of characters within one segment, `?` matches one character within one segment, and a whole segment of `**` matches zero or more segments. Brace expansion, character classes and negation are deliberately absent - they are where every hand-rolled matcher starts disagreeing with every other, and a listing filter needs none of them. The match is anchored (the whole relative path, not a substring) and case-exact. Three facets would otherwise each grow their own matcher, which is exactly the drift the unified-codebase law exists to stop.",
+  "glob": [
+    { "name": "a bare pattern matches one segment", "pattern": "*.png", "path": "one.png", "expect": true },
+    { "name": "a bare pattern does not cross a separator", "pattern": "*.png", "path": "sub/three.png", "expect": false },
+    { "name": "a leading ** matches zero segments", "pattern": "**/*.png", "path": "one.png", "expect": true },
+    { "name": "a leading ** matches one segment", "pattern": "**/*.png", "path": "sub/three.png", "expect": true },
+    { "name": "a leading ** matches several segments", "pattern": "**/*.png", "path": "sub/deep/four.png", "expect": true },
+    { "name": "the extension still has to match", "pattern": "**/*.png", "path": "two.jpg", "expect": false },
+    { "name": "a literal prefix segment anchors the match", "pattern": "sub/*", "path": "sub/three.png", "expect": true },
+    { "name": "a single star does not descend", "pattern": "sub/*", "path": "sub/deep/four.png", "expect": false },
+    { "name": "a trailing ** descends", "pattern": "sub/**", "path": "sub/deep/four.png", "expect": true },
+    { "name": "a trailing ** matches zero segments, so it also names the directory itself", "pattern": "sub/**", "path": "sub", "expect": true },
+    { "name": "a question mark matches exactly one character", "pattern": "?ne.png", "path": "one.png", "expect": true },
+    { "name": "a question mark does not rescue a wrong extension", "pattern": "?ne.png", "path": "one.jpg", "expect": false },
+    { "name": "a lone star is every top-level entry", "pattern": "*", "path": "one.png", "expect": true },
+    { "name": "a lone star is not every entry", "pattern": "*", "path": "sub/three.png", "expect": false },
+    { "name": "a lone double star is every entry at any depth", "pattern": "**", "path": "sub/three.png", "expect": true },
+    { "name": "an interior star matches one segment", "pattern": "a/*/c", "path": "a/b/c", "expect": true },
+    { "name": "an interior star does not match two", "pattern": "a/*/c", "path": "a/b/d/c", "expect": false },
+    { "name": "an interior double star matches zero segments", "pattern": "a/**/c", "path": "a/c", "expect": true },
+    { "name": "an interior double star matches several", "pattern": "a/**/c", "path": "a/b/d/c", "expect": true },
+    { "name": "matching is case-exact", "pattern": "*.PNG", "path": "one.png", "expect": false },
+    { "name": "a dot in the pattern is literal", "pattern": "*.png", "path": "onepng", "expect": false },
+    { "name": "an empty pattern matches nothing", "pattern": "", "path": "one.png", "expect": false }
+  ],
+
+  "_note_contains": "The PHYSICAL half, run AFTER the OS has resolved symlinks on both sides. The facet realpaths the base and the candidate and asks this; a symlink inside a root that points anywhere else therefore fails here rather than being followed silently. Both sides must be absolute; comparison is byte-exact (a case-insensitive filesystem does not make `/A/B` the same sandbox as `/a/b` for our purposes — a mismatch means the facet resolved something it did not expect, which is exactly when to refuse).",
+  "contains": [
+    { "name": "a file directly inside the base", "base": "/a/b", "candidate": "/a/b/c.txt", "expect": true },
+    { "name": "a file deep inside the base", "base": "/a/b", "candidate": "/a/b/c/d/e.txt", "expect": true },
+    { "name": "the base itself is inside itself", "base": "/a/b", "candidate": "/a/b", "expect": true },
+    { "name": "a trailing separator on the base is normalised away", "base": "/a/b/", "candidate": "/a/b/c", "expect": true },
+    { "name": "duplicate separators in the candidate normalise", "base": "/a/b", "candidate": "/a/b//c", "expect": true },
+    { "name": "a single-dot segment in the candidate normalises", "base": "/a/b", "candidate": "/a/b/./c", "expect": true },
+    { "name": "the filesystem root contains everything", "base": "/", "candidate": "/a/b", "expect": true },
+
+    { "name": "a sibling sharing the base's name prefix is NOT inside it", "base": "/a/b", "candidate": "/a/bc", "expect": false },
+    { "name": "a sibling tree sharing the prefix is NOT inside it", "base": "/a/b", "candidate": "/a/bc/d.txt", "expect": false },
+    { "name": "the parent is not inside the child", "base": "/a/b", "candidate": "/a", "expect": false },
+    { "name": "an unrelated absolute path is outside", "base": "/a/b", "candidate": "/tmp/evil", "expect": false },
+    { "name": "a candidate that climbs out is outside, whatever it looked like", "base": "/a/b", "candidate": "/a/b/../c", "expect": false },
+    { "name": "a candidate that climbs out and back into a prefix sibling is outside", "base": "/a/b", "candidate": "/a/b/../bc/x", "expect": false },
+    { "name": "the iOS /var to /private/var alias does not match unresolved — realpath both sides", "base": "/private/var/x", "candidate": "/var/x/f.txt", "expect": false },
+    { "name": "comparison is case-exact", "base": "/a/b", "candidate": "/A/B/c", "expect": false },
+    { "name": "a relative candidate is never inside anything", "base": "/a/b", "candidate": "a/b/c", "expect": false },
+    { "name": "a relative base contains nothing", "base": "a/b", "candidate": "/a/b/c", "expect": false },
+    { "name": "an empty candidate is outside", "base": "/a/b", "candidate": "", "expect": false },
+    { "name": "an empty base contains nothing", "base": "", "candidate": "/a/b", "expect": false }
+  ]
+}

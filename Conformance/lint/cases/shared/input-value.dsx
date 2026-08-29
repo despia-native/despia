@@ -1,0 +1,11 @@
+<stack>
+  <head>
+    <variable as="q" default="''"/>
+  </head>
+  <textfield value="{{ dsx.variable.q }}"/>
+  <textarea value="notes"/>
+  <searchbar value="{{ dsx.variable.q }}"/>
+  <textfield bind="dsx.variable.q"/>
+  <progress value="0.5"/>
+  <text value="{{ dsx.variable.q }}"/>
+</stack>

@@ -1,0 +1,241 @@
+{
+  "_note": "The INBOUND half of WebMCP (proposals/webmcp.md §4): the PAGE TOOL TABLE a shell keeps when a web surface's page registers tools through `document.modelContext`. This is the registration API local-ai-engine.md §4.6 named as a launch tool source and never specified; the standard is now that spelling, so the table below is what a Despia shell must agree on before any WebKit or android.webkit line is written. THE LAW ENCODED HERE: (1) THE TABLE IS POLICY-FREE. It records, validates and forgets; approval, ordering and dispatch belong to the consumer (the agent loop), exactly as the bridge relays and never decides. (2) VALIDATION IS THE SPEC'S — name 1..128 of ASCII alphanumeric plus `_ - .`, a non-empty description — and a rejected registration records NOTHING and emits no change event, because the spec rejects the promise and a half-registered tool is worse than none. (3) A DUPLICATE NAME IS REFUSED AND THE INCUMBENT SURVIVES; the spec rejects the second registerTool, so last-write-wins would silently swap a tool under an agent mid-session. (4) SCHEMAS PASS THROUGH VERBATIM — `oneOf`, `pattern`, `format`, nesting, all of it. Down-converting a foreign schema to our vocabulary would silently narrow what the model can express (the ai/tools law, same sentence). (5) A PAGE'S TOOLS DIE WITH THE PAGE: a navigation commit on a surface drops every row the previous document registered, including a same-origin reload, because it is a NEW document with a new callback registry. (6) EVERY REGISTRATION CARRIES PROVENANCE — the registering origin and the surface — so a consumer can tell a tool from the app's own origin from one an embedded page offered, and so a description stays attributable. (7) A DESCRIPTION IS UNTRUSTED INPUT and an ANNOTATION IS A HINT: `readOnlyHint` is recorded, and it NEVER lowers the approval a page-sourced tool needs. A page cannot vouch for itself, so the trust decision is the consumer's and its default is `required`. (8) THE ABORT SIGNAL IS THE UNREGISTER PATH — one row leaves, the rest stay. (9) A CHANGE THAT ALTERS THE VISIBLE SET EMITS EXACTLY ONE `toolchange` FOR ITS SURFACE, so a consumer re-reads once rather than diffing. (10) SURFACES ARE ISOLATED: two surfaces may each carry a `search`, and dropping one leaves the other whole.",
+  "cases": [
+    {
+      "name": "registry: a valid registration is recorded with its provenance",
+      "_note": "The canonical inbound case. The page wrote the schema, so the schema is the contract and the table keeps it byte for byte.",
+      "steps": [
+        {
+          "register": {
+            "surface": "web",
+            "origin": "https://shop.example.com",
+            "tool": {
+              "name": "track-order",
+              "description": "Look up the status of an order by number.",
+              "inputSchema": { "type": "object", "properties": { "orderNo": { "type": "string" } }, "required": [ "orderNo" ] }
+            }
+          }
+        }
+      ],
+      "expect": {
+        "tools": [
+          {
+            "surface": "web",
+            "origin": "https://shop.example.com",
+            "name": "track-order",
+            "description": "Look up the status of an order by number.",
+            "inputSchema": { "type": "object", "properties": { "orderNo": { "type": "string" } }, "required": [ "orderNo" ] },
+            "approval": "required"
+          }
+        ],
+        "events": [ { "event": "toolchange", "surface": "web" } ]
+      }
+    },
+    {
+      "name": "registry: an arbitrary JSON Schema survives verbatim",
+      "_note": "oneOf, a pattern, a nested object and additionalProperties:false all reach the model unchanged. A table that normalised this would narrow what the page can express and no test would ever see the loss.",
+      "steps": [
+        {
+          "register": {
+            "surface": "web",
+            "origin": "https://shop.example.com",
+            "tool": {
+              "name": "cart.addItem",
+              "description": "Add an item to the cart.",
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "sku": { "type": "string", "pattern": "^[A-Z]{3}-\\d+$" },
+                  "qty": { "type": "integer", "minimum": 1 },
+                  "gift": { "oneOf": [ { "type": "boolean" }, { "type": "object", "properties": { "note": { "type": "string" } } } ] }
+                },
+                "required": [ "sku", "qty" ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      ],
+      "expect": {
+        "tools": [
+          {
+            "surface": "web",
+            "origin": "https://shop.example.com",
+            "name": "cart.addItem",
+            "description": "Add an item to the cart.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "sku": { "type": "string", "pattern": "^[A-Z]{3}-\\d+$" },
+                "qty": { "type": "integer", "minimum": 1 },
+                "gift": { "oneOf": [ { "type": "boolean" }, { "type": "object", "properties": { "note": { "type": "string" } } } ] }
+              },
+              "required": [ "sku", "qty" ],
+              "additionalProperties": false
+            },
+            "approval": "required"
+          }
+        ],
+        "events": [ { "event": "toolchange", "surface": "web" } ]
+      }
+    },
+    {
+      "name": "registry: readOnlyHint is recorded and does not lower approval",
+      "_note": "A page vouching for itself is not evidence. The hint is kept because a consumer may weigh it, and the approval it would have bought is withheld because the page is the party asking.",
+      "steps": [
+        {
+          "register": {
+            "surface": "web",
+            "origin": "https://shop.example.com",
+            "tool": {
+              "name": "read-cart",
+              "description": "Read the current cart.",
+              "annotations": { "readOnlyHint": true }
+            }
+          }
+        }
+      ],
+      "expect": {
+        "tools": [
+          {
+            "surface": "web",
+            "origin": "https://shop.example.com",
+            "name": "read-cart",
+            "description": "Read the current cart.",
+            "inputSchema": { "type": "object", "properties": { } },
+            "annotations": { "readOnlyHint": true },
+            "approval": "required"
+          }
+        ],
+        "events": [ { "event": "toolchange", "surface": "web" } ]
+      }
+    },
+    {
+      "name": "registry: an invalid name is refused typed and records nothing",
+      "_note": "The spec rejects the promise; the table's twin of that is a rejection with a reason and an unchanged set. No toolchange, because nothing changed.",
+      "steps": [
+        {
+          "register": {
+            "surface": "web",
+            "origin": "https://shop.example.com",
+            "tool": { "name": "track order", "description": "Look up an order." }
+          }
+        }
+      ],
+      "expect": {
+        "tools": [ ],
+        "rejections": [ { "reason": "invalid_name", "name": "track order" } ],
+        "events": [ ]
+      }
+    },
+    {
+      "name": "registry: an empty description is refused typed",
+      "_note": "Required by the spec, and useless to a model besides.",
+      "steps": [
+        {
+          "register": {
+            "surface": "web",
+            "origin": "https://shop.example.com",
+            "tool": { "name": "track-order", "description": "" }
+          }
+        }
+      ],
+      "expect": {
+        "tools": [ ],
+        "rejections": [ { "reason": "missing_description", "name": "track-order" } ],
+        "events": [ ]
+      }
+    },
+    {
+      "name": "registry: a duplicate name is refused and the incumbent survives",
+      "_note": "The second registration loses. Last-write-wins would let a page swap a tool's behaviour under an agent that had already read its description.",
+      "steps": [
+        { "register": { "surface": "web", "origin": "https://shop.example.com", "tool": { "name": "track-order", "description": "The first one." } } },
+        { "register": { "surface": "web", "origin": "https://shop.example.com", "tool": { "name": "track-order", "description": "The impostor." } } }
+      ],
+      "expect": {
+        "tools": [ { "surface": "web", "origin": "https://shop.example.com", "name": "track-order", "description": "The first one.", "inputSchema": { "type": "object", "properties": { } }, "approval": "required" } ],
+        "rejections": [ { "reason": "duplicate_name", "name": "track-order" } ],
+        "events": [ { "event": "toolchange", "surface": "web" } ]
+      }
+    },
+    {
+      "name": "registry: a navigation commit drops the previous page's tools",
+      "_note": "A page's tools die with the page. The callbacks they name live in a JavaScript heap that no longer exists, so a row that outlived its document would be a tool that always fails.",
+      "steps": [
+        { "register": { "surface": "web", "origin": "https://shop.example.com", "tool": { "name": "track-order", "description": "Look up an order." } } },
+        { "commit": { "surface": "web", "origin": "https://shop.example.com/checkout" } }
+      ],
+      "expect": {
+        "tools": [ ],
+        "events": [ { "event": "toolchange", "surface": "web" }, { "event": "toolchange", "surface": "web" } ]
+      }
+    },
+    {
+      "name": "registry: a same-origin reload drops them too",
+      "_note": "Same origin, same URL, new document. Comparing origins to decide would keep rows whose closures were collected on reload.",
+      "steps": [
+        { "register": { "surface": "web", "origin": "https://shop.example.com", "tool": { "name": "track-order", "description": "Look up an order." } } },
+        { "commit": { "surface": "web", "origin": "https://shop.example.com" } }
+      ],
+      "expect": { "tools": [ ], "events": [ { "event": "toolchange", "surface": "web" }, { "event": "toolchange", "surface": "web" } ] }
+    },
+    {
+      "name": "registry: a commit with nothing registered emits no change",
+      "_note": "Navigation is constant in a web surface. An event per commit would wake every consumer on every page load for no reason, so the event tracks the SET, not the navigation.",
+      "steps": [ { "commit": { "surface": "web", "origin": "https://shop.example.com" } } ],
+      "expect": { "tools": [ ], "events": [ ] }
+    },
+    {
+      "name": "registry: abort removes one row and leaves the rest",
+      "_note": "The spec's unregister path is the AbortSignal passed at registration. One tool leaves; a page that registered five keeps four.",
+      "steps": [
+        { "register": { "surface": "web", "origin": "https://shop.example.com", "tool": { "name": "a", "description": "First." } } },
+        { "register": { "surface": "web", "origin": "https://shop.example.com", "tool": { "name": "b", "description": "Second." } } },
+        { "abort": { "surface": "web", "name": "a" } }
+      ],
+      "expect": {
+        "tools": [ { "surface": "web", "origin": "https://shop.example.com", "name": "b", "description": "Second.", "inputSchema": { "type": "object", "properties": { } }, "approval": "required" } ],
+        "events": [ { "event": "toolchange", "surface": "web" }, { "event": "toolchange", "surface": "web" }, { "event": "toolchange", "surface": "web" } ]
+      }
+    },
+    {
+      "name": "registry: aborting an unknown row changes nothing and says nothing",
+      "_note": "An abort can arrive after a navigation already dropped the row. Emitting a change for a set that did not change would be a lie a consumer acts on.",
+      "steps": [
+        { "register": { "surface": "web", "origin": "https://shop.example.com", "tool": { "name": "a", "description": "First." } } },
+        { "abort": { "surface": "web", "name": "gone" } }
+      ],
+      "expect": {
+        "tools": [ { "surface": "web", "origin": "https://shop.example.com", "name": "a", "description": "First.", "inputSchema": { "type": "object", "properties": { } }, "approval": "required" } ],
+        "events": [ { "event": "toolchange", "surface": "web" } ]
+      }
+    },
+    {
+      "name": "registry: surfaces are isolated",
+      "_note": "Two bare surfaces may each host a page offering `search`. They are different pages, so they are different tools, and dropping one leaves the other whole. A consumer disambiguates by the surface it asked for.",
+      "steps": [
+        { "register": { "surface": "web", "origin": "https://a.example.com", "tool": { "name": "search", "description": "Search A." } } },
+        { "register": { "surface": "checkout", "origin": "https://b.example.com", "tool": { "name": "search", "description": "Search B." } } },
+        { "commit": { "surface": "web", "origin": "https://a.example.com/next" } }
+      ],
+      "expect": {
+        "tools": [ { "surface": "checkout", "origin": "https://b.example.com", "name": "search", "description": "Search B.", "inputSchema": { "type": "object", "properties": { } }, "approval": "required" } ],
+        "events": [
+          { "event": "toolchange", "surface": "web" },
+          { "event": "toolchange", "surface": "checkout" },
+          { "event": "toolchange", "surface": "web" }
+        ]
+      }
+    },
+    {
+      "name": "registry: rows read back in registration order within a surface",
+      "_note": "The order the page registered in is the order it meant. Sorting here would fight the author for no gain a consumer asked for.",
+      "steps": [
+        { "register": { "surface": "web", "origin": "https://shop.example.com", "tool": { "name": "zeta", "description": "Last alphabetically." } } },
+        { "register": { "surface": "web", "origin": "https://shop.example.com", "tool": { "name": "alpha", "description": "First alphabetically." } } }
+      ],
+      "expect": { "toolNames": [ "zeta", "alpha" ] }
+    }
+  ]
+}

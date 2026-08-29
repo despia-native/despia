@@ -96,8 +96,11 @@ it, and returns a reason rather than a partial result.
 It exists because arbitrary-origin models are a feature: an app may allow any
 model URL its allowlist admits. The validator is the third of the four locks
 that make that safe, alongside the origin allowlist, digest discipline, and fit
-plus quarantine. It is the subject of the nightly fuzz target, because it is the
-only code that runs before attacker-controlled bytes reach a real loader.
+plus quarantine. Because it is the only code that runs before attacker-controlled
+bytes reach a real loader, it carries its own test rather than riding the corpus:
+`engine/test/preflight_test.cpp` builds hostile files by hand and walks every
+prefix of a valid metadata table, asserting that a short read asks for more bytes
+instead of being called a defect.
 
 ## The residency budget
 

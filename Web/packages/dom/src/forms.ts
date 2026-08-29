@@ -196,7 +196,7 @@ function recomputeValid(ctx: MountCtx, namespace: string): void {
   ctx.store.setPath(`${namespace}.valid`, valid);
 }
 
-type FocusableField = HTMLInputElement | HTMLSelectElement;
+type FocusableField = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 const controls = new WeakMap<MountCtx["store"], Map<string, Map<string, Set<FocusableField>>>>();
 const formRoots = new WeakMap<MountCtx["store"], Map<string, HTMLFormElement>>();
 
@@ -397,6 +397,26 @@ const fieldElement: ElementFactory = (node, ctx, api) => {
       validate();
       api.handler("change", { value: select.value });
     });
+  } else if (type === "text" && booleanAttribute(initialBoundText(node, api, "multiline", "false"))) {
+    // multiline="true" is a REAL textarea (wave-7 F5: the single-line input rendered
+    // prose fields one line tall) — same well class, same value/limit/validation
+    // seams; rows=3 is the floor and CSS owns growth (autogrow where field-sizing
+    // exists, a vertical resize handle elsewhere).
+    const area = document.createElement("textarea");
+    area.className = "dsx-field-control dsx-field-multiline";
+    area.rows = 3;
+    area.placeholder = initialBoundText(node, api, "placeholder", "");
+    accessibleFallback = area.placeholder || name;
+    area.maxLength = inferredMaximum(rules);
+    control = area;
+    area.addEventListener("input", () => {
+      const limited = normalizeFormInput(area.value);
+      if (limited !== area.value) area.value = limited;
+      api.writeBack(valuePath, area.value);
+      writeMeta(ctx, namespace, name, { dirty: true });
+      validate();
+      api.handler("change", { value: area.value });
+    });
   } else {
     const input = document.createElement("input");
     input.className = type === "toggle" ? "dsx-field-toggle-input" : "dsx-field-control";
@@ -429,6 +449,25 @@ const fieldElement: ElementFactory = (node, ctx, api) => {
   control.setAttribute("data-dsx-part", type === "toggle" ? "toggle" : "control");
   control.setAttribute("name", name);
   control.required = required;
+  // disabled= / disabled-if= (the W9 grammar wave): the field's real control carries
+  // the native state — validation writes and Return-walk skip it via focusability,
+  // and the sheet's :disabled discipline paints it. The root stamp lets the label
+  // and helper slot dim with their control.
+  {
+    let declaredDisabled = false;
+    let conditionalDisabled = false;
+    const reflectDisabled = (): void => {
+      const disabled = declaredDisabled || conditionalDisabled;
+      control.disabled = disabled;
+      root.dataset["dsxDisabled"] = String(disabled);
+    };
+    if (node.attrs["disabled"] !== undefined) {
+      api.bindText(node.attrs["disabled"], (value) => { declaredDisabled = truthy(value); reflectDisabled(); });
+    }
+    if (node.attrs["disabled-if"] !== undefined) {
+      api.bindValue(node.attrs["disabled-if"], (value) => { conditionalDisabled = truthy(value); reflectDisabled(); });
+    }
+  }
   control.setAttribute("aria-describedby", errorId);
   if (labelText.length === 0) control.setAttribute("aria-label", accessibleFallback);
   if (type === "toggle") {
@@ -499,7 +538,8 @@ const fieldElement: ElementFactory = (node, ctx, api) => {
     validate();
     api.handler("blur", { value: ctx.store.getPath(valuePath) });
   });
-  if (type !== "toggle" && type !== "picker") {
+  // A multiline field keeps Enter for the newline it means there.
+  if (type !== "toggle" && type !== "picker" && control.tagName !== "TEXTAREA") {
     control.addEventListener("keydown", (rawEvent) => {
       const event = rawEvent as KeyboardEvent;
       if (event.key !== "Enter" || event.isComposing) return;
@@ -539,61 +579,100 @@ export const FORM_ELEMENTS: Readonly<Record<string, ElementFactory>> = Object.fr
 
 /** Mobile-first, neutral web-native defaults. The layer is deliberately the weak
  * `dsx-elements` layer: theme sheets, component sidecars, inline styles and legacy
- * attribute mappings all outrank every declaration here. */
+ * attribute mappings all outrank every declaration here.
+ *
+ * Wave-4 fidelity: motion is part of the default. Transform transitions ride
+ * `--dsx-ease-spring` (overshoot on transform ONLY); color/background/box-shadow ride
+ * `--dsx-dur-base` ease; opacity stays linear. Every duration token collapses to 0ms
+ * under prefers-reduced-motion (theme.ts), and the explicit reduce block below keeps
+ * the moving parts inert even when a stronger sheet re-pins a duration. */
 export const FORM_ELEMENTS_CSS = `@layer dsx-elements {
   .dsx-form {
     display: grid;
     align-content: start;
-    gap: var(--dsx-form-spacing, 12px);
+    gap: var(--dsx-form-spacing, var(--dsx-space-3));
     width: 100%;
     min-width: 0;
     margin: 0;
   }
-  .dsx-form-scroll { max-height: 100%; overflow: auto; overscroll-behavior: contain; }
-  .dsx-field { display: grid; gap: 0.375rem; min-width: 0; color: var(--dsx-label); font: 400 1rem/1.35 var(--dsx-font); }
+  .dsx-form-scroll {
+    max-height: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: var(--dsx-separator) transparent;
+  }
+  .dsx-field {
+    display: grid;
+    gap: var(--dsx-space-2);
+    min-width: 0;
+    color: var(--dsx-label);
+    font: 400 1rem/1.35 var(--dsx-font);
+    letter-spacing: var(--dsx-type-body-tracking);
+  }
   .dsx-field-label {
     display: block;
     color: var(--dsx-secondary-label);
-    font: 600 0.8125rem/1.25 var(--dsx-font);
-    letter-spacing: 0.005em;
+    font: 500 var(--dsx-type-footnote-size)/1.3 var(--dsx-font);
+    letter-spacing: var(--dsx-type-footnote-tracking);
+    transition: color var(--dsx-dur-base) var(--dsx-ease);
   }
+  .dsx-field:focus-within > .dsx-field-label { color: var(--dsx-accent); }
   .dsx-field-label-copy { min-width: 0; }
-  .dsx-field-control {
+  ` +
+// The field WELL: a soft recessed fill seated by the xs elevation whisper (its
+// contact line / inner highlight now defines the edge, so the hard separator border
+// relaxes to the soft outline). Hover deepens the fill one step on the fast
+// duration; focus takes the border to label ink under the accent ring. The radius
+// rides the size rhythm through the tokens: --dsx-radius-lg is the regular/large
+// well step (14px at mobile scale, 12px at the 64rem fine-pointer scale); a
+// compact well re-pins --dsx-field-well-radius to var(--dsx-radius) (the 8px
+// fine-pointer step).
+`  .dsx-field-control {
     appearance: none;
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
     min-height: 44px;
     margin: 0;
-    padding: 0.6875rem 0.875rem;
-    border: 0;
-    border-radius: var(--dsx-radius);
+    padding: 0.625rem calc(var(--dsx-control-padding-inline) - 1px);
+    border: 1px solid var(--dsx-outline-soft);
+    border-radius: var(--dsx-field-well-radius, var(--dsx-radius-lg));
     color: inherit;
     caret-color: var(--dsx-accent);
     background: var(--dsx-surface-recessed);
-    box-shadow:
-      inset 0 0 0 var(--dsx-hairline) var(--dsx-outline-soft),
-      inset 0 1px 2px color-mix(in srgb, var(--dsx-label) 7%, transparent);
+    box-shadow: var(--dsx-shadow-xs);
     font: inherit;
     transition:
-      background-color var(--dsx-motion-fast) ease;
+      border-color var(--dsx-dur-base) var(--dsx-ease),
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      box-shadow var(--dsx-dur-base) var(--dsx-ease);
   }
   .dsx-field-control::placeholder { color: var(--dsx-tertiary-label); opacity: 1; }
   .dsx-field-control:focus-visible {
     outline: none;
-    background: var(--dsx-surface-level-1);
-    box-shadow: inset 0 0 0 2px var(--dsx-accent);
+    border-color: var(--dsx-label);
+    background: var(--dsx-background);
+    box-shadow: var(--dsx-focus-ring), var(--dsx-shadow-xs);
   }
-  .dsx-field[data-dsx-invalid="true"] .dsx-field-control {
-    box-shadow: inset 0 0 0 2px var(--dsx-destructive);
-  }
-  .dsx-field-control:read-only {
+  .dsx-field-control:read-only:not(.dsx-field-select) {
     color: var(--dsx-secondary-label);
-    background: color-mix(in srgb, var(--dsx-surface-recessed) 72%, transparent);
+    background: var(--dsx-fill);
   }
   .dsx-field-control:disabled {
     cursor: not-allowed;
-    opacity: .52;
+    opacity: .5;
+    filter: saturate(.5);
+  }
+  .dsx-field[data-dsx-disabled="true"] :is(.dsx-field-label, .dsx-field-label-copy) { opacity: .5; }
+  /* The MULTILINE well (wave-7 F5): a real textarea in the SAME well — a three-line
+     floor (line box + block padding + borders, border-box), autogrow where
+     field-sizing exists, a vertical resize handle everywhere else. The well's own
+     look is untouched. */
+  .dsx-field-multiline {
+    min-height: calc(3lh + 1.25rem + 2px);
+    resize: vertical;
+    field-sizing: content;
+    overflow-wrap: anywhere;
   }
   .dsx-field-select {
     padding-inline-end: 2.5rem;
@@ -602,21 +681,32 @@ export const FORM_ELEMENTS_CSS = `@layer dsx-elements {
     background-position: calc(100% - 1rem) 50%, calc(100% - .7rem) 50%;
     background-size: .35rem .35rem, .35rem .35rem;
     background-repeat: no-repeat;
+    cursor: pointer;
   }
+  [dir="rtl"] .dsx-field-select { background-position: .7rem 50%, 1rem 50%; }
   .dsx-field-toggle-label {
-    --dsx-field-toggle-width: 42px;
-    --dsx-field-toggle-height: 24px;
-    --dsx-field-toggle-thumb: 20px;
-    --dsx-field-toggle-travel: 18px;
+    --dsx-field-toggle-width: 63px;
+    --dsx-field-toggle-height: 28px;
+    --dsx-field-toggle-thumb-width: 36px;
+    --dsx-field-toggle-thumb: 24px;
+    --dsx-field-toggle-inset: 2px;
+    --dsx-field-toggle-stretch: 6px;
+    --dsx-field-toggle-travel: calc(var(--dsx-field-toggle-width) - var(--dsx-field-toggle-thumb-width) - 2 * var(--dsx-field-toggle-inset));
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 0.875rem;
+    gap: var(--dsx-space-3);
     min-height: var(--dsx-control-height);
     color: inherit;
     font: inherit;
     cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
+  /* Web polyfill: iOS-26-ish capsule, glass-free. Flat track so the fill
+     crossfades; white pill thumb. Tokens are the customization seam
+     (--dsx-field-toggle-*, --dsx-switch-on). Hit target = the padded label
+     row; held Space keeps :active, so keyboard presses animate like touch. */
   .dsx-field-toggle-input {
     appearance: none;
     position: relative;
@@ -624,110 +714,258 @@ export const FORM_ELEMENTS_CSS = `@layer dsx-elements {
     width: var(--dsx-field-toggle-width);
     height: var(--dsx-field-toggle-height);
     margin: 0;
-    border: var(--dsx-hairline) solid var(--dsx-outline-soft);
-    border-radius: 999px;
+    border: 0;
+    border-radius: var(--dsx-radius-full);
     background: color-mix(in srgb, var(--dsx-secondary-label) 24%, var(--dsx-surface-recessed));
-    box-shadow:
-      inset 0 1px 2px color-mix(in srgb, var(--dsx-label) 10%, transparent),
-      inset 0 -1px 0 color-mix(in srgb, var(--dsx-control-knob) 36%, transparent);
+    box-shadow: inset 0 0 0 var(--dsx-hairline) color-mix(in srgb, var(--dsx-label) 10%, transparent);
     cursor: pointer;
     transition:
-      background var(--dsx-motion-standard) ease,
-      border-color var(--dsx-motion-fast) ease;
+      background-color var(--dsx-dur-base) var(--dsx-ease),
+      box-shadow var(--dsx-dur-base) var(--dsx-ease);
   }
   .dsx-field-toggle-input::after {
     content: "";
     position: absolute;
     box-sizing: border-box;
-    width: var(--dsx-field-toggle-thumb);
+    inset: var(--dsx-field-toggle-inset) auto auto var(--dsx-field-toggle-inset);
+    width: var(--dsx-field-toggle-thumb-width);
     height: var(--dsx-field-toggle-thumb);
-    inset: 1px auto auto 1px;
-    border: var(--dsx-hairline) solid color-mix(in srgb, var(--dsx-label) 16%, transparent);
-    border-radius: 50%;
-    background: linear-gradient(165deg, var(--dsx-control-knob), var(--dsx-control-knob-shadow));
-    box-shadow:
-      inset 0 1px 0 var(--dsx-inner-highlight),
-      0 .5px 2px color-mix(in srgb, var(--dsx-label) 18%, transparent),
-      0 3px 7px color-mix(in srgb, var(--dsx-label) 14%, transparent);
+    border-radius: var(--dsx-radius-full);
+    background: var(--dsx-control-knob);
+    box-shadow: var(--dsx-shadow-1);
+    will-change: transform;
     transition:
-      transform var(--dsx-motion-standard) var(--dsx-ease-out),
-      box-shadow var(--dsx-motion-standard) var(--dsx-ease-out);
+      transform var(--dsx-dur-base) var(--dsx-ease-spring),
+      width var(--dsx-dur-fast) var(--dsx-ease);
   }
   .dsx-field-toggle-input:checked {
-    border-color: color-mix(in srgb, var(--dsx-switch-on) 76%, var(--dsx-label));
-    background: linear-gradient(
-      165deg,
-      color-mix(in srgb, var(--dsx-switch-on) 88%, var(--dsx-control-knob)),
-      var(--dsx-switch-on)
-    );
+    background: var(--dsx-switch-on);
+    box-shadow: inset 0 0 0 var(--dsx-hairline) color-mix(in srgb, var(--dsx-switch-on) 84%, var(--dsx-label));
   }
   .dsx-field-toggle-input:checked::after { transform: translateX(var(--dsx-field-toggle-travel)); }
   [dir="rtl"] .dsx-field-toggle-input::after { transform: translateX(var(--dsx-field-toggle-travel)); }
   [dir="rtl"] .dsx-field-toggle-input:checked::after { transform: translateX(0); }
   .dsx-field-toggle-input:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--dsx-switch-on);
+    box-shadow: var(--dsx-focus-ring);
   }
-  .dsx-field-toggle-input:not(:disabled):active::after { transform: scale(1.06); }
+  /* Pressed: +6px stretch anchored to the near edge; the checked side subtracts it
+     from the travel so the growth points back toward center. */
+  .dsx-field-toggle-input:not(:disabled):active::after {
+    width: calc(var(--dsx-field-toggle-thumb-width) + var(--dsx-field-toggle-stretch));
+  }
   .dsx-field-toggle-input:checked:not(:disabled):active::after {
-    transform: translateX(var(--dsx-field-toggle-travel)) scale(1.06);
+    transform: translateX(calc(var(--dsx-field-toggle-travel) - var(--dsx-field-toggle-stretch)));
   }
   [dir="rtl"] .dsx-field-toggle-input:not(:checked):not(:disabled):active::after {
-    transform: translateX(var(--dsx-field-toggle-travel)) scale(1.06);
+    transform: translateX(calc(var(--dsx-field-toggle-travel) - var(--dsx-field-toggle-stretch)));
   }
-  [dir="rtl"] .dsx-field-toggle-input:checked:not(:disabled):active::after { transform: scale(1.06); }
-  .dsx-field-toggle-input:disabled { cursor: not-allowed; opacity: .48; }
+  [dir="rtl"] .dsx-field-toggle-input:checked:not(:disabled):active::after { transform: translateX(0); }
+  .dsx-field-toggle-input:disabled { cursor: not-allowed; opacity: .42; filter: saturate(.45); }
+  /* The helper/error slot is RESERVED: hidden keeps the one-line box (min-height
+     matches the 1.35 line box exactly), so revealing an error never jumps layout.
+     visibility keeps the empty live region out of the accessibility tree. */
   .dsx-field-error {
-    min-height: 1em;
-    color: var(--dsx-destructive);
-    font: 500 0.8125rem/1.25 var(--dsx-font);
+    min-height: 1.35em;
+    color: var(--dsx-danger);
+    font: var(--dsx-type-footnote-weight) var(--dsx-type-footnote-size)/1.35 var(--dsx-font);
+    letter-spacing: var(--dsx-type-footnote-tracking);
   }
-  .dsx-field-error[hidden] { display: none; }
-  .dsx-form-submit[data-dsx-valid="false"] { opacity: .5; }
+  .dsx-field-error[hidden] { display: block; visibility: hidden; }
+  /* Error reveal: color plus a 4px slide-in. Deliberately no shake. */
+  .dsx-field-error:not([hidden]) { animation: dsx-field-error-in var(--dsx-dur-base) var(--dsx-ease); }
+  @keyframes dsx-field-error-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .dsx-button.dsx-form-submit {
+    --dsx-button-shadow:
+      inset 0 0 0 var(--dsx-hairline) color-mix(in srgb, var(--dsx-accent) 74%, var(--dsx-label)),
+      0 1px 2px color-mix(in srgb, var(--dsx-accent) 24%, transparent);
+    width: 100%;
+    background: var(--dsx-accent);
+    color: var(--dsx-on-accent);
+    padding-inline: 1rem;
+    transition:
+      transform var(--dsx-dur-base) var(--dsx-ease-spring),
+      background-color var(--dsx-dur-base) var(--dsx-ease),
+      box-shadow var(--dsx-dur-fast) var(--dsx-ease),
+      filter var(--dsx-dur-fast) var(--dsx-ease),
+      opacity var(--dsx-dur-fast) linear;
+  }
+  .dsx-form-submit[data-dsx-valid="false"] { opacity: .55; filter: saturate(.6); }
   @media (hover: hover) and (pointer: fine) {
-    .dsx-field-control:hover:not(:focus):not(:disabled) {
-      background: color-mix(in srgb, var(--dsx-surface-recessed) 94%, var(--dsx-label));
-      box-shadow:
-        inset 0 0 0 var(--dsx-hairline) color-mix(in srgb, var(--dsx-label) 24%, var(--dsx-separator)),
-        inset 0 1px 2px color-mix(in srgb, var(--dsx-label) 8%, transparent);
+    /* Hover deepens the well's fill one step and lifts the edge to the full
+       separator (selects are :read-only by spec, so they need their own row; an
+       authored readOnly text input keeps its distinct --dsx-fill wash). */
+    .dsx-field-control:hover:not(:focus-visible):not(:disabled):not(:read-only),
+    .dsx-field-select:hover:not(:focus-visible):not(:disabled) {
+      border-color: var(--dsx-separator);
+      background: color-mix(in srgb, var(--dsx-surface-recessed) 95%, var(--dsx-label));
     }
-    .dsx-field-toggle-input:hover:not(:disabled) {
-      border-color: color-mix(in srgb, var(--dsx-label) 24%, var(--dsx-separator));
+    .dsx-field-toggle-input:not(:checked):not(:disabled):hover {
+      background: color-mix(in srgb, var(--dsx-secondary-label) 30%, var(--dsx-surface-recessed));
     }
+    .dsx-button.dsx-form-submit:not(:disabled):not([aria-disabled="true"]):hover {
+      background: var(--dsx-accent);
+      background-image: linear-gradient(0deg, var(--dsx-state-layer-hover), var(--dsx-state-layer-hover));
+      filter: saturate(1.06) brightness(1.03);
+    }
+  }
+  .dsx-button.dsx-form-submit:not(:disabled):not([aria-disabled="true"]):active {
+    --dsx-button-shadow:
+      inset 0 0 0 var(--dsx-hairline) color-mix(in srgb, var(--dsx-accent) 78%, var(--dsx-label)),
+      inset 0 2px 3px color-mix(in srgb, var(--dsx-label) 18%, transparent);
+    background: var(--dsx-accent);
+    transform: scale(0.97);
+    filter: saturate(.96) brightness(.96);
+    transition-duration: var(--dsx-dur-fast);
+    transition-timing-function: var(--dsx-ease);
+  }
+  /* The danger skin keys on the REVEALED error ([aria-errormessage] is stamped only
+     once the field is touched or the form submitted, on both render paths), so a
+     pristine required form does not open as a wall of red. */
+  .dsx-field[data-dsx-invalid="true"] .dsx-field-control[aria-errormessage] {
+    border-color: var(--dsx-danger);
+  }
+  .dsx-field[data-dsx-invalid="true"] .dsx-field-control[aria-errormessage]:focus-visible {
+    border-color: var(--dsx-danger);
+    box-shadow: var(--dsx-shadow-xs);
+  }
+  .dsx-field[data-dsx-invalid="true"] .dsx-field-toggle-input[aria-errormessage] {
+    box-shadow: inset 0 0 0 var(--dsx-hairline) var(--dsx-danger);
+  }
+  ` +
+// Form-plane adaptation: the checkbox/radio/stepper factories live in other files,
+// so their pass lands here behind deterministic specificity (the attribute prefixes
+// outrank the base sheets in any assembly order). The check DRAWS via a staged
+// width/height reveal, vertex-anchored so the rotation never drifts.
+`  .dsx-checkbox[data-dsx-component="checkbox"] { --dsx-checkbox-size: 20px; }
+  .dsx-checkbox[data-dsx-component="checkbox"] .dsx-checkbox-box {
+    border: 2px solid color-mix(in srgb, var(--dsx-secondary-label) 88%, transparent);
+    border-radius: var(--dsx-radius-sm);
+    background: var(--dsx-surface-recessed);
+    box-shadow: none;
+    transition: transform var(--dsx-dur-base) var(--dsx-ease-spring);
+  }
+  .dsx-checkbox[data-dsx-component="checkbox"] .dsx-checkbox-box::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: calc(var(--dsx-radius-sm) - 2px);
+    background: var(--dsx-checkbox-color);
+    opacity: 0;
+    transform: scale(.5);
+    transition: none;
+  }
+  .dsx-checkbox[data-dsx-component="checkbox"] .dsx-checkbox-box::after {
+    inset: auto 8px 3px auto;
+    width: 0;
+    height: 0;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) scale(1);
+    transform-origin: 100% 100%;
+    transition: none;
+  }
+  .dsx-checkbox[data-dsx-component="checkbox"] input:checked + .dsx-checkbox-box {
+    border-color: var(--dsx-checkbox-color);
+    background: var(--dsx-surface-recessed);
+    box-shadow: none;
+    transition:
+      transform var(--dsx-dur-base) var(--dsx-ease-spring),
+      border-color var(--dsx-dur-base) var(--dsx-ease);
+  }
+  .dsx-checkbox[data-dsx-component="checkbox"] input:checked + .dsx-checkbox-box::before {
+    opacity: 1;
+    transform: scale(1);
+    transition:
+      transform var(--dsx-dur-base) var(--dsx-ease-out),
+      opacity var(--dsx-dur-base) linear;
+  }
+  .dsx-checkbox[data-dsx-component="checkbox"] input:checked + .dsx-checkbox-box::after {
+    width: 5px;
+    height: 10px;
+    transition:
+      width var(--dsx-dur-fast) var(--dsx-ease) var(--dsx-dur-base),
+      height var(--dsx-dur-base) var(--dsx-ease) calc(var(--dsx-dur-base) + var(--dsx-dur-fast));
+  }
+  .dsx-checkbox[data-dsx-component="checkbox"] input:not(:disabled):active + .dsx-checkbox-box {
+    transform: scale(.95);
+    transition-duration: var(--dsx-dur-fast);
+  }
+  .dsx-radio-group[role="radiogroup"] .dsx-radio-mark {
+    transition:
+      background-color var(--dsx-dur-base) var(--dsx-ease),
+      border-color var(--dsx-dur-base) var(--dsx-ease),
+      transform var(--dsx-dur-base) var(--dsx-ease-spring);
+  }
+  .dsx-radio-group[role="radiogroup"] .dsx-radio-option:active .dsx-radio-mark {
+    transform: scale(.95);
+    transition-duration: var(--dsx-dur-fast);
+  }
+  .dsx-stepper .dsx-stepper-btn {
+    transition:
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      transform var(--dsx-dur-base) var(--dsx-ease-spring);
+  }
+  .dsx-stepper .dsx-stepper-btn:not(:disabled):active {
+    transform: scale(0.97);
+    transition-duration: var(--dsx-dur-fast);
   }
   @media (min-width: 48rem) and (hover: hover) and (pointer: fine) {
-    .dsx-field-control { min-height: 42px; padding-block: 0.625rem; }
+    .dsx-field-control { min-height: 42px; padding-block: 0.5rem; }
   }
   @media (min-width: 64rem) and (hover: hover) and (pointer: fine) {
-    .dsx-field { gap: 0.25rem; font-size: 0.875rem; }
-    .dsx-field-label, .dsx-field-error { font-size: 0.75rem; }
+    .dsx-field {
+      gap: var(--dsx-space-1);
+      font-size: var(--dsx-type-callout-size);
+      letter-spacing: var(--dsx-type-callout-tracking);
+    }
+    .dsx-field-label, .dsx-field-error { font-size: var(--dsx-type-caption-size); }
     .dsx-field-control {
       min-height: 38px;
-      padding: 0.45rem 0.75rem;
+      padding: 0.375rem calc(var(--dsx-control-padding-inline) - 1px);
     }
     .dsx-field-toggle-label {
-      --dsx-field-toggle-width: 36px;
-      --dsx-field-toggle-height: 20px;
-      --dsx-field-toggle-thumb: 16px;
-      --dsx-field-toggle-travel: 16px;
+      --dsx-field-toggle-width: 51px;
+      --dsx-field-toggle-height: 24px;
+      --dsx-field-toggle-thumb-width: 30px;
+      --dsx-field-toggle-thumb: 20px;
       min-height: var(--dsx-control-height);
-      font-size: 0.875rem;
+      font-size: var(--dsx-type-callout-size);
     }
+    .dsx-button.dsx-form-submit { padding-inline: 0.75rem; }
   }
   @media (pointer: coarse) {
     .dsx-field-control,
-    .dsx-field-toggle-label { min-height: 48px; font-size: 1rem; }
+    .dsx-field-toggle-label { min-height: 48px; font-size: var(--dsx-type-reading-size); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .dsx-field-control, .dsx-field-toggle-input, .dsx-field-toggle-input::after { transition: none; }
+    .dsx-field-control, .dsx-field-label,
+    .dsx-field-toggle-input, .dsx-field-toggle-input::after,
+    .dsx-button.dsx-form-submit,
+    .dsx-checkbox[data-dsx-component="checkbox"] .dsx-checkbox-box,
+    .dsx-checkbox[data-dsx-component="checkbox"] input:checked + .dsx-checkbox-box,
+    .dsx-checkbox[data-dsx-component="checkbox"] input:checked + .dsx-checkbox-box::before,
+    .dsx-checkbox[data-dsx-component="checkbox"] input:checked + .dsx-checkbox-box::after,
+    .dsx-radio-group[role="radiogroup"] .dsx-radio-mark,
+    .dsx-stepper .dsx-stepper-btn { transition: none; }
+    .dsx-field-error:not([hidden]) { animation: none; }
   }
   @media (forced-colors: active) {
-    .dsx-field-control, .dsx-field-toggle-input { border-color: CanvasText; }
+    .dsx-field-control, .dsx-field-toggle-input { border: 1px solid ButtonText; }
+    .dsx-field-toggle-input::after { border: 1px solid ButtonText; }
     .dsx-field[data-dsx-invalid="true"] .dsx-field-control { border-color: Mark; }
     .dsx-field-control:focus-visible, .dsx-field-toggle-input:focus-visible {
       outline: 2px solid Highlight;
       outline-offset: 2px;
       box-shadow: none;
     }
+    .dsx-checkbox[data-dsx-component="checkbox"] .dsx-checkbox-box::before { display: none; }
+    .dsx-checkbox[data-dsx-component="checkbox"] input:checked + .dsx-checkbox-box {
+      border-color: Highlight;
+      background: Highlight;
+    }
+    .dsx-checkbox[data-dsx-component="checkbox"] input:checked + .dsx-checkbox-box::after { transition: none; }
   }
 }`;

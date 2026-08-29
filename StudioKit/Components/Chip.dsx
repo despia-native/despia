@@ -1,0 +1,12 @@
+<!-- Chip — a small mark on a value: a tag, a filter, a grant. Removable when the caller
+     listens for `remove`. -->
+<hstack class="sk-chip" style="align-items: center; gap: 0.25rem">
+  <head>
+    <attribute as="label"/>
+    <attribute as="removable" default=""/>
+    <event as="remove"/>
+  </head>
+  <text value="{{ dsx.attribute.label }}" class="sk-chip-label"/>
+  <button class="sk-chip-x" icon="xmark" iconSize="8" visible-if="dsx.attribute.removable != ''"
+          a11yLabel="Remove {{ dsx.attribute.label }}" on:tap="dsx.event('remove', {})"/>
+</hstack>

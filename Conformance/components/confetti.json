@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "component": "Confetti",
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Confetti.dsx",
+  "_note": "<Confetti> — the celebration burst (U11). TWO LAWS. (1) IT DOES NOT FIRE UNDER REDUCED MOTION, and not by animating less: the CSS companion sets display:none for the whole field under prefers-reduced-motion, which every renderer evaluates (CssResolver / CSSEngine / the web sheet), so the particles are never rendered at all. Firing particles at someone who asked for less motion is exactly what makes an accessibility setting feel ignored, so that rule is gated here rather than trusted. (2) THE SCATTER IS DETERMINISTIC. A computed value is re-read on every render, so a Math.random() trajectory would twitch each frame and could never be screenshot-tested; a linear-congruential hash of the particle index gives the same spread every time. The exact offsets are pinned because 'deterministic' is only a property if two runtimes agree on the same numbers. The burst is decorative to the last pixel: a11yHidden and pointer-events:none on the root, always. DECLARED FALLBACK: the real implementation wants <canvas> (U04, not built); the attribute contract is final, so that rewrite is invisible to callers and to this corpus.",
+  "css": [
+    {
+      "name": "reduced motion removes the field entirely, rather than shortening it",
+      "file": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Confetti.css",
+      "ordered": ["@media (prefers-reduced-motion: reduce)", ".dsx-confetti", "display: none"]
+    }
+  ],
+  "cases": [
+    {
+      "name": "the burst is decorative on the root, in every state",
+      "attributes": {},
+      "expect": [{ "expr": "dsx.variable.confettiPlaying", "value": false }],
+      "root": [{ "attr": "a11yHidden", "value": "true" }, { "attr": "class", "value": "dsx-confetti" }]
+    },
+    {
+      "name": "the defaults: 24 particles, 1.6 seconds, from the top",
+      "attributes": {},
+      "expect": [
+        { "expr": "dsx.attribute.count", "value": 24 },
+        { "expr": "dsx.attribute.duration", "value": 1.6 },
+        { "expr": "dsx.attribute.origin", "value": "top" },
+        { "expr": "dsx.variable.confettiParticles.length", "value": 24 }
+      ]
+    },
+    {
+      "name": "the palette defaults to three system tokens, never a hardcoded hex",
+      "attributes": {},
+      "expect": [{ "expr": "dsx.variable.confettiPalette", "value": ["accent", "destructive", "label"] }]
+    },
+    {
+      "name": "a caller palette is split, trimmed and used in order",
+      "attributes": { "colors": " accent , destructive " },
+      "expect": [{ "expr": "dsx.variable.confettiPalette", "value": ["accent", "destructive"] }]
+    },
+    {
+      "name": "a palette of nothing but separators falls back rather than rendering invisible particles",
+      "attributes": { "colors": " , , " },
+      "expect": [{ "expr": "dsx.variable.confettiPalette", "value": ["accent", "destructive", "label"] }]
+    },
+    {
+      "name": "DETERMINISM: the same index always produces the same particle, on every renderer",
+      "attributes": { "count": "3" },
+      "expect": [{ "expr": "dsx.variable.confettiParticles", "value": [
+        { "id": "c0", "dx": -81, "dy": -200, "size": 6, "rot": 76, "color": "accent" },
+        { "id": "c1", "dx": -70, "dy": -196, "size": 6, "rot": 90, "color": "destructive" },
+        { "id": "c2", "dx": -59, "dy": -193, "size": 6, "rot": 105, "color": "label" }
+      ] }]
+    },
+    {
+      "name": "the palette cycles by index, so a two-colour burst alternates",
+      "attributes": { "count": "3", "colors": "accent,label" },
+      "expect": [
+        { "expr": "dsx.variable.confettiParticles[0].color", "value": "accent" },
+        { "expr": "dsx.variable.confettiParticles[1].color", "value": "label" },
+        { "expr": "dsx.variable.confettiParticles[2].color", "value": "accent" }
+      ]
+    },
+    {
+      "name": "origin moves the whole band and nothing else about the particle",
+      "attributes": { "count": "2", "origin": "bottom" },
+      "expect": [{ "expr": "dsx.variable.confettiParticles", "value": [
+        { "id": "c0", "dx": -81, "dy": 40, "size": 6, "rot": 76, "color": "accent" },
+        { "id": "c1", "dx": -70, "dy": 44, "size": 6, "rot": 90, "color": "destructive" }
+      ] }]
+    },
+    {
+      "name": "origin=center starts the band at the middle",
+      "attributes": { "count": "2", "origin": "center" },
+      "expect": [
+        { "expr": "dsx.variable.confettiParticles[0].dy", "value": -80 },
+        { "expr": "dsx.variable.confettiParticles[1].dy", "value": -76 }
+      ]
+    },
+    {
+      "name": "an unknown origin word behaves as top rather than dropping the burst",
+      "attributes": { "count": "1", "origin": "sideways" },
+      "expect": [{ "expr": "dsx.variable.confettiParticles[0].dy", "value": -200 }]
+    },
+    {
+      "name": "count clamps to at least one particle",
+      "attributes": { "count": "0" },
+      "expect": [{ "expr": "dsx.variable.confettiParticles.length", "value": 1 }]
+    },
+    {
+      "name": "count clamps at 120 — a burst is not a stress test",
+      "attributes": { "count": "500" },
+      "expect": [{ "expr": "dsx.variable.confettiParticles.length", "value": 120 }]
+    }
+  ]
+}

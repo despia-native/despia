@@ -10,6 +10,9 @@ import {
   CHART_RENDER_POINT_LIMIT,
   ELEMENTS,
   chartPoints,
+  chartSeries,
+  chartPalette,
+  chartLinePath,
   downsampleChartPoints,
   normalizeStarCount,
   normalizeStarSize,
@@ -70,6 +73,44 @@ test("chart rejects malformed rows and preserves finite zero values", () => {
     { x: "Mon", y: 0 },
     { x: "Tue", y: 12.5 },
   ]);
+});
+
+test("chartSeries groups rows by series= and caps at 24", () => {
+  const rows = [
+    { month: "Jan", amount: 10, team: "A" },
+    { month: "Jan", amount: 4, team: "B" },
+    { month: "Feb", amount: 12, team: "A" },
+    { month: "Feb", amount: "nope", team: "B" },
+    { month: "Mar", amount: 8, team: "B" },
+  ];
+  const grouped = chartSeries(rows, "month", "amount", "team");
+  assert.deepEqual(grouped.map((entry) => ({ name: entry.name, ys: entry.points.map((p) => p.y) })), [
+    { name: "A", ys: [10, 12] },
+    { name: "B", ys: [4, 8] },
+  ]);
+  const hostile = Array.from({ length: 40 }, (_, index) => ({ x: "k", y: 1, series: `s${index}` }));
+  assert.equal(chartSeries(hostile, "x", "y", "series").length, 24);
+  assert.equal(chartSeries(rows, "month", "amount", "").length, 1);
+});
+
+test("chartPalette maps semantic color tokens the same way color= does", () => {
+  assert.deepEqual(chartPalette("accent|#FF9500", "currentColor"), [
+    "var(--dsx-accent)",
+    "#FF9500",
+  ]);
+  assert.deepEqual(chartPalette("accent,label", "currentColor"), [
+    "var(--dsx-accent)",
+    "var(--dsx-label)",
+  ]);
+  assert.equal(chartPalette(undefined, "currentColor")[0], "currentColor");
+});
+
+test("chartLinePath supports linear, smooth and step interpolation", () => {
+  const pts = [{ x: 0, y: 10 }, { x: 10, y: 20 }, { x: 20, y: 10 }];
+  assert.equal(chartLinePath(pts, "linear"), "M0.00 10.00 L10.00 20.00 L20.00 10.00");
+  assert.equal(chartLinePath(pts, "step"), "M0.00 10.00 L10.00 10.00 L10.00 20.00 L20.00 20.00 L20.00 10.00");
+  assert.match(chartLinePath(pts, "smooth"), /^M0\.00 10\.00 C/);
+  assert.match(chartLinePath(pts, "monotone"), /^M0\.00 10\.00 C/);
 });
 
 test("chart bounds 200k-point renders while preserving order, endpoints and extrema", () => {

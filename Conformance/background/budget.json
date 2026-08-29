@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "_note": "Every background run gets a WALL-CLOCK BUDGET, and the run RECORD is what an author actually reads (parity/F08-background.md). Three pure facts, shared by all three renderers: the countdown an action reads as dsx.module.background.context.remaining while it runs; the run-record fold that turns a sequence of lifecycle facts into one honest lastResult, including the case nobody handles (the OS killed the process mid-flight, which must still be recorded on the next launch rather than leaving a run that looks like it is forever running); and the release gate on `run`, which exists so nobody can fake a scheduler in production and ship an app whose background work has never once been exercised by the OS.",
+
+  "_note_budgets": "iOS gives a background task roughly 30 seconds before the expiration handler fires; Android WorkManager gives a worker roughly 10 minutes before it is stopped. Both are the platform's numbers, not ours, and neither is a guarantee: the OS may expire a run sooner. Exceeding the budget is the typed budget_exceeded outcome, recorded as a failed run, never a silent kill.",
+  "budgets": { "ios": 30000, "android": 600000, "web": 30000 },
+
+  "countdown": [
+    { "name": "a fresh iOS run has the whole budget", "platform": "ios", "elapsedMs": 0,
+      "expect": { "remainingMs": 30000, "expired": false } },
+    { "name": "halfway through an iOS run", "platform": "ios", "elapsedMs": 15000,
+      "expect": { "remainingMs": 15000, "expired": false } },
+    { "name": "one millisecond left is not expired", "platform": "ios", "elapsedMs": 29999,
+      "expect": { "remainingMs": 1, "expired": false } },
+    { "name": "the budget boundary is expired", "platform": "ios", "elapsedMs": 30000,
+      "expect": { "remainingMs": 0, "expired": true } },
+    { "name": "remaining never goes negative", "platform": "ios", "elapsedMs": 45000,
+      "expect": { "remainingMs": 0, "expired": true } },
+    { "name": "Android carries the ten-minute worker budget", "platform": "android", "elapsedMs": 0,
+      "expect": { "remainingMs": 600000, "expired": false } },
+    { "name": "an Android worker at nine minutes still has a minute", "platform": "android", "elapsedMs": 540000,
+      "expect": { "remainingMs": 60000, "expired": false } },
+    { "name": "an unknown platform falls back to the shortest budget", "platform": "watch", "elapsedMs": 0,
+      "expect": { "remainingMs": 30000, "expired": false } }
+  ],
+
+  "record": [
+    { "name": "a run that finishes is a success",
+      "events": ["start", "finish"],
+      "expect": { "result": "success", "failure": false, "running": false } },
+
+    { "name": "a run that throws is a failure",
+      "events": ["start", "fail"],
+      "expect": { "result": "failed", "failure": true, "running": false } },
+
+    { "name": "a run that outlives its budget is budget_exceeded, recorded as a failed run",
+      "events": ["start", "expire"],
+      "expect": { "result": "budget_exceeded", "failure": true, "running": false } },
+
+    { "name": "an expiry after a finish does not rewrite the success",
+      "events": ["start", "finish", "expire"],
+      "expect": { "result": "success", "failure": false, "running": false } },
+
+    { "name": "a process killed mid-flight is recorded on the next launch, never left running",
+      "events": ["start", "relaunch"],
+      "expect": { "result": "killed", "failure": true, "running": false } },
+
+    { "name": "a launch with no run in flight records nothing",
+      "events": ["relaunch"],
+      "expect": { "result": "never", "failure": false, "running": false } },
+
+    { "name": "a run in flight reports itself as running, with no result yet",
+      "events": ["start"],
+      "expect": { "result": "running", "failure": false, "running": true } },
+
+    { "name": "a task that has never run says so",
+      "events": [],
+      "expect": { "result": "never", "failure": false, "running": false } },
+
+    { "name": "the last run is the one reported",
+      "events": ["start", "fail", "start", "finish"],
+      "expect": { "result": "success", "failure": false, "running": false } },
+
+    { "name": "a kill after a previous success still records the kill",
+      "events": ["start", "finish", "start", "relaunch"],
+      "expect": { "result": "killed", "failure": true, "running": false } }
+  ],
+
+  "debugGate": [
+    { "name": "run is refused on an App Store install", "channel": "appstore",
+      "expect": { "allowed": false, "error": "debug_only" } },
+    { "name": "run works on a debug build", "channel": "debug",
+      "expect": { "allowed": true } },
+    { "name": "run works in the simulator", "channel": "simulator",
+      "expect": { "allowed": true } },
+    { "name": "run works on a TestFlight build", "channel": "testflight",
+      "expect": { "allowed": true } },
+    { "name": "run works on an ad-hoc build", "channel": "adhoc",
+      "expect": { "allowed": true } },
+    { "name": "an unclassifiable channel fails closed to production", "channel": "",
+      "expect": { "allowed": false, "error": "debug_only" } },
+    { "name": "an unknown channel word fails closed to production", "channel": "kiosk",
+      "expect": { "allowed": false, "error": "debug_only" } }
+  ]
+}

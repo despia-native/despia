@@ -1,0 +1,792 @@
+{
+  "_note": "LIFECYCLE AND RESIDENCY — the half of this component that is not animation but MEMORY. A Rive artboard is a live scene, not a decoded image, and twenty of them in a scrolling list is the failure mode the plan named (§6). THE LAW, `schedule`. (1) A machine ADVANCES only while it is live (mounted), wanted (autoplay or an explicit play()), on screen, and the app is foreground. Every other tick is DROPPED, never queued: `time` is accumulated delta and therefore EXCLUDES the offscreen interval, exactly as the canvas frame loop does (canvas/frames.json — the one piece of U04 this component reuses wholesale). (2) UNMOUNT DISPOSES. The instance is released, `live` goes false, and a remount is a FRESH instance whose clock starts at zero and whose wanted-state returns to `autoplay` — an imperative play() does not survive the scene that received it. (3) Ticks are coalesced at the same 60/s budget the canvas uses. THE LAW, `residency`. (4) A list holds at most `capacity` live artboards, most-recently-visible first; an offscreen row is DEMOTED (it keeps its instance while there is room) and evicted before any visible one. Eviction disposes; a returning row is re-instantiated, and the corpus counts both, because 'bounded memory' is a number a fixture can assert while an allocation is not. Functions: rivePlaybackSchedule(autoplay, events) and riveResidency(capacity, events) on all three.",
+  "schedule": [
+    {
+      "name": "autoplay advances from mount",
+      "autoplay": true,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "tick",
+          "at": 100
+        },
+        {
+          "type": "tick",
+          "at": 200
+        }
+      ],
+      "fold": {
+        "emitted": [
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          },
+          {
+            "time": 0.1,
+            "delta": 0.1,
+            "frame": 1
+          },
+          {
+            "time": 0.2,
+            "delta": 0.1,
+            "frame": 2
+          }
+        ],
+        "starts": 1,
+        "pauses": 0,
+        "instantiations": 1,
+        "disposals": 0,
+        "drops": 0,
+        "advancing": true,
+        "live": true
+      }
+    },
+    {
+      "name": "autoplay=false mounts paused and drops every tick",
+      "autoplay": false,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "tick",
+          "at": 100
+        }
+      ],
+      "fold": {
+        "emitted": [],
+        "starts": 0,
+        "pauses": 0,
+        "instantiations": 1,
+        "disposals": 0,
+        "drops": 2,
+        "advancing": false,
+        "live": true
+      }
+    },
+    {
+      "name": "play() starts a machine that mounted paused",
+      "autoplay": false,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "play"
+        },
+        {
+          "type": "tick",
+          "at": 100
+        },
+        {
+          "type": "tick",
+          "at": 200
+        }
+      ],
+      "fold": {
+        "emitted": [
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          },
+          {
+            "time": 0.1,
+            "delta": 0.1,
+            "frame": 1
+          }
+        ],
+        "starts": 1,
+        "pauses": 0,
+        "instantiations": 1,
+        "disposals": 0,
+        "drops": 1,
+        "advancing": true,
+        "live": true
+      }
+    },
+    {
+      "name": "an OFFSCREEN machine pauses and its ticks are DROPPED, never queued",
+      "autoplay": true,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "visible",
+          "value": false
+        },
+        {
+          "type": "tick",
+          "at": 100
+        },
+        {
+          "type": "tick",
+          "at": 200
+        },
+        {
+          "type": "visible",
+          "value": true
+        },
+        {
+          "type": "tick",
+          "at": 300
+        }
+      ],
+      "fold": {
+        "emitted": [
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          },
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 1
+          }
+        ],
+        "starts": 2,
+        "pauses": 1,
+        "instantiations": 1,
+        "disposals": 0,
+        "drops": 2,
+        "advancing": true,
+        "live": true
+      }
+    },
+    {
+      "name": "backgrounding the app pauses the machine",
+      "autoplay": true,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "active",
+          "value": false
+        },
+        {
+          "type": "tick",
+          "at": 100
+        },
+        {
+          "type": "active",
+          "value": true
+        },
+        {
+          "type": "tick",
+          "at": 200
+        }
+      ],
+      "fold": {
+        "emitted": [
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          },
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 1
+          }
+        ],
+        "starts": 2,
+        "pauses": 1,
+        "instantiations": 1,
+        "disposals": 0,
+        "drops": 1,
+        "advancing": true,
+        "live": true
+      }
+    },
+    {
+      "name": "UNMOUNT DISPOSES: live goes false and one disposal is counted",
+      "autoplay": true,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "tick",
+          "at": 100
+        },
+        {
+          "type": "unmount"
+        }
+      ],
+      "fold": {
+        "emitted": [
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          },
+          {
+            "time": 0.1,
+            "delta": 0.1,
+            "frame": 1
+          }
+        ],
+        "starts": 1,
+        "pauses": 1,
+        "instantiations": 1,
+        "disposals": 1,
+        "drops": 0,
+        "advancing": false,
+        "live": false
+      }
+    },
+    {
+      "name": "a remount is a FRESH instance with a clock from zero",
+      "autoplay": true,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "tick",
+          "at": 100
+        },
+        {
+          "type": "unmount"
+        },
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 500
+        },
+        {
+          "type": "tick",
+          "at": 600
+        }
+      ],
+      "fold": {
+        "emitted": [
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          },
+          {
+            "time": 0.1,
+            "delta": 0.1,
+            "frame": 1
+          },
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          },
+          {
+            "time": 0.1,
+            "delta": 0.1,
+            "frame": 1
+          }
+        ],
+        "starts": 2,
+        "pauses": 1,
+        "instantiations": 2,
+        "disposals": 1,
+        "drops": 0,
+        "advancing": true,
+        "live": true
+      }
+    },
+    {
+      "name": "a remount forgets an imperative pause and returns to autoplay",
+      "autoplay": false,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "play"
+        },
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "unmount"
+        },
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 100
+        }
+      ],
+      "fold": {
+        "emitted": [
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          }
+        ],
+        "starts": 1,
+        "pauses": 1,
+        "instantiations": 2,
+        "disposals": 1,
+        "drops": 1,
+        "advancing": false,
+        "live": true
+      }
+    },
+    {
+      "name": "ticks before mount are dropped",
+      "autoplay": true,
+      "events": [
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "tick",
+          "at": 100
+        },
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 200
+        }
+      ],
+      "fold": {
+        "emitted": [
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          }
+        ],
+        "starts": 1,
+        "pauses": 0,
+        "instantiations": 1,
+        "disposals": 0,
+        "drops": 2,
+        "advancing": true,
+        "live": true
+      }
+    },
+    {
+      "name": "ticks faster than the 60/s budget are coalesced",
+      "autoplay": true,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "tick",
+          "at": 5
+        },
+        {
+          "type": "tick",
+          "at": 10
+        },
+        {
+          "type": "tick",
+          "at": 20
+        }
+      ],
+      "fold": {
+        "emitted": [
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          },
+          {
+            "time": 0.02,
+            "delta": 0.02,
+            "frame": 1
+          }
+        ],
+        "starts": 1,
+        "pauses": 0,
+        "instantiations": 1,
+        "disposals": 0,
+        "drops": 2,
+        "advancing": true,
+        "live": true
+      }
+    },
+    {
+      "name": "pause() then play() counts one pause and two starts",
+      "autoplay": true,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "tick",
+          "at": 0
+        },
+        {
+          "type": "pause"
+        },
+        {
+          "type": "tick",
+          "at": 100
+        },
+        {
+          "type": "play"
+        },
+        {
+          "type": "tick",
+          "at": 200
+        }
+      ],
+      "fold": {
+        "emitted": [
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 0
+          },
+          {
+            "time": 0.0,
+            "delta": 0,
+            "frame": 1
+          }
+        ],
+        "starts": 2,
+        "pauses": 1,
+        "instantiations": 1,
+        "disposals": 0,
+        "drops": 1,
+        "advancing": true,
+        "live": true
+      }
+    },
+    {
+      "name": "an unmount while already paused disposes exactly once",
+      "autoplay": true,
+      "events": [
+        {
+          "type": "mount"
+        },
+        {
+          "type": "visible",
+          "value": false
+        },
+        {
+          "type": "unmount"
+        },
+        {
+          "type": "unmount"
+        }
+      ],
+      "fold": {
+        "emitted": [],
+        "starts": 1,
+        "pauses": 1,
+        "instantiations": 1,
+        "disposals": 1,
+        "drops": 0,
+        "advancing": false,
+        "live": false
+      }
+    }
+  ],
+  "residency": [
+    {
+      "name": "under capacity, everything stays live",
+      "capacity": 4,
+      "events": [
+        {
+          "key": "a",
+          "visible": true
+        },
+        {
+          "key": "b",
+          "visible": true
+        },
+        {
+          "key": "c",
+          "visible": true
+        }
+      ],
+      "fold": {
+        "live": [
+          "c",
+          "b",
+          "a"
+        ],
+        "instantiated": 3,
+        "disposed": 0
+      }
+    },
+    {
+      "name": "TWENTY rows against a capacity of five hold five live instances",
+      "capacity": 5,
+      "events": [
+        {
+          "key": "row0",
+          "visible": true
+        },
+        {
+          "key": "row1",
+          "visible": true
+        },
+        {
+          "key": "row2",
+          "visible": true
+        },
+        {
+          "key": "row3",
+          "visible": true
+        },
+        {
+          "key": "row4",
+          "visible": true
+        },
+        {
+          "key": "row5",
+          "visible": true
+        },
+        {
+          "key": "row6",
+          "visible": true
+        },
+        {
+          "key": "row7",
+          "visible": true
+        },
+        {
+          "key": "row8",
+          "visible": true
+        },
+        {
+          "key": "row9",
+          "visible": true
+        },
+        {
+          "key": "row10",
+          "visible": true
+        },
+        {
+          "key": "row11",
+          "visible": true
+        },
+        {
+          "key": "row12",
+          "visible": true
+        },
+        {
+          "key": "row13",
+          "visible": true
+        },
+        {
+          "key": "row14",
+          "visible": true
+        },
+        {
+          "key": "row15",
+          "visible": true
+        },
+        {
+          "key": "row16",
+          "visible": true
+        },
+        {
+          "key": "row17",
+          "visible": true
+        },
+        {
+          "key": "row18",
+          "visible": true
+        },
+        {
+          "key": "row19",
+          "visible": true
+        }
+      ],
+      "fold": {
+        "live": [
+          "row19",
+          "row18",
+          "row17",
+          "row16",
+          "row15"
+        ],
+        "instantiated": 20,
+        "disposed": 15
+      }
+    },
+    {
+      "name": "scrolling a row off screen demotes it before it evicts it",
+      "capacity": 3,
+      "events": [
+        {
+          "key": "a",
+          "visible": true
+        },
+        {
+          "key": "b",
+          "visible": true
+        },
+        {
+          "key": "a",
+          "visible": false
+        },
+        {
+          "key": "c",
+          "visible": true
+        },
+        {
+          "key": "d",
+          "visible": true
+        }
+      ],
+      "fold": {
+        "live": [
+          "d",
+          "c",
+          "b"
+        ],
+        "instantiated": 4,
+        "disposed": 1
+      }
+    },
+    {
+      "name": "a returning row is re-instantiated, and that is the cost of the cap",
+      "capacity": 2,
+      "events": [
+        {
+          "key": "a",
+          "visible": true
+        },
+        {
+          "key": "b",
+          "visible": true
+        },
+        {
+          "key": "c",
+          "visible": true
+        },
+        {
+          "key": "a",
+          "visible": true
+        }
+      ],
+      "fold": {
+        "live": [
+          "a",
+          "c"
+        ],
+        "instantiated": 4,
+        "disposed": 2
+      }
+    },
+    {
+      "name": "re-showing a live row only promotes it",
+      "capacity": 2,
+      "events": [
+        {
+          "key": "a",
+          "visible": true
+        },
+        {
+          "key": "b",
+          "visible": true
+        },
+        {
+          "key": "a",
+          "visible": true
+        }
+      ],
+      "fold": {
+        "live": [
+          "a",
+          "b"
+        ],
+        "instantiated": 2,
+        "disposed": 0
+      }
+    },
+    {
+      "name": "a capacity of zero is clamped to one",
+      "capacity": 0,
+      "events": [
+        {
+          "key": "a",
+          "visible": true
+        },
+        {
+          "key": "b",
+          "visible": true
+        }
+      ],
+      "fold": {
+        "live": [
+          "b"
+        ],
+        "instantiated": 2,
+        "disposed": 1
+      }
+    },
+    {
+      "name": "hiding a row that was never live does nothing",
+      "capacity": 2,
+      "events": [
+        {
+          "key": "a",
+          "visible": false
+        },
+        {
+          "key": "b",
+          "visible": true
+        }
+      ],
+      "fold": {
+        "live": [
+          "b"
+        ],
+        "instantiated": 1,
+        "disposed": 0
+      }
+    }
+  ]
+}

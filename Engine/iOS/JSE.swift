@@ -28,6 +28,7 @@ protocol JSEState: AnyObject {
     var formulas: [String: StackFormula] { get }          // <formula as="x" …> parameterized
     var functions: [String: Any] { get set }              // user `function name(){…}` lambdas
     var attrDefaults: [String: String] { get }            // <attribute as="x" default="…"/>
+    var overrideDecls: [String: OverrideDecl] { get }     // <override as="x" type="…" default="…"/>
     var computedDepth: Int { get set }                    // the three recursion ledgers
     var fnDepth: Int { get set }
     var evalDepth: Int { get set }
@@ -47,6 +48,7 @@ final class JSEVars: JSEState {
     var formulas: [String: StackFormula] = [:]
     var functions: [String: Any] = [:]
     var attrDefaults: [String: String] = [:]
+    var overrideDecls: [String: OverrideDecl] = [:]
     var computedDepth = 0
     var fnDepth = 0
     var evalDepth = 0
@@ -169,6 +171,57 @@ enum JSE {                  // JSE — the expression evaluator
     @inline(__always) static func afterRender(_ work: @escaping () -> Void) {
         DispatchQueue.main.async(execute: work)
     }
+    /// How deep a component may expand before the renderer stops.
+    ///
+    /// NOT a budget, and never to be tuned for taste. A component that names itself is a
+    /// legitimate and common shape — a tree, an outliner, a comment thread, a file browser —
+    /// and it terminates because the DATA terminates. This exists for the one case where the
+    /// data does not: a cycle or a corrupt child list, where the only alternatives are an
+    /// unbounded render and a dead stack. Bounded output beats a crash, and legitimate
+    /// nesting must never reach it. The previous 32 was a guess made before anything
+    /// recursive shipped and it capped real trees. Uniform on all three renderers (corpus
+    /// Conformance/composition/attribute-binding.json `recursion`).
+    static let componentDepthCap = 256
+
+    /// What an author meant by one `name="…"` attribute. Corpus:
+    /// OpenSource/Conformance/composition/attribute-binding.json. Twins: the TS
+    /// `attributeBinding` and the Kotlin `JSE.attributeBinding`.
+    enum AttributeBinding: Equatable {
+        case staticText
+        case value(String)
+        case text
+    }
+
+    /// The attribute-binding FOLD — pure syntax, no store, no evaluation.
+    ///
+    /// A sole `{{ … }}` carries the expression's VALUE; anything mixed carries the string.
+    /// Without the distinction every consumer prop arrives interpolated, which is invisible
+    /// for a label and fatal for structure: a component that renders its own children cannot
+    /// hand them down, so a tree, an outliner or a comment thread is unbuildable.
+    ///
+    /// A hole ends at the FIRST `}}`, matching `interpolate`'s own scan exactly. The two must
+    /// never disagree about where an expression stops — that disagreement is a silent type
+    /// change, and one shared wrong answer is repairable where a split one is not.
+    static func attributeBinding(_ template: String) -> AttributeBinding {
+        guard template.contains("{{") else { return .staticText }
+        let t = template.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard t.hasPrefix("{{") else { return .text }
+        let afterOpen = t.index(t.startIndex, offsetBy: 2)
+        guard let close = t.range(of: "}}", range: afterOpen..<t.endIndex),
+              close.upperBound == t.endIndex else { return .text }
+        return .value(String(t[afterOpen..<close.lowerBound]))
+    }
+
+    /// Resolve one consumer attribute to the value it should carry: typed when the template
+    /// is a sole hole, its own text when it has none, the interpolated sentence otherwise.
+    static func bindAttribute(_ template: String, store: any JSEState, item: [String: Any]?) -> Any? {
+        switch attributeBinding(template) {
+        case .staticText: return template
+        case .value(let expr): return eval(expr, store: store, item: item)
+        case .text: return interpolate(template, store: store, item: item)
+        }
+    }
+
     static func interpolate(_ s: String, store: any JSEState, item: [String: Any]?) -> String {
         guard s.contains("{{") else { return s }
         var out = ""; var rest = Substring(s)
@@ -235,7 +288,8 @@ enum JSE {                  // JSE — the expression evaluator
     /// A single expression returns directly; a `{ }` block runs `if (…) { } else if { } else { }`,
     /// `const`/`let`, and `return` (early, or the last bare expression as an implicit return) —
     /// exactly like a JS function body. PURE: `const`/`let`/`x = e` write a throwaway local scope
-    /// (seeded with `item`), never the store. Total — branches only, no `for`/`while` — so it
+    /// (seeded with `item`), never the store. Total — the full statement grammar incl.
+    /// BUDGETED loops (10000 iterations per evaluation, corpus core-004) — so it
     /// always terminates. 1:1 JS, interpreted natively (no JS engine, no bridge).
     static func evalBlock(_ body: String, store: any JSEState, item: [String: Any]?) -> Any? {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -383,14 +437,21 @@ enum JSE {                  // JSE — the expression evaluator
     /// The bounded-JS statement interpreter for a `{ }` body — `if (…) { } else if { } else { }`,
     /// braceless `if (c) return x`, `const`/`let`, `return`, nested `function` decls (skipped here;
     /// registered at the node), and bare expression statements (the last is the implicit value).
-    /// Branches only — no `for`/`while` — so a block is always total.
+    /// Branches + BUDGETED loops (10000 iterations per evaluation, core-004) — a block
+    /// is always total.
+    private final class LoopBudget { var used = 0 }
+
     private final class JSEval {
         let t: [Token]; var i = 0
         let store: any JSEState
         var scope: [String: Any]
         var result: Any? = nil
         var done = false
-        init(_ t: [Token], store: any JSEState, scope: [String: Any]) { self.t = t; self.store = store; self.scope = scope }
+        var flow: String? = nil                                  // "break" | "continue" — consumed by the owning loop
+        let budget: LoopBudget
+        init(_ t: [Token], store: any JSEState, scope: [String: Any], budget: LoopBudget? = nil) {
+            self.t = t; self.store = store; self.scope = scope; self.budget = budget ?? LoopBudget()
+        }
 
         func cur() -> Token? { i < t.count ? t[i] : nil }
         func isOp(_ s: String) -> Bool { if case .op(let o)? = cur() { return o == s }; return false }
@@ -398,7 +459,7 @@ enum JSE {                  // JSE — the expression evaluator
 
         /// Run statements until end-of-tokens or a closing `}` (left for the caller to consume).
         func runBlock() {
-            while !done, let tk = cur() {
+            while !done, flow == nil, let tk = cur() {
                 if case .op("}") = tk { return }
                 if case .op(";") = tk { i += 1; continue }
                 let before = i
@@ -430,6 +491,11 @@ enum JSE {                  // JSE — the expression evaluator
         private func statement(execute: Bool) {
             if isKw("function") { skipFunction(); return }
             if isKw("if") { ifStmt(execute: execute); return }
+            if isKw("for") { forStmt(execute: execute); return }
+            if isKw("while") { whileStmt(execute: execute); return }
+            if isKw("do") { doStmt(execute: execute); return }
+            if isKw("break") { i += 1; if isOp(";") { i += 1 }; if execute { flow = "break" }; return }
+            if isKw("continue") { i += 1; if isOp(";") { i += 1 }; if execute { flow = "continue" }; return }
             if isKw("const") || isKw("let") || isKw("var") { declStmt(execute: execute); return }
             if isKw("return") { returnStmt(execute: execute); return }
             let toks = capture(until: [";"]); if isOp(";") { i += 1 }
@@ -466,6 +532,147 @@ enum JSE {                  // JSE — the expression evaluator
             let toks = capture(until: [";"]); if isOp(";") { i += 1 }
             if execute { result = toks.isEmpty ? nil : evalExpr(toks); done = true }
         }
+        /// One loop iteration on the SHARED ledger — 10000 per block evaluation, the
+        /// action runner's bounded-execution law. Past it every loop stops; total stays.
+        private func loopStep() -> Bool { budget.used += 1; return budget.used <= 10000 }
+
+        /// Capture a loop body: a `{ … }` group (braces consumed) or one bare statement.
+        private func captureBranchTokens() -> [Token] {
+            if isOp("{") {
+                i += 1
+                var out: [Token] = []
+                var d = 1
+                while let tk = cur() {
+                    if case .op("{") = tk { d += 1 }
+                    else if case .op("}") = tk { d -= 1; if d == 0 { i += 1; break } }
+                    out.append(tk); i += 1
+                }
+                return out
+            }
+            let out = capture(until: [";"])
+            if isOp(";") { i += 1 }
+            return out
+        }
+
+        /// Run captured statements against THIS block's scope and its shared budget;
+        /// a `return` settles this block, break/continue surface as flow for the owning
+        /// loop to consume. The scope round-trips through the sub-eval (value semantics).
+        private func runCaptured(_ body: [Token]) {
+            let e = JSEval(body, store: store, scope: scope, budget: budget)
+            e.runBlock()
+            scope = e.scope
+            if e.done { result = e.result; done = true }
+            flow = e.flow
+        }
+
+        private func splitOnSemis(_ toks: [Token]) -> [[Token]] {
+            var out: [[Token]] = []
+            var run: [Token] = []
+            var d = 0
+            for tk in toks {
+                if case .op(let o) = tk {
+                    if o == "(" || o == "[" || o == "{" { d += 1 }
+                    else if o == ")" || o == "]" || o == "}" { d -= 1 }
+                    else if d == 0, o == ";" { out.append(run); run = []; continue }
+                }
+                run.append(tk)
+            }
+            out.append(run)
+            return out
+        }
+
+        /// `for (init; cond; step)` · `for ([const] pattern of expr)` · `for ([const] k
+        /// in expr)` — the loop grammar in expression blocks (corpus core-004), budgeted,
+        /// with the classic form gated on top-level `;` (a classic cond may contain the
+        /// `in` OPERATOR).
+        private func forStmt(execute: Bool) {
+            i += 1                                                 // 'for'
+            let head = captureParen()
+            let body = captureBranchTokens()
+            guard execute else { return }
+            let parts = splitOnSemis(head)
+            if parts.count == 3 {
+                runCaptured(parts[0])
+                if done { return }
+                flow = nil
+                while true {
+                    if !parts[1].isEmpty, !JSE.truthy(evalExpr(parts[1])) { break }
+                    if !loopStep() { break }
+                    runCaptured(body)
+                    if done { return }
+                    if flow == "break" { flow = nil; break }
+                    flow = nil
+                    runCaptured(parts[2])
+                    if done { return }
+                    flow = nil
+                }
+                return
+            }
+            var p = 0
+            if p < head.count, case .ident(let kw0) = head[p], kw0 == "const" || kw0 == "let" || kw0 == "var" { p += 1 }
+            var kwAt = -1
+            var kind: String? = nil
+            var d = 0
+            var k = p
+            while k < head.count {
+                if case .op(let o) = head[k] {
+                    if o == "(" || o == "[" || o == "{" { d += 1 }
+                    else if o == ")" || o == "]" || o == "}" { d -= 1 }
+                }
+                if d == 0, case .ident(let w) = head[k], w == "of" || w == "in" { kwAt = k; kind = w; break }
+                k += 1
+            }
+            guard kwAt >= 0, let kindWord = kind else { return }
+            let patToks = Array(head[p..<kwAt])
+            let exprToks = Array(head[(kwAt + 1)...])
+            let decls = JSE.parseDeclarators(patToks + [.op("="), .num(0)])
+            guard decls.count == 1 else { return }
+            let pattern = decls[0].pattern
+            let seq = kindWord == "of" ? JSE.spreadValues(evalExpr(exprToks)) : JSE.forInKeys(evalExpr(exprToks))
+            for el in seq {
+                if !loopStep() { break }
+                JSE.bindPattern(pattern, el, { n, value in self.scope[n] = value ?? NSNull() },
+                                { toks2 in self.evalExpr(toks2) })
+                runCaptured(body)
+                if done { return }
+                if flow == "break" { flow = nil; break }
+                flow = nil
+            }
+        }
+
+        private func whileStmt(execute: Bool) {
+            i += 1                                                 // 'while'
+            let cond = captureParen()
+            let body = captureBranchTokens()
+            guard execute else { return }
+            while JSE.truthy(evalExpr(cond)) {
+                if !loopStep() { break }
+                runCaptured(body)
+                if done { return }
+                if flow == "break" { flow = nil; break }
+                flow = nil
+            }
+        }
+
+        private func doStmt(execute: Bool) {
+            i += 1                                                 // 'do'
+            let body = captureBranchTokens()
+            var cond: [Token] = []
+            if isKw("while") {
+                i += 1
+                cond = captureParen()
+                if isOp(";") { i += 1 }
+            }
+            guard execute else { return }
+            repeat {
+                if !loopStep() { break }
+                runCaptured(body)
+                if done { return }
+                if flow == "break" { flow = nil; break }
+                flow = nil
+            } while JSE.truthy(evalExpr(cond))
+        }
+
         private func skipFunction() {
             while let tk = cur() { if case .op("{") = tk { break }; i += 1 }
             skipBranch()
@@ -485,10 +692,166 @@ enum JSE {                  // JSE — the expression evaluator
                 }
             }
             // local assignment `x = e` (single ident LHS), else a bare expression (implicit value).
-            if toks.count >= 2, case .ident(let n) = toks[0], case .op("=") = toks[1] {
+            if toks.count >= 2, case .ident(let n) = toks[0], !n.contains("."), case .op("=") = toks[1] {
                 scope[n] = evalExpr(Array(toks.dropFirst(2))) ?? NSNull(); return
             }
+            // BLOCK-SCOPE MUTATION (corpus core-003): dotted / computed-key / indexed
+            // assignment into a scope name, compound assignment, ++/--, and statement-
+            // position `.push(…)` all REBUILD the local (value semantics — never an
+            // alias, never the store). The accumulator idioms, made real.
+            if case .op(let leadOp)? = toks.first, leadOp == "++" || leadOp == "--" {
+                if pathMutation(Array(toks.dropFirst()) + [toks[0]]) { return }   // prefix form → the postfix shape
+            }
+            if pathMutation(toks) { return }
             result = evalExpr(toks)
+        }
+
+        /// Parse and perform `NAME(seg…) op= rhs` / `NAME(seg…).push(args)`; true when
+        /// handled. A dotted ident is ONE token (the tokenizer's dotted-ident rule), so
+        /// static segments split out of the leading token and every post-bracket run.
+        private enum PathSeg { case fixed(String); case computed([Token]) }
+        private func pathMutation(_ toks: [Token]) -> Bool {
+            guard toks.count >= 2, case .ident(let leading) = toks[0] else { return false }
+            let head = leading.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+            guard let name = head.first, !name.isEmpty else { return false }
+            // dsx.* / global.* / route.* / cookie.* are NAMESPACES, not block locals —
+            // a block body never writes them (the evalBlock purity contract).
+            if name == "dsx" || name == "global" || name == "route" || name == "cookie" { return false }
+            var segs: [PathSeg] = head.dropFirst().map { .fixed($0) }
+            var j = 1
+            while true {
+                if j + 1 < toks.count, case .op(".") = toks[j], case .ident(let b) = toks[j + 1] {
+                    for part in b.split(separator: ".", omittingEmptySubsequences: false) { segs.append(.fixed(String(part))) }
+                    j += 2; continue
+                }
+                if j < toks.count, case .op("[") = toks[j] {
+                    var inner: [Token] = []; var d = 1; var k = j + 1
+                    while k < toks.count {
+                        if case .op(let o) = toks[k] {
+                            if o == "[" || o == "(" || o == "{" { d += 1 }
+                            if o == "]" || o == ")" || o == "}" { d -= 1; if d == 0 { break } }
+                        }
+                        inner.append(toks[k]); k += 1
+                    }
+                    if k >= toks.count { return false }
+                    segs.append(.computed(inner)); j = k + 1; continue
+                }
+                break
+            }
+            // `x++` / `m.n--` — read-modify-write through the same path law.
+            if j == toks.count - 1, case .op(let bump) = toks[j], bump == "++" || bump == "--" {
+                let parts = evalSegs(segs)
+                let value = JSE.arith(getInLocal(baseFor(name), parts), 1.0, bump == "++" ? "+" : "-")
+                if parts.isEmpty { scope[name] = value ?? NSNull() }
+                else { scope[name] = setInLocal(baseFor(name), parts, value ?? NSNull()) ?? NSNull() }
+                return true
+            }
+            // `path.push(a, b)` — statement-position growth of the local array (push has
+            // no pure reading; pop/shift stay pure reads, stdlib-002). The whole
+            // statement must be exactly the call.
+            var lastIsPush = false
+            if case .fixed("push")? = segs.last { lastIsPush = true }
+            if lastIsPush, j < toks.count, case .op("(") = toks[j] {
+                var inner: [Token] = []; var d = 1; var k = j + 1
+                while k < toks.count {
+                    if case .op(let o) = toks[k] {
+                        if o == "(" || o == "[" || o == "{" { d += 1 }
+                        if o == ")" || o == "]" || o == "}" { d -= 1; if d == 0 { break } }
+                    }
+                    inner.append(toks[k]); k += 1
+                }
+                if d != 0 || k != toks.count - 1 { return false }
+                segs.removeLast()
+                let parts = evalSegs(segs)
+                var arr = JSE.asArray(getInLocal(baseFor(name), parts))
+                for run in Self.splitTopLevelTokens(inner) where !run.isEmpty { arr.append(evalExpr(run) ?? NSNull()) }
+                scope[name] = setInLocal(baseFor(name), parts, arr) ?? NSNull()
+                return true
+            }
+            guard j < toks.count, case .op(let opV) = toks[j] else { return false }
+            guard opV == "=" || opV == "+=" || opV == "-=" || opV == "*=" || opV == "/=" || opV == "%=" else { return false }
+            let rhsToks = Array(toks.dropFirst(j + 1))
+            if rhsToks.isEmpty { return false }
+            let rhs = evalExpr(rhsToks)
+            let parts = evalSegs(segs)
+            let value: Any? = opV == "="
+                ? rhs
+                : JSE.arith(getInLocal(baseFor(name), parts), rhs, String(opV.prefix(1)))
+            if parts.isEmpty { scope[name] = value ?? NSNull(); return true }
+            scope[name] = setInLocal(baseFor(name), parts, value ?? NSNull()) ?? NSNull()
+            return true
+        }
+
+        /// The container a path write rebuilds from: the block's own binding, else the
+        /// normal lookup (a caller-scope name copies in on first write — the evalBlock
+        /// purity contract: reads shadow, writes stay local).
+        private func baseFor(_ name: String) -> Any? {
+            if let own = scope[name] { return own }
+            return evalExpr([.ident(name)])
+        }
+
+        /// Path segments to keys: a static ident stays a string, a computed `[e]`
+        /// evaluates in this scope.
+        private func evalSegs(_ segs: [PathSeg]) -> [Any?] {
+            segs.map { seg in
+                switch seg {
+                case .fixed(let k): return k
+                case .computed(let toks): return evalExpr(toks)
+                }
+            }
+        }
+
+        /// Walk `parts` into `container` — the read twin of setInLocal; missing → null.
+        private func getInLocal(_ container: Any?, _ parts: [Any?]) -> Any? {
+            var cur: Any? = container
+            for p in parts {
+                if let arr = cur as? [Any] {
+                    if let idx = JSE.number(p), idx >= 0, Int(idx) < arr.count { cur = arr[Int(idx)] } else { return nil }
+                } else if let d = cur as? [String: Any] {
+                    cur = d[JSE.string(p)]
+                } else {
+                    return nil
+                }
+            }
+            return cur
+        }
+
+        /// Rebuild `container` with `parts` set to `value` — BY COPY at every level
+        /// (Swift dictionaries and arrays are value types, so the copy is the language;
+        /// the TS/Kotlin twins copy explicitly to match). A numeric part indexes an
+        /// array (in bounds, or appends at exactly length); anything else keys a dict;
+        /// a missing nest is created — total, never a throw.
+        private func setInLocal(_ container: Any?, _ parts: [Any?], _ value: Any?) -> Any? {
+            if parts.isEmpty { return value }
+            let headSeg = parts[0]
+            let rest = Array(parts.dropFirst())
+            if var arr = container as? [Any], let idx = JSE.number(headSeg) {
+                let iN = Int(idx)
+                if iN >= 0 && iN < arr.count { arr[iN] = setInLocal(arr[iN], rest, value) ?? NSNull() }
+                else if iN == arr.count { arr.append(setInLocal(nil, rest, value) ?? NSNull()) }
+                return arr
+            }
+            var d = (container as? [String: Any]) ?? [:]
+            let key = JSE.string(headSeg)
+            d[key] = setInLocal(d[key], rest, value) ?? NSNull()
+            return d
+        }
+
+        /// Split a token run on top-level commas (argument lists in block statements).
+        private static func splitTopLevelTokens(_ toks: [Token]) -> [[Token]] {
+            var out: [[Token]] = []
+            var cur: [Token] = []
+            var d = 0
+            for tk in toks {
+                if case .op(let o) = tk {
+                    if o == "(" || o == "[" || o == "{" { d += 1 }
+                    else if o == ")" || o == "]" || o == "}" { d -= 1 }
+                    else if d == 0 && o == "," { out.append(cur); cur = []; continue }
+                }
+                cur.append(tk)
+            }
+            out.append(cur)
+            return out
         }
         /// Collect tokens up to a top-level stop op (depth-aware); does NOT consume the stop.
         private func capture(until stops: Set<String>) -> [Token] {
@@ -694,6 +1057,49 @@ enum JSE {                  // JSE — the expression evaluator
         return w
     }
 
+    /// Pass 0 — decode the XML OPERATOR entities. A code body arrives RAW from the markup
+    /// reader on every renderer (code tags are lifted 1:1 — StackNode.liftCode here), so
+    /// an author who spells `&&` as `&amp;&amp;` (attribute muscle memory) hands the
+    /// lexer `& amp ; & amp ;`: bitwise ops over an `amp` identifier that silently
+    /// evaluate to 0 (the wave-7 F4 "0" write). The three entities with OPERATOR meaning
+    /// decode here, outside string/template/regex literals only. `&quot;`/`&apos;` stay
+    /// untouched (decoding them would move literal boundaries) and a bare `&` stays
+    /// literal — the markup reader's smart-entity rule, mirrored.
+    /// Corpus: OpenSource/Conformance/jse/syntax-006.json (three runners).
+    static func decodeOperatorEntities(_ s: String) -> String {
+        guard s.contains("&amp;") || s.contains("&lt;") || s.contains("&gt;") else { return s }
+        let c = Array(s); var out = ""; var i = 0
+        var prevSig: Character? = nil
+        while i < c.count {
+            let ch = c[i]
+            if ch == "'" || ch == "\"" { i = copyQuoted(c, i, &out); prevSig = ch; continue }
+            if ch == "`" { i = copyTemplate(c, i, &out); prevSig = "`"; continue }
+            if ch == "/",
+               charAllowsRegex(prevSig) || (prevSig.map { isWordChar($0) } == true && regexAfterKeyword(out)),
+               let end = scanRegexEnd(c, i) {
+                var k = i
+                while k < end { out.append(c[k]); k += 1 }
+                prevSig = c[end - 1]
+                i = end
+                continue
+            }
+            if ch == "&" {
+                let rest = String(c[(i + 1)..<min(i + 5, c.count)])
+                let op: Character? = rest.hasPrefix("amp;") ? "&" : rest.hasPrefix("lt;") ? "<" : rest.hasPrefix("gt;") ? ">" : nil
+                if let op {
+                    out.append(op)
+                    prevSig = op
+                    i += op == "&" ? 5 : 4
+                    continue
+                }
+            }
+            out.append(ch)
+            if !ch.isWhitespace { prevSig = ch }
+            i += 1
+        }
+        return out
+    }
+
     /// True when the `{` being pushed opens a `do` block (the word before it is `do`).
     private static func braceOpensDo(_ out: [Character]) -> Bool {
         var t = out.count - 1
@@ -771,13 +1177,13 @@ enum JSE {                  // JSE — the expression evaluator
         return out
     }
 
-    /// The shared entry: lone `\r` line endings normalized, comments out, then
-    /// statement-boundary newlines to `;`.
+    /// The shared entry: lone `\r` line endings normalized, operator entities decoded,
+    /// comments out, then statement-boundary newlines to `;`.
     static func preprocessSource(_ s: String) -> String {
         let normalized = s.contains("\r")
             ? s.replacingOccurrences(of: "\\r(?!\\n)", with: "\n", options: .regularExpression)
             : s
-        return asiSemicolons(stripComments(normalized))
+        return asiSemicolons(stripComments(decodeOperatorEntities(normalized)))
     }
 
     // ── string-literal escapes (the JS set; unknown escape = the char itself) ────────
@@ -1523,6 +1929,7 @@ enum JSE {                  // JSE — the expression evaluator
                                          "test", "match", "replace", "replaceAll", "split", "search",
                                          "repeat", "substring", "lastIndexOf", "trimStart", "trimEnd", "charAt", "charCodeAt",
                                          "codePointAt", "normalize", "matchAll", "fill", "toReversed", "with", "toSpliced",
+                                         "pop", "shift",
                                          "entries", "keys", "values", "toFixed"]
     private static func higherOrder(_ id: String, _ coll: Any?, _ fn: StackLambda?, store: any JSEState, initial: Any? = nil, hasInitial: Bool = false) -> Any? {
         let arr = asArray(coll)
@@ -1786,6 +2193,11 @@ enum JSE {                  // JSE — the expression evaluator
             if lo < hi { for i in lo..<hi { arr[i] = v } }
             return arr
         case "toReversed":  return Array(asArray(base).reversed())
+        // JS pop()/shift() mutate; JSE values are value-typed on the native runtimes, so
+        // the JSE spelling is the PURE read (the toReversed/toSpliced family's law): last/
+        // first element out, receiver untouched. Corpus: stdlib-002.
+        case "pop":         return asArray(base).last
+        case "shift":       return asArray(base).first
         case "with":
             var arr = asArray(base)
             var i = Int(safeInt(number(a.first ?? nil) ?? 0))
@@ -1803,6 +2215,26 @@ enum JSE {                  // JSE — the expression evaluator
         case "entries":     return asArray(base).enumerated().map { [Double($0.offset), $0.element] as [Any] }
         case "keys":        return asArray(base).enumerated().map { Double($0.offset) }
         case "values":      return asArray(base)
+        case "toLocaleString":
+            // NUMBER grouping (corpus stdlib-002): deterministic en-US-style thousands
+            // separators over the JSE string of the value — hand-rolled, so no platform
+            // locale reaches it and three renderers print one string. Date dicts keep
+            // the real locale formatting below; any other receiver keeps the null law.
+            if let v = number(base), !(base is [String: Any]) {
+                let txt = string(v)
+                let neg = txt.hasPrefix("-")
+                let bare = neg ? String(txt.dropFirst()) : txt
+                let parts = bare.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+                let whole = String(parts[0])
+                let frac = parts.count > 1 ? "." + String(parts[1]) : ""
+                var grouped = ""
+                for (k, ch) in whole.enumerated() {
+                    if k > 0 && (whole.count - k) % 3 == 0 { grouped.append(",") }
+                    grouped.append(ch)
+                }
+                return (neg ? "-" : "") + grouped + frac
+            }
+            return nil                                            // non-number receivers keep the old path (dates intercept earlier)
         case "toFixed":
             guard let v = number(base), v.isFinite else { return string(base) }
             if abs(v) >= 9007199254740992.0 { return string(v) }   // past 2^53 fraction digits are noise — the plain coercion
@@ -1854,6 +2286,10 @@ enum JSE {                  // JSE — the expression evaluator
         // generic computation, 1:1 syntax, native under the hood. See JSECore below.
         if JSECore.handles(name) { return JSECore.call(name, a) }
         switch name {
+        // SOURCE, DRAWN. The `<code>` surface needs token spans in markup, and a page cannot
+        // reach the scanner any other way - so the kernel exposes it instead of every caller
+        // shipping a fourth tokenizer. Pure: text in, rows of spans out.
+        case "highlight":          return Highlight.jseValue(s(0))
         case "upper":              return s(0).uppercased()
         case "lower":              return s(0).lowercased()
         case "cap", "capitalize":  return s(0).capitalized
@@ -1957,6 +2393,14 @@ enum JSE {                  // JSE — the expression evaluator
         return Int(Swift.min(Swift.max(d, -9.0e18), 9.0e18))   // within Int64 range
     }
     static func equals(_ a: Any?, _ b: Any?) -> Bool {   // internal: JSECore's Map/Set share it
+        // The scope sentinel reads as null here: a bound-but-null lambda param / const /
+        // destructured key is stored as NSNull, and `x == null` is the guard every author
+        // writes. Without this the sentinel fell through to string coercion ("<null>" != "")
+        // and the guard was silently false. Null equals only null — includes/indexOf/switch/
+        // Map/Set all ride this function, so they inherit the law. Corpus: core-002.
+        let aNil = a == nil || a is NSNull
+        let bNil = b == nil || b is NSNull
+        if aNil || bNil { return aNil && bNil }
         if let x = number(a), let y = number(b) { return x == y }
         // Structural equality for plain dicts/arrays — deep, key-order-insensitive (watchKey
         // sorts keys): `{ a: 1 } == { a: 1 }`, `[1, 2] == [1, 2]`. String-coercible value
@@ -2180,7 +2624,7 @@ enum JSE {                  // JSE — the expression evaluator
     static func destructureBind(
         _ patternText: String,
         _ value: Any?,
-        store: StackStore,
+        store: any JSEState,
         locals: [String: Any],
         _ bind: (String, Any?) -> Void
     ) {
@@ -2287,6 +2731,7 @@ enum JSE {                  // JSE — the expression evaluator
         case "route":            return join("route")
         case "cookie":           return join("cookie")           // web/native cookie jar — dsx.cookie.name (a value) / dsx.cookie (the whole { name: value } jar)
         case "attribute":        return join("attribute")        // a component's ATTRIBUTES — dsx.attribute.name, like a web component's HTML attributes (never "props")
+        case "override":         return join("override")         // a component's STYLE contract — dsx.override.name (Conformance/overrides)
         case "item", "this":     return join("item")             // dsx.this ≡ dsx.item — the current <list>/<grid> row
         case "element":          return join("item.__element")   // dsx.element.* — the nearest `container`-marked ancestor's live { width, height } (CSS @container)
         case "params":           return join("route.params")
@@ -2367,6 +2812,22 @@ enum JSE {                  // JSE — the expression evaluator
             let jar = Self.cookieJar?() ?? [:]
             return parts.count == 1 ? jar : walk(Array(parts.dropFirst()), in: jar)
         }
+        // The style-override plane: `dsx.override.<name>` — the component's declared style
+        // knobs, resolved through the shared core (item __overrides -> store var -> default,
+        // typed fail-open coercion; corpus OpenSource/Conformance/overrides).
+        if first == "override" {
+            let itemOv = item?["__overrides"] as? [String: Any]
+            let storeOv = store.vars["dsx.override"] as? [String: Any]
+            if parts.count == 1 {
+                return StyleOverrides.resolvePlane(Array(store.overrideDecls.values), itemOv, storeOv)
+            }
+            let name = parts[1]
+            guard let decl = store.overrideDecls[name] else { return nil }
+            let fromItem = itemOv?[name]
+            let raw = (fromItem != nil && !(fromItem is NSNull)) ? fromItem : storeOv?[name]
+            let v = StyleOverrides.resolve(decl, raw)
+            return parts.count == 2 ? v : walk(Array(parts.dropFirst(2)), in: v)
+        }
         // Explicit local scope: `item.*` (list row) / `attribute.*` (a component's attributes).
         if first == "item" || first == "attribute" {
             let v = walk(Array(parts.dropFirst()), in: item)
@@ -2377,6 +2838,10 @@ enum JSE {                  // JSE — the expression evaluator
                 if let runtime = walk(Array(parts.dropFirst()), in: av) { return runtime }
             }
             if v == nil, first == "attribute", parts.count == 2, let def = store.attrDefaults[parts[1]] {
+                //  `default=""` MEANS THE EMPTY STRING (the TS/Kotlin twins say the same): an
+                //  empty expression evaluated to nil, so every attribute declared with an empty
+                //  default read as ABSENT and the usual `!= ''` guard fired for one nobody set.
+                if def.trimmingCharacters(in: .whitespaces).isEmpty { return "" }
                 return eval(def, store: store, item: item)
             }
             return v

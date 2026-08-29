@@ -4,8 +4,8 @@ The DSX web framework lives here, per `/web/01` (W0 Open Question 1 — **stampe
 2026-07-12**: in-repo, monorepo gravity decisive). The cross-platform contract is one
 unchanged `.dsx` package source — iOS → UIKit/SwiftUI, Android → Compose, Web → DOM —
 and the Web compiler currently consumes Demo + Foundation that way. Functional Web
-coverage is claimed only by the [element support ledger](support/README.md): **51 of 76
-canonical elements** are supported (61 of 91 counting aliases), and every non-supported row —
+coverage is claimed only by the [element support ledger](support/README.md): **60 of 79
+canonical elements** are supported (71 of 94 counting aliases), and every non-supported row —
 partial or unsupported — declares a machine-readable reason AND a rendered fallback (the
 functional twin, or the labelled `dsx-unsupported` placeholder). Every row also declares its
 `webClass`: the stable `.dsx-*` root class the renderer stamps, RENDERED and compared against
@@ -22,7 +22,7 @@ signals over the DSX store, compiled JSE, direct DOM writes, **no virtual DOM**.
 | [`packages/kernel`](packages/kernel/) (`@despia/kernel`) | path-keyed signal store, JSE (interpreter + compiled-JS, ONE semantic helper table), action runner, module bus, `dsx.platform` | `OpenSource/Engine/` | **live** — corpus green on BOTH TS paths |
 | [`packages/compiler`](packages/compiler/) (`@despia/compiler`) | .dsx → node-tree IR (per-node reactivity stamps), platform-suffix folding, CSS emission (`@layer` cascade + owner scoping), module registry | `prepare_config.rb` + `compile_dsx_css.rb` + StackXML | **live** — compiles Demo + Foundation unchanged |
 | [`packages/dom`](packages/dom/) (`@despia/dom`) | element library (`.dsx-*` class contract), binding engine, keyed lists, slots (caller scope), frame router, theme layers | StackNodeView + Basics components | **live** — Demo acceptance runs in Playwright Chromium, Firefox, and WebKit |
-| [`packages/element`](packages/element/) (`@despia/element`) | standards-based custom-element wrapper for exposed DSX components | native component embedding | **live** — attribute/property/event/slot contract tested |
+| [`packages/element`](packages/element/) (`@despia/element`) | standards-based custom-element wrapper for exposed DSX components | native component embedding | **live** — export smoke-checked (`verify-packages`) and exercised as the embed import path; the attribute/property/event/slot contract SUITE is not written yet (diligence row, ClosedSource/Documentation/diligence.md) |
 | [`packages/server`](packages/server/) (`@despia/server`) | string renderer (IR → HTML, same resolution rules), full-document pages (title/meta/og), per-node hydration stamps (`data-dsx-n`), SSR `<api>` prefetch + `window.__DSX__` seeding (`renderPageAsync`, nested instances too), islands (inert-subtree skip), embed-fragment SSR (`renderEmbedFragmentAsync`), static route export, redirect pages | — (new surface) | **v0 + adopt-hydration + SSR `<api>` (page/nested/embed) + islands live** — true streaming + the full-page live adapter = the open W6 gate |
 | [`packages/cli`](packages/cli/) (`@despia/cli`) | `dsx build` (compile path → static site) · `dsx dev` (build · serve · watch · SSE reload) · `dsx lint` (the TS twin of `lint_dsx.rb`) · `dsx doctor` (project checks, authored in DSX — the CLI node's dogfood, `cli-authoring.md`) | `lint_dsx.rb` + `prepare_config.rb` | **live** — tooling face of the release set |
 | [`packages/create-dsx`](packages/create-dsx/) (`create-dsx`) | project scaffolder — a real DSX package that `dsx build` compiles as generated | — | **live** — tooling face of the release set |
@@ -83,17 +83,17 @@ when the web package names an icon the shared table does not.
 generated glyph actually **paints**: a malformed path passes a string check and renders
 nothing, so every name is mounted for real and must report a non-degenerate ink box.
 
-The browser render ladder mirrors Android's: a **24×24 stroke vector** (the row's `web`
-field), else the row's **`fallback`** unicode glyph drawn as SVG `<text>`, else — only for a
+The browser render ladder mirrors Android's: a **24×24 fill vector** (the row's `web`
+field — Boxicons fill paths since the 2026-08-23 axis v2, see the corpus `_web_axis`
+note), else the row's **`fallback`** unicode glyph drawn as SVG `<text>`, else — only for a
 name the corpus does not contain — the fail-open placeholder plus one console warning
 (override such a name with `icon-web=`).
 
-Two documented divergences, recorded in the corpus rather than hidden:
+One documented divergence, recorded in the corpus rather than hidden (the old
+no-web-vector gap is CLOSED: all 107 `icons` rows now carry a `web` path; the fallback
+rung remains as the ladder's safety net, not a standing state):
 
-- 10 of the 99 corpus rows deliberately have no `web` vector and render the fallback glyph.
-  They are the pictographic/brand ones a 2px stroke cannot honestly carry (`apple.logo`,
-  `crown.fill`, `flame.fill`, `pianokeys`, `tuningfork`, …).
-- 13 names the in-repo web previews author live in the corpus's `web_extra` section instead
+- 15 names the in-repo web previews author live in the corpus's `web_extra` section instead
   of `icons`, because an `icons` row also pins a Material Symbols codepoint that the bundled
   Android subset font must carry (`FontSubsetTest`); promoting one means regenerating that
   font subset.
@@ -137,20 +137,59 @@ The same set runs in CI (`codemagic.yaml`, `web-kernel` lane). **A JSE change is
 without a green corpus on every runtime** (`/web/07`) — Swift is the reference (record
 mode), Kotlin runs it per-PR, this kernel runs it on both executors per-PR.
 
-Latest current-tree verification (2026-08-12, real runs): the full `npm test` suite passes
-with 0 failures (**2,565 passing plus 11 environment-gated skips** — including the committed
+Latest current-tree verification (2026-08-18, real runs): the built node test suite passes
+with 0 failures (**2,929 passing plus 11 environment-gated skips** — including the committed
 seeded parser-fuzz gate described below, the golden-HTML render suite, the L-01
-element-closure proofs, and the CLI-node corpus), `npm run conformance` 774/774, and
-`npm run typecheck` passed. The eight distributable packages passed the 498-file tarball,
+element-closure proofs, and the CLI-node corpus), `npm run conformance` 837/837, and
+`npm run typecheck` passed. The eight distributable packages passed the 562-file tarball,
 clean-consumer import, type, repack, and browser-bundle resolution gate (`pack:check`) plus
 the tarballs-only first-run walk (`cold-start`).
 Conflict-copy filenames are excluded at compile time and rejected from release
-tarballs. The demo compiled 25 route-table entries into 24 rendered routes and 24 SSR
-pages; its EmbedCard slice is 39,192 bytes gzip (that figure is the fixed-feature slice The G10 widget law is 40,960 bytes, so **1,768 bytes of headroom remain**. Headroom is bought by making a subsystem OPTIONAL and proving the slice does not reach it — `__DSX_OPTIONAL_FETCH__` is the most recent, worth 1,246 bytes — never by raising the limit.
+tarballs. The demo compiled 26 route-table entries into 30 SSR route
+pages (verified by rebuilding, 2026-08-23); its EmbedCard slice is 40,890 bytes gzip (that figure is the fixed-feature slice
 built by `packages/compiler/test/embed-structural-slicing.test.ts`, which pins this
-sentence; the artifact `npm run build:demo` actually emits, with real feature detection,
-gzips to the same 39,181 bytes). The ordinary self-contained widget budget is 40,960
-bytes gzip and **EmbedCard now meets it with 1,561 bytes to spare, carrying NO declared
+sentence; `npm run build:demo` emits the same bytes because both now build with ONE fold
+map, `embedDefines` in `packages/compiler/bin/embed-entry.ts`). The G10 widget law is 40,960 bytes, so **70
+bytes of headroom remain** (the moved row: `__DSX_OPTIONAL_CONTROL_METRICS__` - the density
+plane's toggle, slider, field and textarea metrics are read by the control sheets and by
+nothing else, so a widget that imports none of them stopped shipping 28 token declarations
+it could not reach, 222 bytes gzip. The same commit put the fold map in one place: the
+builder and the two slicing gates had drifted apart, and the copy that measured the law was
+a fold behind the copy that shipped. The row before it: named styles now compile on web - a `<style as=>` head
+declaration folds into an owner-scoped class rule, which both native renderers already
+honoured - together with a list filling the card it sits in and the segmented thumb no
+longer animating its first, pre-layout placement, 36 bytes gzip. The row before it: the style-override plane — the `<override>`
+head contract, the `override:` usage split and the `dsx.override` read — whose runtime
+folds behind `__DSX_OPTIONAL_STYLE_OVERRIDES__`, leaving a knob-free widget only the
+folded shells, and the widget payload drops each head's empty `overrides: []` row. The
+row before it: the `<tool>` head declaration and its
+`__DSX_OPTIONAL_WEBMCP__` fold (proposals/webmcp.md), 2 bytes gzip here - the binding
+folds away for a slice with no rows, so only the seam declaration moved. The row
+before it: the review sweep before the dev merge - the SSR
+reactive-context fold, the strict submitOnEnter read and the shared-context style bridge,
+19 bytes gzip. The row before it: the glass pair - `glassTint` and
+`glassInteractive` became properties the theme READS rather than a `-dsx-*` vendor
+spelling a browser drops, and the numeric attribute reader stopped treating an absent
+value as zero. Both land behind `__DSX_OPTIONAL_SURFACES__` and
+`__DSX_OPTIONAL_STYLE_FORMULAS__`, which this slice unsets, so the slice moved 2 bytes
+DOWN. The row before it: `__DSX_OPTIONAL_SPRING__`, the sampled `linear()` spring-upgrade table in `theme.ts`, plus the list/grid/pager fallback rules riding `__DSX_OPTIONAL_BOUND_COLLECTIONS__` - a widget that imports no spring consumer and authors no collection tag sheds both. The row before it: `<text type="...">`, the twelve ratified type
+roles made reachable from markup, which costs one element-layer rule per role and 168 bytes
+gzip here. The row before it: the token sheet stopped shipping its own documentation, twice. The state layer, the type ramp's leading rungs and the density
+plane landed in TOKENS_CSS and took it 2,198 bytes OVER the law; the law was right and
+the tokens were not the waste. 6,069 bytes of CSS comments were riding inside the
+sheet's template literals and reaching every browser, so they moved out to TS comments
+beside the declarations they document - same words, same place in the source, zero
+payload. The design-system burn-down then added the label/caption2/reading rungs, the
+fluid twins, the glyph scale, the loop periods and the focus halo, and wrote 2,229 more
+bytes of CSS comment alongside them - 125 bytes back OVER the law. The same move
+applied again to the new prose: every declaration is byte-identical after
+comment-stripping (proven by dumping both builds and diffing), so the slice ships
+strictly more design system and strictly less documentation. The prior row was
+`__DSX_OPTIONAL_STRINGS__`, the P12 localization fold). Headroom is bought by making a subsystem OPTIONAL and proving the
+slice does not reach it — `__DSX_OPTIONAL_FETCH__` was worth 1,246 bytes, and the
+component-fidelity folds below are the most recent — never by raising the limit. The
+ordinary self-contained widget budget is 40,960
+bytes gzip and **EmbedCard now meets it with 63 bytes to spare, carrying NO declared
 override** — the `budgetKB: 49` its package used to declare is retired. What closed the
 ~12% gap is four more slice-driven `__DSX_OPTIONAL_*` folds, all of the same shape as
 the existing ones (the flag is unset for anything that is not a sliced embed, so full
@@ -172,12 +211,45 @@ folds the whole inline markdown parser (`packages/dom/src/markdown.ts`) out of a
 that authors no `<text markdown=>`. Its define is read INSIDE the `if` CONDITION, not
 hoisted into a `const` — that is what lets esbuild delete the block and tree-shake the
 module; a flag merely checked around a call site does not.
-The same folds hold the audio/video playback qualification at 7,322 bytes of headroom
-(42,805 B audio / 42,806 B video / 42,854 B combined against its declared 50,176-byte
+The component-fidelity wave bought its own headroom with three more folds of the same
+shape plus three css rides on defines that already existed. `__DSX_OPTIONAL_REGEX__`
+folds the JSE regex engine (`packages/kernel/src/jse/regex.ts` FULL/ABSENT twins) AND
+the regex-literal lexing branches in `tokens.ts`/`jse.ts`; its detector
+`registryUsesRegex` is deliberately a slash SUPERSET (any `/`, the `RegExp`/`regex`
+words, or a foreign payload keeps the engine), which is exactly what makes folding the
+lexer sound: a folded build's sources carry no `/` at all. The string-pattern halves of
+`replace`/`split` stay real in the absent twin. `__DSX_OPTIONAL_STYLE_FORMULAS__` folds
+the runtime style-value mapper (`packages/compiler/src/cssmap.ts` vocabulary tables and
+the legacy-attr runtime half); static styles were already mapped at build time, so only
+a `{{ }}` style/bridge formula, a semantic `color=`, bound rows, or universal globals
+(their factories tint through semantic fallbacks) keep it, via
+`registryUsesStyleFormulas`. `__DSX_OPTIONAL_BUTTON_VARIANTS__` folds the non-default
+button skin (variant="bordered", the destructive/cancel role words) out of theme.ts;
+`registryUsesButtonVariants` keeps it for those words or any interpolated
+`variant=`/`role=`. `__DSX_OPTIONAL_STYLE_OVERRIDES__` folds the style-override plane
+(the kernel's style-overrides.ts resolve machinery, the mount split/seed doors and the
+JSE `dsx.override` branch) out of any slice that declares no `<override>`, authors no
+`override:` spelling and reads no `dsx.override`, via `registryUsesStyleOverrides` —
+the usual superset, and foreign payloads keep it; a knob-free widget's payload also
+drops each head's empty `overrides: []` row. `__DSX_OPTIONAL_SPRING__` folds the sampled `linear()` upgrade of
+`--dsx-ease-spring*`; the bezier fallbacks stay in the shared token plane (the
+pre-linear() floor) and the float table drops when the slice imports no sheet that
+names those tokens. The css rides: the list/grid/pager fallback rules under the
+existing `__DSX_OPTIONAL_BOUND_COLLECTIONS__` (structural embeds load the fuller
+twin; a collection-free widget does not), the `.dsx-surface-*` material rules under
+`__DSX_OPTIONAL_SURFACES__`, the plain `aria-pressed` button rule under
+`__DSX_OPTIONAL_PRESSED__`, and the `searchParams` parent-walk in the runner under
+`__DSX_OPTIONAL_JS_GLOBALS__` (no URL shape can exist without the layer that mints it).
+Theme pin tables stay unconditional: a host page can pin an embed's scheme by writing
+`data-dsx-theme` itself, so a theme-less widget must still honor it.
+The same folds hold the audio/video playback qualification at 1,058 bytes of headroom
+(49,066 B audio / 49,069 B video / 49,118 B combined against its declared 50,176-byte
 budget).
 All generated offline assets matched their manifest SHA-256 hashes over localhost
-HTTP. The locked Chromium, Firefox, and WebKit matrix is green: it covers all 24
-rendered routes at iOS-phone, Android-phone, iPad, desktop, and wide-desktop viewport
+HTTP. The locked Chromium, Firefox, and WebKit matrix is green: it walks every
+component route in the demo route table (25 as of 2026-08-23; the oracle reads the
+table itself, so a new route joins the matrix automatically, floored at 22)
+at iOS-phone, Android-phone, iPad, desktop, and wide-desktop viewport
 contracts, including overflow, navigation, focus/inert restoration, responsive
 master-detail, breakpoint boundaries, offline reload, pointer/keyboard stress, embeds,
 and editor interaction. The `visualViewport` software-keyboard path is not qualified by
@@ -310,7 +382,7 @@ package publication.
   declares that limit in its own header rather than asserting around it. It needs a browser that
   preserves entry state.
 - **W5 `<api>`** — CROSS-PLATFORM core green: one corpus
-  (`OpenSource/Conformance/api/api-blocks.json`, 37 cases) runs on the TS kernel,
+  (`OpenSource/Conformance/api/api-blocks.json`, 41 cases) runs on the TS kernel,
   Kotlin `ApiBlock.kt`, and Swift `ApiBlock.swift`; all three runners passed in the
   latest cross-runtime audit. Auto-fetch, materialized-request refetch,
   debounce/abort-stale/retry, events (on:success/error/message), cache

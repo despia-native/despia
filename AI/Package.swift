@@ -253,7 +253,7 @@ let package = Package(
             publicHeadersPath: "engine/include",
             cxxSettings: [
                 .headerSearchPath("engine/include"),
-                .define("DESPIA_AI_VERSION", to: "\"0.1.0\""),
+                .define("DESPIA_AI_VERSION", to: "\"0.0.1\""),
                 .define("DESPIA_AI_HAVE_LLAMA", to: "1"),
                 .define("DESPIA_AI_HAVE_WHISPER", to: "1"),
             ]

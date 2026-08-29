@@ -150,12 +150,64 @@ export function stripComments(s: string): string {
       out.push(" "); // never glue the surrounding tokens
       continue;
     }
-    if (ch === "/" && (charAllowsRegex(prevSig) || (prevSig !== null && isWordChar(prevSig) && regexAfterKeyword(out)))) {
+    // regex-literal lexing rides __DSX_OPTIONAL_REGEX__ (regex.ts): the detection is
+    // slash-SUPERSET, so a folded build's sources carry no `/` at all — the branch
+    // (and scanRegexEnd behind it) is unreachable there.
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_REGEX__?: boolean })
+      .__DSX_OPTIONAL_REGEX__ !== false
+      && ch === "/" && (charAllowsRegex(prevSig) || (prevSig !== null && isWordChar(prevSig) && regexAfterKeyword(out)))) {
       const end = scanRegexEnd(c, i);
       if (end > 0) {
         for (let k = i; k < end; k++) out.push(c[k]!);
         i = end;
         prevSig = c[end - 1]!;
+        continue;
+      }
+    }
+    out.push(ch);
+    if (!/\s/.test(ch)) prevSig = ch;
+    i += 1;
+  }
+  return out.join("");
+}
+
+/** Pass 0 — decode the XML OPERATOR entities. A code body arrives RAW from the markup
+ *  reader on every renderer (code tags are lifted 1:1 — xml.ts, StackNode.liftCode, the
+ *  Kotlin reader), so an author who spells `&&` as `&amp;&amp;` (attribute muscle memory
+ *  — the flagship starter did) hands the lexer `& amp ; & amp ;`: bitwise ops over an
+ *  `amp` identifier that silently evaluate to 0 (the wave-7 F4 "0" write). The three
+ *  entities with OPERATOR meaning decode here, outside string/template/regex literals
+ *  only. `&quot;`/`&apos;` stay untouched (decoding them would move literal boundaries)
+ *  and a bare `&` stays literal — the markup reader's smart-entity rule, mirrored.
+ *  Corpus: OpenSource/Conformance/jse/syntax-006.json (three runners). */
+export function decodeOperatorEntities(s: string): string {
+  if (!s.includes("&amp;") && !s.includes("&lt;") && !s.includes("&gt;")) return s;
+  const c = Array.from(s);
+  const out: string[] = [];
+  let i = 0;
+  let prevSig: string | null = null;
+  while (i < c.length) {
+    const ch = c[i]!;
+    if (ch === "'" || ch === "\"") { i = copyQuoted(c, i, out); prevSig = ch; continue; }
+    if (ch === "`") { i = copyTemplate(c, i, out); prevSig = "`"; continue; }
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_REGEX__?: boolean })
+      .__DSX_OPTIONAL_REGEX__ !== false
+      && ch === "/" && (charAllowsRegex(prevSig) || (prevSig !== null && isWordChar(prevSig) && regexAfterKeyword(out)))) {
+      const end = scanRegexEnd(c, i);
+      if (end > 0) {
+        for (let k = i; k < end; k++) out.push(c[k]!);
+        i = end;
+        prevSig = c[end - 1]!;
+        continue;
+      }
+    }
+    if (ch === "&") {
+      const rest = c.slice(i + 1, i + 5).join("");
+      const op = rest.startsWith("amp;") ? "&" : rest.startsWith("lt;") ? "<" : rest.startsWith("gt;") ? ">" : null;
+      if (op !== null) {
+        out.push(op);
+        prevSig = op;
+        i += op === "&" ? 5 : 4;
         continue;
       }
     }
@@ -232,7 +284,9 @@ export function asiSemicolons(s: string): string {
     const ch = c[i]!;
     if (ch === "'" || ch === "\"") { i = copyQuoted(c, i, out); prevSig = ch; justClosedDo = false; continue; }
     if (ch === "`") { i = copyTemplate(c, i, out); prevSig = "`"; justClosedDo = false; continue; }
-    if (ch === "/" && (charAllowsRegex(prevSig) || (prevSig !== null && isWordChar(prevSig) && regexAfterKeyword(out)))) {
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_REGEX__?: boolean })
+      .__DSX_OPTIONAL_REGEX__ !== false
+      && ch === "/" && (charAllowsRegex(prevSig) || (prevSig !== null && isWordChar(prevSig) && regexAfterKeyword(out)))) {
       const end = scanRegexEnd(c, i);
       if (end > 0) {
         for (let k = i; k < end; k++) out.push(c[k]!);
@@ -261,11 +315,11 @@ export function asiSemicolons(s: string): string {
   return out.join("");
 }
 
-/** The shared entry: lone `\r` line endings normalized, comments out, then
- *  statement-boundary newlines to `;`. */
+/** The shared entry: lone `\r` line endings normalized, operator entities decoded,
+ *  comments out, then statement-boundary newlines to `;`. */
 export function preprocessSource(s: string): string {
   const normalized = s.includes("\r") ? s.replace(/\r(?!\n)/g, "\n") : s;
-  return asiSemicolons(stripComments(normalized));
+  return asiSemicolons(stripComments(decodeOperatorEntities(normalized)));
 }
 
 // ── string-literal escapes (the JS set; unknown escape = the char itself) ───────────
@@ -318,7 +372,7 @@ function unescapeInto(str: string[], c: string[], j: number): number {
 
 /** Scan a numeric literal at `i` (a digit, or `.` + digit). Underscore separators are
  *  consumed only BETWEEN digits of the active alphabet. Returns [value, nextIndex]. */
-function scanNumber(c: string[], i: number): [number, number] {
+function scanNumber(c: ArrayLike<string>, i: number): [number, number] {
   const radix = (pfx: string, digit: (ch: string) => boolean, base: number): [number, number] | null => {
     if (!(c[i] === "0" && i + 1 < c.length && (c[i + 1] === pfx || c[i + 1] === pfx.toUpperCase()))) return null;
     let j = i + 2;
@@ -363,6 +417,15 @@ function scanNumber(c: string[], i: number): [number, number] {
     }
   }
   return [swiftDouble(n) ?? 0, j];
+}
+
+/** Where the runner's numeric literal ENDS, measured on a plain string. Exported so a second
+ *  reader of JSE splits a number exactly where the language does. The highlighter's
+ *  `endOfNumber` paints a deliberately different span (it never eats a trailing `.`, and it
+ *  is happy with a bare `0x`), which is right for colouring and wrong for meaning: a reader
+ *  using it disagrees with the language about where `1.map(f)` and `0x` divide. */
+export function endOfJseNumber(src: string, at: number): number {
+  return scanNumber(src, at)[1];
 }
 
 // ── the tokenizer ────────────────────────────────────────────────────────────────────
@@ -440,7 +503,8 @@ function tokenizeRaw(s: string, holeDepth = 0): Token[] {
       toks.push({ kind: "ident", v: id });
       continue;
     }
-    if (ch === "/") {
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_REGEX__?: boolean })
+      .__DSX_OPTIONAL_REGEX__ !== false && ch === "/") {
       // Regex literal vs division — the standard JS lexer heuristic: `/` in PREFIX
       // position starts a regex; after a value (or postfix `++`/`--`) it's division.
       // A keyword ident (`return` / `case` / `typeof` / …) is prefix position too.

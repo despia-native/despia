@@ -50,6 +50,10 @@ function colorValue(raw: string): string {
     fill: "var(--dsx-fill)",
     separator: "var(--dsx-separator)",
     destructive: "var(--dsx-destructive)",
+    success: "var(--dsx-success)",
+    warning: "var(--dsx-warning)",
+    danger: "var(--dsx-danger)",
+    info: "var(--dsx-info)",
   };
   return (tokens[value] ?? value) || "var(--dsx-accent)";
 }
@@ -168,6 +172,9 @@ export const Table: ElementFactory = (node, _ctx, api) => {
   let warned = false;
   const render = (): void => {
     const resolvedFields = fields.length > 0 ? fields : columns.map((column) => column.toLowerCase());
+    // the sheet turns this into the table's min-inline-size so a wide table scrolls
+    // INSIDE the frame (overflow: auto) instead of crushing its fixed-layout columns
+    frame.style.setProperty("--dsx-table-columns", String(Math.max(columns.length, resolvedFields.length, 1)));
     const headerRow = document.createElement("tr");
     for (const column of columns) {
       const cell = document.createElement("th");
@@ -333,10 +340,14 @@ export const calendar: ElementFactory = (node, _ctx, api) => {
   next.setAttribute("aria-label", "Next month");
   next.textContent = "›";
   title.setAttribute("aria-live", "polite");
+  // Real grid semantics (W9 audit fix; the <grid> element's aria-row mechanics):
+  // the weekday header row and every week live INSIDE the role=grid as role=row
+  // children, so aria-required-children/-parent hold and axe stays clean.
   weekdayRow.setAttribute("role", "row");
+  weekdayRow.setAttribute("aria-rowindex", "1");
   grid.setAttribute("role", "grid");
   header.append(previous, title, next);
-  root.append(header, weekdayRow, grid);
+  root.append(header, grid);
   bindTint(root, node, api);
 
   const rebuildMarks = (): void => {
@@ -451,7 +462,16 @@ export const calendar: ElementFactory = (node, _ctx, api) => {
       cell.appendChild(button);
       cells.push(cell);
     }
-    grid.replaceChildren(...cells);
+    const weeks: HTMLElement[] = [];
+    for (let start = 0; start < cells.length; start += 7) {
+      const week = el("div", "dsx-calendar-week");
+      week.setAttribute("role", "row");
+      week.setAttribute("aria-rowindex", String(weeks.length + 2));
+      week.append(...cells.slice(start, start + 7));
+      weeks.push(week);
+    }
+    grid.setAttribute("aria-rowcount", String(weeks.length + 1));
+    grid.replaceChildren(weekdayRow, ...weeks);
     const previousDate = prolepticLocalDate(displayed.year, displayed.month - 2, 1);
     const nextDate = prolepticLocalDate(displayed.year, displayed.month, 1);
     const previousUnavailable = !canShowMonth(previousDate.getFullYear(), previousDate.getMonth() + 1);
@@ -556,7 +576,7 @@ export function normalizeSegmentedSelection(value: unknown, options: readonly st
   return options.filter((option, index) => options.indexOf(option) === index && selected.has(option));
 }
 
-export const segmentedButton: ElementFactory = (node, _ctx, api) => {
+export const segmentedButton: ElementFactory = (node, ctx, api) => {
   const root = el("div", "dsx-segmented-button");
   root.setAttribute("data-dsx-component", "segmented-button");
   const multiple = (node.attrs["multiple"] ?? "true").trim().toLowerCase() !== "false";
@@ -569,6 +589,38 @@ export const segmentedButton: ElementFactory = (node, _ctx, api) => {
   let selected: string[] = [];
   let buttons: HTMLButtonElement[] = [];
   let applyDisabled = (): void => {};
+  const indicator = el("span", "dsx-segmented-button-indicator");
+  indicator.setAttribute("data-dsx-part", "indicator");
+  indicator.setAttribute("aria-hidden", "true");
+  let resizeObserver: ResizeObserver | null = null;
+  const positionIndicator = (): void => {
+    if (multiple) return;
+    const selectedIndex = ids.findIndex((id) => selected.includes(id));
+    const control = buttons[selectedIndex];
+    if (control === undefined) return;
+    const x = control.offsetLeft;
+    const y = control.offsetTop;
+    const width = control.offsetWidth;
+    const height = control.offsetHeight;
+    if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return;
+    root.style.setProperty("--dsx-segmented-button-indicator-x", `${x}px`);
+    root.style.setProperty("--dsx-segmented-button-indicator-y", `${y}px`);
+    root.style.setProperty("--dsx-segmented-button-indicator-width", `${width}px`);
+    root.style.setProperty("--dsx-segmented-button-indicator-height", `${height}px`);
+    indicator.setAttribute("data-positioned", "true");
+  };
+  const observeGeometry = (): void => {
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+    if (multiple || typeof ResizeObserver === "undefined") return;
+    resizeObserver = new ResizeObserver(positionIndicator);
+    resizeObserver.observe(root);
+    buttons.forEach((button) => resizeObserver?.observe(button));
+  };
+  ctx.disposers.push(() => {
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+  });
 
   const reflect = (): void => {
     buttons.forEach((button, index) => {
@@ -581,6 +633,12 @@ export const segmentedButton: ElementFactory = (node, _ctx, api) => {
         button.tabIndex = active || (selected.length === 0 && index === 0) ? 0 : -1;
       }
     });
+    if (!multiple) {
+      const selectedIndex = ids.findIndex((id) => selected.includes(id));
+      indicator.hidden = selectedIndex < 0 || ids.length === 0;
+      if (indicator.hidden) indicator.removeAttribute("data-positioned");
+      queueMicrotask(positionIndicator);
+    }
   };
   const commit = (id: string): void => {
     const previous = selected.join(",");
@@ -633,7 +691,9 @@ export const segmentedButton: ElementFactory = (node, _ctx, api) => {
       }
       return button;
     });
-    root.replaceChildren(...buttons);
+    if (multiple) root.replaceChildren(...buttons);
+    else root.replaceChildren(...buttons, indicator);
+    observeGeometry();
     reflect();
     applyDisabled();
   };
@@ -659,6 +719,12 @@ export const refreshable: ElementFactory = (node, ctx, api) => {
   const viewport = el("div", "dsx-refresh-viewport");
   button.type = "button";
   button.setAttribute("aria-label", node.attrs["a11yLabel"] ?? "Refresh");
+  // The scroll viewport is keyboard-reachable like the Table frame (axe
+  // scrollable-region-focusable): named region, focusable, ring in CSS.
+  viewport.tabIndex = 0;
+  viewport.setAttribute("role", "region");
+  viewport.setAttribute("aria-label", node.attrs["a11yLabel"] !== undefined
+    ? `${node.attrs["a11yLabel"]} content` : "Refreshable content");
   symbol.textContent = "↻";
   symbol.setAttribute("aria-hidden", "true");
   status.setAttribute("role", "status");
@@ -807,35 +873,88 @@ export const DATA_CONTROLS_CSS = `@layer dsx-elements {
     font-family: var(--dsx-font);
   }
 
+  /* a content card: shadow-1's contact line / inner highlight replaces the hard
+     hairline border (component-fidelity, wave 7) */
   .dsx-table-frame {
+    --dsx-table-inset: var(--dsx-space-4);
     width: 100%;
     overflow: auto;
-    border: 1px solid var(--dsx-separator);
-    border-radius: var(--dsx-radius);
+    border-radius: var(--dsx-radius-card);
     background: var(--dsx-secondary-grouped-background);
+    box-shadow: var(--dsx-shadow-1);
     scrollbar-gutter: stable;
     overscroll-behavior: contain;
   }
-  .dsx-table-frame:focus-visible { outline: none; box-shadow: var(--dsx-focus-ring); }
-  .dsx-table { width: 100%; border-collapse: collapse; table-layout: fixed; color: var(--dsx-table-color, var(--dsx-label)); font: inherit; }
+  .dsx-table-frame:focus-visible {
+    outline: var(--dsx-focus-ring-width) solid var(--dsx-accent);
+    outline-offset: var(--dsx-focus-ring-offset);
+    z-index: 1;
+  }
+  .dsx-table {
+    width: 100%;
+    min-width: calc(var(--dsx-table-columns, 1) * 7rem);
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    color: var(--dsx-table-color, var(--dsx-label));
+    font: inherit;
+  }
   .dsx-table th, .dsx-table td {
     box-sizing: border-box;
-    min-width: 7rem;
-    padding-inline: 8px;
+    padding-inline: var(--dsx-table-inset);
     overflow: hidden;
-    border-block-end: 1px solid color-mix(in srgb, var(--dsx-separator) 58%, transparent);
+    border-block-end: var(--dsx-hairline) solid var(--dsx-separator);
     text-align: start;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .dsx-table th { height: 40px; color: var(--dsx-secondary-label); font-size: 13px; font-weight: 650; }
-  .dsx-table td { height: 44px; font-size: 15px; }
+  .dsx-table th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 1;
+    height: 40px;
+    color: var(--dsx-secondary-label);
+    background: var(--dsx-secondary-grouped-background);
+    font-size: var(--dsx-type-footnote-size);
+    font-weight: var(--dsx-type-headline-weight);
+    letter-spacing: var(--dsx-type-footnote-tracking);
+  }
+  .dsx-table td {
+    height: 44px;
+    font-size: var(--dsx-type-body-size);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--dsx-type-body-tracking);
+  }
+  /* system row separators are INSET at the leading text edge (the list idiom): the
+     first cell keeps its border box but paints the hairline from the inset instead —
+     logical inline offsets make the RTL mirror free */
+  .dsx-table tbody td:first-child { position: relative; border-block-end-color: transparent; }
+  .dsx-table tbody td:first-child::after {
+    content: "";
+    position: absolute;
+    inset-block-end: calc(-1 * var(--dsx-hairline));
+    inset-inline: var(--dsx-table-inset) 0;
+    height: var(--dsx-hairline);
+    background: var(--dsx-separator);
+  }
   .dsx-table tbody tr:last-child td { border-block-end: 0; }
-  .dsx-table tbody tr { content-visibility: auto; contain-intrinsic-block-size: 44px; }
+  .dsx-table tbody tr:last-child td:first-child::after { content: none; }
+  .dsx-table tbody tr {
+    content-visibility: auto;
+    contain-intrinsic-block-size: 44px;
+    transition: background-color var(--dsx-dur-fast) var(--dsx-ease);
+  }
 
-  .dsx-calendar { display: grid; gap: 10px; width: 100%; max-width: 32rem; }
+  .dsx-calendar { display: grid; gap: var(--dsx-space-2); width: 100%; max-width: 32rem; }
   .dsx-calendar-header { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; }
-  .dsx-calendar-title { margin: 0; text-align: center; font-size: 1rem; font-weight: 650; line-height: 1.3; }
+  .dsx-calendar-title {
+    margin: 0;
+    text-align: center;
+    font-size: var(--dsx-type-title3-size);
+    font-weight: var(--dsx-type-title3-weight);
+    letter-spacing: var(--dsx-type-title3-tracking);
+    line-height: var(--dsx-type-headline-leading);
+  }
   .dsx-calendar-page, .dsx-calendar-day {
     appearance: none;
     margin: 0;
@@ -844,37 +963,129 @@ export const DATA_CONTROLS_CSS = `@layer dsx-elements {
     background: transparent;
     font: inherit;
     cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      color var(--dsx-dur-fast) var(--dsx-ease);
   }
-  .dsx-calendar-page { min-width: 44px; min-height: 44px; color: var(--dsx-data-tint); font-size: 1.5rem; line-height: 1; }
-  .dsx-calendar-page:disabled, .dsx-calendar-day:disabled { cursor: not-allowed; opacity: .38; }
-  .dsx-calendar-page:focus-visible, .dsx-calendar-day:focus-visible { outline: none; box-shadow: var(--dsx-focus-ring); }
-  .dsx-calendar-weekdays, .dsx-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .dsx-calendar-page {
+    display: grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--dsx-radius-control);
+    color: var(--dsx-data-tint);
+    font-size: var(--dsx-glyph-size-lg);
+    line-height: var(--dsx-type-leading-none);
+  }
+  .dsx-calendar-page:not(:disabled):active, .dsx-calendar-day:not(:disabled):active { background: var(--dsx-fill); }
+  .dsx-calendar-page:disabled, .dsx-calendar-day:disabled { cursor: not-allowed; opacity: .5; filter: saturate(.5); }
+  .dsx-calendar-page:focus-visible, .dsx-calendar-day:focus-visible {
+    outline: var(--dsx-focus-ring-width) solid var(--dsx-accent);
+    outline-offset: var(--dsx-focus-ring-offset);
+    z-index: 1;
+  }
+  .dsx-calendar-weekdays, .dsx-calendar-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .dsx-calendar-weekdays { margin-block-end: var(--dsx-space-2); }
   .dsx-calendar-weekday {
     display: grid;
     place-items: center;
     min-height: 24px;
-    color: var(--dsx-secondary-label);
-    font-size: .6875rem;
-    font-weight: 650;
+    color: var(--dsx-tertiary-label);
+    font-size: var(--dsx-type-caption-size);
+    font-weight: var(--dsx-type-headline-weight);
+    letter-spacing: var(--dsx-type-caption-tracking);
   }
   .dsx-calendar-cell { display: grid; place-items: center; min-width: 0; min-height: 44px; }
-  .dsx-calendar-day { position: relative; display: grid; place-items: center; width: 100%; min-width: 44px; min-height: 44px; border-radius: var(--dsx-radius-sm); }
-  .dsx-calendar-day-number { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid transparent; border-radius: 50%; }
-  .dsx-calendar-day[data-dsx-selected="true"] .dsx-calendar-day-number { color: var(--dsx-on-accent); background: var(--dsx-data-tint); font-weight: 700; }
-  .dsx-calendar-day[data-dsx-today="true"]:not([data-dsx-selected="true"]) .dsx-calendar-day-number { border-color: var(--dsx-data-tint); }
-  .dsx-calendar-mark { position: absolute; inset: auto auto 2px 50%; width: 5px; height: 5px; border-radius: 50%; background: var(--dsx-calendar-mark, var(--dsx-data-tint)); transform: translateX(-50%); }
+  .dsx-calendar-day { position: relative; display: grid; place-items: center; width: 100%; min-width: 44px; min-height: 44px; border-radius: var(--dsx-radius-control); }
+  .dsx-calendar-day-number {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid transparent;
+    border-radius: var(--dsx-radius-full);
+    transition:
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      color var(--dsx-dur-fast) var(--dsx-ease),
+      transform var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-calendar-day:not(:disabled):active .dsx-calendar-day-number { transform: scale(.94); }
+  .dsx-calendar-day[data-dsx-selected="true"] .dsx-calendar-day-number { color: var(--dsx-on-accent); background: var(--dsx-data-tint); font-weight: var(--dsx-type-headline-weight); }
+  .dsx-calendar-day[data-dsx-today="true"]:not([data-dsx-selected="true"]) .dsx-calendar-day-number { color: var(--dsx-data-tint); border-color: var(--dsx-data-tint); font-weight: var(--dsx-type-headline-weight); }
+  .dsx-calendar-mark { position: absolute; inset: auto auto 2px 50%; width: 5px; height: 5px; border-radius: var(--dsx-radius-full); background: var(--dsx-calendar-mark, var(--dsx-data-tint)); transform: translateX(-50%); }
+  .dsx-calendar-day[data-dsx-selected="true"] .dsx-calendar-mark { background: var(--dsx-on-accent); }
 
-  .dsx-radio-group { display: grid; gap: 12px; }
-  .dsx-radio-option { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+  .dsx-radio-group { display: grid; }
+  .dsx-radio-option {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--dsx-space-3);
+    min-height: 48px;
+    padding-inline: var(--dsx-space-3);
+    border-radius: var(--dsx-radius-control);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  /* row separators are inset hairlines at the LABEL's start edge, in the soft tone
+     (the list-texture idiom, web-face F3): mark column + gap inside the row's own
+     padding, logical offsets so RTL mirrors free — never a full-bleed rule between
+     radius'd rows */
+  .dsx-radio-option { position: relative; }
+  .dsx-radio-option + .dsx-radio-option::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto calc(var(--dsx-space-3) + 22px + var(--dsx-space-3));
+    height: var(--dsx-hairline);
+    background: var(--dsx-outline-soft);
+    pointer-events: none;
+  }
+  [dir="rtl"] .dsx-radio-option + .dsx-radio-option::before {
+    inset: 0 calc(var(--dsx-space-3) + 22px + var(--dsx-space-3)) auto 0;
+  }
+  .dsx-radio-option:active { background: var(--dsx-fill); }
+  .dsx-radio-option:has(.dsx-radio-input:checked) { background: color-mix(in srgb, var(--dsx-data-tint) 10%, transparent); }
   .dsx-radio-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .dsx-radio-mark { display: grid; place-items: center; box-sizing: border-box; width: 20px; height: 20px; border: 1.5px solid var(--dsx-secondary-label); border-radius: 50%; }
-  .dsx-radio-mark::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--dsx-data-tint); transform: scale(0); }
-  .dsx-radio-input:checked + .dsx-radio-mark { border-color: var(--dsx-data-tint); }
+  .dsx-radio-mark {
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--dsx-secondary-label);
+    border-radius: var(--dsx-radius-full);
+    transition:
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      border-color var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-radio-mark::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: var(--dsx-radius-full);
+    background: var(--dsx-on-accent);
+    transform: scale(0);
+    transition: transform var(--dsx-dur-base) var(--dsx-ease-spring);
+  }
+  .dsx-radio-label { font-size: var(--dsx-type-body-size); letter-spacing: var(--dsx-type-body-tracking); }
+  .dsx-radio-input:checked + .dsx-radio-mark { border-color: var(--dsx-data-tint); background: var(--dsx-data-tint); }
   .dsx-radio-input:checked + .dsx-radio-mark::after { transform: scale(1); }
-  .dsx-radio-input:focus-visible + .dsx-radio-mark { box-shadow: var(--dsx-focus-ring); }
-  .dsx-radio-group[data-dsx-disabled="true"] { opacity: .48; }
+  .dsx-radio-input:focus-visible + .dsx-radio-mark {
+    outline: var(--dsx-focus-ring-width) solid var(--dsx-data-tint);
+    outline-offset: var(--dsx-focus-ring-offset);
+  }
+  .dsx-radio-group[data-dsx-disabled="true"] { opacity: .5; filter: saturate(.5); }
+  .dsx-radio-group[data-dsx-disabled="true"] .dsx-radio-option { cursor: not-allowed; }
 
   .dsx-segmented-button {
+    --dsx-segmented-button-indicator-x: 2px;
+    --dsx-segmented-button-indicator-y: 2px;
+    --dsx-segmented-button-indicator-width: calc(100% - 4px);
+    --dsx-segmented-button-indicator-height: calc(100% - 4px);
+    position: relative;
     display: inline-flex;
     gap: 2px;
     max-width: 100%;
@@ -882,85 +1093,172 @@ export const DATA_CONTROLS_CSS = `@layer dsx-elements {
     padding: 2px;
     overflow-x: auto;
     border: 0;
-    border-radius: var(--dsx-radius);
+    border-radius: var(--dsx-radius-control);
     background: var(--dsx-surface-recessed);
     box-shadow:
       inset 0 0 0 var(--dsx-hairline) var(--dsx-outline-soft),
-      inset 0 1px 2px color-mix(in srgb, var(--dsx-label) 7%, transparent);
+      inset 0 1px 2px color-mix(in srgb, var(--dsx-label) 6%, transparent);
   }
+  .dsx-segmented-button-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--dsx-segmented-button-indicator-width);
+    height: var(--dsx-segmented-button-indicator-height);
+    transform: translate(var(--dsx-segmented-button-indicator-x), var(--dsx-segmented-button-indicator-y));
+    border-radius: calc(var(--dsx-radius-control) - 2px);
+    background: var(--dsx-surface-highlight);
+    box-shadow:
+      inset 0 0 0 var(--dsx-hairline) var(--dsx-outline-soft),
+      inset 0 1px 0 var(--dsx-inner-highlight),
+      var(--dsx-shadow-1);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--dsx-dur-slow) var(--dsx-ease-spring),
+      width var(--dsx-dur-base) var(--dsx-ease),
+      height var(--dsx-dur-base) var(--dsx-ease),
+      opacity var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-segmented-button-indicator[data-positioned="true"] { opacity: 1; }
+  .dsx-segmented-button-indicator[hidden] { display: none; }
   .dsx-segmented-button-item {
     appearance: none;
     display: inline-flex;
     flex: 1 1 0;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: var(--dsx-space-2);
     min-width: 44px;
     min-height: 44px;
-    padding: 0 14px;
+    padding: 0 var(--dsx-space-4);
     border: 0;
-    border-radius: calc(var(--dsx-radius) - 2px);
+    border-radius: calc(var(--dsx-radius-control) - 2px);
     color: var(--dsx-secondary-label);
     background: transparent;
-    font: 600 15px/1.2 var(--dsx-font);
+    font: inherit;
+    font-size: var(--dsx-type-headline-size);
+    font-weight: var(--dsx-type-headline-weight);
+    letter-spacing: var(--dsx-type-headline-tracking);
+    line-height: var(--dsx-type-title2-leading);
     white-space: nowrap;
     cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
     transition:
-      color var(--dsx-motion-fast) ease,
-      background-color var(--dsx-motion-fast) ease,
-      opacity var(--dsx-motion-fast) ease;
+      color var(--dsx-dur-fast) var(--dsx-ease),
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      box-shadow var(--dsx-dur-fast) var(--dsx-ease),
+      opacity var(--dsx-dur-fast) var(--dsx-ease),
+      transform var(--dsx-dur-base) var(--dsx-ease-spring);
   }
   .dsx-segmented-button-item[data-dsx-selected="true"] {
+    position: relative;
+    z-index: 1;
     color: var(--dsx-label);
-    background: linear-gradient(165deg, var(--dsx-surface-highlight), var(--dsx-surface-level-3));
+    background: var(--dsx-surface-highlight);
     box-shadow:
       inset 0 0 0 var(--dsx-hairline) var(--dsx-outline-soft),
       inset 0 1px 0 var(--dsx-inner-highlight),
-      0 1px 2px color-mix(in srgb, var(--dsx-label) 12%, transparent);
+      var(--dsx-shadow-1);
+  }
+  .dsx-segmented-button[data-dsx-multiple="false"] .dsx-segmented-button-item[data-dsx-selected="true"] {
+    background: transparent;
+    box-shadow: none;
   }
   .dsx-segmented-button-item:focus-visible {
     position: relative;
     z-index: 1;
     outline: none;
-    box-shadow: inset 0 0 0 3px var(--dsx-data-tint);
+    box-shadow: inset 0 0 0 var(--dsx-focus-ring-width) var(--dsx-data-tint);
   }
-  .dsx-segmented-button-item:disabled { cursor: not-allowed; opacity: .48; }
-  .dsx-segmented-button-item:not(:disabled):active { opacity: .76; }
+  .dsx-segmented-button-item:disabled { cursor: not-allowed; opacity: .5; filter: saturate(.5); }
+  .dsx-segmented-button-item:not(:disabled):active {
+    transform: scale(0.97);
+    transition:
+      color var(--dsx-dur-fast) var(--dsx-ease),
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      box-shadow var(--dsx-dur-fast) var(--dsx-ease),
+      opacity var(--dsx-dur-fast) var(--dsx-ease),
+      transform var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-segmented-button-item:not([data-dsx-selected="true"]):not(:disabled):active { background: var(--dsx-fill); }
   .dsx-segmented-button-icon { display: inline-flex; }
 
   .dsx-refreshable { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; overflow: hidden; }
-  .dsx-refresh-affordance { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--dsx-refresh-pull, 0px); overflow: hidden; color: var(--dsx-secondary-label); }
-  .dsx-refresh-button { appearance: none; display: grid; place-items: center; width: 44px; height: 44px; margin: 0; padding: 0; border: 1px solid var(--dsx-separator); border-radius: 50%; color: var(--dsx-data-tint); background: var(--dsx-secondary-grouped-background); font: inherit; cursor: pointer; }
-  .dsx-refresh-button:focus-visible { outline: none; box-shadow: var(--dsx-focus-ring); }
-  .dsx-refresh-button:disabled { opacity: .65; cursor: wait; }
-  .dsx-refresh-status { font-size: .8125rem; }
-  .dsx-refresh-symbol { font-size: 1.2rem; line-height: 1; }
-  .dsx-refreshable[data-dsx-refreshing="true"] .dsx-refresh-symbol { animation: dsx-refresh-spin .8s linear infinite; }
+  .dsx-refresh-affordance { display: flex; align-items: center; justify-content: center; gap: var(--dsx-space-2); min-height: var(--dsx-refresh-pull, 0px); overflow: hidden; color: var(--dsx-secondary-label); }
+  .dsx-refresh-button {
+    appearance: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--dsx-radius-full);
+    color: var(--dsx-data-tint);
+    background: var(--dsx-secondary-grouped-background);
+    box-shadow: var(--dsx-shadow-2);
+    font: inherit;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      transform var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-refresh-button:not(:disabled):active { transform: scale(.96); }
+  .dsx-refresh-button:focus-visible {
+    outline: var(--dsx-focus-ring-width) solid var(--dsx-accent);
+    outline-offset: var(--dsx-focus-ring-offset);
+    box-shadow: var(--dsx-shadow-2);
+    z-index: 1;
+  }
+  .dsx-refresh-button:disabled { opacity: .65; cursor: progress; }
+  .dsx-refresh-status { font-size: var(--dsx-type-footnote-size); letter-spacing: var(--dsx-type-footnote-tracking); }
+  .dsx-refresh-symbol { font-size: var(--dsx-glyph-size); line-height: var(--dsx-type-leading-none); transition: transform var(--dsx-dur-base) var(--dsx-ease); }
+  .dsx-refreshable[data-dsx-refreshing="true"] .dsx-refresh-symbol { animation: dsx-refresh-spin var(--dsx-dur-loop) linear infinite; }
   .dsx-refreshable[data-dsx-armed="true"] .dsx-refresh-symbol { transform: rotate(180deg); }
   .dsx-refresh-viewport { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+  .dsx-refresh-viewport:focus-visible { outline: none; box-shadow: inset var(--dsx-focus-ring); }
   @keyframes dsx-refresh-spin { to { transform: rotate(360deg); } }
 
-  @media (min-width: 64rem) and (hover: hover) and (pointer: fine) {
-    .dsx-calendar-page:hover:not(:disabled), .dsx-calendar-day:hover:not(:disabled), .dsx-refresh-button:hover:not(:disabled) { background: var(--dsx-fill); }
-    .dsx-radio-option:hover { color: var(--dsx-data-tint); }
-    .dsx-segmented-button { min-height: 40px; }
-    .dsx-segmented-button-item { min-height: 36px; padding-inline: 10px; font-size: .8125rem; }
+  @media (hover: hover) and (pointer: fine) {
+    .dsx-table tbody tr:hover { background: color-mix(in srgb, var(--dsx-fill) 55%, transparent); }
+    .dsx-calendar-page:hover:not(:disabled), .dsx-calendar-day:hover:not(:disabled) { background: color-mix(in srgb, var(--dsx-fill) 72%, transparent); }
+    .dsx-radio-option:hover { background: color-mix(in srgb, var(--dsx-fill) 55%, transparent); }
+    .dsx-refresh-button:hover:not(:disabled) { background: color-mix(in srgb, var(--dsx-fill) 72%, var(--dsx-secondary-grouped-background)); }
     .dsx-segmented-button-item:not([data-dsx-selected="true"]):not(:disabled):hover {
       color: var(--dsx-label);
-      background: var(--dsx-fill);
+      background: color-mix(in srgb, var(--dsx-fill) 72%, transparent);
     }
-    .dsx-table td { height: 38px; font-size: .875rem; }
+  }
+  @media (min-width: 64rem) and (hover: hover) and (pointer: fine) {
+    .dsx-segmented-button { min-height: 40px; }
+    .dsx-segmented-button-item { min-height: 36px; padding-inline: var(--dsx-space-3); font-size: var(--dsx-type-footnote-size); }
+    .dsx-table-frame { --dsx-table-inset: var(--dsx-space-3); }
+    .dsx-table td { height: 38px; font-size: var(--dsx-type-callout-size); letter-spacing: var(--dsx-type-callout-tracking); }
     .dsx-table tbody tr { contain-intrinsic-block-size: 38px; }
+    .dsx-radio-option { min-height: 40px; }
     .dsx-refresh-button { width: 36px; height: 36px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .dsx-refreshable[data-dsx-refreshing="true"] .dsx-refresh-symbol { animation: none; }
-    .dsx-segmented-button-item { transition: none; }
+    .dsx-segmented-button-item, .dsx-segmented-button-indicator { transition: none; }
   }
   @media (forced-colors: active) {
-    .dsx-table-frame, .dsx-segmented-button, .dsx-radio-mark, .dsx-refresh-button { border-color: CanvasText; }
+    .dsx-table th, .dsx-table td, .dsx-radio-option + .dsx-radio-option,
+    .dsx-radio-mark { border-color: CanvasText; }
+    /* box-shadows are stripped under forced colors, so the borderless elevated
+       surfaces and the shadow-ringed well regain a real border */
+    .dsx-table-frame, .dsx-refresh-button, .dsx-segmented-button { border: 1px solid CanvasText; box-shadow: none; }
+    .dsx-table tbody td:first-child { border-block-end-color: CanvasText; }
+    .dsx-table tbody td:first-child::after { content: none; }
     .dsx-calendar-day[data-dsx-selected="true"] .dsx-calendar-day-number,
     .dsx-segmented-button-item[data-dsx-selected="true"] { color: HighlightText; background: Highlight; }
+    .dsx-radio-input:checked + .dsx-radio-mark { border-color: Highlight; background: Highlight; }
+    .dsx-radio-input:checked + .dsx-radio-mark::after { background: HighlightText; }
     .dsx-calendar-page:focus-visible, .dsx-calendar-day:focus-visible,
     .dsx-radio-input:focus-visible + .dsx-radio-mark, .dsx-segmented-button-item:focus-visible,
     .dsx-refresh-button:focus-visible, .dsx-table-frame:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; box-shadow: none; }

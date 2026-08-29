@@ -1,0 +1,11 @@
+<stack style="position: relative; width: 100%; height: 100%; background: #07041a">
+  <head>
+    <!-- NEGATIVE FIXTURE: a template whose only layer collapses. Nothing throws, no api fails,
+         no collection is empty, every settle condition holds - and the asset is a rectangle of
+         background colour. Only G-blank catches it, and it exists because exactly this shipped
+         "ok" once during development. -->
+  </head>
+  <zstack style="width: 100%">
+    <stack style="width: 100%; height: 100%"/>
+  </zstack>
+</stack>

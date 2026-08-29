@@ -1,4 +1,4 @@
-# Offline, caching & UI state — best practices per surface
+# Offline, caching & UI state: best practices per surface
 
 > Audience: app + module authors. The LAW lives in three architecture docs —
 > [`content-plane.md`](../Documentation/architecture/content-plane.md) (the one store),

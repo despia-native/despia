@@ -1,0 +1,8 @@
+{
+  "name": "ShotDemo",
+  "entry": "Orders",
+  "outDir": "dist",
+  "packages": [
+    "../../../Shots"
+  ]
+}

@@ -1,8 +1,14 @@
 # Localization — write it in English, ship it in any locale
 
-**Status:** the kernel seam and the **build-pipeline table generator** are implemented
-(`ClosedSource/scripts/generate_strings_table.rb`, drift-gated by `prepare_modules --check`); the
-on-device dynamic-translation module is the one remaining scheduled tier. **Decision:** localization of core UI is a
+**Status:** the kernel seam is implemented on ALL THREE renderers - Swift
+(`OpenSource/Engine/iOS/DSXStrings.swift`), Kotlin (`Engine/Android core Strings.kt`) and the
+web (`OpenSource/Web/packages/kernel/src/strings.ts`, wired at the dom display points via
+`bindDisplay` so a locale write re-resolves LIVE, static markup included) - and corpus-gated
+(`OpenSource/Conformance/strings/cases.json`: TS + Kotlin per-PR, Swift on the record lane).
+The **build-pipeline table generator** is implemented (`ClosedSource/scripts/generate_strings_table.rb`,
+drift-gated by `prepare_modules --check`); the on-device dynamic-translation module is the one
+remaining scheduled tier. Web SSR emits the source language and the client re-resolves at
+mount - the server twin's seam is a recorded later increment. **Decision:** localization of core UI is a
 **kernel primitive** (a string-table *lookup*, first-party, always present); *translation* — how
 tables get filled — is never the kernel's job (build machinery + an optional module).
 

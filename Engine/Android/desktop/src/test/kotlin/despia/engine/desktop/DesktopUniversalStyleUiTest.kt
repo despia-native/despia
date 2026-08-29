@@ -6,7 +6,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -20,6 +23,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import despia.engine.Platform
 import despia.engine.StackNode
 import despia.engine.StackStore
+import despia.engine.SurfaceMaterials
 import despia.engine.getPath
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -57,12 +61,12 @@ class DesktopUniversalStyleUiTest {
                 <component as="AttributeProbe">
                   <vstack>
                     <attribute as="value" default="'fallback'" immediate="true"
-                               on:change="dsx.variable.seen = dsx.this.value"/>
+                               on:change="dsx.event('seen', { value: dsx.this.value })"/>
                     <text id="attribute-value" value="{{ dsx.attribute.value }}"/>
                   </vstack>
                 </component>
               </head>
-              <AttributeProbe value="{{ dsx.variable.input }}"/>
+              <AttributeProbe value="{{ dsx.variable.input }}" on:seen="dsx.variable.seen = value"/>
               <button id="attribute-change" label="Change"
                       on:tap="dsx.variable.input = 'second'"/>
             </vstack>
@@ -241,8 +245,12 @@ class DesktopUniversalStyleUiTest {
     }
 
     @Test
+    // 800 sits ABOVE the compact step (THE WIDTH LAW, LayoutSemantics.COMPACT_BELOW):
+    // this specimen pins the HUG-side padding/geometry math, and below 768 the skin's
+    // own law stretches nested vertical stacks (corpus-pinned in fixture 08 and
+    // flex-semantics.json), which would rewrite every width asserted here.
     fun legacyPresetInlineCssAndEffectsRenderThroughTheNativeStyleOnion() = runSkikoComposeUiTest(
-        size = Size(760f, 720f),
+        size = Size(800f, 720f),
         density = Density(1f),
         testTimeout = 20.seconds,
     ) {
@@ -291,6 +299,126 @@ class DesktopUniversalStyleUiTest {
         onNodeWithTag("effect-card").assertIsDisplayed()
         onNodeWithTag("bordered-button").assertIsDisplayed()
         onNodeWithTag("prominent-button").assertIsDisplayed()
+    }
+
+    /**
+     * `glassInteractive` - the press response, measured by pressing.
+     *
+     * This attribute sat in the parity register on three renderers at once, and on this lane it
+     * sat in `desktopStyleDeterministicDegradations` too: the lane paints a translucent fill
+     * rather than a material, so there was nothing for an "interactive material" to modulate.
+     * The observable half of the iOS 26 response is geometry, and Compose hosts that natively.
+     *
+     * Asserted under a REAL held pointer rather than by looking for the modifier, for the same
+     * reason the web twin grew a press mode in its style oracle: a marker proves somebody typed
+     * the name. What has to be true is that the surface moves, that it moves by the shared
+     * amount, and that a glass surface which did not ask for it stays exactly where it was.
+     *
+     * MEASURED ON A NESTED MARK, not on the surface node itself: a semantics node's boundsInRoot
+     * does not carry its OWN graphicsLayer transform, so the surface reads 160 wide whether it is
+     * pressed or not. Its child reads the transform of everything above it, which is also the
+     * thing an author actually sees move.
+     */
+    @Test
+    fun aGlassSurfaceThatAsksForThePressMovesUnderOneAndTheRestStayPut() = runSkikoComposeUiTest(
+        size = Size(400f, 400f),
+        density = Density(1f),
+        testTimeout = 20.seconds,
+    ) {
+        DesktopHost.boot("Linux")
+        val root = parse(
+            """
+            <vstack id="glass-root" padding="20" spacing="20" theme="dark">
+              <vstack id="static-glass" width="160" height="60" surface="glass">
+                <vstack id="static-mark" width="80" height="20"/>
+              </vstack>
+              <vstack id="press-glass" width="160" height="60" surface="glass" glassInteractive="true">
+                <vstack id="press-mark" width="80" height="20"/>
+              </vstack>
+            </vstack>
+            """.trimIndent(),
+        )
+        setContent { DesktopSurface(root, StackStore()) }
+        flushDesktopQueue()
+
+        val restingStatic = onNodeWithTag("static-mark").fetchSemanticsNode().boundsInRoot
+        val restingPress = onNodeWithTag("press-mark").fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            abs(restingPress.width - restingStatic.width) <= 0.5f,
+            "at rest the two glass surfaces are the same size: $restingPress vs $restingStatic",
+        )
+
+        onNodeWithTag("press-glass").performTouchInput { down(center) }
+        // The press lands on a 120 ms tween; read it settled rather than mid-flight, since a
+        // mid-flight value differs from the resting one and would pass for the wrong reason.
+        mainClock.advanceTimeBy(400)
+        flushDesktopQueue()
+
+        val pressed = onNodeWithTag("press-mark").fetchSemanticsNode().boundsInRoot
+        val untouched = onNodeWithTag("static-mark").fetchSemanticsNode().boundsInRoot
+        assertEquals(
+            (restingPress.width * SurfaceMaterials.PRESS_SCALE).toDouble(),
+            pressed.width.toDouble(),
+            1.0,
+            "the pressed surface scales by the shared factor",
+        )
+        assertTrue(
+            abs(untouched.width - restingStatic.width) <= 0.5f,
+            "a glass surface that did not opt in must not move when its neighbour is pressed: " +
+                "$untouched vs $restingStatic",
+        )
+
+        onNodeWithTag("press-glass").performTouchInput { up() }
+        mainClock.advanceTimeBy(2_000)
+        flushDesktopQueue()
+        assertEquals(
+            restingPress.width.toDouble(),
+            onNodeWithTag("press-mark").fetchSemanticsNode().boundsInRoot.width.toDouble(),
+            1.0,
+            "the release springs back to where it started",
+        )
+    }
+
+    /**
+     * The mesh paints its LAYERS, not its base. layers() returns [base, radial..radialN]
+     * back-to-front and wrap() prepends, so the call site must reverse the list exactly as the
+     * :render twin does - without the reversal the opaque base painted OVER the radials and a
+     * mesh rendered as one flat solid. The count assertions in DesktopUniversalStyleTest cannot
+     * see that, which is how the defect passed; PIXELS can: a flat fill has one color, a mesh
+     * with four distinct corner colors has many.
+     */
+    @Test
+    fun aMeshGradientPaintsItsRadialLayersAboveTheBaseFill() = runSkikoComposeUiTest(
+        size = Size(300f, 300f),
+        density = Density(1f),
+        testTimeout = 20.seconds,
+    ) {
+        DesktopHost.boot("Linux")
+        val root = parse(
+            """
+            <vstack id="mesh-root" padding="10">
+              <vstack id="mesh-card" width="200" height="200"
+                      gradient="#ff0000|#00ff00" gradientType="mesh"
+                      gradientPoints="0 0 #ff0000, 1 0 #00ff00; 0 1 #0000ff, 1 1 #ffff00"/>
+            </vstack>
+            """.trimIndent(),
+        )
+        setContent { DesktopSurface(root, StackStore()) }
+        flushDesktopQueue()
+
+        val image = onNodeWithTag("mesh-card").captureToImage()
+        val pixels = image.toPixelMap()
+        val colors = linkedSetOf<Int>()
+        for (y in 0 until image.height step (image.height / 20).coerceAtLeast(1)) {
+            for (x in 0 until image.width step (image.width / 20).coerceAtLeast(1)) {
+                colors += pixels[x, y].toArgb()
+            }
+        }
+        assertTrue(
+            colors.size > 8,
+            "a four-color mesh sampled across its face must vary; ${colors.size} distinct " +
+                "color(s) means the base fill painted over the radial layers again",
+        )
     }
 
     private fun parse(markup: String): StackNode = requireNotNull(

@@ -1,4 +1,4 @@
-# JS-core parity contract — iOS ⇄ Android, API by API
+# JS-core parity contract: iOS ⇄ Android, API by API
 
 > The same `.dsx` must behave identically on both runtimes. iOS maps the JSE core to
 > Foundation/CryptoKit/CommonCrypto/SecKey; this contract pins the REQUIRED Kotlin

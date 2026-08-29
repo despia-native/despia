@@ -18,10 +18,11 @@
 import {
   ReactiveStore, ActionRunner, makeRunEnv, JSE, JSESeams, ModuleRegistry,
   executeApiForSSR, materializeApiRequest, ApiGraph, apiStreamEligible,
-  string, truthy, number, isDict,
-  type Dict, type ApiSpec, type ApiSeed,
+  string, truthy, number, isDict, overrideAttrName,
+  INK_STROKE_WIDTH, decodeInk, inkPathData,
+  type Dict, type ApiSpec, type ApiSeed, type InkStroke,
 } from "@despia/kernel";
-import { legacyAttrToDecls, mapStyleValue, BRIDGE_ATTRS } from "@despia/compiler/cssmap";
+import { legacyAttrToDecls, mapStyleValue, parseStyleAttr, BRIDGE_ATTRS, BRIDGE_CONTEXT_ATTRS } from "@despia/compiler/cssmap";
 import { segmentOptions } from "@despia/compiler/options";
 import {
   BUTTON_ROLES, isoDatePickerValue, normalizeDatePickerMode, normalizeFormInput, normalizeFormOptions,
@@ -29,11 +30,13 @@ import {
   normalizeNativeControlOptions, normalizeOtpLength, normalizeOtpValue, normalizeRangeBounds,
   normalizeStarCount, normalizeStructuralGap, normalizeStructuralIndex, parseNativeControlCsv,
   normalizeOverlayItems, normalizeSheetBackground, normalizeSheetDetents, resolveAdaptiveShell, validateFormValue,
-  markdownHtml, lineClampStyle, assetImageSource, applyKeyboardHintAttributes, textAreaLineCount,
+  markdownHtml, markdownBlocksHtml, lineClampStyle, assetImageSource, applyKeyboardHintAttributes, textAreaLineCount,
   normalizeDataControlOptions, parseDataControlCsv, parseCalendarDate, calendarDateKey,
   calendarMonthGrid, calendarFirstWeekday, normalizeCalendarLocale, normalizeSegmentedSelection,
   normalizeMenuBarItems, normalizeMenuBarEnabledIndex, normalizeMenuBarTint,
-  safeMediaUrl, sanitizeSvgSource, svgFromPath, normalizeLightboxImages, parseLightboxUrls,
+  resolveSplit, splitSelectionActive, SPLIT_ROLE_ORDER, SPLIT_TOGGLE_PATH,
+  type SplitRole,
+  safeMediaUrl, sanitizeSvgSource, svgBundleKey, svgFromPath, normalizeAudioSessionCategory, normalizeLightboxImages, parseLightboxUrls,
   normalizeLightboxColor, boundedMediaText, MEDIA_SURFACE_LIMITS,
   OVERLAY_LIMITS, STRUCTURAL_CHILD_LIMIT, BOUND_COLLECTION_LIMIT, DATA_CONTROL_LIMITS,
   type FormFieldType, type NativeControlOption, type OverlayItem, type DataControlOption, type CalendarDate,
@@ -74,6 +77,7 @@ const TAGS: { [dsx: string]: { tag: string; cls: string } } = {
   scaffold: { tag: "div", cls: "dsx-scaffold" },
   text: { tag: "span", cls: "dsx-text" },
   label: { tag: "label", cls: "dsx-text" },
+  markdown: { tag: "div", cls: "dsx-markdown" },
   button: { tag: "button", cls: "dsx-button" },
   pressable: { tag: "button", cls: "dsx-pressable" },
   glassButton: { tag: "button", cls: "dsx-button" },
@@ -91,6 +95,7 @@ const TAGS: { [dsx: string]: { tag: string; cls: string } } = {
   tabs: { tag: "div", cls: "dsx-tabs" },
   tabview: { tag: "div", cls: "dsx-tabs" },
   carousel: { tag: "section", cls: "dsx-paged dsx-carousel" },
+  split: { tag: "div", cls: "dsx-split" },
   textfield: { tag: "input", cls: "dsx-textfield" },
   input: { tag: "input", cls: "dsx-textfield" },
   // <searchbar> is a COMPOSITE (/web/17): the host is presentational, the real search
@@ -123,6 +128,8 @@ const TAGS: { [dsx: string]: { tag: string; cls: string } } = {
   chart: { tag: "figure", cls: "dsx-chart" },
   map: { tag: "div", cls: "dsx-map" },
   WebView: { tag: "iframe", cls: "dsx-webview" },
+  DSXWebView: { tag: "iframe", cls: "dsx-webview" },
+  DSXView: { tag: "div", cls: "dsx-view" },
   qrcode: { tag: "span", cls: "dsx-qrcode" },
   // Universal native globals have DOM twins in globals.ts. They must also have
   // semantic server twins: otherwise static exports omit them entirely until the
@@ -132,10 +139,13 @@ const TAGS: { [dsx: string]: { tag: string; cls: string } } = {
   Skeleton: { tag: "div", cls: "dsx-skeleton" },
   ChatBubble: { tag: "div", cls: "dsx-chat-bubble" },
   Accordion: { tag: "div", cls: "dsx-accordion" },
+  Signature: { tag: "div", cls: "dsx-signature" },
   Table: { tag: "div", cls: "dsx-table-frame" },
   RadioGroup: { tag: "div", cls: "dsx-radio-group" },
 };
 
+/** the reserved capitalized platform primitives — builtin wins over a colliding .dsx */
+const RESERVED_SURFACE_TAGS = new Set(["WebView", "DSXWebView", "DSXView"]);
 const BUTTON_FAMILY_TAGS = new Set(["button", "glassButton", "pressable", "transport", "row"]);
 const TEXTFIELD_FAMILY_TAGS = new Set(["textfield", "input"]);
 const TOGGLE_FAMILY_TAGS = new Set(["toggle", "switch"]);
@@ -214,6 +224,36 @@ function interp(ctx: RenderCtx, s: string): string {
   return s.includes("{{") ? JSE.interpolate(s, ctx.store.jse, ctx.item) : s;
 }
 
+/** The attrs map a bridge fold reads as CONTEXT (gradient modifiers, the one-property
+ *  families), with every reactive context attribute resolved. Returns the raw map itself when
+ *  nothing in it is reactive - callers use that identity to keep the static fast path, where
+ *  the compiled class already carries the styles and SSR inlines only reactive values. */
+function bridgeFoldContext(
+  ctx: RenderCtx,
+  attrs: Record<string, string>,
+): Record<string, string> {
+  let resolved: Record<string, string> | null = null;
+  for (const key of BRIDGE_CONTEXT_ATTRS) {
+    const raw = attrs[key];
+    if (raw === undefined || !raw.includes("{{")) continue;
+    resolved ??= { ...attrs };
+    resolved[key] = interp(ctx, raw).trim();
+  }
+  return resolved ?? attrs;
+}
+
+/** The whole-attribute style hole's SSR half (`__style_list` — a sole `{{ }}` style
+ *  attribute yielding a full declaration list, the css-typed override door): evaluate
+ *  once, parse, map each declaration through the shared sanitizer. */
+function styleListDecls(ctx: RenderCtx, template: string): string[] {
+  const out: string[] = [];
+  for (const [property, value] of parseStyleAttr(interp(ctx, template))) {
+    const mapped = mapStyleValue(property, value);
+    if (mapped.length > 0) out.push(`${property}: ${mapped}`);
+  }
+  return out;
+}
+
 function componentColor(value: string | undefined, fallback: string): string {
   const raw = (value ?? fallback).trim();
   // These values are concatenated into SSR style declarations. Use the compiler's
@@ -229,6 +269,14 @@ function boundNumber(ctx: RenderCtx, expr: string | undefined, fallback = 0): nu
     ? interp(ctx, expr)
     : JSE.eval(expr, ctx.store.jse, ctx.item);
   return number(value) ?? fallback;
+}
+
+/** The `<Signature>` bound stroke list, read the way globals.ts's bindValue reads it. */
+function boundSignature(ctx: RenderCtx, expr: string | undefined): InkStroke[] {
+  if (expr === undefined) return [];
+  return decodeInk(expr.includes("{{")
+    ? interp(ctx, expr)
+    : JSE.eval(expr, ctx.store.jse, ctx.item));
 }
 
 /** globals.ts treats max as a static number except for the explicit {{ }} form. */
@@ -280,8 +328,19 @@ function compareCalendarDate(a: CalendarDate, b: CalendarDate): number {
   return a.year - b.year || a.month - b.month || a.day - b.day;
 }
 
+// The DECLARED word reads the strict component boolean the hydrating DOM (`declaredBool`),
+// iOS (`dsx.bool`) and both Kotlin renderers share - NOT truthy(), whose string law makes
+// truthy("false") true and would disable on the server a control the client enables.
+// disabled-if keeps the truthy CONDITION read.
+function declaredControlBool(value: string): boolean {
+  const v = value.trim();
+  if (v === "true") return true;
+  const n = Number(v);
+  return v !== "" && !Number.isNaN(n) && n !== 0;
+}
+
 function nativeControlDisabled(node: XmlNode, ctx: RenderCtx): boolean {
-  const declared = node.attrs["disabled"] !== undefined && truthy(interp(ctx, node.attrs["disabled"]));
+  const declared = node.attrs["disabled"] !== undefined && declaredControlBool(interp(ctx, node.attrs["disabled"]));
   const conditional = node.attrs["disabled-if"] !== undefined
     && truthy(JSE.eval(node.attrs["disabled-if"], ctx.store.jse, ctx.item));
   return declared || conditional;
@@ -337,6 +396,13 @@ function overlayHostAttributes(node: XmlNode, ctx: RenderCtx, base: string): str
   if (theme !== undefined) {
     const value = interp(ctx, theme).trim();
     if (value === "dark" || value === "light") attrs.push(`data-dsx-theme="${value}"`);
+  }
+  // density= — the W9 subtree knob's SSR half: stamp the same validated initial value
+  // the DOM renderer stamps (input/density.json fold), so first paint and hydration agree.
+  const density = node.attrs["density"];
+  if (density !== undefined) {
+    const value = interp(ctx, density).trim();
+    if (value === "comfortable" || value === "compact") attrs.push(`data-dsx-density="${value}"`);
   }
   return attrs.join(" ");
 }
@@ -512,6 +578,13 @@ function applicationUniversalAttributes(
     const value = interp(ctx, theme).trim();
     if (value === "dark" || value === "light") attrs.push(`data-dsx-theme="${value}"`);
   }
+  // density= — the W9 subtree knob's SSR half: stamp the same validated initial value
+  // the DOM renderer stamps (input/density.json fold), so first paint and hydration agree.
+  const density = node.attrs["density"];
+  if (density !== undefined) {
+    const value = interp(ctx, density).trim();
+    if (value === "comfortable" || value === "compact") attrs.push(`data-dsx-density="${value}"`);
+  }
   const reactiveStyle = node.attrs["__style_reactive"];
   if (reactiveStyle !== undefined) {
     for (const declaration of reactiveStyle.split(";")) {
@@ -522,9 +595,18 @@ function applicationUniversalAttributes(
       if (value.length > 0) styles.push(`${property}: ${mapStyleValue(property, value)}`);
     }
   }
+  const styleListAttr = node.attrs["__style_list"];
+  if (styleListAttr !== undefined) styles.push(...styleListDecls(ctx, styleListAttr));
+  // A fold whose CONTEXT is reactive lost its compiled class too (css.ts bails on the whole
+  // node), so SSR must inline every bridge attr on such a node - not just the ones whose own
+  // value carries a template - or the server page ships those styles nowhere and the first
+  // paint flashes unstyled until hydration. The context map is resolved for the same reason
+  // the runtime resolves it: a fold handed "{{ ... }}" as a stop list parses nothing.
+  const foldContext = bridgeFoldContext(ctx, node.attrs);
   for (const [name, source] of Object.entries(node.attrs)) {
-    if (!BRIDGE_ATTRS.has(name) || !source.includes("{{")) continue;
-    for (const [property, value] of legacyAttrToDecls(name, interp(ctx, source).trim()) ?? []) {
+    if (!BRIDGE_ATTRS.has(name)) continue;
+    if (!source.includes("{{") && foldContext === node.attrs) continue;
+    for (const [property, value] of legacyAttrToDecls(name, interp(ctx, source).trim(), foldContext) ?? []) {
       styles.push(`${property}: ${value}`);
     }
   }
@@ -665,14 +747,16 @@ function renderMediaSurfaceNode(node: XmlNode, ctx: RenderCtx): string {
       const source = src === null ? "" : ` src="${escapeHtml(src)}"`;
       const attrs = mediaHostAttributes(node, ctx, "dsx-audio", true);
       const hidden = attrs.includes(' aria-hidden="') ? "" : ' aria-hidden="true"';
-      return `<audio ${attrs} preload="metadata" tabindex="-1"${hidden}${source}${loop}${muted}></audio>`;
+      const session = normalizeAudioSessionCategory(interp(ctx, node.attrs["session"] ?? ""), "audio");
+      return `<audio ${attrs} preload="metadata" tabindex="-1" data-dsx-session="${session}"${hidden}${source}${loop}${muted}></audio>`;
     }
     const gravity = interp(ctx, node.attrs["gravity"] ?? "fill") === "fit" ? "contain" : "cover";
     const attrs = mediaHostAttributes(node, ctx, "dsx-video", true, [`object-fit: ${gravity}`]);
     const label = node.attrs["a11yLabel"] === undefined && node.attrs["aria-label"] === undefined
       ? ' aria-label="Video"' : "";
     const source = src === null ? "" : ` src="${escapeHtml(src)}"`;
-    return `<video ${attrs} preload="metadata" playsinline${label}${source}${loop}${muted}></video>`;
+    const session = normalizeAudioSessionCategory(interp(ctx, node.attrs["audio"] ?? ""), "video");
+    return `<video ${attrs} preload="metadata" playsinline data-dsx-session="${session}"${label}${source}${loop}${muted}></video>`;
   }
 
   if (node.tag === "svg") {
@@ -699,7 +783,9 @@ function renderMediaSurfaceNode(node: XmlNode, ctx: RenderCtx): string {
     const attrs = mediaHostAttributes(node, ctx, "dsx-svg", hasLabel, styles);
     const semantic = hasLabel ? (authoredRole ? "" : ' role="img"')
       : attrs.includes(' aria-hidden="') ? "" : ' aria-hidden="true"';
-    return `<span ${attrs} data-dsx-valid="${String(graphic !== null)}"${semantic}>${graphic ?? ""}</span>`;
+    const bundleKey = graphic === null ? svgBundleKey(asset, src) : null;
+    const unresolved = bundleKey === null ? "" : ` data-dsx-unresolved="${bundleKey}"`;
+    return `<span ${attrs} data-dsx-valid="${String(graphic !== null)}"${unresolved}${semantic}>${graphic ?? ""}</span>`;
   }
 
   const visible = overlayPresent(node, ctx);
@@ -780,11 +866,21 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
       ? ' aria-label="3D scene"' : "";
     return stampHydrationId(`<div ${attrs} role="img"${label} data-dsx-component="scene"></div>`, node, ctx);
   }
+  if (node.tag === "canvas") {
+    // <canvas> (parity/U04): SSR emits the SIZED, LABELLED box only. The shared display list
+    // has an SVG serialisation, but painting it here would ship a first frame the client
+    // immediately replaces with a raster, and the tier-1 subtree is drawing space rather than
+    // DOM children (a generic walk would paint dsx-unsupported divs for <path>/<circle>). The
+    // accessible name is the part that must survive to the first paint, so it does.
+    const attrs = mediaHostAttributes(node, ctx, "dsx-canvas", true);
+    return stampHydrationId(`<div ${attrs} data-dsx-component="canvas"></div>`, node, ctx);
+  }
   if (/^[A-Z]/.test(node.tag) || node.tag.includes(".")) {
-    // WebView is the one intentionally capitalized reserved platform primitive.
-    // The DOM renderer dispatches it before component lookup; SSR must do the same
-    // or a colliding WebView.dsx would paint one tree and replace-mount another.
-    const reservedBuiltin = node.tag === "WebView" && TAGS[node.tag] !== undefined;
+    // The web-surface primitives (WebView + the DSXWebView/DSXView surface tags) are
+    // the intentionally capitalized reserved platform primitives. The DOM renderer
+    // dispatches them before component lookup; SSR must do the same or a colliding
+    // WebView.dsx would paint one tree and replace-mount another.
+    const reservedBuiltin = RESERVED_SURFACE_TAGS.has(node.tag) && TAGS[node.tag] !== undefined;
     // Composition has the same precedence as the DOM renderer: a local/shared .dsx
     // component named Checkbox still wins, followed by a module facet; the universal
     // global is only the fallback. Facets are DOM-owned and cannot be safely executed
@@ -818,6 +914,10 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
   if (node.tag === "Accordion" && truthy(node.attrs["open"] ?? false)) {
     classes.push("dsx-accordion-open");
   }
+  if (node.tag === "Signature") {
+    if (truthy(interp(ctx, node.attrs["baseline"] ?? "true"))) classes.push("dsx-signature-ruled");
+    if (boundSignature(ctx, node.attrs["bind"]).length === 0) classes.push("dsx-signature-empty");
+  }
   if (node.tag === "form" && booleanAttribute(interp(ctx, node.attrs["scroll"] ?? "false"))) classes.push("dsx-form-scroll");
   const clsAttr = node.attrs["class"];
   if (clsAttr !== undefined && clsAttr.length > 0) {
@@ -845,6 +945,13 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
     const value = interp(ctx, theme).trim();
     if (value === "dark" || value === "light") attrs.push(`data-dsx-theme="${value}"`);
   }
+  // density= — the W9 subtree knob's SSR half: stamp the same validated initial value
+  // the DOM renderer stamps (input/density.json fold), so first paint and hydration agree.
+  const density = node.attrs["density"];
+  if (density !== undefined) {
+    const value = interp(ctx, density).trim();
+    if (value === "comfortable" || value === "compact") attrs.push(`data-dsx-density="${value}"`);
+  }
   // reactive styles + reactive legacy attrs — evaluated once into inline style
   const styleParts: string[] = [];
   let resolvedScaffoldAttrs: Record<string, string> | null = null;
@@ -859,9 +966,16 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
       if (value.length > 0) styleParts.push(`${prop}: ${mapStyleValue(prop, value)}`);
     }
   }
+  const styleListAttr = node.attrs["__style_list"];
+  if (styleListAttr !== undefined) styleParts.push(...styleListDecls(ctx, styleListAttr));
+  // Same reactive-context rule as renderStack's fold above: a node whose gradient modifiers
+  // (or another context attribute) are reactive has NO compiled class, so every bridge attr on
+  // it must fold inline here, against a RESOLVED context.
+  const bridgeContext = bridgeFoldContext(ctx, node.attrs);
   for (const [name, value] of Object.entries(node.attrs)) {
-    if (!BRIDGE_ATTRS.has(name) || !value.includes("{{")) continue;
-    for (const [prop, v] of legacyAttrToDecls(name, interp(ctx, value).trim()) ?? []) {
+    if (!BRIDGE_ATTRS.has(name)) continue;
+    if (!value.includes("{{") && bridgeContext === node.attrs) continue;
+    for (const [prop, v] of legacyAttrToDecls(name, interp(ctx, value).trim(), bridgeContext) ?? []) {
       styleParts.push(`${prop}: ${v}`);
     }
   }
@@ -892,6 +1006,9 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
     if (node.attrs["spacing"] !== undefined) {
       styleParts.push(`--dsx-toolbar-spacing: ${normalizeStructuralGap(interp(ctx, node.attrs["spacing"]), 12)}px`);
     }
+  } else if (node.tag === "split") {
+    // width-0 (stack) grid template - the client's replan() restamps on mount
+    styleParts.push(`--dsx-split-columns: minmax(0, 1fr)`);
   } else if ((node.tag === "list" || node.tag === "grid") && node.attrs["bind"] === undefined) {
     const fallback = node.tag === "grid" ? 10 : 0;
     if (node.attrs["spacing"] !== undefined) {
@@ -950,7 +1067,7 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
       if (node.attrs["boxSize"] !== undefined) {
         const rawSize = number(interp(ctx, node.attrs["boxSize"])) ?? 48;
         const boxSize = Number.isFinite(rawSize) ? Math.min(Math.max(rawSize, 24), 96) : 48;
-        styleParts.push(`--dsx-otp-box-size: ${boxSize}px`, `--dsx-otp-font-size: ${boxSize * 0.42}px`);
+        styleParts.push(`--dsx-otp-box-size: ${boxSize}px`);
       }
     } else if (node.tag === "rangeslider") {
       const { bounds, low, high } = nativeRangeValues(node, ctx);
@@ -961,6 +1078,16 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
       );
     }
   } else if (["Table", "calendar", "RadioGroup", "segmentedButton"].includes(node.tag)) {
+    if (node.tag === "Table") {
+      // the DOM factory's twin: the sheet turns the count into the table's
+      // min-inline-size so first paint scrolls inside the frame, never crushes
+      const columnCount = Math.max(
+        parseDataControlCsv(interp(ctx, node.attrs["columns"] ?? ""), DATA_CONTROL_LIMITS.tableColumns).length,
+        parseDataControlCsv(interp(ctx, node.attrs["fields"] ?? ""), DATA_CONTROL_LIMITS.tableColumns).length,
+        1,
+      );
+      styleParts.push(`--dsx-table-columns: ${columnCount}`);
+    }
     if (node.attrs["color"] !== undefined) {
       const property = node.tag === "Table" ? "--dsx-table-color" : "--dsx-data-tint";
       const fallback = node.tag === "Table" ? "label" : "accent";
@@ -1014,14 +1141,53 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
       attrs.push(`aria-label="${escapeHtml(interp(ctx, node.attrs["aria-label"]))}"`);
     }
   }
+  if (node.tag === "Signature") {
+    if (node.attrs["role"] === undefined) attrs.push(`role="img"`);
+    if (node.attrs["a11yLabel"] === undefined && node.attrs["aria-label"] === undefined) {
+      const named = node.attrs["placeholder"] !== undefined
+        ? interp(ctx, node.attrs["placeholder"]) : "";
+      const signed = boundSignature(ctx, node.attrs["bind"]).length > 0;
+      attrs.push(`aria-label="${escapeHtml(`${named.length > 0 ? named : "Signature"}, ${signed ? "signed" : "empty"}`)}"`);
+    }
+  }
+  if (node.tag === "split") {
+    if (node.attrs["role"] === undefined) attrs.push(`role="group"`);
+    if (node.attrs["a11yLabel"] === undefined && node.attrs["aria-label"] === undefined) {
+      attrs.push(`aria-label="Split view"`);
+    }
+    const declaredRoles = node.children.slice(0, 3).map((child) => child.attrs["paneRole"] ?? null);
+    const resolvedAttrs: Record<string, string> = {};
+    for (const name of [
+      "panes", "collapseAt", "expandAt", "resizable",
+      "sidebarMin", "sidebarIdeal", "sidebarMax",
+      "contentMin", "contentIdeal", "contentMax", "detailMin",
+    ]) {
+      if (node.attrs[name] !== undefined) resolvedAttrs[name] = interp(ctx, node.attrs[name]!);
+    }
+    const plan = resolveSplit(resolvedAttrs, declaredRoles, 0);
+    const active = plan.detail && node.attrs["value"] !== undefined
+      && splitSelectionActive(JSE.eval(node.attrs["value"]!, ctx.store.jse, ctx.item));
+    attrs.push(
+      `data-dsx-presentation="${plan.presentation}"`,
+      `data-dsx-panes="${plan.panes}"`,
+      `data-dsx-columns="${plan.columns.join(" ")}"`,
+      `data-dsx-detail-active="${String(active)}"`,
+      `data-dsx-overlay="${String(plan.overlay)}"`,
+      `data-dsx-overlay-open="false"`,
+      `data-dsx-resizable="${String(plan.resizable)}"`,
+    );
+  }
   if ((node.tag === "list" || node.tag === "grid") && node.attrs["bind"] === undefined) {
     if (node.attrs["role"] === undefined) attrs.push(`role="${node.tag}"`);
     const axis = interp(ctx, node.attrs["axis"] ?? node.attrs["direction"] ?? "vertical") === "horizontal"
       ? "horizontal" : "vertical";
     const scroll = interp(ctx, node.attrs["scroll"] ?? "true").trim().toLowerCase() === "false" ? "false" : "true";
-    const authoredAlign = interp(ctx, node.attrs["align"] ?? "leading");
-    const align = authoredAlign === "center" || authoredAlign === "trailing" ? authoredAlign : "leading";
-    attrs.push(`data-dsx-axis="${axis}"`, `data-dsx-scroll="${scroll}"`, `data-dsx-align="${align}"`);
+    attrs.push(`data-dsx-axis="${axis}"`, `data-dsx-scroll="${scroll}"`);
+    // unset align = STRETCH (the base rule) — no stamp (wave-7 F3), matching the client mount
+    if (node.attrs["align"] !== undefined) {
+      const authoredAlign = interp(ctx, node.attrs["align"]);
+      attrs.push(`data-dsx-align="${authoredAlign === "center" || authoredAlign === "trailing" ? authoredAlign : "leading"}"`);
+    }
     if (node.tag === "grid") {
       const rawColumns = number(interp(ctx, node.attrs["columns"] ?? "3"));
       const columns = rawColumns !== null && rawColumns !== undefined && Number.isFinite(rawColumns)
@@ -1097,11 +1263,26 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
       attrs.push(`placeholder="${escapeHtml(interp(ctx, node.attrs["placeholder"]))}"`);
     }
   }
-  if (node.tag === "WebView") {
-    const src = interp(ctx, node.attrs["src"] ?? "about:blank");
+  if (node.tag === "WebView" || node.tag === "DSXWebView") {
+    // DSXWebView is the composed APP surface: on web the app IS the web, so `path`
+    // resolves against the page's own origin (an explicit `origin` wins) — the same
+    // default the DOM factory applies (elements.ts dsxWebView).
+    const raw = node.tag === "DSXWebView"
+      ? (node.attrs["src"] ?? (node.attrs["origin"] !== undefined
+        ? `${node.attrs["origin"]}${node.attrs["path"] ?? "/"}`
+        : (node.attrs["path"] ?? "/")))
+      : (node.attrs["src"] ?? "about:blank");
+    const src = interp(ctx, raw);
     if (/^(https?:|about:blank$|[./])/i.test(src)) attrs.push(`src="${escapeHtml(src)}"`);
     attrs.push(`title="${escapeHtml(interp(ctx, node.attrs["a11yLabel"] ?? node.attrs["title"] ?? "Web content"))}"`);
-    if (truthy(node.attrs["ephemeral"] ?? false)) attrs.push(`sandbox="allow-scripts allow-forms"`);
+    if (truthy(node.attrs["ephemeral"] ?? false)) {
+      // The SAME token set the DOM factory applies (elements.ts webView) — SSR must
+      // not be a second opinion about the ephemeral sandbox; a skew here means a
+      // modal/popup/download works after hydration but not before it. `credentialless`
+      // is a plain boolean content attribute: supporting engines strengthen the
+      // opaque-origin boundary, others ignore it (mirrors the factory's feature check).
+      attrs.push(`sandbox="allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads"`, "credentialless");
+    }
   }
   if (node.tag === "Table") {
     const value = node.attrs["bind"] === undefined ? [] : JSE.eval(node.attrs["bind"], ctx.store.jse, ctx.item);
@@ -1324,9 +1505,11 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
     appendChildren = false;
   } else if (node.tag === "refreshable" || node.tag === "refresh") {
     const label = interp(ctx, node.attrs["a11yLabel"] ?? "Refresh");
+    const viewportLabel = node.attrs["a11yLabel"] !== undefined
+      ? `${interp(ctx, node.attrs["a11yLabel"])} content` : "Refreshable content";
     inner = `<div class="dsx-refresh-affordance"><button class="dsx-refresh-button" type="button" aria-label="${escapeHtml(label)}"><span class="dsx-refresh-symbol" aria-hidden="true">↻</span></button>`
       + `<span class="dsx-refresh-status" role="status" aria-live="polite"></span></div>`
-      + `<div class="dsx-refresh-viewport">${node.children.map((child) => renderNode(child, ctx)).join("")}</div>`;
+      + `<div class="dsx-refresh-viewport" role="region" aria-label="${escapeHtml(viewportLabel)}" tabindex="0">${node.children.map((child) => renderNode(child, ctx)).join("")}</div>`;
     appendChildren = false;
   } else if (node.tag === "flow" || node.tag === "toolbar") {
     inner = node.children.slice(0, STRUCTURAL_CHILD_LIMIT).map((child) => renderNode(child, ctx)).join("");
@@ -1419,6 +1602,53 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
     inner = `<div class="dsx-paged-viewport" dir="ltr" tabindex="0" aria-live="off"><div class="dsx-paged-track">${pages}</div></div>`
       + `<div class="dsx-paged-dots" dir="ltr" role="group" aria-label="Choose slide"${hideDots ? " hidden" : ""}>${dotButtons}</div>`;
     appendChildren = false;
+  } else if (node.tag === "split") {
+    // The SSR twin plans at width 0 (mobile-first stack), exactly like the client
+    // factory before its ResizeObserver reports the real container box; the client
+    // re-stamps on mount. Same DOM, same attributes, same canonical pane order.
+    const children = node.children.slice(0, 3);
+    const declaredRoles = children.map((child) => child.attrs["paneRole"] ?? null);
+    const resolvedAttrs: Record<string, string> = {};
+    for (const name of [
+      "panes", "collapseAt", "expandAt", "resizable",
+      "sidebarMin", "sidebarIdeal", "sidebarMax",
+      "contentMin", "contentIdeal", "contentMax", "detailMin",
+    ]) {
+      if (node.attrs[name] !== undefined) resolvedAttrs[name] = interp(ctx, node.attrs[name]!);
+    }
+    const plan = resolveSplit(resolvedAttrs, declaredRoles, 0);
+    const active = plan.detail && node.attrs["value"] !== undefined
+      && splitSelectionActive(JSE.eval(node.attrs["value"]!, ctx.store.jse, ctx.item));
+    const paneLabels: Record<SplitRole, string> = { sidebar: "Sidebar", content: "Content", detail: "Detail" };
+    const orderedRoles = SPLIT_ROLE_ORDER.filter((role) => plan.roles.includes(role));
+    // the toggle yields while a pushed detail covers the host (the client reflect() twin)
+    const toggleHtml = plan.roles.includes("sidebar") && plan.roles.length === 3
+      ? `<button class="dsx-split-toggle" type="button" aria-label="Show sidebar" aria-expanded="false"`
+        + `${plan.overlay && !active ? "" : " hidden"}><svg viewBox="0 0 24 24" width="20" height="20" fill="none"`
+        + ` stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`
+        + ` aria-hidden="true"><path d="${SPLIT_TOGGLE_PATH}"></path></svg></button>`
+      : "";
+    const toggleShown = toggleHtml.length > 0 && plan.overlay && !active;
+    const panes = orderedRoles.map((role, position) => {
+      const visible = (role === "detail" && active) || role === plan.host;
+      const chrome = toggleShown && role === plan.host ? ` data-dsx-chrome="true"` : "";
+      const backHtml = role === "detail" && plan.roles.length >= 2
+        ? `<button class="dsx-split-back" type="button" aria-label="Back"${plan.detail ? "" : " hidden"}>`
+          + `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"`
+          + ` stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>`
+          + `<span class="dsx-split-back-label">Back</span></button>`
+        : "";
+      const divider = position === 0 ? "" :
+        `<div class="dsx-split-divider" role="separator" aria-orientation="vertical"`
+        + ` aria-label="Resize ${paneLabels[orderedRoles[position - 1]!].toLowerCase()}"`
+        + ` data-dsx-controls="${orderedRoles[position - 1]}" hidden></div>`;
+      const body = renderNode(children[plan.roles.indexOf(role)]!, ctx);
+      return `${divider}<div class="dsx-split-pane" role="group" data-dsx-pane="${role}"`
+        + ` aria-label="${paneLabels[role]}" data-dsx-visible="${String(visible)}"${chrome}`
+        + `${visible ? "" : ` inert aria-hidden="true"`}>${backHtml}${body}</div>`;
+    }).join("");
+    inner = `${toggleHtml}<div class="dsx-split-scrim" aria-hidden="true" hidden></div>${panes}`;
+    appendChildren = false;
   } else if (node.tag === "scaffold") {
     const childAttr = (child: XmlNode, name: string): string | undefined => {
       const value = child.attrs[name];
@@ -1510,6 +1740,9 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
       control = `<select class="dsx-field-control dsx-field-select" ${common}>${placeholderOption}${optionMarkup}</select>`;
     } else if (kind === "toggle") {
       control = `<input class="dsx-field-toggle-input" type="checkbox" role="switch" ${common}${truthy(value) ? " checked" : ""}>`;
+    } else if (kind === "text" && booleanAttribute(interp(ctx, node.attrs["multiline"] ?? "false"))) {
+      // the client factory's textarea twin (wave-7 F5): same well class, rows=3 floor
+      control = `<textarea class="dsx-field-control dsx-field-multiline" rows="3" ${common}${placeholder.length > 0 ? ` placeholder="${escapeHtml(placeholder)}"` : ""}>${escapeHtml(normalizeFormInput(string(value)))}</textarea>`;
     } else {
       const inputType = kind === "phone" ? "tel" : kind === "secure" ? "password" : kind;
       const autocomplete = kind === "email" ? "email" : kind === "secure" ? "current-password" : kind === "phone" ? "tel" : "";
@@ -1534,6 +1767,21 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
       const markdown = node.attrs["markdown"] !== undefined
         && booleanAttribute(interp(ctx, node.attrs["markdown"]));
       inner = markdown ? markdownHtml(source) : escapeHtml(source);
+      appendChildren = false;
+    }
+  } else if (node.tag === "markdown") {
+    // The BLOCK vocabulary (A4), server-painted with the same emitter the corpus pins —
+    // without this branch a docs page SSR'd an empty div and the content arrived only when
+    // the client mounted, which is the opposite of what a documentation site renders for.
+    // Same source precedence as the DOM factory: bind > value > inner text.
+    const bind = node.attrs["bind"];
+    const value = node.attrs["value"];
+    let source: string | null = null;
+    if (bind !== undefined) source = string(JSE.eval(bind, ctx.store.jse, ctx.item));
+    else if (value !== undefined) source = interp(ctx, value);
+    else if (node.text.trim().length > 0) source = interp(ctx, node.text.trim());
+    if (source !== null) {
+      inner = markdownBlocksHtml(source);
       appendChildren = false;
     }
   } else if (node.tag === "textarea") {
@@ -1708,6 +1956,21 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
       + `<circle cx="50" cy="50" r="${radius}" fill="none" stroke-width="${line}" class="dsx-progress-ring-arc" stroke="var(--dsx-ring-color)" stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference * (1 - fraction)}"></circle>`
       + `</svg><span class="dsx-progress-ring-label">${escapeHtml(label)}</span>`;
     appendChildren = false;
+  } else if (node.tag === "Signature") {
+    // The committed ink SSRs as an inline SVG in the SAME normalized space the canvas
+    // draws in (viewBox 0 0 1 1, preserveAspectRatio="none", non-scaling strokes), so a
+    // signed document has a real, printable first paint before the client mounts a pad.
+    const strokes = boundSignature(ctx, node.attrs["bind"]);
+    const placeholder = node.attrs["placeholder"] !== undefined
+      ? interp(ctx, node.attrs["placeholder"]) : "";
+    const ink = strokes.map((stroke) =>
+      `<path d="${escapeHtml(inkPathData(stroke.points, 1, 1))}" fill="none"`
+      + ` stroke="currentColor" stroke-width="${stroke.width || INK_STROKE_WIDTH}"`
+      + ` stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>`)
+      .join("");
+    inner = `<svg class="dsx-signature-ink" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">${ink}</svg>`
+      + `<span class="dsx-signature-placeholder" data-dsx-part="placeholder">${escapeHtml(placeholder)}</span>`;
+    appendChildren = false;
   } else if (node.tag === "Skeleton") {
     appendChildren = false;
   } else if (node.tag === "ChatBubble") {
@@ -1862,8 +2125,11 @@ function renderList(node: XmlNode, ctx: RenderCtx): string {
   if (node.tag === "grid" && node.attrs["columns"] !== undefined) styles.push(`--dsx-grid-columns: ${columns}`);
   const axis = ssrAxis;
   const scroll = ssrScroll ? "true" : "false";
-  const authoredAlign = interp(ctx, node.attrs["align"] ?? "leading");
-  const align = authoredAlign === "center" || authoredAlign === "trailing" ? authoredAlign : "leading";
+  // unset align = STRETCH (the base rule) — no stamp (wave-7 F3), matching the client mount
+  const authoredAlign = node.attrs["align"] === undefined ? null : interp(ctx, node.attrs["align"]);
+  const alignAttr = authoredAlign === null
+    ? ""
+    : ` data-dsx-align="${authoredAlign === "center" || authoredAlign === "trailing" ? authoredAlign : "leading"}"`;
   const role = node.tag === "list" ? ' role="list"' : node.tag === "grid" ? ' role="grid"' : "";
   const gridMeta = node.tag === "grid"
     ? ` aria-colcount="${columns}" aria-rowcount="${Math.ceil(total / columns)}"` : "";
@@ -1905,17 +2171,24 @@ function renderList(node: XmlNode, ctx: RenderCtx): string {
     + (declaresReorder ? ` data-dsx-reorder="${String(reordering)}"` : "")
     + (declaresSwipe ? ` data-dsx-swipeable="${String(swiping)}"` : "")
     + (node.attrs["autoscroll"] === undefined ? "" : ` data-dsx-autoscroll="false"`);
-  return `<div class="${cls}"${role}${gridMeta} data-dsx-axis="${axis}" data-dsx-scroll="${scroll}" data-dsx-align="${align}"${bounds}${constructMeta}${theme}${style}>${rows}</div>`;
+  return `<div class="${cls}"${role}${gridMeta} data-dsx-axis="${axis}" data-dsx-scroll="${scroll}"${alignAttr}${bounds}${constructMeta}${theme}${style}>${rows}</div>`;
 }
 
 function renderComponentNode(node: XmlNode, ctx: RenderCtx): string {
   const ir = resolveComponent(ctx.registry, ctx.scheme, node.tag);
   if (ir === null) return "";
   const attrs: Dict = {};
+  const overrides: Dict = {};
   for (const [name, value] of Object.entries(node.attrs)) {
     if (name.startsWith("on:") || name.startsWith("__") || name === "slot" || name === "visible-if") continue;
+    // the style-override split (corpus OpenSource/Conformance/overrides): the server
+    // evaluates once and rides the same item-scope vehicle the client uses, so first
+    // paint and adopt read identical values
+    const override = overrideAttrName(name);
+    if (override !== null) { overrides[override] = value.includes("{{") ? interp(ctx, value) : value; continue; }
     attrs[name] = value.includes("{{") ? interp(ctx, value) : value;
   }
+  if (Object.keys(overrides).length > 0) attrs["__overrides"] = overrides;
   const defaults = node.children.filter((c) => (c.attrs["slot"] ?? "") === "");
   const named = new Map<string, XmlNode[]>();
   for (const c of node.children) {
@@ -1951,6 +2224,8 @@ function decorateComponentRoot(html: string, node: XmlNode, ctx: RenderCtx): str
       if (value.length > 0 && mapped.length > 0) styles.push(`${prop}: ${mapped}`);
     }
   }
+  const styleListAttr = node.attrs["__style_list"];
+  if (styleListAttr !== undefined) styles.push(...styleListDecls(ctx, styleListAttr));
   return styles.length > 0 ? appendRootAttribute(decorated, "style", styles.join("; ")) : decorated;
 }
 
@@ -1988,6 +2263,9 @@ function setupHeadScope(store: ReactiveStore, ir: ComponentIR, attrs: Dict): voi
   for (const a of ir.head.attributes) {
     if (a.default !== undefined) store.jse.attrDefaults.set(a.as, a.default);
   }
+  // the style contract — declared knobs register so dsx.override.* resolves (the raw
+  // values ride attrs.__overrides, the same item-scope door the client reads)
+  for (const o of ir.head.overrides ?? []) store.jse.overrideDecls.set(o.as, o);
   // `<functions global="true">` — the app-wide function library (the @despia/dom
   // instantiate twin): global registration first, then the per-surface blocks.
   for (const s of ir.head.globalScripts) JSE.registerGlobalFunctions(s);
@@ -2054,14 +2332,18 @@ function walkSsrComponents(
     for (const child of node.children) walkSsrComponents(child, { ...wctx, item: rowItem }, emit);
     return;
   }
-  if ((/^[A-Z]/.test(node.tag) || node.tag.includes(".")) && node.tag !== "WebView") {
+  if ((/^[A-Z]/.test(node.tag) || node.tag.includes(".")) && !RESERVED_SURFACE_TAGS.has(node.tag)) {
     const ir = resolveComponent(wctx.registry, wctx.scheme, node.tag);
     if (ir === null) return; // facet / universal global / unresolved — no ssr apis to seed
     const attrs: Dict = {};
+    const overrides: Dict = {};
     for (const [name, value] of Object.entries(node.attrs)) {
       if (name.startsWith("on:") || name.startsWith("__") || name === "slot" || name === "visible-if") continue;
-      attrs[name] = value.includes("{{") ? JSE.interpolate(value, wctx.store.jse, wctx.item) : value;
+      const override = overrideAttrName(name);
+      const plane = override !== null ? overrides : attrs;
+      plane[override ?? name] = value.includes("{{") ? JSE.interpolate(value, wctx.store.jse, wctx.item) : value;
     }
+    if (Object.keys(overrides).length > 0) attrs["__overrides"] = overrides;
     const defaults = node.children.filter((c) => (c.attrs["slot"] ?? "") === "");
     const named = new Map<string, XmlNode[]>();
     for (const c of node.children) {

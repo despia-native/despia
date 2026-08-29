@@ -1,0 +1,1097 @@
+{
+  "_note": "THE APP MANIFEST GRAMMAR (architecture/proposals/studio-apps.md §3). A Despia app is an ordinary registry package whose dsx.json adds `studioApi` (the envelope, durability-P1 pattern) and `facets.apps` contribution rows into the CLOSED slot vocabulary, each carrying grants over the closed `studio` residence. This corpus drives BOTH validators — packages/cli/src/studio-apps/manifest.ts (TS: installed registry packages, the editor host, the shelf CI) and ClosedSource/scripts/check_studio_apps.rb (ruby: in-tree first-party app modules) — the lint_conformance two-validators-one-corpus pattern, because grammar with N validators and no shared fixtures is exactly where drift lives. Each case feeds `manifest` to the validator. `expect.app:false` = not an app at all (no facets.apps rows; both info and issues empty — callers must distinguish this from a broken app). `expect.ok:true` = a valid app; `contributions` pins how many rows survive and `grants` (when present) pins the install-dialog union in order. `expect.ok:false` = invalid; `codes` is the SORTED SET of issue codes — messages are deliberately uncompared (the lint_conformance rule: wording is free, the code is the contract). The vocabulary echoed under `vocabulary` is the same one OpenSource/Web/support/studio-api-v1.json pins; the TS runner asserts the two agree, so the contract artifact, this corpus and the validator cannot drift apart. Laws pinned here: studioApi is required on any manifest carrying rows and must equal the major this toolchain speaks; UI slots (studio.panel, studio.rail, studio.inspector.section, studio.style.section, dashboard.card) require component+title (the two RAIL PLACEMENTS - studio.panel, the docked side panel that is the default, and studio.rail, the full-window destination - also require icon, their identity mark in the rail) and may hold project:read/project:write/selection:read/net:<host> — never automation grants; automation rows have no component, bind `on` to a known editor or platform event, name `run` as a package-relative `Doc.dsx#action`, default mode draft (auto requires the automation:auto grant), and ALWAYS carry automation:deploy (installing one changes the user's deployment — the grant is how that is said); tool rows name their published `action`, carry `run` (the same package-relative `Doc.dsx#action` shape automations use — an interface is ONE consumer of an app, so every tool is invokable from the Studio, the CLI (`despia app run`) and the MCP face alike, under the same consented grants and the same narrowed document grammar), never bind `on`, and hold no grants; secret:/data: grants are automation-plane only; net:<host> is a bare lowercase host (suffix-match at the seam, the server egress rule verbatim); grants are validated fail-closed at the SEAM too — this grammar tier exists so a bad manifest never reaches one. Runners: packages/cli/test/studio-apps-manifest.test.ts (per-PR, npm test) + check_studio_apps.rb (per-PR, repo-gates lane).",
+  "vocabulary": {
+    "studioApi": 1,
+    "slots": [
+      "studio.panel",
+      "studio.rail",
+      "studio.inspector.section",
+      "studio.style.section",
+      "dashboard.card",
+      "tool",
+      "automation"
+    ],
+    "grants": [
+      "project:read",
+      "project:write",
+      "selection:read",
+      "net:<host>",
+      "secret:<NAME>",
+      "automation:deploy",
+      "automation:auto",
+      "data:<entity>"
+    ],
+    "editorEvents": [
+      "document.saved",
+      "document.opened",
+      "selection.changed",
+      "build.finished",
+      "lint.finished",
+      "deploy.requested",
+      "deploy.finished",
+      "app.installed",
+      "app.enabled",
+      "app.disabled"
+    ],
+    "platformEvents": [
+      "platform.release.published",
+      "platform.pr.opened",
+      "platform.build.finished",
+      "platform.order.created"
+    ],
+    "budgets": {
+      "loopCap": 200000,
+      "deadlineMs": 30000,
+      "calls": 128
+    }
+  },
+  "cases": [
+    {
+      "name": "not an app — a manifest with no facets.apps rows is an ordinary package, silently",
+      "manifest": {
+        "name": "Camera",
+        "scheme": "camera",
+        "version": "1.0.0"
+      },
+      "expect": {
+        "app": false
+      }
+    },
+    {
+      "name": "not an app — an underscore-only facets.apps block is annotation, not rows",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "facets": {
+          "apps": {
+            "_note": "someday"
+          }
+        }
+      },
+      "expect": {
+        "app": false
+      }
+    },
+    {
+      "name": "the minimal rail app — component, title, icon, one grant",
+      "manifest": {
+        "name": "AcmeCopy",
+        "scheme": "acmecopy",
+        "version": "1.2.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "copy-panel": {
+              "slot": "studio.rail",
+              "component": "Components/CopyPanel.dsx",
+              "title": "Copy",
+              "icon": "text.badge.star",
+              "grants": [
+                "project:read"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": true,
+        "contributions": 1,
+        "grants": [
+          "project:read"
+        ]
+      }
+    },
+    {
+      "name": "the full app — every slot kind in one manifest, grants unioned in row order for the dialog",
+      "manifest": {
+        "name": "Acme",
+        "scheme": "acme",
+        "version": "2.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "board": {
+              "slot": "studio.rail",
+              "component": "Components/Board.dsx",
+              "title": "Board",
+              "icon": "square.grid.2x2",
+              "order": "10",
+              "grants": [
+                "project:read",
+                "project:write",
+                "net:api.acme.dev"
+              ],
+              "events": [
+                "document.saved",
+                "selection.changed"
+              ]
+            },
+            "tone": {
+              "slot": "studio.style.section",
+              "component": "Components/Tone.dsx",
+              "title": "Tone",
+              "order": "20",
+              "grants": [
+                "selection:read"
+              ]
+            },
+            "insp": {
+              "slot": "studio.inspector.section",
+              "component": "Components/Inspect.dsx",
+              "title": "Acme",
+              "order": "30"
+            },
+            "card": {
+              "slot": "dashboard.card",
+              "component": "Components/Card.dsx",
+              "title": "Acme health",
+              "order": "40",
+              "grants": [
+                "net:api.acme.dev"
+              ]
+            },
+            "gen": {
+              "slot": "tool",
+              "action": "generate",
+              "title": "Generate",
+              "description": "Generate copy for the selected screen",
+              "order": "50",
+              "run": "Server/Tools.dsx#generate"
+            },
+            "notes": {
+              "slot": "automation",
+              "on": "platform.release.published",
+              "run": "Server/Automations.dsx#draftNotes",
+              "mode": "draft",
+              "order": "60",
+              "grants": [
+                "automation:deploy",
+                "net:api.acme.dev",
+                "secret:ACME_KEY"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": true,
+        "contributions": 6,
+        "grants": [
+          "project:read",
+          "project:write",
+          "net:api.acme.dev",
+          "selection:read",
+          "automation:deploy",
+          "secret:ACME_KEY"
+        ]
+      }
+    },
+    {
+      "name": "rows sort by order then id — the mount table is deterministic",
+      "manifest": {
+        "name": "Z",
+        "scheme": "z",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "zz": {
+              "slot": "studio.rail",
+              "component": "Components/A.dsx",
+              "title": "A",
+              "icon": "a",
+              "order": "5"
+            },
+            "aa": {
+              "slot": "studio.rail",
+              "component": "Components/B.dsx",
+              "title": "B",
+              "icon": "b",
+              "order": "5"
+            },
+            "mm": {
+              "slot": "studio.rail",
+              "component": "Components/C.dsx",
+              "title": "C",
+              "icon": "c",
+              "order": "4"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": true,
+        "contributions": 3,
+        "order": [
+          "mm",
+          "aa",
+          "zz"
+        ]
+      }
+    },
+    {
+      "name": "missing studioApi — an app manifest without the envelope refuses",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P",
+              "icon": "p"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "missing_studio_api"
+        ]
+      }
+    },
+    {
+      "name": "a future studioApi major refuses with its own code — typed skew, never a blank pane",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 2,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P",
+              "icon": "p"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "unsupported_studio_api"
+        ]
+      }
+    },
+    {
+      "name": "an unknown slot refuses, naming the vocabulary",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.toolbar",
+              "component": "Components/P.dsx",
+              "title": "P"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "unknown_slot"
+        ]
+      }
+    },
+    {
+      "name": "a contribution id is lowercase kebab-case",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "MyPanel": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P",
+              "icon": "p"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "bad_contribution_id"
+        ]
+      }
+    },
+    {
+      "name": "a UI contribution without a component refuses",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.style.section",
+              "title": "P"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "missing_component"
+        ]
+      }
+    },
+    {
+      "name": "a UI contribution without a title refuses — a person names what they installed",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "dashboard.card",
+              "component": "Components/P.dsx"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "missing_title"
+        ]
+      }
+    },
+    {
+      "name": "a rail destination without an icon refuses — the rail is an identity system",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "missing_icon"
+        ]
+      }
+    },
+    {
+      "name": "a component path cannot escape the package",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "../Editor/Components/Editor.dsx",
+              "title": "P",
+              "icon": "p"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "bad_component_path"
+        ]
+      }
+    },
+    {
+      "name": "an unknown grant refuses",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P",
+              "icon": "p",
+              "grants": [
+                "filesystem:write"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "unknown_grant"
+        ]
+      }
+    },
+    {
+      "name": "a net grant is a bare lowercase host — a URL is not a host",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P",
+              "icon": "p",
+              "grants": [
+                "net:https://api.acme.dev/v1"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "unknown_grant"
+        ]
+      }
+    },
+    {
+      "name": "automation grants on a UI row refuse — grants are slot-legal, abort tier",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P",
+              "icon": "p",
+              "grants": [
+                "automation:deploy"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "grant_not_slot_legal"
+        ]
+      }
+    },
+    {
+      "name": "project:write on an automation refuses — the editor residence is not the server residence",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "a": {
+              "slot": "automation",
+              "on": "build.finished",
+              "run": "Server/A.dsx#go",
+              "grants": [
+                "automation:deploy",
+                "project:write"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "grant_not_slot_legal"
+        ]
+      }
+    },
+    {
+      "name": "a secret grant is automation-plane only — a panel never holds a key",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P",
+              "icon": "p",
+              "grants": [
+                "secret:ACME_KEY"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "grant_not_slot_legal"
+        ]
+      }
+    },
+    {
+      "name": "an unknown editor event refuses",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P",
+              "icon": "p",
+              "events": [
+                "document.printed"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "unknown_event"
+        ]
+      }
+    },
+    {
+      "name": "an automation subscribing editor events refuses — it binds `on`, singular",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "a": {
+              "slot": "automation",
+              "on": "build.finished",
+              "run": "Server/A.dsx#go",
+              "grants": [
+                "automation:deploy"
+              ],
+              "events": [
+                "document.saved"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "event_not_slot_legal"
+        ]
+      }
+    },
+    {
+      "name": "an automation without `on` refuses",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "a": {
+              "slot": "automation",
+              "run": "Server/A.dsx#go",
+              "grants": [
+                "automation:deploy"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "missing_on"
+        ]
+      }
+    },
+    {
+      "name": "an automation on an unknown event refuses, listing both planes",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "a": {
+              "slot": "automation",
+              "on": "platform.invoice.paid",
+              "run": "Server/A.dsx#go",
+              "grants": [
+                "automation:deploy"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "unknown_automation_event"
+        ]
+      }
+    },
+    {
+      "name": "an automation without `run` refuses",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "a": {
+              "slot": "automation",
+              "on": "build.finished",
+              "grants": [
+                "automation:deploy"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "missing_run"
+        ]
+      }
+    },
+    {
+      "name": "a run path cannot escape the package and must name its action",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "a": {
+              "slot": "automation",
+              "on": "build.finished",
+              "run": "../evil.dsx#go",
+              "grants": [
+                "automation:deploy"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "bad_run"
+        ]
+      }
+    },
+    {
+      "name": "an automation with a component refuses — no UI on the automation plane",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "a": {
+              "slot": "automation",
+              "on": "build.finished",
+              "run": "Server/A.dsx#go",
+              "component": "Components/P.dsx",
+              "grants": [
+                "automation:deploy"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "forbidden_component"
+        ]
+      }
+    },
+    {
+      "name": "mode auto without the automation:auto grant refuses — the agency ladder is a grant, not a default",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "a": {
+              "slot": "automation",
+              "on": "build.finished",
+              "run": "Server/A.dsx#go",
+              "mode": "auto",
+              "grants": [
+                "automation:deploy"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "auto_needs_grant"
+        ]
+      }
+    },
+    {
+      "name": "an automation without automation:deploy refuses — changing a deployment is said out loud",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "a": {
+              "slot": "automation",
+              "on": "build.finished",
+              "run": "Server/A.dsx#go"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "grant_not_slot_legal"
+        ]
+      }
+    },
+    {
+      "name": "an unknown mode refuses",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "a": {
+              "slot": "automation",
+              "on": "build.finished",
+              "run": "Server/A.dsx#go",
+              "mode": "yolo",
+              "grants": [
+                "automation:deploy"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "bad_mode"
+        ]
+      }
+    },
+    {
+      "name": "a tool contribution without an action refuses",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "t": {
+              "slot": "tool",
+              "title": "T"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "missing_action",
+          "missing_run"
+        ]
+      }
+    },
+    {
+      "name": "a tool contribution holding grants refuses — it rides the action's own contract",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "t": {
+              "slot": "tool",
+              "action": "generate",
+              "grants": [
+                "project:read"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "grant_not_slot_legal",
+          "missing_run"
+        ]
+      }
+    },
+    {
+      "name": "order outside 0-999 refuses",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P",
+              "icon": "p",
+              "order": "1500"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "bad_order"
+        ]
+      }
+    },
+    {
+      "name": "every issue is reported, not only the first — the shelf CI comment shows the whole list",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "facets": {
+          "apps": {
+            "p": {
+              "slot": "studio.rail",
+              "component": "Components/P.dsx",
+              "title": "P"
+            },
+            "q": {
+              "slot": "studio.wormhole",
+              "component": "Components/Q.dsx",
+              "title": "Q"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "missing_icon",
+          "missing_studio_api",
+          "unknown_slot"
+        ]
+      }
+    },
+    {
+      "name": "a tool row names its implementation — run makes it Studio-, CLI- and MCP-invokable alike",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "t": {
+              "slot": "tool",
+              "action": "generate",
+              "title": "Generate",
+              "run": "Server/Tools.dsx#generate"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": true,
+        "contributions": 1
+      }
+    },
+    {
+      "name": "a tool row without run refuses — an interface is ONE consumer, a tool locked to it is not a tool",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "t": {
+              "slot": "tool",
+              "action": "generate",
+              "title": "Generate"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "missing_run"
+        ]
+      }
+    },
+    {
+      "name": "a tool row with a traversing run refuses",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "t": {
+              "slot": "tool",
+              "action": "generate",
+              "run": "../evil.dsx#x"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "bad_run"
+        ]
+      }
+    },
+    {
+      "name": "a tool row binding an event refuses — a tool is invoked, never event-bound",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "t": {
+              "slot": "tool",
+              "action": "generate",
+              "run": "Server/Tools.dsx#generate",
+              "on": "document.saved"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "bad_row"
+        ]
+      }
+    },
+    {
+      "name": "the docked side panel - the default placement, same shape as a rail destination",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "notes": {
+              "slot": "studio.panel",
+              "component": "Components/Notes.dsx",
+              "title": "Notes",
+              "icon": "note.text",
+              "grants": [
+                "project:read",
+                "selection:read"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": true,
+        "contributions": 1,
+        "grants": [
+          "project:read",
+          "selection:read"
+        ]
+      }
+    },
+    {
+      "name": "a panel without an icon refuses - a rail placement carries its identity mark",
+      "manifest": {
+        "name": "X",
+        "scheme": "x",
+        "version": "1.0.0",
+        "studioApi": 1,
+        "facets": {
+          "apps": {
+            "notes": {
+              "slot": "studio.panel",
+              "component": "Components/Notes.dsx",
+              "title": "Notes"
+            }
+          }
+        }
+      },
+      "expect": {
+        "ok": false,
+        "codes": [
+          "missing_icon"
+        ]
+      }
+    }
+  ]
+}

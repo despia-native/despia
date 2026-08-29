@@ -17,7 +17,8 @@ basename is the component name.
 <!-- doc comment: what this is, who mounts it (one short paragraph) -->
 <root view element>          ← carries exit / dismissEdge / on:appear, as before
   <head>                     ← the ONE place declarations live (first child, once)
-    interface   →  attribute · expects · event
+    interface   →  attribute · override · expects · event · tool
+    data        →  api
     state       →  variable (plain first, then computed="true")
     logic       →  formula · action · script
     reactions   →  watch
@@ -35,9 +36,11 @@ Rules (each is a lint check):
 2. **`<head>` is the first child of the root, at most one per element.** It renders nothing;
    its children are declarations.
 3. **Canonical order, same-kind contiguous:**
-   `attribute → expects → event → variable (plain → computed) → formula → action → script →
-   watch → style → component`. The interface always reads first — a reader learns the
-   component's API without scrolling past a pixel of layout.
+   `attribute → override → expects → event/input/tool → api/variable (plain → computed) → formula →
+   action → script → watch → style → component`. The interface always reads first — a reader
+   learns the component's API without scrolling past a pixel of layout. The ground truth is
+   `OpenSource/Conformance/lint/facts.json` (`headRank` + `headOrderHint`), which every
+   linter loads; this sentence is its prose and must match it.
 4. **Declarations outside the head are findings.** The one sanctioned exception is a
    `<watch>` inside a `list`/`grid`/`pager` row template — a watch is position-sensitive by
    design (one observer per row). Computed variables need no such exception: they evaluate
@@ -68,6 +71,11 @@ Rules (each is a lint check):
 the component genuinely defaults it. The head's attribute block replaces the prose `• prop`
 bullet lists — it is the machine-readable `Props:` table.
 
+**`sample=`** — the unit-test sample value, on `variable`/`event`/`api`/`attribute` (v1;
+formula/action deferred). JSON only, carried verbatim, editor fuel with no production
+semantics: the runtime never evaluates it and a failed `<api>` never reads its sample.
+Full law: `OpenSource/Skills/sample-values.md`.
+
 Attributes are **THE component input contract** — the same declarations serve every way the
 component can appear, with identical semantics:
 
@@ -85,6 +93,20 @@ component reacting to its inputs with its own logic (the web-component
 `attributeChangedCallback` analogue). The mounting side sets declared inputs; it never
 touches the component's internal variables — that boundary is what `attrs` exists to keep.
 
+**`<override as="radius" type="number" default="10" min="0" max="32"/>`** — the component's
+STYLE contract, beside the attribute DATA contract (the law:
+`architecture/proposals/style-overrides.md`; authoring:
+[`Skills/style-overrides.md`](../../Skills/style-overrides.md)). A typed style knob a
+consumer turns on ONE instance — `override:radius="6"`, `override:radius="{{ expr }}"`
+(live), `override:radius:ios="8"` (the ordinary platform fold), or the verbs'
+`{ overrides: {…} }` / native `ui.override` — and the component spends wherever its design
+needs it, at any depth: `radius="{{ dsx.override.radius }}"`. `type=` is the style catalog's
+control vocabulary + `css`; `default=` is a LITERAL style value (never a JSE expression —
+the one deliberate asymmetry with `<attribute default=>`); reads are reactive, coerced
+fail-open (invalid → the default), and default-backed. Nothing auto-applies — a declared
+knob the markup never reads is a lint warning, which is what keeps the contract enumerable
+and the editor's styling panel truthful.
+
 **`<expects variable="x"/>`** — state the mounting side must seed (`ui.variable(…)`), or —
 in a fragment that shares its parent surface's store — shared surface state it reads/writes.
 This is the old "Seeded facts:" header comment as a contract. At runtime the root head's
@@ -98,6 +120,17 @@ This is the old "Seeded facts:" header comment as a contract. At runtime the roo
 Purely declarative at runtime (DSX's `defineEmits`); the linter checks every literal
 `dsx.event('x')` in a file with a head against these, and it replaces the prose `Raises:`
 lists.
+
+**`<tool action="x" description="..." as="y" mutates="z"/>`** — an action this document
+exposes to an AI AGENT (`proposals/webmcp.md`). The row names one action the same head
+declares and carries no schema of its own: the descriptor an agent reads is DERIVED from
+that action's declared inputs, which is why there is no `schema=` and never will be — the
+`facets.mcp` rule, applied to a document. `as` defaults to the action name; `mutates` names
+what the action changes when it changes anything, and its ABSENCE is what emits the
+read-only hint. On the web renderer the rows register with `document.modelContext` for
+exactly as long as the document is mounted, so the tool set an agent sees is always the set
+the current screen can honour; on a native surface the row is declarative and waits for its
+consumer. A row naming an action the document does not declare fails the BUILD.
 
 With a head present, the linter also requires every `dsx.variable.x` the file touches to be
 declared — as a `variable` (own state) or `expects` (seeded/shared). **A file's state
@@ -124,8 +157,11 @@ facts of the surface, not render side effects — the old footguns (a declaratio
 `visible-if`-false subtree never registering; define-before-use ordering) don't apply to
 head declarations. The head node itself is a transparent container when rendered: every
 registration is idempotent, and view-backed declarations (`watch`, `attribute on:change`)
-mount as views. Inside a component template (which shares the consumer surface's store) the
-head registers on first render, as declarations always have.
+mount as views. A component template's head registers into the INSTANCE's own store (the
+instance-store law: each component instance mounts against a store born with it, so two
+instances hold independent state and nothing a component declares leaks into the consumer's
+store; slot content is the deliberate exception — it is the consumer's markup and binds in
+the consumer's scope and store). Registration still happens on the first render walk.
 
 ## Root-shape exception
 

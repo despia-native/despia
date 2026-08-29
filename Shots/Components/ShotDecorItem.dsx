@@ -1,0 +1,195 @@
+<stack id="shot-decor-{{ dsx.attribute.item.id }}"
+       style="position: absolute; left: {{ dsx.attribute.item.x }}; top: {{ dsx.attribute.item.y }};
+              width: {{ dsx.attribute.item.w ? dsx.attribute.item.w : 'auto' }};
+              height: {{ dsx.attribute.item.h ? dsx.attribute.item.h : 'auto' }};
+              transform: {{ decorTransform }}; transform-origin: center center">
+  <head>
+    <!-- ONE DECORATION. Four kinds, one positioned box, gated by `kind`.
+         Split out of ShotDecor so the slot markup exists once: eight copies of this inline
+         would be eight places for a fix to be applied seven times. -->
+    <!-- The slot carries BOTH dimensions when the item declares them. A percentage height on
+         the ring itself resolves against this box, and a box with `height: auto` gives a
+         percentage nothing to resolve against - so the callout ring collapsed to a hairline
+         bar instead of surrounding a row. Percentages need a definite containing block, and
+         this is where it becomes definite. -->
+    <attribute as="item"/>
+
+    <!-- A decoration may SHARE THE SCENE with a leaning device: `lean` gives the row the same
+         kind of perspective rotation the frame has, so a floating card sits IN the space
+         rather than pasted flat on top of a turned object. A flat card beside a turned phone
+         is the exact tell that reads as collage - the two disagree about where the camera is. -->
+    <variable as="decorTransform" computed="true">
+      const spin = dsx.attribute.item.rotate ? dsx.attribute.item.rotate : '0deg'
+      const lean = dsx.attribute.item.lean
+      if (!lean) { return 'rotate(' + spin + ')' }
+      return 'perspective(1500px) rotateY(' + lean + ') rotate(' + spin + ')'
+    </variable>
+
+    <!-- THE ZOOM KIND'S ARITHMETIC. A zoom is a magnified crop of the SAME screenshot the
+         device shows: `region` is {x,y,w,h} in percent of the source image, and the crop is
+         pure geometry - the image is scaled so the region fills the container and translated
+         so the region's origin lands at 0. translate() percentages are of the element's OWN
+         box, which is exactly the coordinate space `region` is declared in; that is what makes
+         this three lines instead of a background-position derivation.
+         Defensive returns because every computed evaluates even when the kind gates it out. -->
+    <!-- An accent ring on request: a tinted 2.5px border says "this is the highlighted
+         detail" the way references outline their popped fragments. Hairline neutral without. -->
+    <variable as="zoomBorder" computed="true">
+      if (dsx.attribute.item.tint) { return '2.5px solid ' + dsx.attribute.item.tint }
+      return '1px solid rgba(16,18,28,0.08)'
+    </variable>
+    <variable as="zoomAspect" computed="true">
+      const r = dsx.attribute.item.region
+      if (!r) { return '1 / 1' }
+      return (r.w * 440) + ' / ' + (r.h * 956)
+    </variable>
+    <variable as="zoomImgW" computed="true">
+      const r = dsx.attribute.item.region
+      if (!r) { return '100%' }
+      return (10000 / r.w) + '%'
+    </variable>
+    <variable as="zoomShift" computed="true">
+      const r = dsx.attribute.item.region
+      if (!r) { return 'translate(0%, 0%)' }
+      return 'translate(-' + r.x + '%, -' + r.y + '%)'
+    </variable>
+  </head>
+
+  <!-- ASSET: the customer's own artwork - a logo, a mascot, a product shot. -->
+  <image visible-if="dsx.attribute.item.kind == 'asset'" src="{{ dsx.attribute.item.src }}"
+         contentFit="contain" a11yLabel="{{ dsx.attribute.item.label }}"
+         style="width: 100%; height: auto;
+                filter: drop-shadow(0 18px 26px rgba(0,0,0,0.34))"/>
+
+  <!-- BADGE: a substantiated claim in a pill that reads on ANY ground.
+       The first version used a translucent white fill with white text, which is legible over a
+       dark gradient and INVISIBLE the moment it crosses the phone's white screen - white on
+       white, with only the border surviving. A decoration cannot know what is behind it, so it
+       carries its own ground: an opaque dark surface with a light hairline, blurred behind so
+       it still feels like glass rather than a sticker. -->
+  <hstack visible-if="dsx.attribute.item.kind == 'badge'"
+          style="align-items: center; gap: 0.6rem; padding: 13px 20px 13px 15px;
+                 border-radius: 999px; background: rgba(14,14,20,0.82);
+                 backdrop-filter: blur(18px) saturate(1.4);
+                 border: 1px solid rgba(255,255,255,0.20);
+                 box-shadow: 0 14px 34px rgba(0,0,0,0.38)">
+    <image visible-if="dsx.attribute.item.icon" icon="{{ dsx.attribute.item.icon }}" iconSize="22"
+           style="color: {{ dsx.attribute.item.tint ? dsx.attribute.item.tint : '#ffd166' }}"/>
+    <vstack style="gap: 0rem">
+      <text value="{{ dsx.attribute.item.label }}"
+            style="color: #ffffff; font-size: 19px; font-weight: 700; line-height: 1.12;
+                   letter-spacing: -0.02em; white-space: nowrap"/>
+      <text visible-if="dsx.attribute.item.sub" value="{{ dsx.attribute.item.sub }}"
+            style="color: rgba(255,255,255,0.66); font-size: 12px; font-weight: 450;
+                   line-height: 1.25; white-space: nowrap"/>
+    </vstack>
+  </hstack>
+
+  <!-- CHIP: one short factual feature label. -->
+  <hstack visible-if="dsx.attribute.item.kind == 'chip'"
+          style="align-items: center; gap: 0.42rem; padding: 9px 15px; border-radius: 999px;
+                 background: rgba(14,14,20,0.82);
+                 backdrop-filter: blur(18px) saturate(1.4);
+                 border: 1px solid rgba(255,255,255,0.20);
+                 box-shadow: 0 10px 24px rgba(0,0,0,0.32)">
+    <image visible-if="dsx.attribute.item.icon" icon="{{ dsx.attribute.item.icon }}" iconSize="15"
+           style="color: {{ dsx.attribute.item.tint ? dsx.attribute.item.tint : '#9dffb0' }}"/>
+    <text value="{{ dsx.attribute.item.label }}"
+          style="color: rgba(255,255,255,0.94); font-size: 13px; font-weight: 550;
+                 white-space: nowrap"/>
+  </hstack>
+
+
+  <!-- LAUREL: the award lockup, drawn art rather than a store badge. What it encloses is a
+       claim the customer can substantiate; the wreath itself is a generic decorative device
+       and carries no store mark, no Play laurel, no App Store wording. -->
+  <stack visible-if="dsx.attribute.item.kind == 'laurel'"
+         style="position: relative; width: 100%; align-items: center; justify-content: center;
+                display: flex">
+    <image src="{{ dsx.attribute.item.src }}" contentFit="contain" a11yLabel=""
+           style="width: 100%; height: auto"/>
+    <vstack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+                   align-items: center; justify-content: center; gap: 0.15rem">
+      <text value="{{ dsx.attribute.item.label }}"
+            style="color: {{ dsx.attribute.item.tint ? dsx.attribute.item.tint : '#12141a' }};
+                   font-size: {{ dsx.attribute.item.size ? dsx.attribute.item.size : '15px' }};
+                   font-weight: 750; line-height: 1.15; text-align: center; max-width: 62%"/>
+      <text visible-if="dsx.attribute.item.sub" value="{{ dsx.attribute.item.sub }}"
+            style="color: {{ dsx.attribute.item.tint ? dsx.attribute.item.tint : '#12141a' }};
+                   font-size: 12px; font-weight: 600; opacity: 0.72"/>
+    </vstack>
+  </stack>
+
+  <!-- ARROW: a swept stroke with a head, so a label can sit on clean ground and still point at
+       a UI detail. A ring says "look here"; an arrow says "look here, from over there", which
+       is what keeps annotation off the thing it is annotating. -->
+  <image visible-if="dsx.attribute.item.kind == 'arrow'" src="{{ dsx.attribute.item.src }}"
+         contentFit="contain" a11yLabel=""
+         style="width: 100%; height: auto; opacity: 0.95"/>
+
+  <!-- REVIEW: a real quote with stars and an attribution. The strongest trust device available
+       that is not a store award, and unlike an award it is the customer's to substantiate. -->
+  <vstack visible-if="dsx.attribute.item.kind == 'review'"
+          style="gap: 0.45rem; padding: 16px 18px; border-radius: 18px;
+                 background: {{ dsx.attribute.item.tone ? dsx.attribute.item.tone : '#ffffff' }};
+                 border: 1px solid rgba(16,18,28,0.07);
+                 box-shadow: 0 2px 4px rgba(16,18,28,0.06), 0 18px 40px -12px rgba(16,18,28,0.26)">
+    <hstack style="gap: 0.15rem; align-items: center">
+      <image icon="star.fill" iconSize="13" style="color: #f5a524"/>
+      <image icon="star.fill" iconSize="13" style="color: #f5a524"/>
+      <image icon="star.fill" iconSize="13" style="color: #f5a524"/>
+      <image icon="star.fill" iconSize="13" style="color: #f5a524"/>
+      <image icon="star.fill" iconSize="13" style="color: #f5a524"/>
+    </hstack>
+    <text value="{{ dsx.attribute.item.label }}"
+          style="color: #14161c; font-size: 13px; font-weight: 600; line-height: 1.35"/>
+    <text visible-if="dsx.attribute.item.sub" value="{{ dsx.attribute.item.sub }}"
+          style="color: rgba(20,22,28,0.56); font-size: 11px; font-weight: 500"/>
+  </vstack>
+
+  <!-- PANEL: an accent-tinted block behind supporting copy, so the proof separates from the
+       promise without introducing a second background. -->
+  <vstack visible-if="dsx.attribute.item.kind == 'panel'"
+          style="gap: 0.3rem; padding: 18px 20px; border-radius: 20px;
+                 background: {{ dsx.attribute.item.tone ? dsx.attribute.item.tone : 'rgba(34,197,94,0.16)' }}">
+    <text value="{{ dsx.attribute.item.label }}"
+          style="color: {{ dsx.attribute.item.tint ? dsx.attribute.item.tint : '#0d0f14' }};
+                 font-size: 19px; font-weight: 750; line-height: 1.2"/>
+    <text visible-if="dsx.attribute.item.sub" value="{{ dsx.attribute.item.sub }}"
+          style="color: {{ dsx.attribute.item.tint ? dsx.attribute.item.tint : '#0d0f14' }};
+                 font-size: 13px; font-weight: 500; line-height: 1.35; opacity: 0.74"/>
+  </vstack>
+
+
+  <!-- ZOOM: a magnified crop of the screen itself - the "popped-out UI fragment" every
+       professional set floats beside the device. This is the decoration only THIS pipeline can
+       make honestly: the source is the same render the device shows, so the enlarged detail is
+       the real UI at real fidelity, never a mock. The card gets an opaque ground, a hairline
+       and a real shadow so it reads as lifted out of the phone. -->
+  <stack visible-if="dsx.attribute.item.kind == 'zoom'"
+         style="position: relative; width: 100%; aspect-ratio: {{ zoomAspect }};
+                overflow: hidden; background: #ffffff;
+                border-radius: {{ dsx.attribute.item.radius ? dsx.attribute.item.radius : '18px' }};
+                border: {{ zoomBorder }};
+                box-shadow: 0 2px 5px rgba(16,18,28,0.08), 0 24px 48px -12px rgba(16,18,28,0.30)">
+    <image src="{{ dsx.attribute.item.src }}" contentFit="cover" a11yLabel="{{ dsx.attribute.item.label }}"
+           style="position: absolute; top: 0; left: 0; width: {{ zoomImgW }}; height: auto;
+                  transform: {{ zoomShift }}; transform-origin: top left"/>
+  </stack>
+
+  <!-- CALLOUT: a ring around a real region of the screen, with a label beside it. The ring has
+       NO FILL on purpose - annotation must never obscure the UI it points at, because a
+       screenshot that hides the thing it advertises is the misrepresentation the stores
+       actually care about. -->
+  <stack visible-if="dsx.attribute.item.kind == 'callout'"
+         style="width: 100%; height: 100%;
+                border-radius: {{ dsx.attribute.item.radius ? dsx.attribute.item.radius : '14px' }};
+                border: 2.5px solid {{ dsx.attribute.item.tint ? dsx.attribute.item.tint : '#ffd166' }};
+                box-shadow: 0 0 0 7px rgba(255,209,102,0.15), 0 12px 30px rgba(0,0,0,0.26)"/>
+  <text visible-if="dsx.attribute.item.kind == 'callout'" value="{{ dsx.attribute.item.label }}"
+        style="position: absolute; left: 0; top: calc(100% + 12px); white-space: nowrap;
+               color: #ffffff; font-size: 14px; font-weight: 600; padding: 8px 14px;
+               border-radius: 11px; background: rgba(12,12,16,0.78);
+               border: 1px solid rgba(255,255,255,0.18);
+               box-shadow: 0 10px 24px rgba(0,0,0,0.30)"/>
+</stack>

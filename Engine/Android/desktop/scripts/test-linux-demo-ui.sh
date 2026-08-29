@@ -133,6 +133,22 @@ assert_window_size() {
   }
 }
 
+# The demo applies its OWN initial window size while Compose finishes booting, and a resize
+# issued before that lands is silently clobbered by it: the 390 probe passed at the X level,
+# the app then restored 1024, and sm never published (observed on CI: the first published
+# state was the initial 1024, and the first surviving resize the 767 that followed). The
+# first published screen state IS the moment the app's own sizing is done and external
+# geometry sticks, so the sweep waits for it - bounded, and loud on timeout.
+for _ in $(seq 1 75); do
+  grep -q '"width":[0-9]' "$log" && break
+  sleep 0.2
+done
+grep -q '"width":[0-9]' "$log" || {
+  echo "test-linux-demo-ui: demo never published its initial screen state" >&2
+  cat "$log" >&2
+  exit 1
+}
+
 # Exercise the authored sizes plus wider probes. The latter make every canonical
 # DSX breakpoint observable even on a high-DPI runner where X11 pixels are not dp.
 # 900 lands in the lg band [768,1024) (DesktopScreenMetrics): without it the sweep

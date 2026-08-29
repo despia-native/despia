@@ -82,7 +82,7 @@ class JseTest {
         t("'abc' == 'abc'", true),
         t("true == 1", true),
         t("'0' == 0", true),
-        t("null == ''", true),                  // both stringify ""
+        t("null == ''", false),                 // null equals only null (core-002 law)
         t("null == 0", false),
         t("NaN == NaN", false),
         // ── structural equality: plain dicts/arrays compare deep + key-order-insensitive ──
@@ -427,7 +427,7 @@ class JseTest {
         val st = StackStore()
         JSE.registerFunctions("function f(x) { return x ? 'y' : 'n' } function g(x) { return x == null ? 'eq' : 'ne' }", st)
         assertEquals("y", JSE.eval("f()", st, null))                   // unbound param = NSNull → truthy (Swift .some)
-        assertEquals("ne", JSE.eval("g()", st, null))                  // NSNull ("<null>") != null literal ("")
+        assertEquals("eq", JSE.eval("g()", st, null))                  // the sentinel reads as null in equals (core-002 law)
         assertTrue(JSE.truthy(NSNull))
         assertEquals("<null>", JSE.string(NSNull))
         assertNull(JSE.number(NSNull))
@@ -580,12 +580,12 @@ class JseTest {
     @Test fun equalsCoercionTable() {
         assertTrue(JSE.equals(1.0, "1"))
         assertTrue(JSE.equals(true, 1.0))
-        assertTrue(JSE.equals(null, ""))
+        assertFalse(JSE.equals(null, ""))                              // null equals only null (core-002 law)
         assertFalse(JSE.equals(null, 0.0))
         assertFalse(JSE.equals(Double.NaN, Double.NaN))                // primitive ==, not boxed equals
         assertTrue(JSE.equals(-0.0, 0.0))
         assertTrue(JSE.equals("a", "a"))
-        assertFalse(JSE.equals(NSNull, null))                          // "<null>" vs ""
+        assertTrue(JSE.equals(NSNull, null))                           // the sentinel reads as null (core-002 law)
     }
 
     @Test fun watchKeyIsStableAndDeep() {
@@ -608,6 +608,22 @@ class JseTest {
         val rows = JSE.asRows(listOf(mapOf("a" to 1.0), "junk", NSNull, mapOf("b" to 2.0)))
         assertEquals(listOf(mapOf("a" to 1.0), mapOf("b" to 2.0)), rows)
         assertEquals(emptyList(), JSE.asRows("nope"))
+    }
+
+    @Test fun emptyAttributeDefaultReadsAsTheEmptyString() {
+        //  The twin of the TS hardening pin (kernel/test/hardening.test.ts) and of
+        //  JSE.swift: `<attribute as="x" default=""/>` MEANS the empty string. An empty
+        //  expression evaluated to null, so such an attribute read as ABSENT and the usual
+        //  `!= ''` guard fired for one nobody set.
+        val store = StackStore()
+        store.attrDefaults["action"] = ""
+        store.attrDefaults["title"] = "'Untitled'"
+        store.vars["dsx.attribute"] = mapOf<String, Any?>()
+        assertEquals("", JSE.eval("dsx.attribute.action", store, null))
+        assertEquals("Untitled", JSE.eval("dsx.attribute.title", store, null))
+        assertEquals(false, JSE.eval("dsx.attribute.action != ''", store, null))
+        store.vars["dsx.attribute"] = mapOf<String, Any?>("action" to "Browse")
+        assertEquals("Browse", JSE.eval("dsx.attribute.action", store, null))
     }
 
     @Test fun indexAndMemberHelpers() {

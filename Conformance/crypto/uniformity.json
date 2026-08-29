@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "_note": "The two parts of `Core/Crypto` that are pure arithmetic and therefore drift silently if each renderer writes its own: the uniform-integer rejection bound and the UUID bit layouts (parity/F15-crypto.md). `randomBytes % range` is NOT uniform unless range divides 2^32 exactly, and the skew is measurable in any shuffle or raffle built on it; bounds[] pins the largest exact multiple, picks[] pins that a draw at or above it is DISCARDED rather than folded, and distribution[] pins the statistical outcome over a large sample. uuidV7[] pins the RFC 9562 layout byte for byte, which is what makes a v7 id minted on iOS sort against one minted in a browser.",
+
+  "bounds": [
+    { "name": "a range of one accepts every draw", "range": 1, "expect": 4294967296 },
+    { "name": "a power of two divides exactly, so nothing is ever rejected", "range": 256, "expect": 4294967296 },
+    { "name": "the whole 32-bit space", "range": 4294967296, "expect": 4294967296 },
+    { "name": "a six-sided die rejects the top four draws", "range": 6, "expect": 4294967292 },
+    { "name": "a seven-sided range rejects the top four as well", "range": 7, "expect": 4294967292 },
+    { "name": "ten rejects six", "range": 10, "expect": 4294967290 },
+    { "name": "a hundred rejects ninety-six", "range": 100, "expect": 4294967200 },
+    { "name": "three rejects one", "range": 3, "expect": 4294967295 },
+    { "name": "one short of the full space", "range": 4294967295, "expect": 4294967295 },
+    { "name": "zero is not a range", "range": 0, "expect": 0 },
+    { "name": "a range wider than 32 bits is not a range", "range": 4294967297, "expect": 0 }
+  ],
+
+  "picks": [
+    { "name": "the first draw survives and folds",
+      "min": 1, "max": 6, "draws": [11], "expect": { "value": 6, "consumed": 1 } },
+    { "name": "a draw at the bound is REJECTED, not folded",
+      "min": 1, "max": 6, "draws": [4294967292, 5], "expect": { "value": 6, "consumed": 2 } },
+    { "name": "every draw above the bound is rejected in turn",
+      "min": 0, "max": 9, "draws": [4294967295, 4294967294, 4294967290, 12], "expect": { "value": 2, "consumed": 4 } },
+    { "name": "a single-value range consumes one draw and returns it",
+      "min": 7, "max": 7, "draws": [4294967295], "expect": { "value": 7, "consumed": 1 } },
+    { "name": "negative ranges fold the same way",
+      "min": -10, "max": -5, "draws": [7], "expect": { "value": -9, "consumed": 1 } },
+    { "name": "a range spanning zero",
+      "min": -3, "max": 3, "draws": [10], "expect": { "value": 0, "consumed": 1 } },
+    { "name": "an inverted range is refused before any draw is taken",
+      "min": 10, "max": 1, "draws": [1], "expect": { "error": "invalid_range" } },
+    { "name": "a range wider than 32 bits is refused",
+      "min": 0, "max": 4294967296, "draws": [1], "expect": { "error": "invalid_range" } },
+    { "name": "running out of draws is exhausted, never a biased fallback",
+      "min": 1, "max": 6, "draws": [4294967292, 4294967293], "expect": { "error": "exhausted" } }
+  ],
+
+  "distribution": {
+    "_note": "The statistical half of DONE WHEN 3. Draw `samples` uniform integers over the inclusive range and assert every bucket lands within `tolerance` (a fraction of the expected count). Wide enough that a correct implementation never flakes, tight enough that a modulo-biased one fails: over 60000 draws of a 0..99 range, modulo bias on a 32-bit draw is far below this bound, so the runner ALSO checks the exact rejection arithmetic in picks[] rather than relying on the sample alone.",
+    "min": 0,
+    "max": 99,
+    "samples": 60000,
+    "tolerance": 0.25
+  },
+
+  "uuidV4": [
+    { "name": "all-zero entropy still carries the version and variant nibbles",
+      "random": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "expect": "00000000-0000-4000-8000-000000000000" },
+    { "name": "all-ones entropy is masked, not passed through",
+      "random": [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+      "expect": "ffffffff-ffff-4fff-bfff-ffffffffffff" },
+    { "name": "an ordinary draw",
+      "random": [0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255],
+      "expect": "00112233-4455-4677-8899-aabbccddeeff" }
+  ],
+
+  "uuidV7": [
+    { "name": "the Unix epoch",
+      "millis": 0, "random": [1, 35, 69, 103, 137, 171, 205, 239, 1, 35],
+      "expect": "00000000-0000-7123-8567-89abcdef0123" },
+    { "name": "a real timestamp lands in the first 48 bits, big-endian",
+      "millis": 1719792000000, "random": [1, 35, 69, 103, 137, 171, 205, 239, 1, 35],
+      "expect": "01906b97-5c00-7123-8567-89abcdef0123" },
+    { "name": "the largest representable 48-bit timestamp",
+      "millis": 281474976710655, "random": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "expect": "ffffffff-ffff-7000-8000-000000000000" }
+  ],
+
+  "monotonic": {
+    "_note": "The whole reason to prefer v7 for a local id: successive milliseconds produce ids that sort in mint order as plain strings, with maximal entropy in every other bit. If this ever fails, a v7 primary key stops appending to the index and the reason to offer v7 at all is gone.",
+    "random": [255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+    "millis": [1719792000000, 1719792000001, 1719792000002],
+    "expect": [
+      "01906b97-5c00-7fff-bfff-ffffffffffff",
+      "01906b97-5c01-7fff-bfff-ffffffffffff",
+      "01906b97-5c02-7fff-bfff-ffffffffffff"
+    ]
+  },
+
+  "limits": {
+    "_note": "randomBytes is bounded because an unbounded allocation is reachable from markup.",
+    "maxRandomBytes": 1048576
+  }
+}

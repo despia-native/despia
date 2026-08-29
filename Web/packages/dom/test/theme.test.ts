@@ -38,6 +38,15 @@ function contrast(a: string, b: string): number {
   return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
 }
 
+/** srgb alpha-composite / color-mix twin, so translucent standing surfaces are judged
+ *  as the BLENDED color the eye meets, not the token's own hex. */
+function mixHex(fg: string, bg: string, amount: number): string {
+  const channel = (i: number): string => Math.round(
+    parseInt(fg.slice(i, i + 2), 16) * amount + parseInt(bg.slice(i, i + 2), 16) * (1 - amount),
+  ).toString(16).padStart(2, "0");
+  return `#${channel(1)}${channel(3)}${channel(5)}`;
+}
+
 const corpus = JSON.parse(
   readFileSync(new URL("../../../../Conformance/defaults/tokens.json", import.meta.url), "utf8"),
 ) as { tokens: { [word: string]: TokenRow } };
@@ -95,6 +104,26 @@ test("drift gate: every corpus token ships as floor-safe scheme twins (base + me
   assert.ok(!TOKENS_CSS.includes("light-dark("), "no bare light-dark() below the Safari 16.4 floor");
 });
 
+test("elevation is the 3-layer system: contact line in light, inner highlight in dark, xs to 4", () => {
+  // every level (xs whisper through 4) ends in the signature layer: a 1px CONTACT LINE
+  // in light (it replaces hard borders on elevated surfaces) and an inset 1px INNER
+  // HIGHLIGHT in dark — consistently across all four scheme tables
+  for (const level of ["xs", "1", "2", "3", "4"]) {
+    const light = new RegExp(`--dsx-shadow-${level}: [^;\\n]*0 0 1px rgba\\(17, 17, 24, 0\\.3\\);`);
+    const dark = new RegExp(`--dsx-shadow-${level}: [^;\\n]*inset 0 0 1px rgba\\(255, 255, 255, 0\\.15\\);`);
+    assert.match(rootBlock, light, `shadow-${level}: light base table carries the contact line`);
+    assert.match(lightPin, light, `shadow-${level}: light pin table carries the contact line`);
+    assert.match(mediaBlock, dark, `shadow-${level}: OS-dark table carries the inner highlight`);
+    assert.match(darkPin, dark, `shadow-${level}: dark pin table carries the inner highlight`);
+  }
+  // levels 1..4 are fully 3-layer (ambient + drop + the signature layer); xs is the
+  // 2-layer field-well whisper
+  for (const level of ["1", "2", "3", "4"]) {
+    const row = rootBlock.match(new RegExp(`--dsx-shadow-${level}: ([^;\\n]*);`))![1]!;
+    assert.equal(row.split("),").length, 3, `shadow-${level} carries three layers in light`);
+  }
+});
+
 test(":root rides color-scheme: light dark; theme pins carry the scheme + full value tables", () => {
   assert.ok(rootBlock.includes("color-scheme: light dark;"), ":root carries color-scheme: light dark");
   assert.ok(darkPin.includes("color-scheme: dark;"), "the dark pin flips color-scheme");
@@ -106,6 +135,20 @@ test(":root rides color-scheme: light dark; theme pins carry the scheme + full v
   assert.ok(!TOKENS_CSS.includes("60, 60, 67"), "SF secondary-label rgba is gone");
   assert.ok(!TOKENS_CSS.includes("120, 120, 128"), "SF fill rgba is gone");
   assert.ok(!TOKENS_CSS.includes("-apple-system"), "the font stack is system-ui");
+});
+
+test("a subtree theme pin re-asserts its own ink (wave-7 F2)", () => {
+  // Default text color is INHERITED from the app root, where var(--dsx-label) already
+  // resolved against the ROOT scheme — so a nested pin used to swap backgrounds but
+  // keep the outer ink. The pin block re-declares color at (0,1,0) in the WEAKEST
+  // layer, so every component rule that sets color still wins.
+  assert.ok(
+    TOKENS_CSS.includes("[data-dsx-theme], :host([data-dsx-theme]) {\n    color: var(--dsx-label);\n  }"),
+    "the scheme-independent pin ink rule ships with the pin tables",
+  );
+  // it rides WITH the pin tables (unconditional: a host page may pin any embed by hand)
+  const foldStart = TOKENS_CSS.indexOf(`[data-dsx-theme="dark"]`);
+  assert.ok(TOKENS_CSS.indexOf("color: var(--dsx-label)") > foldStart, "inside the pin-table block");
 });
 
 test("the token sheet is self-contained in client and declarative shadow roots", () => {
@@ -125,8 +168,8 @@ test("the token sheet is self-contained in client and declarative shadow roots",
   );
   const desktop = TOKENS_CSS.slice(TOKENS_CSS.indexOf("@media (min-width: 64rem)"));
   assert.ok(
-    desktop.includes(":root, :host, [data-dsx-theme] {"),
-    "precision density reaches document roots, shadow hosts, and explicitly themed subtrees",
+    desktop.startsWith("@media (min-width: 64rem) and (hover: hover) and (pointer: fine) {\n    :root, :host {"),
+    "the density platform default lands on document roots and shadow hosts; themed subtrees INHERIT it (theme pins never re-declare density tokens, so a density= pin flows through them)",
   );
 });
 
@@ -240,10 +283,15 @@ test("rating glyphs retain non-text contrast on every default surface", () => {
 test("focus rings and neutral bordered buttons retain contrast in both schemes", () => {
   for (const block of [rootBlock, darkPin, lightPin]) {
     assert.ok(
-      block.includes("--dsx-focus-ring: 0 0 0 3px var(--dsx-accent);"),
+      block.includes("--dsx-focus-ring: 0 0 0 var(--dsx-focus-ring-width) var(--dsx-accent);"),
       "focus uses the solid adaptive accent rather than a translucent halo",
     );
   }
+  // the ONE recipe's shared knobs (web-face F3): 2px line, 2px offset, everywhere
+  assert.ok(TOKENS_CSS.includes("--dsx-focus-ring-width: 2px;"),
+    "the shared focus width token ships in the weak layer");
+  assert.ok(TOKENS_CSS.includes("--dsx-focus-ring-offset: 2px;"),
+    "the shared focus offset token ships in the weak layer");
   assert.doesNotMatch(
     TOKENS_CSS,
     /--dsx-focus-ring:[^;]*(?:transparent|color-mix)/,
@@ -258,24 +306,48 @@ test("focus rings and neutral bordered buttons retain contrast in both schemes",
     assert.ok(contrast(indicator, adjacent) >= 3, `${indicator} focus clears 3:1 against ${adjacent}`);
   }
 
+  // the flat re-ratification (owner, 2026-08-27): bordered is SwiftUI's quiet flat
+  // fill - translucent tint surface, deepened tint ink, no gradient, no ring, no drop
   const bordered = ELEMENTS_CSS.match(/\.dsx-button\[data-dsx-variant="bordered"\] \{([^}]*)\}/s)?.[1] ?? "";
+  assert.match(bordered, /background:\s*var\(--dsx-fill\);/, "bordered rests FLAT on the semantic fill");
   assert.match(
     bordered,
-    /background:\s*linear-gradient\([\s\S]*?var\(--dsx-surface-highlight\)[\s\S]*?var\(--dsx-surface-level-3\)/,
-    "bordered controls keep a layered neutral raised surface",
+    /color:\s*color-mix\(in srgb, var\(--dsx-accent\) 90%, var\(--dsx-label\)\);/,
+    "bordered ink is the 90/10 accent-label deepening (the ink-deepening law)",
   );
-  assert.match(bordered, /color:\s*var\(--dsx-accent\);/, "bordered controls retain semantic accent text");
+  assert.doesNotMatch(bordered, /gradient|box-shadow|inset/, "the raised chip grammar stays retired");
   const destructiveBordered = ELEMENTS_CSS.match(
     /\.dsx-button\[data-dsx-variant="bordered"\]\[data-dsx-role="destructive"\] \{([^}]*)\}/s,
   )?.[1] ?? "";
-  assert.doesNotMatch(destructiveBordered, /background:/, "destructive bordered controls inherit the readable neutral surface");
-  for (const [foreground, surface] of [
-    ["#315cea", "#ffffff"],
-    ["#6d8cff", "#101012"],
-    ["#c92a2a", "#ffffff"],
-    ["#ff6b6b", "#101012"],
+  assert.match(
+    destructiveBordered,
+    /background:\s*color-mix\(in srgb, var\(--dsx-destructive\) 12%, transparent\);/,
+    "destructive bordered sits on its own quiet 12% tint",
+  );
+  // the ink-deepening law, held as PHYSICS: translucent fill means the ground shows
+  // through, so judge the ink against the BLENDED chip on the worst token ground
+  // (groupedBackground) in each scheme - >=4.5 with the ground composited in
+  const deepL = mixHex("#315cea", "#17171b", 0.9);
+  const deepD = mixHex("#6d8cff", "#f4f4f5", 0.9);
+  const deepDangerL = mixHex("#c92a2a", "#17171b", 0.9);
+  const deepDangerD = mixHex("#ff6b6b", "#f4f4f5", 0.9);
+  const fillOnGroupedL = mixHex("#111118", "#f5f5f7", 0.06);
+  const fillOnGroupedD = mixHex("#ffffff", "#1c1c1f", 0.09);
+  const mutedOnGroupedL = mixHex("#315cea", "#f5f5f7", 0.10);
+  const mutedOnGroupedD = mixHex("#6d8cff", "#1c1c1f", 0.16);
+  const dangerTintOnGroupedL = mixHex("#c92a2a", "#f5f5f7", 0.12);
+  const dangerTintOnGroupedD = mixHex("#ff6b6b", "#1c1c1f", 0.12);
+  for (const [name, ink, surface] of [
+    ["light bordered ink on fill over grouped", deepL, fillOnGroupedL],
+    ["dark bordered ink on fill over grouped", deepD, fillOnGroupedD],
+    ["light pressed ink on accent-muted over grouped", deepL, mutedOnGroupedL],
+    ["dark pressed ink on accent-muted over grouped", deepD, mutedOnGroupedD],
+    ["light destructive ink on its tint over grouped", deepDangerL, dangerTintOnGroupedL],
+    ["dark destructive ink on its tint over grouped", deepDangerD, dangerTintOnGroupedD],
+    ["light bordered ink on plain white", deepL, "#ffffff"],
+    ["dark bordered ink on the base ground", deepD, "#101012"],
   ] as const) {
-    assert.ok(contrast(foreground, surface) >= 4.5, `${foreground} text clears AA against ${surface}`);
+    assert.ok(contrast(ink, surface) >= 4.5, `${name}: ${ink} on ${surface} = ${contrast(ink, surface).toFixed(2)}, needs 4.5`);
   }
 });
 
@@ -300,8 +372,8 @@ test("neutral surface, motion, and interaction scales are complete and overridab
   assert.ok(CONTROL_ELEMENTS_CSS.includes(":read-only"), "fields distinguish read-only from disabled");
   assert.ok(RICH_ELEMENTS_CSS.includes(".dsx-segmented > .dsx-segmented-option:focus-visible"),
     "segmented options retain independent keyboard focus");
-  assert.ok(CONTROL_ELEMENTS_CSS.includes(".dsx-searchbar { padding-inline: 1rem; }"),
-    "search fields use the shared restrained radius instead of an automatic pill");
+  assert.ok(CONTROL_ELEMENTS_CSS.includes(".dsx-searchbar { padding-inline: calc(var(--dsx-field-density-pad) + 0.125rem); }"),
+    "search fields keep the field-density inset (a restrained inset, never an automatic pill)");
   assert.ok(!CONTROL_ELEMENTS_CSS.includes(".dsx-searchbar { border-radius: 999px"),
     "search fields never reintroduce the generic pill grammar");
   assert.ok(!CONTROL_ELEMENTS_CSS.includes("width: 51px"), "the Web switch does not copy platform-specific geometry");
@@ -329,8 +401,8 @@ test("reduced-motion and keyboard-focus defaults remain useful without moving or
     "reduced motion never substitutes a slower perpetual animation");
   assert.match(
     CONTROL_ELEMENTS_CSS,
-    /\.dsx-slider:focus-visible::-(?:webkit-slider-thumb|moz-range-thumb)\s*\{[\s\S]*?0 0 0 3px var\(--dsx-control-tint\)/,
-    "native range thumbs receive a solid keyboard focus indicator",
+    /\.dsx-slider:focus-visible::-(?:webkit-slider-thumb|moz-range-thumb)\s*\{[\s\S]*?0 0 0 var\(--dsx-focus-ring-width\) var\(--dsx-control-tint\)/,
+    "native range thumbs receive a solid keyboard focus indicator at the shared width",
   );
 
   for (const selector of [
@@ -340,8 +412,8 @@ test("reduced-motion and keyboard-focus defaults remain useful without moving or
   ]) {
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const rule = RICH_ELEMENTS_CSS.match(new RegExp(`${escaped}\\s*\\{([\\s\\S]*?)\\n  \\}`))?.[1] ?? "";
-    assert.match(rule, /box-shadow:\s*inset 0 0 0 3px var\(--dsx-accent\);/,
-      `${selector} keeps its ring inside an overflow-clipped surface`);
+    assert.match(rule, /box-shadow:\s*inset 0 0 0 var\(--dsx-focus-ring-width\) var\(--dsx-accent\);/,
+      `${selector} keeps its ring inside an overflow-clipped surface at the shared width`);
   }
   assert.ok(RICH_ELEMENTS_CSS.includes(".dsx-map:focus-visible"),
     "the keyboard-operable map viewport never suppresses focus without a replacement");
@@ -388,8 +460,21 @@ test("the element layer is tokens-only and carries the variant-word skin", () =>
   assert.ok(CONTROL_ELEMENTS_CSS.startsWith("@layer dsx-elements {"), "optional control skin stays in the element layer");
   assert.ok(CONTROL_ELEMENTS_CSS.includes(".dsx-toggle"), "optional control skin is present");
   assert.ok(CONTROL_ELEMENTS_CSS.includes(".dsx-stepper"), "the complete control family stays together");
-  assert.ok(CONTROL_ELEMENTS_CSS.includes(".dsx-progress { height: 6px"),
-    "progress keeps the canonical six-pixel geometry");
+  assert.ok(CONTROL_ELEMENTS_CSS.includes(".dsx-progress {"),
+    "the determinate bar is a recessed well, not a flat strip");
+  assert.ok(CONTROL_ELEMENTS_CSS.includes("height: 6px"),
+    "progress.height stays the fixture 6 so Swift/Kotlin/web share one number");
+  assert.ok(CONTROL_ELEMENTS_CSS.includes("@media (prefers-contrast: more)"),
+    "high-contrast wells get a real border, not a no-op border-color");
+  assert.match(CONTROL_ELEMENTS_CSS, /prefers-contrast: more[\s\S]*border: 1px solid var\(--dsx-secondary-label\)/);
+  assert.ok(CONTROL_ELEMENTS_CSS.includes(".dsx-toggle input:not(:disabled):hover + .dsx-toggle-track"),
+    "toggle hover uses the inset hairline, the track has no border");
+  assert.ok(!ELEMENTS_CSS.includes(".dsx-pager { flex-direction"),
+    "legacy pager snap does not fight the structural .dsx-paged grid");
+  assert.ok(ELEMENTS_CSS.includes(".dsx-pager:not(.dsx-paged)"),
+    "the embed fallback stays on the row-child pager only");
+  assert.ok(CONTROL_ELEMENTS_CSS.includes("width var(--dsx-dur-base) var(--dsx-ease)"),
+    "progress fill eases, it does not spring (spring is transform-only)");
   assert.ok(CONTROL_ELEMENTS_CSS.includes("background: currentColor"),
     "progress tint follows the semantic authored color");
   assert.ok(CONTROL_ELEMENTS_CSS.includes("::placeholder { color: var(--dsx-tertiary-label)"),
@@ -471,6 +556,12 @@ test("universal global defaults are accessible weak-layer tokens, not factory in
   assert.ok(GLOBAL_ELEMENTS_CSS.includes(".dsx-accordion-chevron"));
   assert.ok(GLOBAL_ELEMENTS_CSS.includes("color: var(--dsx-accent);"));
   assert.ok(GLOBAL_ELEMENTS_CSS.includes('[dir="rtl"] .dsx-accordion-chevron'), "disclosure direction mirrors in RTL");
+  assert.ok(GLOBAL_ELEMENTS_CSS.includes("grid-template-rows: auto 0fr"),
+    "accordion height animates, it does not flip hidden");
+  assert.ok(!GLOBAL_ELEMENTS_CSS.includes(".dsx-accordion-body[hidden]"),
+    "display:none on the body would kill the height animation");
+  assert.ok(GLOBAL_ELEMENTS_CSS.includes(".dsx-badge"), "Foundation Badge has a weak-layer skin");
+  assert.ok(GLOBAL_ELEMENTS_CSS.includes(".dsx-badge-dot"), "the presence-dot form is a token pill");
   assert.ok(GLOBAL_ELEMENTS_CSS.includes("@media (forced-colors: active)"), "global controls survive forced colors");
 });
 
@@ -503,6 +594,7 @@ class FakeNode {
 function staticApi(): ElementApi {
   return {
     bindText: (expr, apply) => { if (expr !== undefined) apply(expr); },
+    bindDisplay: (expr, apply) => { if (expr !== undefined) apply(expr); },
     bindValue: () => {},
     writeBack: () => {},
     handler: () => {},

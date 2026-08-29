@@ -12,7 +12,9 @@ import { readExpose, registryUsesAnyTag, sliceRegistry } from "../src/expose.ts"
 import type { Registry } from "../src/resolve.ts";
 import {
   embedEntrySource, registryUsesAttribute, registryUsesBoundCollections,
-  registryUsesInterpolatedAttribute, type EmbedEntryFeatures,
+  registryUsesInterpolatedAttribute, registryUsesRegex, registryUsesStyleFormulas,
+  registryUsesButtonVariants, embedDefines, EMBED_FOLD_KEYS,
+  type EmbedEntryFeatures,
 } from "../bin/embed-entry.ts";
 
 function repoRoot(): string {
@@ -55,8 +57,14 @@ test("every structural spelling is detectable and its optional sheet stays weak-
   assert.ok(!STRUCTURAL_CONTROLS_CSS.includes("!important"));
 });
 
-test("real EmbedCard remains structurally sliced and rides the DEFAULT 40KB widget law", () => {
+test("real EmbedCard remains structurally sliced and rides the DEFAULT 40KB widget law", (t) => {
   const root = repoRoot();
+  // Real-registry check over the closed Demo/Foundation sources; an open drop skips
+  // LOUDLY (the component-fold-conformance rule) - the synthetic slicing tests above still run.
+  if (!existsSync(join(root, "ClosedSource"))) {
+    t.skip("open drop without ClosedSource - the Demo/Foundation sources ship closed");
+    return;
+  }
   const demoDir = join(root, "ClosedSource/DSX/Modules/Custom/Demo");
   const foundationDir = join(root, "ClosedSource/DSX/Modules/Mandatory/Foundation");
   const registry = buildRegistry([{ dir: demoDir }, { dir: foundationDir, scheme: "shared" }]);
@@ -174,21 +182,7 @@ test("generated exposed-component entries conditionally register and style struc
       resolveDir: join(repoRoot(), "OpenSource/Web"), loader: "ts",
     },
     bundle: true, minify: true, format: "esm", target: "es2022", write: false, logLevel: "silent",
-    define: {
-      "globalThis.__DSX_OPTIONAL_LINK__": "false",
-      "globalThis.__DSX_OPTIONAL_ADOPT__": "false",
-      "globalThis.__DSX_OPTIONAL_APIS__": "false",
-      "globalThis.__DSX_OPTIONAL_GLOBALS__": "false",
-      "globalThis.__DSX_OPTIONAL_RICH__": "false",
-      "globalThis.__DSX_OPTIONAL_ICONS__": "false",
-      "globalThis.__DSX_OPTIONAL_BOUND_COLLECTIONS__": "false",
-      "globalThis.__DSX_OPTIONAL_SURFACES__": "false",
-      "globalThis.__DSX_OPTIONAL_PRESSED__": "false",
-      "globalThis.__DSX_OPTIONAL_ROLE__": "false",
-      "globalThis.__DSX_OPTIONAL_CLASS_FORMULAS__": "false",
-      "globalThis.__DSX_OPTIONAL_THEME__": "false",
-      "globalThis.__DSX_OPTIONAL_DISABLED__": "false",
-    },
+    define: embedDefines(),
   }).outputFiles[0]!.contents;
   assert.ok(Buffer.from(bundled).includes(Buffer.from("--dsx-flow-spacing")),
     "the self-contained structural embed carries its weak-layer component sheet");
@@ -202,24 +196,56 @@ test("generated exposed-component entries conditionally register and style struc
   assert.match(builder, /embedEntrySource\(\{/);
   assert.match(builder, /structuralControls: usesStructuralControls/);
   assert.match(builder, /boundCollections: usesBoundCollections/);
-  assert.match(builder, /__DSX_OPTIONAL_BOUND_COLLECTIONS__/);
-  assert.match(builder, /__DSX_OPTIONAL_SURFACES__/);
-  assert.match(builder, /__DSX_OPTIONAL_PRESSED__/);
-  assert.match(builder, /__DSX_OPTIONAL_ROLE__/);
-  assert.match(builder, /__DSX_OPTIONAL_CLASS_FORMULAS__/);
-  assert.match(builder, /__DSX_OPTIONAL_THEME__/);
-  assert.match(builder, /__DSX_OPTIONAL_DISABLED__/);
-  assert.match(builder, /__DSX_OPTIONAL_DESKTOP_INPUT__/);
-  assert.match(builder, /__DSX_OPTIONAL_GESTURES__/);
-  assert.match(builder, /__DSX_OPTIONAL_SCAFFOLD__/);
-  assert.match(builder, /__DSX_OPTIONAL_STATIC_ELEMENTS__/);
-  assert.match(builder, /__DSX_OPTIONAL_CONTROLS__/);
-  assert.match(builder, /__DSX_OPTIONAL_MARKDOWN__/);
-  assert.match(builder, /__DSX_OPTIONAL_JS_GLOBALS__/);
+  // The fold map (embed-entry.ts embedDefines) is the single source of truth the builder,
+  // this gate and the media gate all build with, so a fold can no longer be set in one and
+  // missed in another. What is left to prove is that each fold drives its own define and
+  // that the BUILDER supplies every one: a key left out defaults to false and would ship
+  // the payload it was meant to drop, silently and only in the real build.
+  const off = embedDefines();
+  const driven = new Map<string, string>();
+  for (const key of EMBED_FOLD_KEYS) {
+    const one = embedDefines({ [key]: true });
+    const flipped = Object.keys(one).filter((name) => one[name] !== off[name]);
+    assert.deepEqual(flipped.length, 1, `fold ${key} must drive exactly one __DSX_OPTIONAL_*__`);
+    assert.ok(!driven.has(flipped[0]!), `${flipped[0]} is driven by both ${driven.get(flipped[0]!)} and ${key}`);
+    driven.set(flipped[0]!, key);
+    assert.match(builder, new RegExp(`\\b${key}: uses`), `build-demo must set the ${key} fold`);
+  }
 });
 
-test("bundle slicing keeps EmbedCard below the 40KiB G10 widget law, with no override", () => {
+test("regex and style-formula detection stay conservative supersets", () => {
+  const literal = compileComponent("Literal", "t", `<stack><text value="{{ 'a,b'.split(/,/) }}"/></stack>`);
+  const division = compileComponent("Division", "t", `<stack><text value="{{ 4 / 2 }}"/></stack>`);
+  const plain = compileComponent("Plain", "t", `<stack style="background: fill"><text value="{{ dsx.attribute.n }}"/></stack>`);
+  const reg = (component: ReturnType<typeof compileComponent>, name: string): Registry => ({
+    components: { [name]: component }, globalPool: {}, css: "", schemes: [],
+  });
+  assert.equal(registryUsesRegex(reg(literal, "t.Literal")), true, "a /…/ literal keeps the engine");
+  assert.equal(registryUsesRegex(reg(division, "t.Division")), true, "the superset keeps division too");
+  assert.equal(registryUsesRegex(reg(plain, "t.Plain")), false, "a slash-free slice folds the engine");
+
+  const reactive = compileComponent("Reactive", "t", `<stack style="color: {{ tint }}"><text value="x"/></stack>`);
+  const bridged = compileComponent("Bridged", "t", `<stack background="{{ tone }}"><text value="x"/></stack>`);
+  const tinted = compileComponent("Tinted", "t", `<stack><text value="x" color="accent"/></stack>`);
+  assert.equal(registryUsesStyleFormulas(reg(reactive, "t.Reactive")), true, "a {{ }} style keeps the mapper");
+  assert.equal(registryUsesStyleFormulas(reg(bridged, "t.Bridged")), true, "a reactive bridge attr keeps the mapper");
+  assert.equal(registryUsesStyleFormulas(reg(tinted, "t.Tinted")), true, "a semantic color= keeps the mapper");
+  assert.equal(registryUsesStyleFormulas(reg(plain, "t.Plain")), false, "static styles were mapped at build time");
+
+  const bordered = compileComponent("Bordered", "t", `<stack><button label="Go" variant="bordered"/></stack>`);
+  const dyn = compileComponent("Dyn", "t", `<stack><button label="Go" variant="{{ dsx.attribute.kind }}"/></stack>`);
+  const prominent = compileComponent("Prominent", "t", `<stack><button label="Go" variant="prominent"/></stack>`);
+  assert.equal(registryUsesButtonVariants(reg(bordered, "t.Bordered")), true, "the bordered word keeps the variant skin");
+  assert.equal(registryUsesButtonVariants(reg(dyn, "t.Dyn")), true, "an interpolated variant can resolve to any word");
+  assert.equal(registryUsesButtonVariants(reg(prominent, "t.Prominent")), false, "a prominent-only slice folds the rest");
+});
+
+test("bundle slicing keeps EmbedCard below the 40KiB G10 widget law, with no override", (t) => {
   const root = repoRoot();
+  if (!existsSync(join(root, "ClosedSource"))) {
+    t.skip("open drop without ClosedSource - the Demo/Foundation sources ship closed");
+    return;
+  }
   const web = join(root, "OpenSource/Web");
   const demoDir = join(root, "ClosedSource/DSX/Modules/Custom/Demo");
   const foundationDir = join(root, "ClosedSource/DSX/Modules/Mandatory/Foundation");
@@ -241,30 +267,7 @@ test("bundle slicing keeps EmbedCard below the 40KiB G10 widget law, with no ove
     write: false,
     absWorkingDir: web,
     logLevel: "silent",
-    define: {
-      "globalThis.__DSX_OPTIONAL_LINK__": "false",
-      "globalThis.__DSX_OPTIONAL_ADOPT__": "false",
-      "globalThis.__DSX_OPTIONAL_APIS__": "false",
-      "globalThis.__DSX_OPTIONAL_GLOBALS__": "false",
-      "globalThis.__DSX_OPTIONAL_RICH__": "false",
-      "globalThis.__DSX_OPTIONAL_ICONS__": "false",
-      "globalThis.__DSX_OPTIONAL_BOUND_COLLECTIONS__": "false",
-      "globalThis.__DSX_OPTIONAL_SURFACES__": "false",
-      "globalThis.__DSX_OPTIONAL_PRESSED__": "false",
-      "globalThis.__DSX_OPTIONAL_ROLE__": "false",
-      "globalThis.__DSX_OPTIONAL_CLASS_FORMULAS__": "false",
-      "globalThis.__DSX_OPTIONAL_THEME__": "false",
-      "globalThis.__DSX_OPTIONAL_DISABLED__": "false",
-      "globalThis.__DSX_OPTIONAL_DESKTOP_INPUT__": "false",
-      "globalThis.__DSX_OPTIONAL_INPUT__": "false",
-      "globalThis.__DSX_OPTIONAL_GESTURES__": "false",
-      "globalThis.__DSX_OPTIONAL_SCAFFOLD__": "false",
-      "globalThis.__DSX_OPTIONAL_STATIC_ELEMENTS__": "false",
-      "globalThis.__DSX_OPTIONAL_CONTROLS__": "false",
-      "globalThis.__DSX_OPTIONAL_MARKDOWN__": "false",
-      "globalThis.__DSX_OPTIONAL_JS_GLOBALS__": "false",
-      "globalThis.__DSX_OPTIONAL_FETCH__": "false",
-    },
+    define: embedDefines(),
   });
   const bundle = result.outputFiles[0]!.contents;
   const gzipBytes = gzipSync(bundle).length;
@@ -277,4 +280,8 @@ test("bundle slicing keeps EmbedCard below the 40KiB G10 widget law, with no ove
     "structural CSS must not leak into an unrelated embed");
   assert.ok(!Buffer.from(bundle).includes(Buffer.from("data-dsx-truncated")),
     "bound collection reconciliation must not leak into an unrelated embed");
+  assert.ok(!Buffer.from(bundle).includes(Buffer.from("linear(0,.069")),
+    "the sampled spring table must not leak into a spring-free embed");
+  assert.ok(!Buffer.from(bundle).includes(Buffer.from(".dsx-pager")),
+    "collection fallback rules must not leak into a collection-free embed");
 });

@@ -4,32 +4,32 @@
   "aliases": [
 
   ],
-  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift",
+  "source": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/WebView/swift/WebView.swift",
   "attributes": {
     "name": {
       "type": "string",
       "default": null,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift:48"
+      "_src": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/WebView/swift/WebView.swift:48"
     },
     "src": {
       "type": "url",
       "default": null,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift:49"
+      "_src": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/WebView/swift/WebView.swift:49"
     },
     "path": {
       "type": "string",
       "default": "/",
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift:50"
+      "_src": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/WebView/swift/WebView.swift:50"
     },
     "origin": {
       "type": "string",
       "default": null,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift:50"
+      "_src": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/WebView/swift/WebView.swift:50"
     },
     "ephemeral": {
       "type": "bool",
       "default": false,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift:51"
+      "_src": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/WebView/swift/WebView.swift:51"
     }
   },
   "geometry": {

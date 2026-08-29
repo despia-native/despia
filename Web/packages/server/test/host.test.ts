@@ -13,10 +13,11 @@ import { connect } from "node:net";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { createHost, type Host, type HostConfig, type HostContext, type ServerRoute } from "../src/host.ts";
+import { createHost, type Host, type HostContext } from "../src/host.ts";
 import { createEdgeHandler } from "../src/bootloader-deno.ts";
 import { loadGenerated } from "../src/generated-loader.ts";
 import { serve } from "../src/bootloader-node.ts";
+import { wireConfig as config, wireRoutes as routes } from "./wire-fixtures.ts";
 
 // The server adds NO envelope: a SUCCESS is 200 carrying the handler's value verbatim, a FAILURE is
 // its real status carrying { reason, message }. There is no `ok` field, so the status line is the
@@ -28,41 +29,8 @@ type Failure = { reason: string; message: string };
 // bodies these fixtures return — a success body may equally be a bare string or null.
 type Body = Partial<Failure> & Record<string, unknown>;
 
-// :id listed BEFORE /orders/summary on purpose — the sorted table, not input order, must decide
-const routes: ServerRoute[] = [
-  { key: "root", chain: "server.http", action: "root", method: "GET", path: "/" },
-  { key: "health", chain: "server.http", action: "health", method: "GET", path: "/health" },
-  { key: "order", chain: "shop", action: "order", method: "GET", path: "/orders/:id" },
-  { key: "summary", chain: "shop", action: "summary", method: "GET", path: "/orders/summary" },
-  { key: "create", chain: "shop", action: "create", method: "post", path: "/orders" }, // lowercase method on purpose
-  { key: "merge", chain: "shop", action: "merge", method: "POST", path: "/merge/:c" },
-  { key: "boom", chain: "shop", action: "boom", method: "GET", path: "/boom" },
-  { key: "ghost", chain: "shop", action: "ghost", method: "GET", path: "/ghost" }, // no registered handler
-  { key: "nothing", chain: "shop", action: "nothing", method: "GET", path: "/nothing" },
-  { key: "ctx", chain: "shop", action: "echoCtx", method: "GET", path: "/ctx" },
-];
-
-const config: HostConfig = {
-  routes,
-  buildInfo: { digest: "fixture-digest" },
-  handlers: {
-    "server.http": {
-      root: () => "root",
-      health: () => ({ up: true }),
-    },
-    shop: {
-      order: (args) => ({ got: args }),
-      summary: () => "summary-route",
-      create: async (args) => ({ created: args }),
-      merge: (args) => args,
-      boom: () => {
-        throw new Error("kaboom");
-      },
-      nothing: () => undefined,
-      echoCtx: (_args, ctx: HostContext) => ({ buildInfo: ctx.buildInfo, identity: ctx.identity, envX: ctx.env("X") ?? null }),
-    },
-  },
-};
+// The fixture table lives in wire-fixtures.ts so the workerd leg runs the SAME rows — the
+// suites below are unchanged consumers of it.
 
 async function call(host: Host, req: Request, ctx?: Partial<HostContext>): Promise<{ res: Response; body: Body }> {
   const res = await host.handle(req, ctx);
@@ -255,7 +223,10 @@ test("edge: no config = empty table — typed unknown_route, never a crash", asy
 // ── the generated-artifacts loader (against its OWN temp fixtures, never generated/) ────
 
 test("loader: a missing generated/ folder names the emitter to run", async () => {
-  await assert.rejects(() => loadGenerated(join(tmpdir(), "dsx-no-such-generated-dir")), /prepare_server\.rb/);
+  //  The instruction has to be one a CONSUMER of the published package can act on — it used
+  //  to name a build script that ships with the commercial layer, which they do not have
+  //  (plan E1, defect D2).
+  await assert.rejects(() => loadGenerated(join(tmpdir(), "dsx-no-such-generated-dir")), /despia build/);
 });
 
 test("loader: reads routes.json + build-info.json and imports the handlers barrel", async () => {

@@ -1,0 +1,124 @@
+{
+  "_note": "JSE conformance corpus - BLOCK-SCOPE MUTATION (2026-08-22). The last R11 semantic: a block body (a block-bodied lambda, an IIFE, a <variable>/function body) can BUILD a value imperatively - dotted, computed-key and indexed assignment into a scope name, compound assignment (+= -= *= /= %=), and statement-position .push(...) all write the LOCAL by REBUILDING it (value semantics: an assignment through a second name never aliases the first - the Swift dictionary law, pinned by value-semantics-boundary). Writes stay in the block scope, never the store (the evalBlock purity contract, unchanged). A write into a missing nest creates it (bounded-total: never a throw). pop()/shift() remain PURE reads (stdlib-002); push has no pure reading, so in statement position it grows the local. Before this file every one of these was silently dropped - the reduce-accumulator idiom returned {} on all three runtimes (runtime-pressure R11). Swift = reference (record lane authoritates expected).",
+  "cases": [
+    {
+      "name": "reduce-object-accumulator",
+      "scope": {},
+      "expression": "[{ id: 'a' }, { id: 'b' }].reduce((m, r) => { m[r.id] = 1; return m }, {})",
+      "expected": {
+        "a": 1,
+        "b": 1
+      }
+    },
+    {
+      "name": "reduce-array-accumulator",
+      "scope": {},
+      "expression": "[1, 2, 3].reduce((m, x) => { m.push(x * 2); return m }, [])",
+      "expected": [
+        2,
+        4,
+        6
+      ]
+    },
+    {
+      "name": "const-dotted-write",
+      "scope": {},
+      "expression": "(() => { const m = {}; m.k = 5; return m })()",
+      "expected": {
+        "k": 5
+      }
+    },
+    {
+      "name": "const-computed-write",
+      "scope": {},
+      "expression": "(() => { const m = {}; m['k'] = 5; return m })()",
+      "expected": {
+        "k": 5
+      }
+    },
+    {
+      "name": "map-computed-key",
+      "scope": {},
+      "expression": "[{ id: 'a' }].map(r => { const o = {}; o[r.id] = 2; return o })",
+      "expected": [
+        {
+          "a": 2
+        }
+      ]
+    },
+    {
+      "name": "nested-dotted-write",
+      "scope": {},
+      "expression": "(() => { const m = { a: { b: 1 } }; m.a.c = 2; return m })()",
+      "expected": {
+        "a": {
+          "b": 1,
+          "c": 2
+        }
+      }
+    },
+    {
+      "name": "array-index-write",
+      "scope": {},
+      "expression": "(() => { const xs = [1, 2, 3]; xs[1] = 9; return xs })()",
+      "expected": [
+        1,
+        9,
+        3
+      ]
+    },
+    {
+      "name": "push-grows-the-local",
+      "scope": {},
+      "expression": "(() => { const xs = []; xs.push('a'); xs.push('b'); return xs.length })()",
+      "expected": 2
+    },
+    {
+      "name": "push-on-nested-path",
+      "scope": {},
+      "expression": "(() => { const m = { xs: [1] }; m.xs.push(2); return m.xs })()",
+      "expected": [
+        1,
+        2
+      ]
+    },
+    {
+      "name": "compound-dotted-write",
+      "scope": {},
+      "expression": "(() => { const m = { n: 1 }; m.n += 2; return m.n })()",
+      "expected": 3
+    },
+    {
+      "name": "compound-bare-local",
+      "scope": {},
+      "expression": "(() => { let n = 1; n += 2; return n })()",
+      "expected": 3
+    },
+    {
+      "name": "write-into-missing-nest-creates",
+      "scope": {},
+      "expression": "(() => { const m = {}; m.a.b = 3; return m })()",
+      "expected": {
+        "a": {
+          "b": 3
+        }
+      }
+    },
+    {
+      "name": "value-semantics-boundary",
+      "scope": {},
+      "expression": "(() => { const src = { k: 1 }; const cp = src; cp.k = 2; return src.k })()",
+      "expected": 1
+    },
+    {
+      "name": "scope-read-write-stays-local",
+      "scope": {
+        "seed": {
+          "k": 1
+        }
+      },
+      "expression": "(() => { seed.k = 9; return seed.k })() + '|' + seed.k",
+      "expected": "9|1"
+    }
+  ]
+}

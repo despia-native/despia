@@ -1,4 +1,4 @@
-# Style catalog — the machine-readable style-panel schema
+# Style catalog: the machine-readable style-panel schema
 
 > Audience: anyone touching DSX **style attributes** or building a visual editor on top of DSX.
 > How the style catalog (`stack-style-properties.json`) works, what consumes it, and — the point of
@@ -137,6 +137,45 @@ gates out of source and fails on any disagreement with the field:
 `<button>` with an `ejects` attr; `appearance="custom"` silences). So: adding a paint-ish
 property without classifying it fails the build; classifying it `ejects` makes the notice and
 every gate check inherit it for free — no gate edits needed unless a gate should *admit* it.
+
+### `fontFamily` and the font registry — adding a family
+
+`fontFamily` is the one style property whose legal VALUES are not fixed by the engine: they are
+whatever typefaces the build ships. So the catalog entry carries a single `system` option plus
+`"optionsSource": "fontRegistry"` — a panel fills the dropdown from
+`dsx.module.font.families()` (or, at design time, from the generated
+`ClosedSource/Registry/DSXFontRegistry.json`), never from a hardcoded list. A picker that offers
+a family the build does not ship is how an app ends up rendering the system face.
+
+**Adding a family is a MODULE change, not a catalog change.** Put the faces inside the module
+that uses them and declare them in its `dsx.json`:
+
+```jsonc
+"fonts": {
+  "Inter": {
+    "400":  { "file": "fonts/Inter-Regular.ttf" },
+    "700":  { "file": "fonts/Inter-Bold.ttf" },
+    "400i": { "file": "fonts/Inter-Italic.ttf" }
+  }
+}
+```
+
+Then run `prepare_modules.rb`. It collects every ENABLED module's block, reads each face's
+PostScript name out of the font's own `name` table (that indirection is the whole reason the
+registry exists), and emits `Registry/DSXFontRegistry.json`, its byte-identical Android asset
+twin, `Registry/DSXFonts.generated.css`, and the `UIAppFonts` entries in the generated
+Info.plist. Nothing in this catalog changes, and nothing in the checker changes.
+
+Full grammar (weight keys, `variable`/`axes`/`defaults`, the `from:` build locator, the format
+rules) is in `ClosedSource/DSX/Modules/Core/Fonts/README.md` and
+`OpenSource/Documentation/reference/StackReference.md` § Fonts.
+
+**Do not add CSS-named duplicates of properties that already ship.** Letter spacing is
+`tracking`, line height is `lineSpacing`, text transform is `textCase`, and font style is
+`italic`. Adding `letterSpacing`/`lineHeight`/`textTransform`/`fontStyle` beside them would give
+a panel two controls for one engine key.
+
+---
 
 ### Attributes parsed OUTSIDE the three functions
 

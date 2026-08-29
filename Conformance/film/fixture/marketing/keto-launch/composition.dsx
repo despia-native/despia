@@ -1,0 +1,81 @@
+<film id="keto-launch" duration="18.4s" fps="30" size="1080x1920">
+  <theme bg="#0b0d12" ink="#f4f6fb" accent="#34d399" scheme="dark"/>
+
+  <!-- The STATE JOURNEY: each block is a complete situation from the app's own state plane
+       (the same vocabulary its samples speak). The film walks morning to evening with
+       <apply>, so data appears and updates the way it does in the running product. -->
+  <state name="morning">
+    <value var="calories">210</value>
+    <value var="budget">1800</value>
+    <value var="ketone">0.4</value>
+    <value var="protein">0.11</value>
+    <value var="fat">0.07</value>
+    <value var="carbs">0.02</value>
+    <value var="proteinG">17</value>
+    <value var="fatG">8</value>
+    <value var="carbsG">3</value>
+  </state>
+  <state name="evening">
+    <value var="calories">1480</value>
+    <value var="budget">1800</value>
+    <value var="ketone">1.8</value>
+    <value var="protein">0.72</value>
+    <value var="fat">0.61</value>
+    <value var="carbs">0.18</value>
+    <value var="proteinG">118</value>
+    <value var="fatG">96</value>
+    <value var="carbsG">14</value>
+  </state>
+  <state name="card">
+    <value var="ketoneTenths">18</value>
+  </state>
+
+  <scene for="1.8s">
+    <text role="hook" accent="calories.">Lock your calories.</text>
+    <text role="benefit">Know your ketosis.</text>
+  </scene>
+
+  <scene for="5.2s" document="Dashboard" state="morning" device="74%" cut="hard">
+    <frame document="Dashboard" state="evening" width="30%" x="10%" y="36%" depth="back"/>
+    <frame document="Dashboard" state="morning" width="26%" x="91%" y="58%" depth="back"/>
+    <pose at="0s" for="0s" turn="-30deg" tilt="9deg" x="-8%" y="3%" scale="0.88"/>
+    <pose at="0.05s" for="1.5s" turn="-6deg" tilt="2deg" scale="1" ease="easeOut"/>
+    <tween at="1.9s" for="1.6s" var="calories" from="210" to="1480" ease="easeOut" round="true"/>
+    <tween at="2s" for="0.9s" var="protein" from="0.11" to="0.72" ease="easeOut"/>
+    <tween at="2s" for="0.9s" var="proteinG" from="17" to="118" ease="easeOut" round="true"/>
+    <tween at="2.2s" for="0.9s" var="fat" from="0.07" to="0.61" ease="easeOut"/>
+    <tween at="2.2s" for="0.9s" var="fatG" from="8" to="96" ease="easeOut" round="true"/>
+    <tween at="2.4s" for="0.9s" var="carbs" from="0.02" to="0.18" ease="easeOut"/>
+    <tween at="2.4s" for="0.9s" var="carbsG" from="3" to="14" ease="easeOut" round="true"/>
+    <set at="3s" var="ketone" to="1.8"/>
+    <camera at="2.1s" for="1.2s" target="#calorieRing" zoom="1.7"/>
+    <camera at="4.2s" for="0.9s" zoom="1"/>
+    <caption at="0.6s" for="4.2s">A full day, logged in seconds</caption>
+  </scene>
+
+  <scene for="5.2s" document="Dashboard" state="evening" device="74%">
+    <focus at="0.5s" for="1.7s" target="#ketoCard"/>
+    <camera at="0.4s" for="1s" target="#ketoCard" zoom="1.35"/>
+    <camera at="2.3s" for="0.9s" target="#lockButton" zoom="1.5"/>
+    <tap at="3.4s" target="#lockButton"/>
+    <camera at="4.3s" for="0.8s" zoom="1"/>
+    <caption at="0.6s" for="1.8s">Ketosis, always in sight</caption>
+    <caption at="2.6s" for="2.2s">One tap locks the day</caption>
+  </scene>
+
+  <scene for="4s" document="KetoCard" state="card" frame="none" width="78%" cut="hard">
+    <morph target="#ketoCard" for="0.7s"/>
+    <!-- ONE write, and the card animates itself: the app's own progress transition sweeps
+         the fill while the reading updates. A tween here would have the film re-describe
+         motion the product already defines, and 18 to 21 tenths is four values - the
+         product's 200ms sweep reads better than a four-step count. -->
+    <set at="1.5s" var="ketoneTenths" to="21"/>
+    <camera at="0.9s" for="2.6s" zoom="1.06"/>
+    <caption at="1.4s" for="2.2s">Live blood ketones</caption>
+  </scene>
+
+  <scene for="2.2s" cut="hard">
+    <text role="title" accent="KetoLock">KetoLock</text>
+    <text role="cta">Free to start</text>
+  </scene>
+</film>

@@ -16,6 +16,12 @@ import type { Dict } from "@despia/kernel";
 export type FacetCtx = {
   /** declared-attribute values (the dsx.attribute twin) — refreshed IN PLACE before update() */
   attrs: Dict;
+  /** the style-override plane (`override:<name>` at the usage site, raw values) — the
+   *  dsx.override twin, refreshed IN PLACE before update(). The facet owns coercion the
+   *  way it owns its attrs; the declared schema lives in the manifest
+   *  (`web.components[].overrides`), and @despia/kernel's resolveOverride is the shared
+   *  coercion law when the facet wants it. */
+  overrides: Dict;
   /** dispatch a declared component event → the consumer's on:<name> (payload rides dsx.this) */
   emit(name: string, payload?: Dict): void;
   /** aborts on unmount — listeners/observers/fetches registered on it die with the instance */

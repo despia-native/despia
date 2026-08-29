@@ -302,7 +302,7 @@ A JSON **array** of route objects. First match wins; the query string round-trip
   No `entry.ota` (or the Routing module excluded) ⇒ the whole mechanism is dormant.
 
 Implementation: the kernel `Router` (`OpenSource/Engine/iOS/Router.swift` — resolution + the nav
-stack) + the `Routing` Mandatory module (`ClosedSource/DSX/Modules/Mandatory/Routing/Routing.swift`
+stack) + the `Routing` Mandatory module (`ClosedSource/DSX/Modules/Mandatory/Routing/swift/Routing.swift`
 — the OTA fetch). The table lives in `global.routes`; `root`/`ota`/`surfaces` are
 `AppManifest.entry`.
 

@@ -1,0 +1,177 @@
+<stack grow="true" style="gap: 0rem; min-width: 0; min-height: 0" on:appear="load()">
+  <head>
+    <attribute as="selection" default=""/>
+
+    <variable as="docs">return []</variable>
+    <variable as="doc">return ''</variable>
+    <variable as="words">return []</variable>
+    <variable as="chosen">return ''</variable>
+    <variable as="draft">return ''</variable>
+    <variable as="said">return ''</variable>
+    <variable as="flags">return []</variable>
+    <variable as="scanned">return 0</variable>
+    <variable as="mode">return 'screen'</variable>
+
+    <variable as="modes" computed="true">
+      return [{ id: 'screen', label: 'Screen' }, { id: 'project', label: 'Project' }]
+    </variable>
+    <variable as="docWord" computed="true">
+      return doc == '' ? 'No screen open' : doc.split('/').pop().replace('.dsx', '')
+    </variable>
+    <variable as="rows" computed="true">
+      return words.map(w => ({
+        id: w.id,
+        text: w.text,
+        meta: w.tag,
+        chosen: w.id == chosen ? 'true' : 'false'
+      }))
+    </variable>
+    <variable as="picked" computed="true">
+      const hits = words.filter(w => w.id == chosen)
+      return hits.length > 0 ? hits[0] : null
+    </variable>
+    <variable as="dirty" computed="true">
+      return picked != null &amp;&amp; draft != picked.text
+    </variable>
+
+    <!-- THE READ. `studio.project.tree` hands back the document's STRUCTURE - one row per
+         element, each carrying the literal words it puts on screen and the attribute that
+         holds them - so this app never parses a document itself. -->
+    <action as="load">
+      const listing = await dsx.module.studio.project.list()
+      if (listing.ok != true) { return }
+      dsx.variable.docs = listing.data.documents
+      const raw = dsx.attribute.selection
+      const parsed = raw == '' ? null : JSON.parse(raw)
+      const fromSelection = parsed == null || parsed.document == null ? '' : parsed.document
+      const open = fromSelection != '' ? fromSelection : (listing.data.documents.length > 0 ? listing.data.documents[0] : '')
+      await openDoc({ name: open })
+    </action>
+    <action as="pick" inputs="id">
+      dsx.variable.chosen = id
+      const hits = words.filter(w => w.id == id)
+      dsx.variable.draft = hits.length > 0 ? hits[0].text : ''
+      dsx.variable.said = ''
+    </action>
+    <!-- THE WRITE. One splice, addressed by the same path the row carries. The Studio turns
+         it into a commit and offers the revert; this app is never told that happened. -->
+    <action as="save">
+      if (picked == null || draft == picked.text) { return }
+      const done = await dsx.module.studio.project.edit({
+        name: doc,
+        edits: [{ kind: 'setAttribute', path: picked.id, name: picked.attr, value: draft }]
+      })
+      if (done.ok != true) {
+        dsx.variable.said = 'The Studio refused that edit: ' + done.error
+        return
+      }
+      dsx.module.studio.ui.toast({ text: 'Copy updated ' + docWord })
+      await openDoc({ name: doc })
+      dsx.variable.said = 'Saved. Revert it any time from the Apps panel.'
+    </action>
+    <!-- ONE READER, and it is an entry point rather than a helper: the panel opens a
+         document on appear, when the person picks another screen, and when a save lands,
+         and all three want the same three lines. -->
+    <action as="openDoc" inputs="name">
+      dsx.variable.doc = name
+      dsx.variable.said = ''
+      dsx.variable.words = []
+      dsx.variable.chosen = ''
+      if (name == '') { return }
+      const tree = await dsx.module.studio.project.tree({ name: name })
+      if (tree.ok != true) {
+        dsx.variable.said = 'That document could not be read: ' + tree.error
+        return
+      }
+      const lines = tree.data.rows.filter(r => r.textAttr != '' &amp;&amp; r.text != '')
+      dsx.variable.words = lines.map(r => ({ id: r.id, tag: r.tag, attr: r.textAttr, text: r.text }))
+    </action>
+    <!-- THE PROJECT PASS. The same check the headless tool runs, over the screens the
+         budget allows - and it says how many it looked at rather than implying it read
+         everything. -->
+    <action as="scan">
+      dsx.variable.flags = []
+      const found = []
+      const limit = docs.length &lt; 20 ? docs.length : 20
+      for (let i = 0; i &lt; limit; i++) {
+        const name = docs[i]
+        const tree = await dsx.module.studio.project.tree({ name: name })
+        if (tree.ok != true) { continue }
+        const hits = tree.data.rows.filter(r => r.textAttr != '' &amp;&amp; placeholder(r.text))
+        for (let j = 0; j &lt; hits.length; j++) {
+          found.push({ id: name + '#' + hits[j].id, doc: name, text: hits[j].text, tag: hits[j].tag })
+        }
+      }
+      dsx.variable.flags = found
+      dsx.variable.scanned = limit
+    </action>
+    <action as="planeChanged" inputs="value">
+      dsx.variable.mode = value
+      if (value == 'project') { await scan() }
+    </action>
+
+    <script>
+      function placeholder(text) {
+        const t = text.toLowerCase().trim()
+        if (t == 'text' || t == 'title' || t == 'label' || t == 'untitled' || t == 'placeholder') { return true }
+        if (t.includes('lorem ipsum') || t.includes('todo') || t.includes('tbd') || t.includes('xxx')) { return true }
+        return false
+      }
+    </script>
+  </head>
+
+  <studiokit.SidePanel title="Copy" subtitle="{{ docWord }}" footer="yes">
+    <studiokit.Segmented slot="actions" options="{{ modes }}" value="{{ mode }}"
+                         on:pick="planeChanged({ value: dsx.this.value })"/>
+
+    <vstack grow="width" style="gap: 0.75rem" visible-if="mode == 'screen'">
+      <studiokit.Section title="Words on this screen" count="{{ rows.length }}">
+        <vstack style="gap: 0.125rem">
+          <list bind="rows" key="id" scroll="false" style="gap: 0.125rem">
+            <studiokit.Row name="{{ item.text }}" meta="{{ item.meta }}" icon="pencil.line"
+                           selected="{{ item.chosen }}" on:pick="pick({ id: item.id })"/>
+          </list>
+          <studiokit.EmptyState subject="No words on this screen yet"
+                                visible-if="rows.length == 0"/>
+        </vstack>
+      </studiokit.Section>
+
+      <studiokit.Card title="{{ picked == null ? 'Pick a line to edit it' : picked.tag }}">
+        <text visible-if="picked == null" class="sk-note"
+              value="Every line above is one attribute in the document. Editing one here writes it back through the Studio, so it lands as its own commit."/>
+        <studiokit.Field label="{{ picked == null ? '' : picked.attr }}" hint="{{ dirty ? 'Unsaved' : 'Saved in ' + docWord }}"
+                         visible-if="picked != null">
+          <textfield bind="draft" class="sk-input" grow="width" placeholder="The words a reader sees"
+                     a11yLabel="The words on this line"/>
+        </studiokit.Field>
+        <studiokit.Toast text="{{ said }}" tone="ok" visible-if="said != ''"/>
+      </studiokit.Card>
+
+      <studiokit.Section title="Screens" count="{{ docs.length }}">
+        <list bind="docs" key="value" scroll="false" style="gap: 0.125rem">
+          <studiokit.Row name="{{ item.value.split('/').pop().replace('.dsx', '') }}"
+                         meta="{{ item.value == doc ? 'open' : '' }}" icon="note.text"
+                         selected="{{ item.value == doc ? 'true' : 'false' }}"
+                         on:pick="openDoc({ name: item.value })"/>
+        </list>
+      </studiokit.Section>
+    </vstack>
+
+    <vstack grow="width" style="gap: 0.75rem" visible-if="mode == 'project'">
+      <studiokit.Section title="Placeholder copy" count="{{ flags.length }}">
+        <vstack style="gap: 0.125rem">
+          <list bind="flags" key="id" scroll="false" style="gap: 0.125rem">
+            <studiokit.Row name="{{ item.text }}" meta="{{ item.doc.split('/').pop().replace('.dsx', '') }}"
+                           icon="pencil.line" on:pick="openDoc({ name: item.doc })"/>
+          </list>
+          <studiokit.EmptyState subject="No placeholder copy left" visible-if="flags.length == 0"/>
+        </vstack>
+      </studiokit.Section>
+      <text class="sk-note"
+            value="Checked {{ scanned }} screen{{ scanned == 1 ? '' : 's' }} for Lorem ipsum, TODO, TBD and the words a component ships with. The same check runs headless: despia app run copy findPlaceholders."/>
+    </vstack>
+
+    <studiokit.Button slot="footer" label="Save this line" variant="primary"
+                      disabled-if="!dirty" on:tap="save()"/>
+  </studiokit.SidePanel>
+</stack>

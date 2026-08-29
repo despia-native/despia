@@ -261,6 +261,18 @@ function rebuildBareUrl(toks: Token[]): string {
 
 // ── the runner ───────────────────────────────────────────────────────────────────────
 
+/**
+ * How an action was reached. There are exactly two kinds of call and only one of them has a
+ * caller: a SURFACE call comes from another action or an `on:*` handler, which has a scope; an
+ * ENTRY call comes from a host — an HTTP request, a CLI invocation, a queue message — which has
+ * a payload and no scope at all. `callAction` needs to be told which, because a declared input
+ * means a different (both correct) thing in each. See the note inside `callAction`.
+ */
+export interface CallActionOptions {
+  /** true when a HOST is invoking this action from outside the document. */
+  entry?: boolean;
+}
+
 export class ActionRunner {
   readonly env: RunEnv;
   constructor(env: RunEnv) {
@@ -374,9 +386,15 @@ export class ActionRunner {
     let release!: () => void;
     this.entryLock = new Promise<void>((r) => { release = r; });
     await Promise.race([prior, new Promise<void>((r) => setTimeout(r, ActionRunner.ENTRY_LOCK_BOUND_MS))]);
-    // fresh entry: the previous one has fully unwound (depth back to 0) — clear the ledgers
+    // fresh entry: the previous one has fully unwound (depth back to 0) — clear the ledgers.
+    // callBudget joins them because its contract ("how many module calls one ENTRY may
+    // make", the type doc above) was per-entry all along — the single-entry hosts (a CLI
+    // invocation, a server request) never noticed the missing reset, and a long-lived
+    // scoped surface (studio-apps.md §5) is the first multi-entry env that would have
+    // starved after its cap's worth of taps.
     this.env.actionDepth = 0;
     this.env.loopWork.count = 0;
+    if (this.env.callBudget !== undefined) this.env.callBudget.count = 0;
     this.flow = null;
     try {
       await work();
@@ -453,16 +471,47 @@ export class ActionRunner {
    *  flow is swapped back, so a nested call's leftover can never masquerade as this
    *  callee's return. Null when the body never returned (or returned bare). Only an
    *  AWAITING `dsx.action` caller consumes it; every other call site ignores it. */
-  async callAction(name: string, callArgs: Dict, item: Item = null, payload: Dict = {}): Promise<unknown> {
+  async callAction(
+    name: string,
+    callArgs: Dict,
+    item: Item = null,
+    payload: Dict = {},
+    options: CallActionOptions = {},
+  ): Promise<unknown> {
     const decl = this.env.actions.get(name);
     if (!decl) { console.warn(`[dsx runner] unknown action: ${name}`); return null; }
     if (this.env.actionDepth >= 32) {
       console.warn(`[dsx runner] action depth (32) exceeded at ${name} — recursion contained`);
       return null;
     }
-    const scope: Dict = { ...(this.env.item ?? {}), ...(item ?? {}), ...payload };
+    const callerScope: Dict = { ...(this.env.item ?? {}), ...(item ?? {}) };
+    const scope: Dict = { ...callerScope, ...payload };
     for (const [k, expr] of Object.entries(decl.inputs)) {
-      scope[k] = JSE.evalBlock(string(expr), this.env.store.jse, { ...(this.env.item ?? {}), ...(item ?? {}) }) ?? NSNull;
+      // AN ENTRY CALL HAS NO CALLER, so it has no caller scope to evaluate against, and a
+      // declared input names a payload KEY rather than an expression to compute. The two
+      // readings of `inputs="message"` are both correct and they are not the same: at a surface
+      // call site the caller HAS a `message` in scope and the action means "take that one"; at
+      // an entry the value arrives from outside and the action means "I accept one".
+      //
+      // Collapsing them cost a shipped bug. The surface rule ran unconditionally, so an entry
+      // evaluated the input against an empty scope, got nothing, and OVERWROTE the host's
+      // payload with the absent sentinel — a `<server>` action declaring `inputs="title, total"`
+      // received null for both, which made declaring the contract strictly worse than omitting
+      // it. Every host then coped differently: the CLI node discarded declared inputs entirely,
+      // the queue drain routed its message through `callArgs`, and the HTTP path just shipped
+      // the nulls. One unspecified case, three workarounds, one live defect.
+      if (options.entry === true) {
+        // The expression still resolves when the payload is silent, so a default that reads the
+        // store (`inputs="limit: defaults.limit"`) keeps working at an entry point.
+        // OWN keys only. `k in payload` walks the prototype chain, so an input named `toString`
+        // or `constructor` would read as supplied when it was not — and the Kotlin twin
+        // (`containsKey`) and the Swift twin (a dictionary subscript) both test own keys, so
+        // `in` would be a silent three-renderer divergence on exactly those names.
+        if (Object.prototype.hasOwnProperty.call(payload, k)) continue;
+        scope[k] = JSE.evalBlock(string(expr), this.env.store.jse, {}) ?? NSNull;
+        continue;
+      }
+      scope[k] = JSE.evalBlock(string(expr), this.env.store.jse, callerScope) ?? NSNull;
     }
     Object.assign(scope, callArgs);
     const savedFlow = this.flow; // isolate the callee's control flow from the caller
@@ -899,7 +948,11 @@ export class ActionRunner {
       // longer has, and `href` is what callers pass to fetch/navigate.
       if (dot >= 0 && PARAM_VERBS.has(lastSeg)) {
         const receiver = callee.substring(0, dot);
-        if (receiver.endsWith(".searchParams")) {
+        // A build without the JS-globals layer (__DSX_OPTIONAL_JS_GLOBALS__ false) can
+        // never mint a {__url} dict, so the parent-walk is unreachable there; the same
+        // define folds it, and core.ts's params/href plumbing tree-shakes behind it.
+        if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_JS_GLOBALS__?: boolean })
+          .__DSX_OPTIONAL_JS_GLOBALS__ !== false && receiver.endsWith(".searchParams")) {
           const parent = receiver.substring(0, receiver.length - ".searchParams".length);
           const owner = readPath(this.env, scope, parent);
           const next = mutateURLSearchParams(owner, lastSeg, this.parseArgs(toks.slice(1), scope));
@@ -1286,6 +1339,22 @@ export class ActionRunner {
           callee === "dsx.error" || callee === "dsx.log" || callee === "dsx.screen.settled" ||
           callee.startsWith("dsx.state.")) {
         return await this.dsxStatement(callee, toks, scope, awaited);
+      }
+      //  A BARE ACTION CALL IN EXPRESSION POSITION. `x()` in statement position already
+      //  routes here (runJSStatement's named-action branch), but `await x({ … })` and
+      //  `const v = await x()` reached the SYNCHRONOUS evaluator, which knows nothing about
+      //  declared actions — so the action never ran and its argument object vanished, with
+      //  no diagnostic. Actions ARE workflows and the docs tell authors to call them this
+      //  way. Both native runners had the same hole — their await matcher claimed only the
+      //  `dsx.action.` spelling — and the corpus now pins all three. The object argument
+      //  rides `callArgs`, which is applied over the declared inputs: a passed argument
+      //  beats the caller-scope reading of the same name, exactly as the statement path
+      //  and both twins do it. The BARE form is an ordinary call expression, so its value
+      //  is the return value itself; only `await dsx.action.x()` binds the { ok, data }
+      //  envelope.
+      if (apiDot < 0 && this.env.actions.has(callee)) {
+        const callArgs = this.parseArgs(toks.slice(1), scope);
+        return await this.callAction(callee, isDict(callArgs[0]) ? (callArgs[0] as Dict) : {}, scope, {});
       }
     }
     // an INTERIOR await (not statement-leading) cannot suspend — the evaluator coerces

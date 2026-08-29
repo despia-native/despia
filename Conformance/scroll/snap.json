@@ -1,0 +1,515 @@
+{
+ "_note": "SNAP RESOLUTION and maintainPosition — the two places a scroll container is allowed to choose an offset the user did not. SNAP: `paging` is `snap=\"page\"` (the viewport is the stride); `start`/`center`/`end` snap to CHILD BOUNDARIES, which is why the children's real frames are the input and a fixed stride is not — a rail of variable-width cards is the common case. At rest the nearest candidate wins and an exact tie takes the SMALLER offset, because a tie that advances is a snap that fights the finger. Past the fling threshold (500 pt/s) the target is the next candidate IN THE DIRECTION OF TRAVEL, which is what makes a 10% flick turn a page. Every candidate clamps to 0..max, so the last card cannot park past the rail; a container with nothing to scroll proposes nothing. maintainPosition: THE INPUT IS AN ANCHOR, not a content-height delta, and that is the whole design. A content-height diff cannot tell a prepend from an append, so compensating on it makes an appending chat jump exactly as badly as a prepending one failed to. The anchor is a previously-visible child's frame origin before and after the mutation; the offset moves by the anchor's delta and clamps into the new range. Prepend, append and removal-above then all fall out of ONE formula, and the append case correctly compensates by zero.",
+ "cases": [
+  {
+   "name": "snap=none never proposes a target",
+   "mode": "none",
+   "offset": 137,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [
+    {
+     "start": 0.0,
+     "length": 320.0
+    },
+    {
+     "start": 320.0,
+     "length": 320.0
+    },
+    {
+     "start": 640.0,
+     "length": 320.0
+    },
+    {
+     "start": 960.0,
+     "length": 320.0
+    },
+    {
+     "start": 1280.0,
+     "length": 320.0
+    },
+    {
+     "start": 1600.0,
+     "length": 320.0
+    }
+   ],
+   "velocity": 0,
+   "expect": null
+  },
+  {
+   "name": "paging rounds to the nearest page at rest",
+   "mode": "page",
+   "offset": 137,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [],
+   "velocity": 0,
+   "expect": 0.0
+  },
+  {
+   "name": "paging rounds UP past the halfway mark",
+   "mode": "page",
+   "offset": 240,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [],
+   "velocity": 0,
+   "expect": 390.0
+  },
+  {
+   "name": "a fling advances a whole page even from a 10% drag",
+   "mode": "page",
+   "offset": 40,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [],
+   "velocity": 1400,
+   "expect": 390.0
+  },
+  {
+   "name": "a fling backwards returns to the page you came from",
+   "mode": "page",
+   "offset": 430,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [],
+   "velocity": -1400,
+   "expect": 390.0
+  },
+  {
+   "name": "a slow drag below the fling threshold still just rounds",
+   "mode": "page",
+   "offset": 40,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [],
+   "velocity": 300,
+   "expect": 0.0
+  },
+  {
+   "name": "paging clamps at the last page",
+   "mode": "page",
+   "offset": 1600,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [],
+   "velocity": 1400,
+   "expect": 1530.0
+  },
+  {
+   "name": "paging clamps at the first page",
+   "mode": "page",
+   "offset": 20,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [],
+   "velocity": -1400,
+   "expect": 0.0
+  },
+  {
+   "name": "snap=start picks the nearest child leading edge",
+   "mode": "start",
+   "offset": 380,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [
+    {
+     "start": 0.0,
+     "length": 320.0
+    },
+    {
+     "start": 320.0,
+     "length": 320.0
+    },
+    {
+     "start": 640.0,
+     "length": 320.0
+    },
+    {
+     "start": 960.0,
+     "length": 320.0
+    },
+    {
+     "start": 1280.0,
+     "length": 320.0
+    },
+    {
+     "start": 1600.0,
+     "length": 320.0
+    }
+   ],
+   "velocity": 0,
+   "expect": 320.0
+  },
+  {
+   "name": "snap=start with an exact tie prefers the SMALLER offset (a tie never advances)",
+   "mode": "start",
+   "offset": 160,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [
+    {
+     "start": 0.0,
+     "length": 320.0
+    },
+    {
+     "start": 320.0,
+     "length": 320.0
+    },
+    {
+     "start": 640.0,
+     "length": 320.0
+    },
+    {
+     "start": 960.0,
+     "length": 320.0
+    },
+    {
+     "start": 1280.0,
+     "length": 320.0
+    },
+    {
+     "start": 1600.0,
+     "length": 320.0
+    }
+   ],
+   "velocity": 0,
+   "expect": 0.0
+  },
+  {
+   "name": "snap=center centres the nearest child in the viewport",
+   "mode": "center",
+   "offset": 380,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [
+    {
+     "start": 0.0,
+     "length": 320.0
+    },
+    {
+     "start": 320.0,
+     "length": 320.0
+    },
+    {
+     "start": 640.0,
+     "length": 320.0
+    },
+    {
+     "start": 960.0,
+     "length": 320.0
+    },
+    {
+     "start": 1280.0,
+     "length": 320.0
+    },
+    {
+     "start": 1600.0,
+     "length": 320.0
+    }
+   ],
+   "velocity": 0,
+   "expect": 285.0
+  },
+  {
+   "name": "snap=end parks the nearest child's trailing edge on the viewport's",
+   "mode": "end",
+   "offset": 380,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [
+    {
+     "start": 0.0,
+     "length": 320.0
+    },
+    {
+     "start": 320.0,
+     "length": 320.0
+    },
+    {
+     "start": 640.0,
+     "length": 320.0
+    },
+    {
+     "start": 960.0,
+     "length": 320.0
+    },
+    {
+     "start": 1280.0,
+     "length": 320.0
+    },
+    {
+     "start": 1600.0,
+     "length": 320.0
+    }
+   ],
+   "velocity": 0,
+   "expect": 250.0
+  },
+  {
+   "name": "a fling takes the next candidate AHEAD, not the nearest",
+   "mode": "start",
+   "offset": 340,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [
+    {
+     "start": 0.0,
+     "length": 320.0
+    },
+    {
+     "start": 320.0,
+     "length": 320.0
+    },
+    {
+     "start": 640.0,
+     "length": 320.0
+    },
+    {
+     "start": 960.0,
+     "length": 320.0
+    },
+    {
+     "start": 1280.0,
+     "length": 320.0
+    },
+    {
+     "start": 1600.0,
+     "length": 320.0
+    }
+   ],
+   "velocity": 1200,
+   "expect": 640.0
+  },
+  {
+   "name": "a fling backwards takes the next candidate BEHIND",
+   "mode": "start",
+   "offset": 340,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [
+    {
+     "start": 0.0,
+     "length": 320.0
+    },
+    {
+     "start": 320.0,
+     "length": 320.0
+    },
+    {
+     "start": 640.0,
+     "length": 320.0
+    },
+    {
+     "start": 960.0,
+     "length": 320.0
+    },
+    {
+     "start": 1280.0,
+     "length": 320.0
+    },
+    {
+     "start": 1600.0,
+     "length": 320.0
+    }
+   ],
+   "velocity": -1200,
+   "expect": 320.0
+  },
+  {
+   "name": "snapping to variable-height rows uses their real edges, not a stride",
+   "mode": "start",
+   "offset": 300,
+   "viewportLength": 390,
+   "contentLength": 1000,
+   "children": [
+    {
+     "start": 0.0,
+     "length": 180.0
+    },
+    {
+     "start": 180.0,
+     "length": 90.0
+    },
+    {
+     "start": 270.0,
+     "length": 240.0
+    },
+    {
+     "start": 510.0,
+     "length": 90.0
+    },
+    {
+     "start": 600.0,
+     "length": 400.0
+    }
+   ],
+   "velocity": 0,
+   "expect": 270.0
+  },
+  {
+   "name": "every candidate clamps into range, so the last child cannot park past the rail",
+   "mode": "start",
+   "offset": 1900,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [
+    {
+     "start": 0.0,
+     "length": 320.0
+    },
+    {
+     "start": 320.0,
+     "length": 320.0
+    },
+    {
+     "start": 640.0,
+     "length": 320.0
+    },
+    {
+     "start": 960.0,
+     "length": 320.0
+    },
+    {
+     "start": 1280.0,
+     "length": 320.0
+    },
+    {
+     "start": 1600.0,
+     "length": 320.0
+    }
+   ],
+   "velocity": 0,
+   "expect": 1530.0
+  },
+  {
+   "name": "nothing to scroll: no snap target at all",
+   "mode": "start",
+   "offset": 0,
+   "viewportLength": 390,
+   "contentLength": 300,
+   "children": [
+    {
+     "start": 0.0,
+     "length": 320.0
+    },
+    {
+     "start": 320.0,
+     "length": 320.0
+    },
+    {
+     "start": 640.0,
+     "length": 320.0
+    },
+    {
+     "start": 960.0,
+     "length": 320.0
+    },
+    {
+     "start": 1280.0,
+     "length": 320.0
+    },
+    {
+     "start": 1600.0,
+     "length": 320.0
+    }
+   ],
+   "velocity": 0,
+   "expect": null
+  },
+  {
+   "name": "no children means no candidates, so no target",
+   "mode": "start",
+   "offset": 137,
+   "viewportLength": 390,
+   "contentLength": 1920,
+   "children": [],
+   "velocity": 0,
+   "expect": null
+  },
+  {
+   "name": "20 messages PREPENDED: the anchor moved down 1600, so the offset moves with it and the reader does not jump",
+   "offset": 0,
+   "anchorBefore": 0,
+   "anchorAfter": 1600,
+   "viewportLength": 800,
+   "contentLength": 3600,
+   "expect": {
+    "offset": 1600.0,
+    "delta": 1600.0
+   }
+  },
+  {
+   "name": "a prepend while already scrolled keeps the same visual position",
+   "offset": 420,
+   "anchorBefore": 300,
+   "anchorAfter": 1900,
+   "viewportLength": 800,
+   "contentLength": 3600,
+   "expect": {
+    "offset": 2020.0,
+    "delta": 1600.0
+   }
+  },
+  {
+   "name": "APPENDING moves no anchor, so the offset is untouched — this is why the anchor, not a content-height diff, is the input",
+   "offset": 420,
+   "anchorBefore": 300,
+   "anchorAfter": 300,
+   "viewportLength": 800,
+   "contentLength": 3600,
+   "expect": {
+    "offset": 420.0,
+    "delta": 0.0
+   }
+  },
+  {
+   "name": "removing content ABOVE the anchor pulls the offset back up by the same amount",
+   "offset": 900,
+   "anchorBefore": 1000,
+   "anchorAfter": 400,
+   "viewportLength": 800,
+   "contentLength": 1400,
+   "expect": {
+    "offset": 300.0,
+    "delta": -600.0
+   }
+  },
+  {
+   "name": "compensation still clamps: it can never park past the new content's end",
+   "offset": 0,
+   "anchorBefore": 0,
+   "anchorAfter": 6000,
+   "viewportLength": 800,
+   "contentLength": 1200,
+   "expect": {
+    "offset": 400.0,
+    "delta": 6000.0
+   }
+  },
+  {
+   "name": "compensation can never go negative",
+   "offset": 40,
+   "anchorBefore": 300,
+   "anchorAfter": 100,
+   "viewportLength": 800,
+   "contentLength": 3600,
+   "expect": {
+    "offset": 0.0,
+    "delta": -200.0
+   }
+  },
+  {
+   "name": "no anchor movement and no content change is an exact no-op",
+   "offset": 640,
+   "anchorBefore": 512,
+   "anchorAfter": 512,
+   "viewportLength": 800,
+   "contentLength": 3600,
+   "expect": {
+    "offset": 640.0,
+    "delta": 0.0
+   }
+  }
+ ]
+}

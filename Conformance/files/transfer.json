@@ -1,0 +1,191 @@
+{
+  "version": 1,
+  "_note": "The streaming half — `download` and `upload` (parity/F03-files.md §3b, §5). Both are DECLARED STREAM actions: zero or more `progress` events on the call's rid, then exactly one terminal settle. What is pinned here is the part that is easy to get subtly wrong and impossible to notice until a user is on a train: progress is MONOTONIC and its fraction is derived from received/total rather than guessed; a transfer of unknown length reports `total: 0` and `fraction: 0` rather than a fake percentage; a failure leaves NO partial file at the destination (the transfer writes to a sibling partial and moves it into place only on success, which is also what makes `resume` possible); a `sha256` that does not match is `hash_mismatch` and the partial is discarded; and a background transfer survives suspension on the two native platforms and is refused, typed, on the web. The runners execute the shared pure core over every path literal, check every action and error code against the shared vocabulary, and assert the monotonicity and fraction arithmetic of every event sequence here — a hand-edited fixture that breaks the cadence fails on all three renderers.",
+
+  "streams": [
+    { "name": "a large download reports monotonic progress and settles once",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/video.mp4", "to": "documents:media/video.mp4" },
+      "total": 104857600,
+      "events": [
+        { "at": 0,    "event": "progress", "data": { "received": 0,        "total": 104857600, "fraction": 0 } },
+        { "at": 250,  "event": "progress", "data": { "received": 26214400, "total": 104857600, "fraction": 0.25 } },
+        { "at": 500,  "event": "progress", "data": { "received": 52428800, "total": 104857600, "fraction": 0.5 } },
+        { "at": 750,  "event": "progress", "data": { "received": 78643200, "total": 104857600, "fraction": 0.75 } },
+        { "at": 1000, "event": "progress", "data": { "received": 104857600, "total": 104857600, "fraction": 1 } }
+      ],
+      "resolve": { "path": "documents:media/video.mp4", "bytes": 104857600, "status": 200 },
+      "then": [ { "path": "documents:media/video.mp4", "exists": true } ] },
+
+    { "name": "a download of unknown length reports total 0 and never a guessed fraction",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/stream.bin", "to": "cache:stream.bin" },
+      "total": 0,
+      "events": [
+        { "at": 0,   "event": "progress", "data": { "received": 0,     "total": 0, "fraction": 0 } },
+        { "at": 300, "event": "progress", "data": { "received": 65536, "total": 0, "fraction": 0 } },
+        { "at": 600, "event": "progress", "data": { "received": 98304, "total": 0, "fraction": 0 } }
+      ],
+      "resolve": { "path": "cache:stream.bin", "bytes": 98304, "status": 200 },
+      "then": [ { "path": "cache:stream.bin", "exists": true } ] },
+
+    { "name": "a download that fails mid-body leaves NO partial file at the destination",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/video.mp4", "to": "documents:media/video.mp4" },
+      "total": 104857600,
+      "events": [
+        { "at": 0,   "event": "progress", "data": { "received": 0,        "total": 104857600, "fraction": 0 } },
+        { "at": 400, "event": "progress", "data": { "received": 41943040, "total": 104857600, "fraction": 0.4 } }
+      ],
+      "error": "network_failed",
+      "then": [ { "path": "documents:media/video.mp4", "exists": false } ] },
+
+    { "name": "an interrupted download resumes from where it stopped rather than restarting",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/video.mp4", "to": "documents:media/video.mp4", "resume": true },
+      "total": 104857600,
+      "resumedFrom": 41943040,
+      "events": [
+        { "at": 0,   "event": "progress", "data": { "received": 41943040,  "total": 104857600, "fraction": 0.4 } },
+        { "at": 500, "event": "progress", "data": { "received": 73400320,  "total": 104857600, "fraction": 0.7 } },
+        { "at": 900, "event": "progress", "data": { "received": 104857600, "total": 104857600, "fraction": 1 } }
+      ],
+      "resolve": { "path": "documents:media/video.mp4", "bytes": 104857600, "status": 206 },
+      "then": [ { "path": "documents:media/video.mp4", "exists": true } ] },
+
+    { "name": "a verified download whose bytes hash correctly settles normally",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/model.bin", "to": "documents:models/model.bin", "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" },
+      "total": 3,
+      "events": [
+        { "at": 0,   "event": "progress", "data": { "received": 0, "total": 3, "fraction": 0 } },
+        { "at": 100, "event": "progress", "data": { "received": 3, "total": 3, "fraction": 1 } }
+      ],
+      "resolve": { "path": "documents:models/model.bin", "bytes": 3, "status": 200 },
+      "then": [ { "path": "documents:models/model.bin", "exists": true } ] },
+
+    { "name": "a download whose sha256 does not match is hash_mismatch and the bytes are discarded",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/model.bin", "to": "documents:models/model.bin", "sha256": "0000000000000000000000000000000000000000000000000000000000000000" },
+      "total": 3,
+      "events": [
+        { "at": 0,   "event": "progress", "data": { "received": 0, "total": 3, "fraction": 0 } },
+        { "at": 100, "event": "progress", "data": { "received": 3, "total": 3, "fraction": 1 } }
+      ],
+      "error": "hash_mismatch",
+      "then": [ { "path": "documents:models/model.bin", "exists": false } ] },
+
+    { "name": "a download into the read-only bundle root is refused before a byte is fetched",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/a.bin", "to": "bundle:a.bin" },
+      "events": [],
+      "error": "permission_denied",
+      "then": [] },
+
+    { "name": "a download to a path that escapes its root is refused before a byte is fetched",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/a.bin", "to": "documents:../a.bin" },
+      "events": [],
+      "error": "unsupported_root",
+      "then": [] },
+
+    { "name": "a download with no room for the declared body is refused before it starts",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/video.mp4", "to": "documents:media/video.mp4" },
+      "total": 104857600,
+      "freeBytes": 1048576,
+      "events": [],
+      "error": "no_space",
+      "then": [ { "path": "documents:media/video.mp4", "exists": false } ] },
+
+    { "name": "a download the server REFUSES is http_error, and the error page never reaches the destination",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/gone.mp4", "to": "documents:media/gone.mp4" },
+      "status": 404,
+      "events": [],
+      "error": "http_error",
+      "data": { "status": 404 },
+      "then": [ { "path": "documents:media/gone.mp4", "exists": false } ] },
+
+    { "name": "a download refused with 503 is the same code — the status on data is what differs",
+      "action": "download",
+      "args": { "url": "https://cdn.example.com/video.mp4", "to": "documents:media/video.mp4" },
+      "status": 503,
+      "events": [],
+      "error": "http_error",
+      "data": { "status": 503 },
+      "then": [ { "path": "documents:media/video.mp4", "exists": false } ] },
+
+    { "name": "an upload reports monotonic progress of the bytes SENT and settles with the response",
+      "action": "upload",
+      "args": { "path": "documents:media/clip.mp4", "url": "https://api.example.com/v1/media", "method": "POST", "field": "file" },
+      "total": 5242880,
+      "events": [
+        { "at": 0,   "event": "progress", "data": { "sent": 0,       "total": 5242880, "fraction": 0 } },
+        { "at": 400, "event": "progress", "data": { "sent": 2621440, "total": 5242880, "fraction": 0.5 } },
+        { "at": 800, "event": "progress", "data": { "sent": 5242880, "total": 5242880, "fraction": 1 } }
+      ],
+      "resolve": { "status": 201, "body": "{\"id\":\"m_1\"}" },
+      "then": [ { "path": "documents:media/clip.mp4", "exists": true } ] },
+
+    { "name": "an upload of a missing file is not_found and no request is made",
+      "action": "upload",
+      "args": { "path": "documents:gone.mp4", "url": "https://api.example.com/v1/media" },
+      "events": [],
+      "error": "not_found",
+      "then": [] },
+
+    { "name": "an upload that loses the connection is network_failed and the local file is untouched",
+      "action": "upload",
+      "args": { "path": "documents:media/clip.mp4", "url": "https://api.example.com/v1/media" },
+      "total": 5242880,
+      "events": [
+        { "at": 0,   "event": "progress", "data": { "sent": 0,      "total": 5242880, "fraction": 0 } },
+        { "at": 300, "event": "progress", "data": { "sent": 524288, "total": 5242880, "fraction": 0.1 } }
+      ],
+      "error": "network_failed",
+      "then": [ { "path": "documents:media/clip.mp4", "exists": true } ] },
+    { "name": "an upload the endpoint REFUSES is http_error carrying the status and the body",
+      "action": "upload",
+      "args": { "path": "documents:media/clip.mp4", "url": "https://api.example.com/v1/media" },
+      "status": 500,
+      "total": 5242880,
+      "events": [
+        { "at": 0,   "event": "progress", "data": { "sent": 0,       "total": 5242880, "fraction": 0 } },
+        { "at": 800, "event": "progress", "data": { "sent": 5242880, "total": 5242880, "fraction": 1 } }
+      ],
+      "error": "http_error",
+      "data": { "status": 500 },
+      "then": [ { "path": "documents:media/clip.mp4", "exists": true } ] },
+
+    { "name": "a 413 refusal is distinguishable from a 401 only by data.status, which is the point",
+      "action": "upload",
+      "args": { "path": "documents:media/huge.mp4", "url": "https://api.example.com/v1/media" },
+      "status": 413,
+      "events": [],
+      "error": "http_error",
+      "data": { "status": 413 },
+      "then": [ { "path": "documents:media/huge.mp4", "exists": true } ] }
+  ],
+
+  "_note_settle": "THE SETTLE TABLE \u2014 what decides a transfer's outcome, stated once so three renderers cannot disagree. The rule is one sentence: THE STATUS DECIDES, NOT THE TRANSPORT. Only 2xx resolves; every other status reached the server and was refused, so it settles `http_error` with { status, headers, body } on `data`, and the refused body is DISCARDED rather than moved into place. This row set exists because the iOS lane got it wrong in exactly the way the platform invites: URLSession stopped reporting HTTP status as a task error in iOS 9 (developer.apple.com/forums/thread/38753), so a 404 arrives on `didFinishDownloadingTo` with the error page already staged and a nil error on `didCompleteWithError` \u2014 a naive implementation moves that page to the caller's path and resolves. `network_failed` is reserved for the case where the request never got an answer, which is also the only case worth resuming. There is deliberately no `cancelled` row: `Core/Files` exposes no cancel verb, so a transfer has no cancellation outcome to pin \u2014 adding one is a capability change, not a settle-table entry.",
+  "settle": [
+    { "when": "the server answered 200",                     "status": 200,  "outcome": "resolve",        "destination": "written" },
+    { "when": "the server answered 206 to a resumed range",  "status": 206,  "outcome": "resolve",        "destination": "written" },
+    { "when": "a conditional request was answered 304",      "status": 304,  "outcome": "http_error", "carries": ["status", "headers", "body"], "destination": "untouched" },
+    { "when": "the credential was rejected",                 "status": 401,  "outcome": "http_error", "carries": ["status", "headers", "body"], "destination": "untouched" },
+    { "when": "the resource does not exist",                 "status": 404,  "outcome": "http_error", "carries": ["status", "headers", "body"], "destination": "untouched" },
+    { "when": "the body was too large for the endpoint",     "status": 413,  "outcome": "http_error", "carries": ["status", "headers", "body"], "destination": "untouched" },
+    { "when": "the caller was rate limited",                 "status": 429,  "outcome": "http_error", "carries": ["status", "headers", "body"], "destination": "untouched" },
+    { "when": "the server failed",                           "status": 500,  "outcome": "http_error", "carries": ["status", "headers", "body"], "destination": "untouched" },
+    { "when": "the server was unavailable",                  "status": 503,  "outcome": "http_error", "carries": ["status", "headers", "body"], "destination": "untouched" },
+    { "when": "the request never got an answer",             "status": null, "outcome": "network_failed", "destination": "untouched" }
+  ],
+
+  "_note_background": "`background: true` is the promise that a transfer keeps running while the app is suspended — a background `URLSession` on iOS, a WorkManager foreground worker on Android. A browser tab cannot make that promise, so the web facet refuses it typed rather than starting a fetch that dies with the tab. The plain (foreground) transfer still works on the web; only the guarantee is absent.",
+  "background": [
+    { "platform": "ios",     "supported": true },
+    { "platform": "android", "supported": true },
+    { "platform": "web",     "supported": false, "error": "unsupported_platform" }
+  ]
+}

@@ -1,0 +1,304 @@
+{
+  "version": 1,
+  "_note": "The telemetry SCRUBBER — the pure core every renderer shares (parity/F10-telemetry.md). Redaction happens at ENQUEUE, never at send: a crash during flush must not be able to leak an unredacted buffer, so the buffer never holds one. The rules are ORDERED and the order is part of the contract (bearer before jwt, so an Authorization header collapses to one token placeholder; card before phone, so a card is never reported as a phone number). The non-match cases are as load-bearing as the matches: a scrubber that eats semantic versions, ISO timestamps, IP addresses, UUIDs and — above all — the `<File>.dsx:<line>` frame that is this module's whole competitive point is a scrubber nobody will leave switched on. Twins: kernel TelemetryScrub (Swift Engine/iOS/TelemetryPolicy.swift · Kotlin :core TelemetryPolicy.kt · TS packages/kernel/src/telemetry.ts).",
+  "placeholders": {
+    "email": "[email]",
+    "bearer": "Bearer [token]",
+    "jwt": "[jwt]",
+    "phone": "[phone]",
+    "card": "[card]",
+    "home": "[user]",
+    "key": "[redacted]"
+  },
+  "order": [
+    "bearer",
+    "jwt",
+    "email",
+    "homeUnix",
+    "homeLinux",
+    "homeWindows",
+    "cardAmex",
+    "cardGrouped",
+    "cardPlain",
+    "phoneInternational",
+    "phoneGrouped"
+  ],
+  "text": [
+    {
+      "name": "an email address anywhere in the line",
+      "input": "Signed in as ada@example.com from the checkout screen",
+      "expect": "Signed in as [email] from the checkout screen"
+    },
+    {
+      "name": "an email inside a JSON-ish fragment",
+      "input": "{\"user\":\"a.b+tag@sub.example.co.uk\"}",
+      "expect": "{\"user\":\"[email]\"}"
+    },
+    {
+      "name": "an Authorization bearer token",
+      "input": "Authorization: Bearer sk_live_51H8xQ2eZvKYlo2C",
+      "expect": "Authorization: Bearer [token]"
+    },
+    {
+      "name": "a lowercase bearer prefix is still a bearer token",
+      "input": "authorization: bearer abcdefgh12345678",
+      "expect": "authorization: Bearer [token]"
+    },
+    {
+      "name": "a JWT on its own",
+      "input": "token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+      "expect": "token=[jwt]"
+    },
+    {
+      "name": "a two-segment JWT (unsigned) is still a JWT",
+      "input": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJhIn0",
+      "expect": "[jwt]"
+    },
+    {
+      "name": "an E.164 phone number",
+      "input": "call +15551234567 now",
+      "expect": "call [phone] now"
+    },
+    {
+      "name": "an international phone with separators",
+      "input": "call me on +1 (555) 123-4567 tomorrow",
+      "expect": "call me on [phone] tomorrow"
+    },
+    {
+      "name": "a grouped domestic phone number",
+      "input": "support line 555-123-4567",
+      "expect": "support line [phone]"
+    },
+    {
+      "name": "a dotted grouped phone number",
+      "input": "fax 555.123.4567",
+      "expect": "fax [phone]"
+    },
+    {
+      "name": "a macOS home directory",
+      "input": "crash in /Users/ada/Projects/app/src/Checkout.dsx:42",
+      "expect": "crash in /Users/[user]/Projects/app/src/Checkout.dsx:42"
+    },
+    {
+      "name": "a Linux home directory",
+      "input": "/home/runner/work/build.log",
+      "expect": "/home/[user]/work/build.log"
+    },
+    {
+      "name": "a Windows home directory keeps its drive",
+      "input": "C:\\Users\\Ada\\AppData\\Local\\app.log",
+      "expect": "C:\\Users\\[user]\\AppData\\Local\\app.log"
+    },
+    {
+      "name": "a spaced credit card number",
+      "input": "card 4111 1111 1111 1111 declined",
+      "expect": "card [card] declined"
+    },
+    {
+      "name": "an unseparated credit card number",
+      "input": "card 4111111111111111 declined",
+      "expect": "card [card] declined"
+    },
+    {
+      "name": "a hyphenated credit card number",
+      "input": "card 5500-0000-0000-0004 declined",
+      "expect": "card [card] declined"
+    },
+    {
+      "name": "an Amex-grouped card number",
+      "input": "amex 3782 822463 10005 ok",
+      "expect": "amex [card] ok"
+    },
+    {
+      "name": "several secrets in one line",
+      "input": "user ada@example.com paid with 4111 1111 1111 1111 from /Users/ada/Desktop",
+      "expect": "user [email] paid with [card] from /Users/[user]/Desktop"
+    }
+  ],
+  "survives": [
+    {
+      "name": "a semantic version",
+      "input": "app version 1.2.3 build 4471",
+      "expect": "app version 1.2.3 build 4471"
+    },
+    {
+      "name": "an ISO timestamp",
+      "input": "at 2026-08-20T10:00:00Z the sync failed",
+      "expect": "at 2026-08-20T10:00:00Z the sync failed"
+    },
+    {
+      "name": "an IPv4 address",
+      "input": "host 192.168.1.100 unreachable",
+      "expect": "host 192.168.1.100 unreachable"
+    },
+    {
+      "name": "epoch milliseconds",
+      "input": "epoch 1755679200000 recorded",
+      "expect": "epoch 1755679200000 recorded"
+    },
+    {
+      "name": "a long numeric reference beyond card length",
+      "input": "ref 12345678901234567890123 ok",
+      "expect": "ref 12345678901234567890123 ok"
+    },
+    {
+      "name": "a 16-digit number that fails the Luhn check",
+      "input": "order 1234 5678 9012 3456 shipped",
+      "expect": "order 1234 5678 9012 3456 shipped"
+    },
+    {
+      "name": "the word bearer in prose",
+      "input": "the bearer of this ticket may enter",
+      "expect": "the bearer of this ticket may enter"
+    },
+    {
+      "name": "a DSX source frame is the whole point and must survive",
+      "input": "Checkout.dsx:42 render error in <list>",
+      "expect": "Checkout.dsx:42 render error in <list>"
+    },
+    {
+      "name": "a stack frame with a module chain",
+      "input": "dsx.module.payments.charge failed with card_declined",
+      "expect": "dsx.module.payments.charge failed with card_declined"
+    },
+    {
+      "name": "a UUID",
+      "input": "uuid 3f1c0b58-4d2e-4a77-9c05-6b18ad4e2f31",
+      "expect": "uuid 3f1c0b58-4d2e-4a77-9c05-6b18ad4e2f31"
+    },
+    {
+      "name": "a hex colour",
+      "input": "background #1a2b3c did not parse",
+      "expect": "background #1a2b3c did not parse"
+    },
+    {
+      "name": "a public path outside any home directory",
+      "input": "/usr/local/lib/libdespia.dylib missing",
+      "expect": "/usr/local/lib/libdespia.dylib missing"
+    },
+    {
+      "name": "an at-sign that is not an email",
+      "input": "on:appear @media handler",
+      "expect": "on:appear @media handler"
+    },
+    {
+      "name": "an already-redacted line is idempotent",
+      "input": "Signed in as [email] from /Users/[user]/app",
+      "expect": "Signed in as [email] from /Users/[user]/app"
+    }
+  ],
+  "keys": [
+    {
+      "key": "password",
+      "sensitive": true
+    },
+    {
+      "key": "Password",
+      "sensitive": true
+    },
+    {
+      "key": "access_token",
+      "sensitive": true
+    },
+    {
+      "key": "accessToken",
+      "sensitive": true
+    },
+    {
+      "key": "api-key",
+      "sensitive": true
+    },
+    {
+      "key": "authorization",
+      "sensitive": true
+    },
+    {
+      "key": "Cookie",
+      "sensitive": true
+    },
+    {
+      "key": "clientSecret",
+      "sensitive": true
+    },
+    {
+      "key": "cvv",
+      "sensitive": true
+    },
+    {
+      "key": "pin",
+      "sensitive": true
+    },
+    {
+      "key": "sessionId",
+      "sensitive": true
+    },
+    {
+      "key": "private_key",
+      "sensitive": true
+    },
+    {
+      "key": "email",
+      "sensitive": false
+    },
+    {
+      "key": "phone",
+      "sensitive": false
+    },
+    {
+      "key": "username",
+      "sensitive": false
+    },
+    {
+      "key": "userId",
+      "sensitive": false
+    },
+    {
+      "key": "count",
+      "sensitive": false
+    },
+    {
+      "key": "description",
+      "sensitive": false
+    },
+    {
+      "key": "dsn",
+      "sensitive": false
+    },
+    {
+      "key": "tokenCount",
+      "sensitive": false
+    }
+  ],
+  "values": [
+    {
+      "name": "a sensitive key redacts the whole value regardless of shape",
+      "key": "authorization",
+      "value": "Bearer sk_live_51H8xQ2eZvKYlo2C",
+      "expect": "[redacted]"
+    },
+    {
+      "name": "a sensitive key redacts an innocent-looking value",
+      "key": "password",
+      "value": "hunter2",
+      "expect": "[redacted]"
+    },
+    {
+      "name": "a non-sensitive key still scrubs its value",
+      "key": "note",
+      "value": "mail me at ada@example.com",
+      "expect": "mail me at [email]"
+    },
+    {
+      "name": "an email VALUE is scrubbed by the text pass — identify() passes its explicit fields around the scrubber, it does not exempt the key",
+      "key": "email",
+      "value": "ada@example.com",
+      "expect": "[email]"
+    },
+    {
+      "name": "a non-sensitive key with nothing to scrub passes through",
+      "key": "screen",
+      "value": "Checkout",
+      "expect": "Checkout"
+    }
+  ]
+}

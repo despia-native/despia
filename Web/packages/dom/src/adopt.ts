@@ -36,7 +36,7 @@
 //  mount.ts reaches it only through AdoptSeam (registered at module load below).
 //
 
-import { truthy, string, isDict, JSESeams, type Dict, type ApiSeed } from "@despia/kernel";
+import { truthy, string, isDict, JSESeams, DSXStrings, type Dict, type ApiSeed } from "@despia/kernel";
 import { mapStyleValue } from "@despia/compiler/cssmap";
 import { resolveComponent } from "@despia/compiler/resolve";
 import type { XmlNode } from "@despia/compiler/xml";
@@ -193,22 +193,62 @@ function adoptableTag(node: XmlNode): string | null {
 //  under it. Such a subtree is exactly the bytes the server already emitted, so the
 //  walk claims its root by identity (keeping the structural check honest) and REUSES
 //  every DOM node verbatim — building no ElementApi, no binding, no child walk, no
-//  reactive graph. Restricted to purely presentational roots: buttons keep their
-//  link/disabled/doubleTap wiring, machinery keeps its factory rebuild, and component
-//  references are never inert (over-marked reactive in component.ts), so those tiers
-//  are untouched. This is the Astro-islands result off the per-node stamps W6-1 laid
+//  reactive graph. This is the Astro-islands result off the per-node stamps W6-1 laid
 //  down, with zero islands authoring tax.
+//
+//  ADOPT-WIRING PARITY (design-system.md Wave 4 — the named defect): the reactive bit
+//  proves the subtree builds no reactive GRAPH; it proves nothing about the WIRING a
+//  fresh mount attaches regardless of reactivity — tooltip= bubbles + aria-describedby
+//  (wireTooltip), href= SPA link interception (wireGestures; shortcut= rides it),
+//  measure=/container= observers, focusOrder= tab order, the client-only icon svg an
+//  icon-form <image> renders, and every factory-owned tag (buttons keep their
+//  link/disabled/doubleTap wiring, machinery keeps its rebuild). A skipped subtree
+//  containing any of those adopts DEADER than a fresh mount of the same registry, so
+//  the island gate verifies skip-safety ITSELF: only a subtree that is presentational
+//  vocabulary throughout AND wiring-free throughout is reused verbatim. Anything else
+//  walks the normal tiers, which attach exactly the fresh-mount wiring.
 const ISLAND_TAGS = new Set([...ADOPT_CONTAINER_TAGS, ...ADOPT_LEAF_TAGS, ...TEXT_TAGS]);
+
+/** attributes whose wiring the fresh mount attaches on ANY element, reactive or not */
+const WIRING_ATTRS = ["tooltip", "href", "measure", "container", "focusOrder"];
+
+/** the plain (server-rendered) image form — the icon/systemImage forms render a
+ *  client-only svg the server never emits, so they are never skip-safe */
+function plainImage(node: XmlNode): boolean {
+  return node.tag === "image"
+    && node.attrs["icon"] === undefined && node.attrs["icon-web"] === undefined
+    && node.attrs["systemImage"] === undefined;
+}
+
+/** The localization exception to skip-islands (P12): an app that SHIPS string tables
+ *  has declared its static display text LIVE — a locale write must re-resolve it, so a
+ *  text node carrying display copy needs its bindDisplay effect and cannot be reused
+ *  verbatim. Data-driven: an app with no tables (loader null) keeps every island, and
+ *  the embed fold removes the check entirely. (A runtime-tier-only table — written into
+ *  global.strings after boot with no build tier — reaches adopted islands on the next
+ *  swap or navigation, not mid-island; the build tier is the shipped story.) */
+function stringsLive(): boolean {
+  return (globalThis as typeof globalThis & { __DSX_OPTIONAL_STRINGS__?: boolean })
+    .__DSX_OPTIONAL_STRINGS__ !== false && DSXStrings.loader !== null;
+}
+
+/** true when EVERY node of the subtree is skip-safe: island vocabulary (anything
+ *  else — the button family, machinery, unsupported — carries factory wiring) and
+ *  free of wiring-bearing attributes (container= subsumes the demoted() check) */
+function subtreeAdoptInert(node: XmlNode): boolean {
+  for (const attr of WIRING_ATTRS) if (node.attrs[attr] !== undefined) return false;
+  if (!ISLAND_TAGS.has(node.tag) && !plainImage(node)) return false;
+  if (stringsLive() && TEXT_TAGS.has(node.tag)
+    && (node.attrs["value"] !== undefined || node.text.trim().length > 0)) return false;
+  for (const child of node.children) if (!subtreeAdoptInert(child)) return false;
+  return true;
+}
 
 /** is this the root of an inert presentational subtree the walk may skip wholesale? */
 function isIslandRoot(node: XmlNode): boolean {
   if ((node as IRNode).reactive !== false) return false; // undefined ⇒ not proven inert
-  if (demoted(node)) return false; // container= publishes live metrics through a factory scope
-  if (ISLAND_TAGS.has(node.tag)) return true;
-  // a plain <image> (not the client-only icon form) is presentational too
-  return node.tag === "image"
-    && node.attrs["icon"] === undefined && node.attrs["icon-web"] === undefined
-    && node.attrs["systemImage"] === undefined;
+  if (!ISLAND_TAGS.has(node.tag) && !plainImage(node)) return false;
+  return subtreeAdoptInert(node);
 }
 
 // ── fresh mounting helpers (the fail-open + INSERT paths) ────────────────────────────
@@ -459,9 +499,12 @@ function adoptElement(node: XmlNode, ctx: MountCtx, claim: Claim, expectTag: str
     // elements.ts `textEl` — value writes are guarded so an in-sync adopt keeps
     // even the server TEXT node (assignment would replace it)
     const setText = (v: string): void => { if (claimed.textContent !== v) claimed.textContent = v; };
+    // bindDisplay, not bindText: adopt parity includes the LOCALIZATION seam (P12) - an
+    // SSR-adopted page's static strings must re-resolve on a locale write exactly like a
+    // fresh mount's, or the served first screen is the one surface a language switch skips
     if (node.attrs["bind"] !== undefined) api.bindValue(node.attrs["bind"], (v) => setText(string(v)));
-    else if (node.attrs["value"] !== undefined) api.bindText(node.attrs["value"], setText);
-    else if (node.text.trim().length > 0) api.bindText(node.text.trim(), setText);
+    else if (node.attrs["value"] !== undefined) api.bindDisplay(node.attrs["value"], setText);
+    else if (node.text.trim().length > 0) api.bindDisplay(node.text.trim(), setText);
     if (node.attrs["lineLimit"] !== undefined) {
       api.bindText(node.attrs["lineLimit"], (v) => applyLineClamp(claimed as HTMLElement, v));
     }
@@ -591,7 +634,7 @@ function adoptButton(node: XmlNode, e: HTMLElement, api: ElementApi): { from: Ch
     }
     span.setAttribute("data-dsx-part", "label");
     const label = span;
-    api.bindText(node.attrs["label"], (v) => { if (label.textContent !== v) label.textContent = v; });
+    api.bindDisplay(node.attrs["label"], (v) => { if (label.textContent !== v) label.textContent = v; });
   }
   if (api.hasHandler("doubleTap")) e.addEventListener("dblclick", () => api.handler("doubleTap"));
   // the factory's slot rule: pressables/rows always own content; a canonical

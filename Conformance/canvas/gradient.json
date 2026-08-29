@@ -1,0 +1,1265 @@
+{
+ "_note": "GRADIENT STOP NORMALISATION and the paint-space projection. A gradient is authored as a `<gradient id kind>` child holding `<stop offset color opacity>` children, and the author is allowed to be sloppy in exactly the ways CSS and SVG allow, so the normalisation is where three renderers drift. THE LAW, in order: parse each offset (a number or a percentage), CLAMP it into 0..1; a missing FIRST offset is 0 and a missing LAST is 1; a run of missing interior offsets spaces EVENLY between its two known neighbours; then walk left to right forcing MONOTONIC non-decreasing offsets (a decreasing offset is raised to its predecessor \u2014 never re-sorted, because author order is the paint order). `stop-opacity` MULTIPLIES the colour's own alpha. Zero stops is one diagnostic and paints nothing; one stop is a solid colour. Two stops at the SAME offset are a hard stop and the LATER stop wins from that offset onward. Sampling interpolates componentwise in STRAIGHT (non-premultiplied) sRGB \u2014 not linear-light, not premultiplied \u2014 because that is what Canvas2D, CoreGraphics and Compose all do by default, and matching the platforms beats being theoretically prettier. A SEMANTIC TOKEN (accent, label, \u2026) survives normalisation UNRESOLVED: the theme resolves it at paint time, so the pure core must not bake it. `projection` pins the 1-D paint coordinate t for each gradient kind: linear is the clamped projection onto the axis, radial is the clamped distance ratio, angular is the turn fraction from `start`, measured with atan2 in the y-down canvas space and wrapped into [0,1).",
+ "cases": [
+  {
+   "name": "explicit offsets",
+   "stops": [
+    {
+     "offset": 0,
+     "color": "#ff0000"
+    },
+    {
+     "offset": 1,
+     "color": "#0000ff"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      0.75,
+      0.0,
+      0.25,
+      1.0
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      0.5,
+      0.0,
+      0.5,
+      1.0
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.25,
+      0.0,
+      0.75,
+      1.0
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a missing first offset is 0 and a missing last is 1",
+   "stops": [
+    {
+     "color": "#ff0000"
+    },
+    {
+     "color": "#00ff00"
+    },
+    {
+     "color": "#0000ff"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 0.5,
+     "rgba": [
+      0.0,
+      1.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      0.5,
+      0.5,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      0.0,
+      1.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.0,
+      0.5,
+      0.5,
+      1.0
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "interior offsets interpolate evenly between their known neighbours",
+   "stops": [
+    {
+     "offset": 0,
+     "color": "#000000"
+    },
+    {
+     "color": "#111111"
+    },
+    {
+     "color": "#222222"
+    },
+    {
+     "offset": 0.6,
+     "color": "#333333"
+    },
+    {
+     "color": "#ffffff"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "rgba": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 0.2,
+     "rgba": [
+      0.066667,
+      0.066667,
+      0.066667,
+      1.0
+     ]
+    },
+    {
+     "offset": 0.4,
+     "rgba": [
+      0.133333,
+      0.133333,
+      0.133333,
+      1.0
+     ]
+    },
+    {
+     "offset": 0.6,
+     "rgba": [
+      0.2,
+      0.2,
+      0.2,
+      1.0
+     ]
+    },
+    {
+     "offset": 1.0,
+     "rgba": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      0.083334,
+      0.083334,
+      0.083334,
+      1.0
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      0.166666,
+      0.166666,
+      0.166666,
+      1.0
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.5,
+      0.5,
+      0.5,
+      1.0
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "percentages",
+   "stops": [
+    {
+     "offset": "0%",
+     "color": "#ff0000"
+    },
+    {
+     "offset": "50%",
+     "color": "#00ff00"
+    },
+    {
+     "offset": "100%",
+     "color": "#0000ff"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 0.5,
+     "rgba": [
+      0.0,
+      1.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      0.5,
+      0.5,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      0.0,
+      1.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.0,
+      0.5,
+      0.5,
+      1.0
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a decreasing offset is clamped up to its predecessor (monotonic law)",
+   "stops": [
+    {
+     "offset": 0,
+     "color": "#ff0000"
+    },
+    {
+     "offset": 0.8,
+     "color": "#00ff00"
+    },
+    {
+     "offset": 0.3,
+     "color": "#0000ff"
+    },
+    {
+     "offset": 1,
+     "color": "#ffffff"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 0.8,
+     "rgba": [
+      0.0,
+      1.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 0.8,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 1.0,
+     "rgba": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      0.6875,
+      0.3125,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      0.375,
+      0.625,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.0625,
+      0.9375,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "out-of-range offsets clamp into 0..1",
+   "stops": [
+    {
+     "offset": -0.5,
+     "color": "#ff0000"
+    },
+    {
+     "offset": 1.5,
+     "color": "#0000ff"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      0.75,
+      0.0,
+      0.25,
+      1.0
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      0.5,
+      0.0,
+      0.5,
+      1.0
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.25,
+      0.0,
+      0.75,
+      1.0
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a hard stop: two stops at the same offset",
+   "stops": [
+    {
+     "offset": 0,
+     "color": "#ff0000"
+    },
+    {
+     "offset": 0.5,
+     "color": "#ff0000"
+    },
+    {
+     "offset": 0.5,
+     "color": "#0000ff"
+    },
+    {
+     "offset": 1,
+     "color": "#0000ff"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 0.5,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 0.5,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "one stop is a solid colour",
+   "stops": [
+    {
+     "offset": 0.3,
+     "color": "#12345678"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.3,
+     "rgba": [
+      0.070588,
+      0.203922,
+      0.337255,
+      0.470588
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      0.070588,
+      0.203922,
+      0.337255,
+      0.470588
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      0.070588,
+      0.203922,
+      0.337255,
+      0.470588
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      0.070588,
+      0.203922,
+      0.337255,
+      0.470588
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.070588,
+      0.203922,
+      0.337255,
+      0.470588
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      0.070588,
+      0.203922,
+      0.337255,
+      0.470588
+     ]
+    }
+   ]
+  },
+  {
+   "name": "no stops is one diagnostic",
+   "stops": [],
+   "normalized": [],
+   "diagnostics": 1
+  },
+  {
+   "name": "stop opacity multiplies the colour's alpha",
+   "stops": [
+    {
+     "offset": 0,
+     "color": "#ff000080",
+     "opacity": 0.5
+    },
+    {
+     "offset": 1,
+     "color": "rgb(0,0,255)"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      0.25098
+     ]
+    },
+    {
+     "offset": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      0.25098
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      0.75,
+      0.0,
+      0.25,
+      0.438235
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      0.5,
+      0.0,
+      0.5,
+      0.62549
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.25,
+      0.0,
+      0.75,
+      0.812745
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "shorthand and functional colours",
+   "stops": [
+    {
+     "offset": 0,
+     "color": "#f00"
+    },
+    {
+     "offset": 0.5,
+     "color": "rgba(0,255,0,0.25)"
+    },
+    {
+     "offset": 1,
+     "color": "#00f8"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 0.5,
+     "rgba": [
+      0.0,
+      1.0,
+      0.0,
+      0.25
+     ]
+    },
+    {
+     "offset": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      0.533333
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      0.5,
+      0.5,
+      0.0,
+      0.625
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      0.0,
+      1.0,
+      0.0,
+      0.25
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.0,
+      0.5,
+      0.5,
+      0.391666
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      0.533333
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a semantic token survives normalisation unresolved",
+   "stops": [
+    {
+     "offset": 0,
+     "color": "accent"
+    },
+    {
+     "offset": 1,
+     "color": "clear"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "token": "accent",
+     "opacity": 1.0
+    },
+    {
+     "offset": 1.0,
+     "token": "clear",
+     "opacity": 1.0
+    }
+   ]
+  },
+  {
+   "name": "an unparseable colour is one diagnostic and falls back to opaque black",
+   "stops": [
+    {
+     "offset": 0,
+     "color": "chartreuse-ish"
+    },
+    {
+     "offset": 1,
+     "color": "#0000ff"
+    }
+   ],
+   "normalized": [
+    {
+     "offset": 0.0,
+     "rgba": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "offset": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "t": 0.0,
+     "rgba": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "t": 0.25,
+     "rgba": [
+      0.0,
+      0.0,
+      0.25,
+      1.0
+     ]
+    },
+    {
+     "t": 0.5,
+     "rgba": [
+      0.0,
+      0.0,
+      0.5,
+      1.0
+     ]
+    },
+    {
+     "t": 0.75,
+     "rgba": [
+      0.0,
+      0.0,
+      0.75,
+      1.0
+     ]
+    },
+    {
+     "t": 1.0,
+     "rgba": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ],
+   "diagnostics": 1
+  }
+ ],
+ "projection": [
+  {
+   "name": "linear, horizontal",
+   "kind": "linear",
+   "geom": [
+    0,
+    0,
+    100,
+    0
+   ],
+   "points": [
+    {
+     "at": [
+      0,
+      0
+     ],
+     "t": 0.0
+    },
+    {
+     "at": [
+      50,
+      50
+     ],
+     "t": 0.5
+    },
+    {
+     "at": [
+      100,
+      0
+     ],
+     "t": 1.0
+    },
+    {
+     "at": [
+      150,
+      0
+     ],
+     "t": 1.0
+    },
+    {
+     "at": [
+      -10,
+      0
+     ],
+     "t": 0.0
+    }
+   ]
+  },
+  {
+   "name": "linear, diagonal",
+   "kind": "linear",
+   "geom": [
+    0,
+    0,
+    100,
+    100
+   ],
+   "points": [
+    {
+     "at": [
+      0,
+      0
+     ],
+     "t": 0.0
+    },
+    {
+     "at": [
+      50,
+      50
+     ],
+     "t": 0.5
+    },
+    {
+     "at": [
+      100,
+      0
+     ],
+     "t": 0.5
+    },
+    {
+     "at": [
+      100,
+      100
+     ],
+     "t": 1.0
+    }
+   ]
+  },
+  {
+   "name": "linear, degenerate (zero length)",
+   "kind": "linear",
+   "geom": [
+    10,
+    10,
+    10,
+    10
+   ],
+   "points": [
+    {
+     "at": [
+      0,
+      0
+     ],
+     "t": 0.0
+    },
+    {
+     "at": [
+      50,
+      50
+     ],
+     "t": 0.0
+    }
+   ]
+  },
+  {
+   "name": "radial",
+   "kind": "radial",
+   "geom": [
+    50,
+    50,
+    50
+   ],
+   "points": [
+    {
+     "at": [
+      50,
+      50
+     ],
+     "t": 0.0
+    },
+    {
+     "at": [
+      100,
+      50
+     ],
+     "t": 1.0
+    },
+    {
+     "at": [
+      50,
+      0
+     ],
+     "t": 1.0
+    },
+    {
+     "at": [
+      90,
+      90
+     ],
+     "t": 1.0
+    }
+   ]
+  },
+  {
+   "name": "radial, zero radius",
+   "kind": "radial",
+   "geom": [
+    50,
+    50,
+    0
+   ],
+   "points": [
+    {
+     "at": [
+      0,
+      0
+     ],
+     "t": 1.0
+    }
+   ]
+  },
+  {
+   "name": "angular from 0\u00b0",
+   "kind": "angular",
+   "geom": [
+    50,
+    50,
+    0
+   ],
+   "points": [
+    {
+     "at": [
+      100,
+      50
+     ],
+     "t": 0.0
+    },
+    {
+     "at": [
+      50,
+      100
+     ],
+     "t": 0.25
+    },
+    {
+     "at": [
+      0,
+      50
+     ],
+     "t": 0.5
+    },
+    {
+     "at": [
+      50,
+      0
+     ],
+     "t": 0.75
+    }
+   ]
+  },
+  {
+   "name": "angular with a start offset",
+   "kind": "angular",
+   "geom": [
+    50,
+    50,
+    90
+   ],
+   "points": [
+    {
+     "at": [
+      100,
+      50
+     ],
+     "t": 0.75
+    },
+    {
+     "at": [
+      50,
+      100
+     ],
+     "t": 0.0
+    }
+   ]
+  }
+ ]
+}

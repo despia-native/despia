@@ -1,0 +1,315 @@
+{
+ "_note": "<multiselect> and <tagsfield> as pure folds, plus the ACCESSIBILITY ANNOUNCEMENTS all three renderers must speak identically (00-conventions §8: accessibility is contract). MULTISELECT: toggling an already-selected value removes it; adding at `max` is refused with reason 'max-reached' and changed:false — never a silent drop of the oldest. Selection order is INSERTION order. TAGS: the committed text is split on every character of `separator` (default ','), each part is trimmed, empty parts vanish, a duplicate is refused ('duplicate'), a part failing the `validate` pattern is refused ('invalid'), and once `max` is reached every further part is refused ('max-reached') — the refusals are RETURNED, not swallowed, so on:add can report them. BACKSPACE on an EMPTY query removes the last chip and returns it (the interaction everyone expects and nobody implements); backspace with a non-empty query removes nothing.",
+ "multiSelect": [
+  {
+   "selected": [],
+   "value": "a",
+   "max": 0,
+   "expect": {
+    "selected": [
+     "a"
+    ],
+    "changed": true,
+    "reason": ""
+   }
+  },
+  {
+   "selected": [
+    "a"
+   ],
+   "value": "b",
+   "max": 0,
+   "expect": {
+    "selected": [
+     "a",
+     "b"
+    ],
+    "changed": true,
+    "reason": ""
+   }
+  },
+  {
+   "selected": [
+    "a",
+    "b"
+   ],
+   "value": "a",
+   "max": 0,
+   "expect": {
+    "selected": [
+     "b"
+    ],
+    "changed": true,
+    "reason": ""
+   }
+  },
+  {
+   "selected": [
+    "a",
+    "b"
+   ],
+   "value": "c",
+   "max": 2,
+   "expect": {
+    "selected": [
+     "a",
+     "b"
+    ],
+    "changed": false,
+    "reason": "max-reached"
+   }
+  },
+  {
+   "selected": [
+    "a",
+    "b"
+   ],
+   "value": "b",
+   "max": 2,
+   "expect": {
+    "selected": [
+     "a"
+    ],
+    "changed": true,
+    "reason": ""
+   }
+  },
+  {
+   "selected": [
+    "a"
+   ],
+   "value": "b",
+   "max": 2,
+   "expect": {
+    "selected": [
+     "a",
+     "b"
+    ],
+    "changed": true,
+    "reason": ""
+   }
+  }
+ ],
+ "multiSelectAnnouncement": [
+  {
+   "count": 0,
+   "max": 0,
+   "expect": "None selected"
+  },
+  {
+   "count": 1,
+   "max": 0,
+   "expect": "1 item selected"
+  },
+  {
+   "count": 3,
+   "max": 0,
+   "expect": "3 items selected"
+  },
+  {
+   "count": 0,
+   "max": 5,
+   "expect": "None selected"
+  },
+  {
+   "count": 1,
+   "max": 5,
+   "expect": "1 of 5 item selected"
+  },
+  {
+   "count": 2,
+   "max": 5,
+   "expect": "2 of 5 items selected"
+  }
+ ],
+ "tagsAdd": [
+  {
+   "tags": [],
+   "text": "design",
+   "config": {},
+   "expect": {
+    "tags": [
+     "design"
+    ],
+    "added": [
+     "design"
+    ],
+    "rejected": []
+   }
+  },
+  {
+   "tags": [],
+   "text": "design, code ,, ops",
+   "config": {},
+   "expect": {
+    "tags": [
+     "design",
+     "code",
+     "ops"
+    ],
+    "added": [
+     "design",
+     "code",
+     "ops"
+    ],
+    "rejected": []
+   }
+  },
+  {
+   "tags": [
+    "design"
+   ],
+   "text": "design",
+   "config": {},
+   "expect": {
+    "tags": [
+     "design"
+    ],
+    "added": [],
+    "rejected": [
+     {
+      "tag": "design",
+      "reason": "duplicate"
+     }
+    ]
+   }
+  },
+  {
+   "tags": [
+    "a",
+    "b"
+   ],
+   "text": "c",
+   "config": {
+    "max": 2
+   },
+   "expect": {
+    "tags": [
+     "a",
+     "b"
+    ],
+    "added": [],
+    "rejected": [
+     {
+      "tag": "c",
+      "reason": "max-reached"
+     }
+    ]
+   }
+  },
+  {
+   "tags": [],
+   "text": "ada@example.com, nope",
+   "config": {
+    "validate": "^[^@\\s]+@[^@\\s]+\\.[A-Za-z]{2,}$"
+   },
+   "expect": {
+    "tags": [
+     "ada@example.com"
+    ],
+    "added": [
+     "ada@example.com"
+    ],
+    "rejected": [
+     {
+      "tag": "nope",
+      "reason": "invalid"
+     }
+    ]
+   }
+  },
+  {
+   "tags": [],
+   "text": "a;b,c",
+   "config": {
+    "separator": ";,"
+   },
+   "expect": {
+    "tags": [
+     "a",
+     "b",
+     "c"
+    ],
+    "added": [
+     "a",
+     "b",
+     "c"
+    ],
+    "rejected": []
+   }
+  },
+  {
+   "tags": [],
+   "text": "   ",
+   "config": {},
+   "expect": {
+    "tags": [],
+    "added": [],
+    "rejected": []
+   }
+  }
+ ],
+ "tagsBackspace": [
+  {
+   "tags": [
+    "a",
+    "b"
+   ],
+   "query": "",
+   "expect": {
+    "tags": [
+     "a"
+    ],
+    "removed": "b"
+   }
+  },
+  {
+   "tags": [
+    "a",
+    "b"
+   ],
+   "query": "c",
+   "expect": {
+    "tags": [
+     "a",
+     "b"
+    ],
+    "removed": null
+   }
+  },
+  {
+   "tags": [],
+   "query": "",
+   "expect": {
+    "tags": [],
+    "removed": null
+   }
+  }
+ ],
+ "tagsAnnouncement": [
+  {
+   "kind": "add",
+   "tag": "design",
+   "count": 1,
+   "expect": "design added, 1 tag"
+  },
+  {
+   "kind": "add",
+   "tag": "code",
+   "count": 2,
+   "expect": "code added, 2 tags"
+  },
+  {
+   "kind": "remove",
+   "tag": "design",
+   "count": 1,
+   "expect": "design removed, 1 tag"
+  },
+  {
+   "kind": "remove",
+   "tag": "code",
+   "count": 0,
+   "expect": "code removed, 0 tags"
+  }
+ ]
+}

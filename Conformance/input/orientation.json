@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "_note": "lockOrientation= — the universal screen-orientation attribute, and the `orientation` module's lock/unlock actions, share ONE pure core (parity/F07-orientation.md). resolve[] pins the vocabulary fold: the seven words (portrait · portraitUpsideDown · landscape · landscapeLeft · landscapeRight · all · current) expand to a MASK, which is then intersected with the app's build-time allowed set in canonical order; an unrecognized word is `unknown_orientation` and an empty intersection is `not_allowed`, both REFUSED LOUDLY rather than silently doing nothing (which is what every third-party RN library does, and why a lock that quietly no-ops is the hardest orientation bug to diagnose). `primary` is the first surviving orientation, i.e. what the device rotates TO. lifecycle[] pins the claim stack, which is the actual feature: a surface claims on appear and releases on disappear, so all five dismissal paths (button pop, edge-swipe back, modal drag-dismiss, deep-link stack replacement, backgrounded return) revert through ONE funnel. A re-claim by a live id REPLACES IN PLACE and never jumps above a surface it presented; releasing a mid-stack entry leaves the top standing; the effective lock is the last live entry, or null for the app default. The imperative unlock() removes only the `imperative` entry, so a declarative claim underneath correctly takes back over.",
+
+  "canonicalOrder": ["portrait", "portraitUpsideDown", "landscapeLeft", "landscapeRight"],
+
+  "resolve": [
+    { "name": "portrait alone",
+      "to": "portrait", "allowed": ["portrait", "portraitUpsideDown", "landscapeLeft", "landscapeRight"],
+      "expect": { "mask": ["portrait"], "primary": "portrait" } },
+
+    { "name": "landscape expands to both landscape orientations",
+      "to": "landscape", "allowed": ["portrait", "landscapeLeft", "landscapeRight"],
+      "expect": { "mask": ["landscapeLeft", "landscapeRight"], "primary": "landscapeLeft" } },
+
+    { "name": "landscapeLeft is a single orientation",
+      "to": "landscapeLeft", "allowed": ["portrait", "landscapeLeft", "landscapeRight"],
+      "expect": { "mask": ["landscapeLeft"], "primary": "landscapeLeft" } },
+
+    { "name": "landscapeRight is a single orientation",
+      "to": "landscapeRight", "allowed": ["portrait", "landscapeLeft", "landscapeRight"],
+      "expect": { "mask": ["landscapeRight"], "primary": "landscapeRight" } },
+
+    { "name": "portraitUpsideDown is a single orientation",
+      "to": "portraitUpsideDown", "allowed": ["portrait", "portraitUpsideDown"],
+      "expect": { "mask": ["portraitUpsideDown"], "primary": "portraitUpsideDown" } },
+
+    { "name": "all is the whole allowed set in canonical order",
+      "to": "all", "allowed": ["landscapeRight", "portrait", "landscapeLeft"],
+      "expect": { "mask": ["portrait", "landscapeLeft", "landscapeRight"], "primary": "portrait" } },
+
+    { "name": "current resolves to the live orientation",
+      "to": "current", "current": "landscapeRight", "allowed": ["portrait", "landscapeLeft", "landscapeRight"],
+      "expect": { "mask": ["landscapeRight"], "primary": "landscapeRight" } },
+
+    { "name": "the intersection preserves canonical order, not the allowed set's order",
+      "to": "landscape", "allowed": ["landscapeRight", "landscapeLeft"],
+      "expect": { "mask": ["landscapeLeft", "landscapeRight"], "primary": "landscapeLeft" } },
+
+    { "name": "landscape narrows to the one landscape the app declared",
+      "to": "landscape", "allowed": ["portrait", "landscapeRight"],
+      "expect": { "mask": ["landscapeRight"], "primary": "landscapeRight" } },
+
+    { "name": "whitespace is trimmed",
+      "to": "  portrait  ", "allowed": ["portrait"],
+      "expect": { "mask": ["portrait"], "primary": "portrait" } },
+
+    { "name": "the vocabulary is exact case",
+      "to": "Portrait", "allowed": ["portrait"],
+      "expect": { "error": "unknown_orientation" } },
+
+    { "name": "an unrecognized word is refused loudly",
+      "to": "sideways", "allowed": ["portrait", "landscapeLeft"],
+      "expect": { "error": "unknown_orientation" } },
+
+    { "name": "empty is not a lock",
+      "to": "", "allowed": ["portrait"],
+      "expect": { "error": "unknown_orientation" } },
+
+    { "name": "whitespace-only is not a lock",
+      "to": "   ", "allowed": ["portrait"],
+      "expect": { "error": "unknown_orientation" } },
+
+    { "name": "an orientation outside the build-time set is not_allowed",
+      "to": "landscape", "allowed": ["portrait"],
+      "expect": { "error": "not_allowed" } },
+
+    { "name": "portraitUpsideDown outside the build-time set is not_allowed",
+      "to": "portraitUpsideDown", "allowed": ["portrait", "landscapeLeft", "landscapeRight"],
+      "expect": { "error": "not_allowed" } },
+
+    { "name": "current outside the build-time set is not_allowed",
+      "to": "current", "current": "portraitUpsideDown", "allowed": ["portrait"],
+      "expect": { "error": "not_allowed" } },
+
+    { "name": "all against an empty allowed set is not_allowed",
+      "to": "all", "allowed": [],
+      "expect": { "error": "not_allowed" } }
+  ],
+
+  "lifecycle": [
+    { "name": "a screen claims on appear and reverts on disappear",
+      "steps": [
+        { "claim": "player", "to": "landscape" },
+        { "release": "player" }
+      ],
+      "expect": ["landscape", null] },
+
+    { "name": "nesting — a landscape screen presenting a portrait sheet, then dismissing it",
+      "steps": [
+        { "claim": "player", "to": "landscape" },
+        { "claim": "sheet", "to": "portrait" },
+        { "release": "sheet" }
+      ],
+      "expect": ["landscape", "portrait", "landscape"] },
+
+    { "name": "the whole nest unwinding restores the app default",
+      "steps": [
+        { "claim": "player", "to": "landscape" },
+        { "claim": "sheet", "to": "portrait" },
+        { "release": "sheet" },
+        { "release": "player" }
+      ],
+      "expect": ["landscape", "portrait", "landscape", null] },
+
+    { "name": "releasing a mid-stack surface leaves the top standing",
+      "steps": [
+        { "claim": "a", "to": "portrait" },
+        { "claim": "b", "to": "landscape" },
+        { "release": "a" }
+      ],
+      "expect": ["portrait", "landscape", "landscape"] },
+
+    { "name": "a re-claim replaces in place and never jumps above what it presented",
+      "steps": [
+        { "claim": "player", "to": "landscape" },
+        { "claim": "sheet", "to": "portrait" },
+        { "claim": "player", "to": "landscapeRight" },
+        { "release": "sheet" }
+      ],
+      "expect": ["landscape", "portrait", "portrait", "landscapeRight"] },
+
+    { "name": "releasing an id that never claimed is a no-op",
+      "steps": [
+        { "claim": "player", "to": "landscape" },
+        { "release": "ghost" }
+      ],
+      "expect": ["landscape", "landscape"] },
+
+    { "name": "releasing into an empty stack is a no-op",
+      "steps": [
+        { "release": "ghost" }
+      ],
+      "expect": [null] },
+
+    { "name": "a deep link replacing the stack resets every claim",
+      "steps": [
+        { "claim": "player", "to": "landscape" },
+        { "claim": "sheet", "to": "portrait" },
+        { "reset": true }
+      ],
+      "expect": ["landscape", "portrait", null] },
+
+    { "name": "the imperative lock is just another entry, on top",
+      "steps": [
+        { "claim": "screen", "to": "portrait" },
+        { "claim": "imperative", "to": "landscape" }
+      ],
+      "expect": ["portrait", "landscape"] },
+
+    { "name": "unlock removes only the imperative entry and the declarative claim resumes",
+      "steps": [
+        { "claim": "screen", "to": "portrait" },
+        { "claim": "imperative", "to": "landscape" },
+        { "release": "imperative" }
+      ],
+      "expect": ["portrait", "landscape", "portrait"] },
+
+    { "name": "unlock with no declarative claim underneath returns the app default",
+      "steps": [
+        { "claim": "imperative", "to": "landscape" },
+        { "release": "imperative" }
+      ],
+      "expect": ["landscape", null] },
+
+    { "name": "an idempotent repeat claim does not stack up",
+      "steps": [
+        { "claim": "player", "to": "landscape" },
+        { "claim": "player", "to": "landscape" },
+        { "release": "player" }
+      ],
+      "expect": ["landscape", "landscape", null] }
+  ]
+}

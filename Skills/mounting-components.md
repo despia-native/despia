@@ -1,4 +1,4 @@
-# Mounting components — `dsx.component.mount`
+# Mounting components: `dsx.component.mount`
 
 > Audience: module authors. How native code puts DSX on screen. The one-line summary:
 > **UI lives in `.dsx` files; Swift mounts a file and wires facts/events — it never carries

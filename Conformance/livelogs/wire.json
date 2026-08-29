@@ -1,0 +1,3667 @@
+{
+  "version": 1,
+  "_note": "The LIVE LOGS wire core - the pure half of dev.stream (proposals/live-logs.md) that must not drift between renderers because it decides what leaves the device and how both ends of the relay agree. Row folds APPLY the telemetry scrubber at enqueue (the rules themselves stay pinned by Conformance/telemetry/scrub.json - cases here prove the application, never re-pin the rules). The queue is drop-oldest with a counted drop; the ack fold is how a device knows to keep sending (viewers watching), pause the wire (nobody watching - the ring keeps recording), or stop (the pairing expired); the ring is the relay's durable cursor law (monotonic seq, bounded replay, gap told to the reader - the realtime.ts contract over live rows). Twins: TS packages/kernel/src/livelogs.ts - Kotlin :core LiveLogs.kt - Swift Engine/iOS/LiveLogs.swift.",
+  "constants": {
+    "wireVersion": 1,
+    "messageCap": 2000,
+    "batchMaxRows": 200,
+    "queueCap": 1000,
+    "idleAckPause": 30,
+    "ringCap": 2000
+  },
+  "rows": [
+    {
+      "name": "a log entry folds to a log row",
+      "kind": "log",
+      "entry": {
+        "scheme": "app",
+        "level": "log",
+        "message": "checkout ready"
+      },
+      "at": 1756280000000,
+      "expect": {
+        "kind": "log",
+        "scheme": "app",
+        "level": "log",
+        "message": "checkout ready",
+        "at": 1756280000000
+      }
+    },
+    {
+      "name": "a console warn keeps its level",
+      "kind": "log",
+      "entry": {
+        "scheme": "console",
+        "level": "warn",
+        "message": "slow frame"
+      },
+      "at": 1756280000500,
+      "expect": {
+        "kind": "log",
+        "scheme": "console",
+        "level": "warn",
+        "message": "slow frame",
+        "at": 1756280000500
+      }
+    },
+    {
+      "name": "the scrubber applies at the fold - a bearer token never reaches the wire",
+      "kind": "log",
+      "entry": {
+        "scheme": "page",
+        "level": "log",
+        "message": "auth Bearer abcdef1234567890"
+      },
+      "at": 1756280001000,
+      "expect": {
+        "kind": "log",
+        "scheme": "page",
+        "level": "log",
+        "message": "auth Bearer [token]",
+        "at": 1756280001000
+      }
+    },
+    {
+      "name": "an email in a log line is redacted at the fold",
+      "kind": "log",
+      "entry": {
+        "scheme": "app",
+        "level": "log",
+        "message": "signed in as mark@example.com"
+      },
+      "at": 1756280001500,
+      "expect": {
+        "kind": "log",
+        "scheme": "app",
+        "level": "log",
+        "message": "signed in as [email]",
+        "at": 1756280001500
+      }
+    },
+    {
+      "name": "a message longer than the cap is clipped to messageCap",
+      "kind": "log",
+      "entry": {
+        "scheme": "app",
+        "level": "log",
+        "message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "at": 1756280002000,
+      "expect": {
+        "kind": "log",
+        "scheme": "app",
+        "level": "log",
+        "message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "at": 1756280002000
+      }
+    },
+    {
+      "name": "the cap counts UTF-16 code units and never strands a high surrogate",
+      "kind": "log",
+      "entry": {
+        "scheme": "app",
+        "level": "log",
+        "message": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail"
+      },
+      "at": 1756280002500,
+      "expect": {
+        "kind": "log",
+        "scheme": "app",
+        "level": "log",
+        "message": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "at": 1756280002500
+      }
+    },
+    {
+      "name": "an ambient error folds to an error row",
+      "kind": "error",
+      "entry": {
+        "scheme": "localai",
+        "code": "model_download_failed",
+        "message": "no space",
+        "recoverable": true,
+        "origin": "raised"
+      },
+      "at": 1756280003000,
+      "expect": {
+        "kind": "error",
+        "scheme": "localai",
+        "code": "model_download_failed",
+        "message": "no space",
+        "recoverable": true,
+        "origin": "raised",
+        "at": 1756280003000
+      }
+    },
+    {
+      "name": "a call failure with no message omits the key rather than sending null",
+      "kind": "error",
+      "entry": {
+        "scheme": "dom",
+        "code": "eval_failed",
+        "message": null,
+        "recoverable": false,
+        "origin": "call"
+      },
+      "at": 1756280004000,
+      "expect": {
+        "kind": "error",
+        "scheme": "dom",
+        "code": "eval_failed",
+        "recoverable": false,
+        "origin": "call",
+        "at": 1756280004000
+      }
+    },
+    {
+      "name": "an uncaught throw keeps its origin - the viewer's CRASH tag rides it",
+      "kind": "error",
+      "entry": {
+        "scheme": "app",
+        "code": "uncaught",
+        "message": "boom in Checkout.dsx:42",
+        "recoverable": false,
+        "origin": "uncaught"
+      },
+      "at": 1756280005000,
+      "expect": {
+        "kind": "error",
+        "scheme": "app",
+        "code": "uncaught",
+        "message": "boom in Checkout.dsx:42",
+        "recoverable": false,
+        "origin": "uncaught",
+        "at": 1756280005000
+      }
+    },
+    {
+      "name": "a kernel line folds whole - stamp and all",
+      "kind": "kernel",
+      "entry": {
+        "line": "09:02:49.333 [dsx.log] app: booted"
+      },
+      "at": 1756280006000,
+      "expect": {
+        "kind": "kernel",
+        "message": "09:02:49.333 [dsx.log] app: booted",
+        "at": 1756280006000
+      }
+    },
+    {
+      "name": "a kernel line is scrubbed too",
+      "kind": "kernel",
+      "entry": {
+        "line": "09:02:50.001 fetch as mark@example.com"
+      },
+      "at": 1756280007000,
+      "expect": {
+        "kind": "kernel",
+        "message": "09:02:50.001 fetch as [email]",
+        "at": 1756280007000
+      }
+    }
+  ],
+  "batch": [
+    {
+      "name": "the batch body - version, session, monotonic index, rows",
+      "sid": "s_9f2c",
+      "n": 3,
+      "rows": [
+        {
+          "kind": "log",
+          "scheme": "app",
+          "level": "log",
+          "message": "hello",
+          "at": 1756280000000
+        }
+      ],
+      "expect": {
+        "v": 1,
+        "sid": "s_9f2c",
+        "n": 3,
+        "rows": [
+          {
+            "kind": "log",
+            "scheme": "app",
+            "level": "log",
+            "message": "hello",
+            "at": 1756280000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "the batch body canonicalizes deterministically",
+      "sid": "s_9f2c",
+      "n": 4,
+      "rows": [],
+      "canonical": "{\"n\":4,\"rows\":[],\"sid\":\"s_9f2c\",\"v\":1}"
+    }
+  ],
+  "ack": [
+    {
+      "name": "viewers watching - keep sending, deadline follows ttl",
+      "steps": [
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 1,
+            "ttlMs": 60000
+          },
+          "at": 1000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 2,
+            "ttlMs": 60000
+          },
+          "at": 3000
+        }
+      ],
+      "expect": [
+        {
+          "idle": 0,
+          "paused": false,
+          "stopped": false,
+          "deadline": 61000
+        },
+        {
+          "idle": 0,
+          "paused": false,
+          "stopped": false,
+          "deadline": 63000
+        }
+      ]
+    },
+    {
+      "name": "nobody watching for idleAckPause acks - the wire pauses, the session survives",
+      "steps": [
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 1000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 3000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 5000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 7000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 9000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 11000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 13000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 15000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 17000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 19000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 21000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 23000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 25000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 27000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 29000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 31000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 33000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 35000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 37000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 39000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 41000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 43000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 45000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 47000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 49000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 51000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 53000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 55000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 57000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 59000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 61000
+        }
+      ],
+      "expect": [
+        {
+          "idle": 1,
+          "paused": false,
+          "stopped": false,
+          "deadline": 61000
+        },
+        {
+          "idle": 2,
+          "paused": false,
+          "stopped": false,
+          "deadline": 63000
+        },
+        {
+          "idle": 3,
+          "paused": false,
+          "stopped": false,
+          "deadline": 65000
+        },
+        {
+          "idle": 4,
+          "paused": false,
+          "stopped": false,
+          "deadline": 67000
+        },
+        {
+          "idle": 5,
+          "paused": false,
+          "stopped": false,
+          "deadline": 69000
+        },
+        {
+          "idle": 6,
+          "paused": false,
+          "stopped": false,
+          "deadline": 71000
+        },
+        {
+          "idle": 7,
+          "paused": false,
+          "stopped": false,
+          "deadline": 73000
+        },
+        {
+          "idle": 8,
+          "paused": false,
+          "stopped": false,
+          "deadline": 75000
+        },
+        {
+          "idle": 9,
+          "paused": false,
+          "stopped": false,
+          "deadline": 77000
+        },
+        {
+          "idle": 10,
+          "paused": false,
+          "stopped": false,
+          "deadline": 79000
+        },
+        {
+          "idle": 11,
+          "paused": false,
+          "stopped": false,
+          "deadline": 81000
+        },
+        {
+          "idle": 12,
+          "paused": false,
+          "stopped": false,
+          "deadline": 83000
+        },
+        {
+          "idle": 13,
+          "paused": false,
+          "stopped": false,
+          "deadline": 85000
+        },
+        {
+          "idle": 14,
+          "paused": false,
+          "stopped": false,
+          "deadline": 87000
+        },
+        {
+          "idle": 15,
+          "paused": false,
+          "stopped": false,
+          "deadline": 89000
+        },
+        {
+          "idle": 16,
+          "paused": false,
+          "stopped": false,
+          "deadline": 91000
+        },
+        {
+          "idle": 17,
+          "paused": false,
+          "stopped": false,
+          "deadline": 93000
+        },
+        {
+          "idle": 18,
+          "paused": false,
+          "stopped": false,
+          "deadline": 95000
+        },
+        {
+          "idle": 19,
+          "paused": false,
+          "stopped": false,
+          "deadline": 97000
+        },
+        {
+          "idle": 20,
+          "paused": false,
+          "stopped": false,
+          "deadline": 99000
+        },
+        {
+          "idle": 21,
+          "paused": false,
+          "stopped": false,
+          "deadline": 101000
+        },
+        {
+          "idle": 22,
+          "paused": false,
+          "stopped": false,
+          "deadline": 103000
+        },
+        {
+          "idle": 23,
+          "paused": false,
+          "stopped": false,
+          "deadline": 105000
+        },
+        {
+          "idle": 24,
+          "paused": false,
+          "stopped": false,
+          "deadline": 107000
+        },
+        {
+          "idle": 25,
+          "paused": false,
+          "stopped": false,
+          "deadline": 109000
+        },
+        {
+          "idle": 26,
+          "paused": false,
+          "stopped": false,
+          "deadline": 111000
+        },
+        {
+          "idle": 27,
+          "paused": false,
+          "stopped": false,
+          "deadline": 113000
+        },
+        {
+          "idle": 28,
+          "paused": false,
+          "stopped": false,
+          "deadline": 115000
+        },
+        {
+          "idle": 29,
+          "paused": false,
+          "stopped": false,
+          "deadline": 117000
+        },
+        {
+          "idle": 30,
+          "paused": true,
+          "stopped": false,
+          "deadline": 119000
+        },
+        {
+          "idle": 31,
+          "paused": true,
+          "stopped": false,
+          "deadline": 121000
+        }
+      ]
+    },
+    {
+      "name": "a viewer returning resets the idle count and resumes the wire",
+      "steps": [
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 1000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 3000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 5000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 7000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 9000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 11000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 13000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 15000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 17000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 19000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 21000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 23000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 25000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 27000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 29000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 31000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 33000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 35000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 37000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 39000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 41000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 43000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 45000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 47000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 49000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 51000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 53000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 55000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 57000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 0,
+            "ttlMs": 60000
+          },
+          "at": 59000
+        },
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 1,
+            "ttlMs": 60000
+          },
+          "at": 70000
+        }
+      ],
+      "expect": [
+        {
+          "idle": 1,
+          "paused": false,
+          "stopped": false,
+          "deadline": 61000
+        },
+        {
+          "idle": 2,
+          "paused": false,
+          "stopped": false,
+          "deadline": 63000
+        },
+        {
+          "idle": 3,
+          "paused": false,
+          "stopped": false,
+          "deadline": 65000
+        },
+        {
+          "idle": 4,
+          "paused": false,
+          "stopped": false,
+          "deadline": 67000
+        },
+        {
+          "idle": 5,
+          "paused": false,
+          "stopped": false,
+          "deadline": 69000
+        },
+        {
+          "idle": 6,
+          "paused": false,
+          "stopped": false,
+          "deadline": 71000
+        },
+        {
+          "idle": 7,
+          "paused": false,
+          "stopped": false,
+          "deadline": 73000
+        },
+        {
+          "idle": 8,
+          "paused": false,
+          "stopped": false,
+          "deadline": 75000
+        },
+        {
+          "idle": 9,
+          "paused": false,
+          "stopped": false,
+          "deadline": 77000
+        },
+        {
+          "idle": 10,
+          "paused": false,
+          "stopped": false,
+          "deadline": 79000
+        },
+        {
+          "idle": 11,
+          "paused": false,
+          "stopped": false,
+          "deadline": 81000
+        },
+        {
+          "idle": 12,
+          "paused": false,
+          "stopped": false,
+          "deadline": 83000
+        },
+        {
+          "idle": 13,
+          "paused": false,
+          "stopped": false,
+          "deadline": 85000
+        },
+        {
+          "idle": 14,
+          "paused": false,
+          "stopped": false,
+          "deadline": 87000
+        },
+        {
+          "idle": 15,
+          "paused": false,
+          "stopped": false,
+          "deadline": 89000
+        },
+        {
+          "idle": 16,
+          "paused": false,
+          "stopped": false,
+          "deadline": 91000
+        },
+        {
+          "idle": 17,
+          "paused": false,
+          "stopped": false,
+          "deadline": 93000
+        },
+        {
+          "idle": 18,
+          "paused": false,
+          "stopped": false,
+          "deadline": 95000
+        },
+        {
+          "idle": 19,
+          "paused": false,
+          "stopped": false,
+          "deadline": 97000
+        },
+        {
+          "idle": 20,
+          "paused": false,
+          "stopped": false,
+          "deadline": 99000
+        },
+        {
+          "idle": 21,
+          "paused": false,
+          "stopped": false,
+          "deadline": 101000
+        },
+        {
+          "idle": 22,
+          "paused": false,
+          "stopped": false,
+          "deadline": 103000
+        },
+        {
+          "idle": 23,
+          "paused": false,
+          "stopped": false,
+          "deadline": 105000
+        },
+        {
+          "idle": 24,
+          "paused": false,
+          "stopped": false,
+          "deadline": 107000
+        },
+        {
+          "idle": 25,
+          "paused": false,
+          "stopped": false,
+          "deadline": 109000
+        },
+        {
+          "idle": 26,
+          "paused": false,
+          "stopped": false,
+          "deadline": 111000
+        },
+        {
+          "idle": 27,
+          "paused": false,
+          "stopped": false,
+          "deadline": 113000
+        },
+        {
+          "idle": 28,
+          "paused": false,
+          "stopped": false,
+          "deadline": 115000
+        },
+        {
+          "idle": 29,
+          "paused": false,
+          "stopped": false,
+          "deadline": 117000
+        },
+        {
+          "idle": 30,
+          "paused": true,
+          "stopped": false,
+          "deadline": 119000
+        },
+        {
+          "idle": 0,
+          "paused": false,
+          "stopped": false,
+          "deadline": 130000
+        }
+      ]
+    },
+    {
+      "name": "a refused ack changes nothing - transport failure belongs to the queue backoff",
+      "steps": [
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 1,
+            "ttlMs": 60000
+          },
+          "at": 1000
+        },
+        {
+          "ack": {
+            "ok": false,
+            "viewers": 0,
+            "ttlMs": 0
+          },
+          "at": 3000
+        }
+      ],
+      "expect": [
+        {
+          "idle": 0,
+          "paused": false,
+          "stopped": false,
+          "deadline": 61000
+        },
+        {
+          "idle": 0,
+          "paused": false,
+          "stopped": false,
+          "deadline": 61000
+        }
+      ]
+    },
+    {
+      "name": "the deadline passing expires the session",
+      "steps": [
+        {
+          "ack": {
+            "ok": true,
+            "viewers": 1,
+            "ttlMs": 10000
+          },
+          "at": 1000
+        },
+        {
+          "expire": true,
+          "at": 11001
+        }
+      ],
+      "expect": [
+        {
+          "idle": 0,
+          "paused": false,
+          "stopped": false,
+          "deadline": 11000
+        },
+        {
+          "idle": 0,
+          "paused": false,
+          "stopped": true,
+          "reason": "expired",
+          "deadline": 11000
+        }
+      ]
+    }
+  ],
+  "queue": [
+    {
+      "name": "drop-oldest with a counted drop",
+      "cap": 3,
+      "steps": [
+        {
+          "push": "a"
+        },
+        {
+          "push": "b"
+        },
+        {
+          "push": "c"
+        },
+        {
+          "push": "d"
+        },
+        {
+          "batch": 10
+        }
+      ],
+      "expect": [
+        {
+          "size": 1,
+          "dropped": 0
+        },
+        {
+          "size": 2,
+          "dropped": 0
+        },
+        {
+          "size": 3,
+          "dropped": 0
+        },
+        {
+          "size": 3,
+          "dropped": 1
+        },
+        {
+          "batch": [
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a batch peeks - only the ack removes",
+      "cap": 8,
+      "steps": [
+        {
+          "push": "a"
+        },
+        {
+          "push": "b"
+        },
+        {
+          "push": "c"
+        },
+        {
+          "batch": 2
+        },
+        {
+          "batch": 2
+        },
+        {
+          "ack": 2
+        },
+        {
+          "batch": 2
+        }
+      ],
+      "expect": [
+        {
+          "size": 1,
+          "dropped": 0
+        },
+        {
+          "size": 2,
+          "dropped": 0
+        },
+        {
+          "size": 3,
+          "dropped": 0
+        },
+        {
+          "batch": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "batch": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "size": 1
+        },
+        {
+          "batch": [
+            "c"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "batchMaxRows caps a single flush",
+      "cap": 1000,
+      "steps": [
+        {
+          "push": "r0"
+        },
+        {
+          "push": "r1"
+        },
+        {
+          "push": "r2"
+        },
+        {
+          "push": "r3"
+        },
+        {
+          "push": "r4"
+        },
+        {
+          "push": "r5"
+        },
+        {
+          "push": "r6"
+        },
+        {
+          "push": "r7"
+        },
+        {
+          "push": "r8"
+        },
+        {
+          "push": "r9"
+        },
+        {
+          "push": "r10"
+        },
+        {
+          "push": "r11"
+        },
+        {
+          "push": "r12"
+        },
+        {
+          "push": "r13"
+        },
+        {
+          "push": "r14"
+        },
+        {
+          "push": "r15"
+        },
+        {
+          "push": "r16"
+        },
+        {
+          "push": "r17"
+        },
+        {
+          "push": "r18"
+        },
+        {
+          "push": "r19"
+        },
+        {
+          "push": "r20"
+        },
+        {
+          "push": "r21"
+        },
+        {
+          "push": "r22"
+        },
+        {
+          "push": "r23"
+        },
+        {
+          "push": "r24"
+        },
+        {
+          "push": "r25"
+        },
+        {
+          "push": "r26"
+        },
+        {
+          "push": "r27"
+        },
+        {
+          "push": "r28"
+        },
+        {
+          "push": "r29"
+        },
+        {
+          "push": "r30"
+        },
+        {
+          "push": "r31"
+        },
+        {
+          "push": "r32"
+        },
+        {
+          "push": "r33"
+        },
+        {
+          "push": "r34"
+        },
+        {
+          "push": "r35"
+        },
+        {
+          "push": "r36"
+        },
+        {
+          "push": "r37"
+        },
+        {
+          "push": "r38"
+        },
+        {
+          "push": "r39"
+        },
+        {
+          "push": "r40"
+        },
+        {
+          "push": "r41"
+        },
+        {
+          "push": "r42"
+        },
+        {
+          "push": "r43"
+        },
+        {
+          "push": "r44"
+        },
+        {
+          "push": "r45"
+        },
+        {
+          "push": "r46"
+        },
+        {
+          "push": "r47"
+        },
+        {
+          "push": "r48"
+        },
+        {
+          "push": "r49"
+        },
+        {
+          "push": "r50"
+        },
+        {
+          "push": "r51"
+        },
+        {
+          "push": "r52"
+        },
+        {
+          "push": "r53"
+        },
+        {
+          "push": "r54"
+        },
+        {
+          "push": "r55"
+        },
+        {
+          "push": "r56"
+        },
+        {
+          "push": "r57"
+        },
+        {
+          "push": "r58"
+        },
+        {
+          "push": "r59"
+        },
+        {
+          "push": "r60"
+        },
+        {
+          "push": "r61"
+        },
+        {
+          "push": "r62"
+        },
+        {
+          "push": "r63"
+        },
+        {
+          "push": "r64"
+        },
+        {
+          "push": "r65"
+        },
+        {
+          "push": "r66"
+        },
+        {
+          "push": "r67"
+        },
+        {
+          "push": "r68"
+        },
+        {
+          "push": "r69"
+        },
+        {
+          "push": "r70"
+        },
+        {
+          "push": "r71"
+        },
+        {
+          "push": "r72"
+        },
+        {
+          "push": "r73"
+        },
+        {
+          "push": "r74"
+        },
+        {
+          "push": "r75"
+        },
+        {
+          "push": "r76"
+        },
+        {
+          "push": "r77"
+        },
+        {
+          "push": "r78"
+        },
+        {
+          "push": "r79"
+        },
+        {
+          "push": "r80"
+        },
+        {
+          "push": "r81"
+        },
+        {
+          "push": "r82"
+        },
+        {
+          "push": "r83"
+        },
+        {
+          "push": "r84"
+        },
+        {
+          "push": "r85"
+        },
+        {
+          "push": "r86"
+        },
+        {
+          "push": "r87"
+        },
+        {
+          "push": "r88"
+        },
+        {
+          "push": "r89"
+        },
+        {
+          "push": "r90"
+        },
+        {
+          "push": "r91"
+        },
+        {
+          "push": "r92"
+        },
+        {
+          "push": "r93"
+        },
+        {
+          "push": "r94"
+        },
+        {
+          "push": "r95"
+        },
+        {
+          "push": "r96"
+        },
+        {
+          "push": "r97"
+        },
+        {
+          "push": "r98"
+        },
+        {
+          "push": "r99"
+        },
+        {
+          "push": "r100"
+        },
+        {
+          "push": "r101"
+        },
+        {
+          "push": "r102"
+        },
+        {
+          "push": "r103"
+        },
+        {
+          "push": "r104"
+        },
+        {
+          "push": "r105"
+        },
+        {
+          "push": "r106"
+        },
+        {
+          "push": "r107"
+        },
+        {
+          "push": "r108"
+        },
+        {
+          "push": "r109"
+        },
+        {
+          "push": "r110"
+        },
+        {
+          "push": "r111"
+        },
+        {
+          "push": "r112"
+        },
+        {
+          "push": "r113"
+        },
+        {
+          "push": "r114"
+        },
+        {
+          "push": "r115"
+        },
+        {
+          "push": "r116"
+        },
+        {
+          "push": "r117"
+        },
+        {
+          "push": "r118"
+        },
+        {
+          "push": "r119"
+        },
+        {
+          "push": "r120"
+        },
+        {
+          "push": "r121"
+        },
+        {
+          "push": "r122"
+        },
+        {
+          "push": "r123"
+        },
+        {
+          "push": "r124"
+        },
+        {
+          "push": "r125"
+        },
+        {
+          "push": "r126"
+        },
+        {
+          "push": "r127"
+        },
+        {
+          "push": "r128"
+        },
+        {
+          "push": "r129"
+        },
+        {
+          "push": "r130"
+        },
+        {
+          "push": "r131"
+        },
+        {
+          "push": "r132"
+        },
+        {
+          "push": "r133"
+        },
+        {
+          "push": "r134"
+        },
+        {
+          "push": "r135"
+        },
+        {
+          "push": "r136"
+        },
+        {
+          "push": "r137"
+        },
+        {
+          "push": "r138"
+        },
+        {
+          "push": "r139"
+        },
+        {
+          "push": "r140"
+        },
+        {
+          "push": "r141"
+        },
+        {
+          "push": "r142"
+        },
+        {
+          "push": "r143"
+        },
+        {
+          "push": "r144"
+        },
+        {
+          "push": "r145"
+        },
+        {
+          "push": "r146"
+        },
+        {
+          "push": "r147"
+        },
+        {
+          "push": "r148"
+        },
+        {
+          "push": "r149"
+        },
+        {
+          "push": "r150"
+        },
+        {
+          "push": "r151"
+        },
+        {
+          "push": "r152"
+        },
+        {
+          "push": "r153"
+        },
+        {
+          "push": "r154"
+        },
+        {
+          "push": "r155"
+        },
+        {
+          "push": "r156"
+        },
+        {
+          "push": "r157"
+        },
+        {
+          "push": "r158"
+        },
+        {
+          "push": "r159"
+        },
+        {
+          "push": "r160"
+        },
+        {
+          "push": "r161"
+        },
+        {
+          "push": "r162"
+        },
+        {
+          "push": "r163"
+        },
+        {
+          "push": "r164"
+        },
+        {
+          "push": "r165"
+        },
+        {
+          "push": "r166"
+        },
+        {
+          "push": "r167"
+        },
+        {
+          "push": "r168"
+        },
+        {
+          "push": "r169"
+        },
+        {
+          "push": "r170"
+        },
+        {
+          "push": "r171"
+        },
+        {
+          "push": "r172"
+        },
+        {
+          "push": "r173"
+        },
+        {
+          "push": "r174"
+        },
+        {
+          "push": "r175"
+        },
+        {
+          "push": "r176"
+        },
+        {
+          "push": "r177"
+        },
+        {
+          "push": "r178"
+        },
+        {
+          "push": "r179"
+        },
+        {
+          "push": "r180"
+        },
+        {
+          "push": "r181"
+        },
+        {
+          "push": "r182"
+        },
+        {
+          "push": "r183"
+        },
+        {
+          "push": "r184"
+        },
+        {
+          "push": "r185"
+        },
+        {
+          "push": "r186"
+        },
+        {
+          "push": "r187"
+        },
+        {
+          "push": "r188"
+        },
+        {
+          "push": "r189"
+        },
+        {
+          "push": "r190"
+        },
+        {
+          "push": "r191"
+        },
+        {
+          "push": "r192"
+        },
+        {
+          "push": "r193"
+        },
+        {
+          "push": "r194"
+        },
+        {
+          "push": "r195"
+        },
+        {
+          "push": "r196"
+        },
+        {
+          "push": "r197"
+        },
+        {
+          "push": "r198"
+        },
+        {
+          "push": "r199"
+        },
+        {
+          "push": "r200"
+        },
+        {
+          "push": "r201"
+        },
+        {
+          "push": "r202"
+        },
+        {
+          "push": "r203"
+        },
+        {
+          "push": "r204"
+        },
+        {
+          "push": "r205"
+        },
+        {
+          "push": "r206"
+        },
+        {
+          "push": "r207"
+        },
+        {
+          "push": "r208"
+        },
+        {
+          "push": "r209"
+        },
+        {
+          "push": "r210"
+        },
+        {
+          "push": "r211"
+        },
+        {
+          "push": "r212"
+        },
+        {
+          "push": "r213"
+        },
+        {
+          "push": "r214"
+        },
+        {
+          "push": "r215"
+        },
+        {
+          "push": "r216"
+        },
+        {
+          "push": "r217"
+        },
+        {
+          "push": "r218"
+        },
+        {
+          "push": "r219"
+        },
+        {
+          "push": "r220"
+        },
+        {
+          "push": "r221"
+        },
+        {
+          "push": "r222"
+        },
+        {
+          "push": "r223"
+        },
+        {
+          "push": "r224"
+        },
+        {
+          "push": "r225"
+        },
+        {
+          "push": "r226"
+        },
+        {
+          "push": "r227"
+        },
+        {
+          "push": "r228"
+        },
+        {
+          "push": "r229"
+        },
+        {
+          "push": "r230"
+        },
+        {
+          "push": "r231"
+        },
+        {
+          "push": "r232"
+        },
+        {
+          "push": "r233"
+        },
+        {
+          "push": "r234"
+        },
+        {
+          "push": "r235"
+        },
+        {
+          "push": "r236"
+        },
+        {
+          "push": "r237"
+        },
+        {
+          "push": "r238"
+        },
+        {
+          "push": "r239"
+        },
+        {
+          "push": "r240"
+        },
+        {
+          "push": "r241"
+        },
+        {
+          "push": "r242"
+        },
+        {
+          "push": "r243"
+        },
+        {
+          "push": "r244"
+        },
+        {
+          "push": "r245"
+        },
+        {
+          "push": "r246"
+        },
+        {
+          "push": "r247"
+        },
+        {
+          "push": "r248"
+        },
+        {
+          "push": "r249"
+        },
+        {
+          "batch": 200
+        }
+      ],
+      "expect": [
+        {
+          "size": 1,
+          "dropped": 0
+        },
+        {
+          "size": 2,
+          "dropped": 0
+        },
+        {
+          "size": 3,
+          "dropped": 0
+        },
+        {
+          "size": 4,
+          "dropped": 0
+        },
+        {
+          "size": 5,
+          "dropped": 0
+        },
+        {
+          "size": 6,
+          "dropped": 0
+        },
+        {
+          "size": 7,
+          "dropped": 0
+        },
+        {
+          "size": 8,
+          "dropped": 0
+        },
+        {
+          "size": 9,
+          "dropped": 0
+        },
+        {
+          "size": 10,
+          "dropped": 0
+        },
+        {
+          "size": 11,
+          "dropped": 0
+        },
+        {
+          "size": 12,
+          "dropped": 0
+        },
+        {
+          "size": 13,
+          "dropped": 0
+        },
+        {
+          "size": 14,
+          "dropped": 0
+        },
+        {
+          "size": 15,
+          "dropped": 0
+        },
+        {
+          "size": 16,
+          "dropped": 0
+        },
+        {
+          "size": 17,
+          "dropped": 0
+        },
+        {
+          "size": 18,
+          "dropped": 0
+        },
+        {
+          "size": 19,
+          "dropped": 0
+        },
+        {
+          "size": 20,
+          "dropped": 0
+        },
+        {
+          "size": 21,
+          "dropped": 0
+        },
+        {
+          "size": 22,
+          "dropped": 0
+        },
+        {
+          "size": 23,
+          "dropped": 0
+        },
+        {
+          "size": 24,
+          "dropped": 0
+        },
+        {
+          "size": 25,
+          "dropped": 0
+        },
+        {
+          "size": 26,
+          "dropped": 0
+        },
+        {
+          "size": 27,
+          "dropped": 0
+        },
+        {
+          "size": 28,
+          "dropped": 0
+        },
+        {
+          "size": 29,
+          "dropped": 0
+        },
+        {
+          "size": 30,
+          "dropped": 0
+        },
+        {
+          "size": 31,
+          "dropped": 0
+        },
+        {
+          "size": 32,
+          "dropped": 0
+        },
+        {
+          "size": 33,
+          "dropped": 0
+        },
+        {
+          "size": 34,
+          "dropped": 0
+        },
+        {
+          "size": 35,
+          "dropped": 0
+        },
+        {
+          "size": 36,
+          "dropped": 0
+        },
+        {
+          "size": 37,
+          "dropped": 0
+        },
+        {
+          "size": 38,
+          "dropped": 0
+        },
+        {
+          "size": 39,
+          "dropped": 0
+        },
+        {
+          "size": 40,
+          "dropped": 0
+        },
+        {
+          "size": 41,
+          "dropped": 0
+        },
+        {
+          "size": 42,
+          "dropped": 0
+        },
+        {
+          "size": 43,
+          "dropped": 0
+        },
+        {
+          "size": 44,
+          "dropped": 0
+        },
+        {
+          "size": 45,
+          "dropped": 0
+        },
+        {
+          "size": 46,
+          "dropped": 0
+        },
+        {
+          "size": 47,
+          "dropped": 0
+        },
+        {
+          "size": 48,
+          "dropped": 0
+        },
+        {
+          "size": 49,
+          "dropped": 0
+        },
+        {
+          "size": 50,
+          "dropped": 0
+        },
+        {
+          "size": 51,
+          "dropped": 0
+        },
+        {
+          "size": 52,
+          "dropped": 0
+        },
+        {
+          "size": 53,
+          "dropped": 0
+        },
+        {
+          "size": 54,
+          "dropped": 0
+        },
+        {
+          "size": 55,
+          "dropped": 0
+        },
+        {
+          "size": 56,
+          "dropped": 0
+        },
+        {
+          "size": 57,
+          "dropped": 0
+        },
+        {
+          "size": 58,
+          "dropped": 0
+        },
+        {
+          "size": 59,
+          "dropped": 0
+        },
+        {
+          "size": 60,
+          "dropped": 0
+        },
+        {
+          "size": 61,
+          "dropped": 0
+        },
+        {
+          "size": 62,
+          "dropped": 0
+        },
+        {
+          "size": 63,
+          "dropped": 0
+        },
+        {
+          "size": 64,
+          "dropped": 0
+        },
+        {
+          "size": 65,
+          "dropped": 0
+        },
+        {
+          "size": 66,
+          "dropped": 0
+        },
+        {
+          "size": 67,
+          "dropped": 0
+        },
+        {
+          "size": 68,
+          "dropped": 0
+        },
+        {
+          "size": 69,
+          "dropped": 0
+        },
+        {
+          "size": 70,
+          "dropped": 0
+        },
+        {
+          "size": 71,
+          "dropped": 0
+        },
+        {
+          "size": 72,
+          "dropped": 0
+        },
+        {
+          "size": 73,
+          "dropped": 0
+        },
+        {
+          "size": 74,
+          "dropped": 0
+        },
+        {
+          "size": 75,
+          "dropped": 0
+        },
+        {
+          "size": 76,
+          "dropped": 0
+        },
+        {
+          "size": 77,
+          "dropped": 0
+        },
+        {
+          "size": 78,
+          "dropped": 0
+        },
+        {
+          "size": 79,
+          "dropped": 0
+        },
+        {
+          "size": 80,
+          "dropped": 0
+        },
+        {
+          "size": 81,
+          "dropped": 0
+        },
+        {
+          "size": 82,
+          "dropped": 0
+        },
+        {
+          "size": 83,
+          "dropped": 0
+        },
+        {
+          "size": 84,
+          "dropped": 0
+        },
+        {
+          "size": 85,
+          "dropped": 0
+        },
+        {
+          "size": 86,
+          "dropped": 0
+        },
+        {
+          "size": 87,
+          "dropped": 0
+        },
+        {
+          "size": 88,
+          "dropped": 0
+        },
+        {
+          "size": 89,
+          "dropped": 0
+        },
+        {
+          "size": 90,
+          "dropped": 0
+        },
+        {
+          "size": 91,
+          "dropped": 0
+        },
+        {
+          "size": 92,
+          "dropped": 0
+        },
+        {
+          "size": 93,
+          "dropped": 0
+        },
+        {
+          "size": 94,
+          "dropped": 0
+        },
+        {
+          "size": 95,
+          "dropped": 0
+        },
+        {
+          "size": 96,
+          "dropped": 0
+        },
+        {
+          "size": 97,
+          "dropped": 0
+        },
+        {
+          "size": 98,
+          "dropped": 0
+        },
+        {
+          "size": 99,
+          "dropped": 0
+        },
+        {
+          "size": 100,
+          "dropped": 0
+        },
+        {
+          "size": 101,
+          "dropped": 0
+        },
+        {
+          "size": 102,
+          "dropped": 0
+        },
+        {
+          "size": 103,
+          "dropped": 0
+        },
+        {
+          "size": 104,
+          "dropped": 0
+        },
+        {
+          "size": 105,
+          "dropped": 0
+        },
+        {
+          "size": 106,
+          "dropped": 0
+        },
+        {
+          "size": 107,
+          "dropped": 0
+        },
+        {
+          "size": 108,
+          "dropped": 0
+        },
+        {
+          "size": 109,
+          "dropped": 0
+        },
+        {
+          "size": 110,
+          "dropped": 0
+        },
+        {
+          "size": 111,
+          "dropped": 0
+        },
+        {
+          "size": 112,
+          "dropped": 0
+        },
+        {
+          "size": 113,
+          "dropped": 0
+        },
+        {
+          "size": 114,
+          "dropped": 0
+        },
+        {
+          "size": 115,
+          "dropped": 0
+        },
+        {
+          "size": 116,
+          "dropped": 0
+        },
+        {
+          "size": 117,
+          "dropped": 0
+        },
+        {
+          "size": 118,
+          "dropped": 0
+        },
+        {
+          "size": 119,
+          "dropped": 0
+        },
+        {
+          "size": 120,
+          "dropped": 0
+        },
+        {
+          "size": 121,
+          "dropped": 0
+        },
+        {
+          "size": 122,
+          "dropped": 0
+        },
+        {
+          "size": 123,
+          "dropped": 0
+        },
+        {
+          "size": 124,
+          "dropped": 0
+        },
+        {
+          "size": 125,
+          "dropped": 0
+        },
+        {
+          "size": 126,
+          "dropped": 0
+        },
+        {
+          "size": 127,
+          "dropped": 0
+        },
+        {
+          "size": 128,
+          "dropped": 0
+        },
+        {
+          "size": 129,
+          "dropped": 0
+        },
+        {
+          "size": 130,
+          "dropped": 0
+        },
+        {
+          "size": 131,
+          "dropped": 0
+        },
+        {
+          "size": 132,
+          "dropped": 0
+        },
+        {
+          "size": 133,
+          "dropped": 0
+        },
+        {
+          "size": 134,
+          "dropped": 0
+        },
+        {
+          "size": 135,
+          "dropped": 0
+        },
+        {
+          "size": 136,
+          "dropped": 0
+        },
+        {
+          "size": 137,
+          "dropped": 0
+        },
+        {
+          "size": 138,
+          "dropped": 0
+        },
+        {
+          "size": 139,
+          "dropped": 0
+        },
+        {
+          "size": 140,
+          "dropped": 0
+        },
+        {
+          "size": 141,
+          "dropped": 0
+        },
+        {
+          "size": 142,
+          "dropped": 0
+        },
+        {
+          "size": 143,
+          "dropped": 0
+        },
+        {
+          "size": 144,
+          "dropped": 0
+        },
+        {
+          "size": 145,
+          "dropped": 0
+        },
+        {
+          "size": 146,
+          "dropped": 0
+        },
+        {
+          "size": 147,
+          "dropped": 0
+        },
+        {
+          "size": 148,
+          "dropped": 0
+        },
+        {
+          "size": 149,
+          "dropped": 0
+        },
+        {
+          "size": 150,
+          "dropped": 0
+        },
+        {
+          "size": 151,
+          "dropped": 0
+        },
+        {
+          "size": 152,
+          "dropped": 0
+        },
+        {
+          "size": 153,
+          "dropped": 0
+        },
+        {
+          "size": 154,
+          "dropped": 0
+        },
+        {
+          "size": 155,
+          "dropped": 0
+        },
+        {
+          "size": 156,
+          "dropped": 0
+        },
+        {
+          "size": 157,
+          "dropped": 0
+        },
+        {
+          "size": 158,
+          "dropped": 0
+        },
+        {
+          "size": 159,
+          "dropped": 0
+        },
+        {
+          "size": 160,
+          "dropped": 0
+        },
+        {
+          "size": 161,
+          "dropped": 0
+        },
+        {
+          "size": 162,
+          "dropped": 0
+        },
+        {
+          "size": 163,
+          "dropped": 0
+        },
+        {
+          "size": 164,
+          "dropped": 0
+        },
+        {
+          "size": 165,
+          "dropped": 0
+        },
+        {
+          "size": 166,
+          "dropped": 0
+        },
+        {
+          "size": 167,
+          "dropped": 0
+        },
+        {
+          "size": 168,
+          "dropped": 0
+        },
+        {
+          "size": 169,
+          "dropped": 0
+        },
+        {
+          "size": 170,
+          "dropped": 0
+        },
+        {
+          "size": 171,
+          "dropped": 0
+        },
+        {
+          "size": 172,
+          "dropped": 0
+        },
+        {
+          "size": 173,
+          "dropped": 0
+        },
+        {
+          "size": 174,
+          "dropped": 0
+        },
+        {
+          "size": 175,
+          "dropped": 0
+        },
+        {
+          "size": 176,
+          "dropped": 0
+        },
+        {
+          "size": 177,
+          "dropped": 0
+        },
+        {
+          "size": 178,
+          "dropped": 0
+        },
+        {
+          "size": 179,
+          "dropped": 0
+        },
+        {
+          "size": 180,
+          "dropped": 0
+        },
+        {
+          "size": 181,
+          "dropped": 0
+        },
+        {
+          "size": 182,
+          "dropped": 0
+        },
+        {
+          "size": 183,
+          "dropped": 0
+        },
+        {
+          "size": 184,
+          "dropped": 0
+        },
+        {
+          "size": 185,
+          "dropped": 0
+        },
+        {
+          "size": 186,
+          "dropped": 0
+        },
+        {
+          "size": 187,
+          "dropped": 0
+        },
+        {
+          "size": 188,
+          "dropped": 0
+        },
+        {
+          "size": 189,
+          "dropped": 0
+        },
+        {
+          "size": 190,
+          "dropped": 0
+        },
+        {
+          "size": 191,
+          "dropped": 0
+        },
+        {
+          "size": 192,
+          "dropped": 0
+        },
+        {
+          "size": 193,
+          "dropped": 0
+        },
+        {
+          "size": 194,
+          "dropped": 0
+        },
+        {
+          "size": 195,
+          "dropped": 0
+        },
+        {
+          "size": 196,
+          "dropped": 0
+        },
+        {
+          "size": 197,
+          "dropped": 0
+        },
+        {
+          "size": 198,
+          "dropped": 0
+        },
+        {
+          "size": 199,
+          "dropped": 0
+        },
+        {
+          "size": 200,
+          "dropped": 0
+        },
+        {
+          "size": 201,
+          "dropped": 0
+        },
+        {
+          "size": 202,
+          "dropped": 0
+        },
+        {
+          "size": 203,
+          "dropped": 0
+        },
+        {
+          "size": 204,
+          "dropped": 0
+        },
+        {
+          "size": 205,
+          "dropped": 0
+        },
+        {
+          "size": 206,
+          "dropped": 0
+        },
+        {
+          "size": 207,
+          "dropped": 0
+        },
+        {
+          "size": 208,
+          "dropped": 0
+        },
+        {
+          "size": 209,
+          "dropped": 0
+        },
+        {
+          "size": 210,
+          "dropped": 0
+        },
+        {
+          "size": 211,
+          "dropped": 0
+        },
+        {
+          "size": 212,
+          "dropped": 0
+        },
+        {
+          "size": 213,
+          "dropped": 0
+        },
+        {
+          "size": 214,
+          "dropped": 0
+        },
+        {
+          "size": 215,
+          "dropped": 0
+        },
+        {
+          "size": 216,
+          "dropped": 0
+        },
+        {
+          "size": 217,
+          "dropped": 0
+        },
+        {
+          "size": 218,
+          "dropped": 0
+        },
+        {
+          "size": 219,
+          "dropped": 0
+        },
+        {
+          "size": 220,
+          "dropped": 0
+        },
+        {
+          "size": 221,
+          "dropped": 0
+        },
+        {
+          "size": 222,
+          "dropped": 0
+        },
+        {
+          "size": 223,
+          "dropped": 0
+        },
+        {
+          "size": 224,
+          "dropped": 0
+        },
+        {
+          "size": 225,
+          "dropped": 0
+        },
+        {
+          "size": 226,
+          "dropped": 0
+        },
+        {
+          "size": 227,
+          "dropped": 0
+        },
+        {
+          "size": 228,
+          "dropped": 0
+        },
+        {
+          "size": 229,
+          "dropped": 0
+        },
+        {
+          "size": 230,
+          "dropped": 0
+        },
+        {
+          "size": 231,
+          "dropped": 0
+        },
+        {
+          "size": 232,
+          "dropped": 0
+        },
+        {
+          "size": 233,
+          "dropped": 0
+        },
+        {
+          "size": 234,
+          "dropped": 0
+        },
+        {
+          "size": 235,
+          "dropped": 0
+        },
+        {
+          "size": 236,
+          "dropped": 0
+        },
+        {
+          "size": 237,
+          "dropped": 0
+        },
+        {
+          "size": 238,
+          "dropped": 0
+        },
+        {
+          "size": 239,
+          "dropped": 0
+        },
+        {
+          "size": 240,
+          "dropped": 0
+        },
+        {
+          "size": 241,
+          "dropped": 0
+        },
+        {
+          "size": 242,
+          "dropped": 0
+        },
+        {
+          "size": 243,
+          "dropped": 0
+        },
+        {
+          "size": 244,
+          "dropped": 0
+        },
+        {
+          "size": 245,
+          "dropped": 0
+        },
+        {
+          "size": 246,
+          "dropped": 0
+        },
+        {
+          "size": 247,
+          "dropped": 0
+        },
+        {
+          "size": 248,
+          "dropped": 0
+        },
+        {
+          "size": 249,
+          "dropped": 0
+        },
+        {
+          "size": 250,
+          "dropped": 0
+        },
+        {
+          "batch": [
+            "r0",
+            "r1",
+            "r2",
+            "r3",
+            "r4",
+            "r5",
+            "r6",
+            "r7",
+            "r8",
+            "r9",
+            "r10",
+            "r11",
+            "r12",
+            "r13",
+            "r14",
+            "r15",
+            "r16",
+            "r17",
+            "r18",
+            "r19",
+            "r20",
+            "r21",
+            "r22",
+            "r23",
+            "r24",
+            "r25",
+            "r26",
+            "r27",
+            "r28",
+            "r29",
+            "r30",
+            "r31",
+            "r32",
+            "r33",
+            "r34",
+            "r35",
+            "r36",
+            "r37",
+            "r38",
+            "r39",
+            "r40",
+            "r41",
+            "r42",
+            "r43",
+            "r44",
+            "r45",
+            "r46",
+            "r47",
+            "r48",
+            "r49",
+            "r50",
+            "r51",
+            "r52",
+            "r53",
+            "r54",
+            "r55",
+            "r56",
+            "r57",
+            "r58",
+            "r59",
+            "r60",
+            "r61",
+            "r62",
+            "r63",
+            "r64",
+            "r65",
+            "r66",
+            "r67",
+            "r68",
+            "r69",
+            "r70",
+            "r71",
+            "r72",
+            "r73",
+            "r74",
+            "r75",
+            "r76",
+            "r77",
+            "r78",
+            "r79",
+            "r80",
+            "r81",
+            "r82",
+            "r83",
+            "r84",
+            "r85",
+            "r86",
+            "r87",
+            "r88",
+            "r89",
+            "r90",
+            "r91",
+            "r92",
+            "r93",
+            "r94",
+            "r95",
+            "r96",
+            "r97",
+            "r98",
+            "r99",
+            "r100",
+            "r101",
+            "r102",
+            "r103",
+            "r104",
+            "r105",
+            "r106",
+            "r107",
+            "r108",
+            "r109",
+            "r110",
+            "r111",
+            "r112",
+            "r113",
+            "r114",
+            "r115",
+            "r116",
+            "r117",
+            "r118",
+            "r119",
+            "r120",
+            "r121",
+            "r122",
+            "r123",
+            "r124",
+            "r125",
+            "r126",
+            "r127",
+            "r128",
+            "r129",
+            "r130",
+            "r131",
+            "r132",
+            "r133",
+            "r134",
+            "r135",
+            "r136",
+            "r137",
+            "r138",
+            "r139",
+            "r140",
+            "r141",
+            "r142",
+            "r143",
+            "r144",
+            "r145",
+            "r146",
+            "r147",
+            "r148",
+            "r149",
+            "r150",
+            "r151",
+            "r152",
+            "r153",
+            "r154",
+            "r155",
+            "r156",
+            "r157",
+            "r158",
+            "r159",
+            "r160",
+            "r161",
+            "r162",
+            "r163",
+            "r164",
+            "r165",
+            "r166",
+            "r167",
+            "r168",
+            "r169",
+            "r170",
+            "r171",
+            "r172",
+            "r173",
+            "r174",
+            "r175",
+            "r176",
+            "r177",
+            "r178",
+            "r179",
+            "r180",
+            "r181",
+            "r182",
+            "r183",
+            "r184",
+            "r185",
+            "r186",
+            "r187",
+            "r188",
+            "r189",
+            "r190",
+            "r191",
+            "r192",
+            "r193",
+            "r194",
+            "r195",
+            "r196",
+            "r197",
+            "r198",
+            "r199"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a peeked batch is pinned - the cap drops behind it, never inside it",
+      "_note": "The exact-retry law: a batch in flight is identity - the relay's replay refusal and the driver's ack both assume attempt 2 carries the SAME rows as attempt 1. So while a batch is peeked, drop-oldest skips the pinned head: the cap evicts the oldest UNPINNED row, and when every present row is in flight the NEWCOMER is the drop. Without this, pushing at cap during an outage shifted rows out of the in-flight batch, the retry carried different rows under the same n, and the ack then removed rows that were never sent.",
+      "cap": 3,
+      "steps": [
+        {
+          "push": "a"
+        },
+        {
+          "push": "b"
+        },
+        {
+          "push": "c"
+        },
+        {
+          "batch": 2
+        },
+        {
+          "push": "d"
+        },
+        {
+          "push": "e"
+        },
+        {
+          "batch": 2
+        },
+        {
+          "ack": 2
+        },
+        {
+          "batch": 10
+        }
+      ],
+      "expect": [
+        {
+          "size": 1,
+          "dropped": 0
+        },
+        {
+          "size": 2,
+          "dropped": 0
+        },
+        {
+          "size": 3,
+          "dropped": 0
+        },
+        {
+          "batch": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "size": 3,
+          "dropped": 1
+        },
+        {
+          "size": 3,
+          "dropped": 2
+        },
+        {
+          "batch": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "size": 1
+        },
+        {
+          "batch": [
+            "e"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a fully-pinned queue drops the newcomer, counted",
+      "cap": 2,
+      "steps": [
+        {
+          "push": "a"
+        },
+        {
+          "push": "b"
+        },
+        {
+          "batch": 2
+        },
+        {
+          "push": "c"
+        },
+        {
+          "batch": 2
+        },
+        {
+          "ack": 2
+        },
+        {
+          "batch": 10
+        }
+      ],
+      "expect": [
+        {
+          "size": 1,
+          "dropped": 0
+        },
+        {
+          "size": 2,
+          "dropped": 0
+        },
+        {
+          "batch": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "size": 2,
+          "dropped": 1
+        },
+        {
+          "batch": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "size": 0
+        },
+        {
+          "batch": []
+        }
+      ]
+    }
+  ],
+  "ring": [
+    {
+      "name": "seq is assigned monotonically from 1 and reads resume after a cursor",
+      "cap": 100,
+      "steps": [
+        {
+          "appendBatch": {
+            "n": 1,
+            "rows": [
+              "a",
+              "b"
+            ]
+          }
+        },
+        {
+          "appendBatch": {
+            "n": 2,
+            "rows": [
+              "c"
+            ]
+          }
+        },
+        {
+          "read": {
+            "after": 0,
+            "limit": 10
+          }
+        },
+        {
+          "read": {
+            "after": 2,
+            "limit": 10
+          }
+        }
+      ],
+      "expect": [
+        {
+          "accepted": true,
+          "last": 2
+        },
+        {
+          "accepted": true,
+          "last": 3
+        },
+        {
+          "seqs": [
+            1,
+            2,
+            3
+          ],
+          "gap": false
+        },
+        {
+          "seqs": [
+            3
+          ],
+          "gap": false
+        }
+      ]
+    },
+    {
+      "name": "a replayed batch index is refused once - retries cannot duplicate rows",
+      "cap": 100,
+      "steps": [
+        {
+          "appendBatch": {
+            "n": 1,
+            "rows": [
+              "a"
+            ]
+          }
+        },
+        {
+          "appendBatch": {
+            "n": 1,
+            "rows": [
+              "a"
+            ]
+          }
+        },
+        {
+          "appendBatch": {
+            "n": 2,
+            "rows": [
+              "b"
+            ]
+          }
+        },
+        {
+          "read": {
+            "after": 0,
+            "limit": 10
+          }
+        }
+      ],
+      "expect": [
+        {
+          "accepted": true,
+          "last": 1
+        },
+        {
+          "accepted": false,
+          "last": 1
+        },
+        {
+          "accepted": true,
+          "last": 2
+        },
+        {
+          "seqs": [
+            1,
+            2
+          ],
+          "gap": false
+        }
+      ]
+    },
+    {
+      "name": "the bound evicts oldest and a lagging reader is told about the gap",
+      "cap": 3,
+      "steps": [
+        {
+          "appendBatch": {
+            "n": 1,
+            "rows": [
+              "a",
+              "b",
+              "c",
+              "d",
+              "e"
+            ]
+          }
+        },
+        {
+          "read": {
+            "after": 0,
+            "limit": 10
+          }
+        },
+        {
+          "read": {
+            "after": 2,
+            "limit": 10
+          }
+        },
+        {
+          "read": {
+            "after": 4,
+            "limit": 10
+          }
+        }
+      ],
+      "expect": [
+        {
+          "accepted": true,
+          "last": 5
+        },
+        {
+          "seqs": [
+            3,
+            4,
+            5
+          ],
+          "gap": true
+        },
+        {
+          "seqs": [
+            3,
+            4,
+            5
+          ],
+          "gap": false
+        },
+        {
+          "seqs": [
+            5
+          ],
+          "gap": false
+        }
+      ]
+    },
+    {
+      "name": "limit caps a read and the next cursor continues it",
+      "cap": 100,
+      "steps": [
+        {
+          "appendBatch": {
+            "n": 1,
+            "rows": [
+              "a",
+              "b",
+              "c",
+              "d"
+            ]
+          }
+        },
+        {
+          "read": {
+            "after": 0,
+            "limit": 2
+          }
+        },
+        {
+          "read": {
+            "after": 2,
+            "limit": 2
+          }
+        }
+      ],
+      "expect": [
+        {
+          "accepted": true,
+          "last": 4
+        },
+        {
+          "seqs": [
+            1,
+            2
+          ],
+          "gap": false
+        },
+        {
+          "seqs": [
+            3,
+            4
+          ],
+          "gap": false
+        }
+      ]
+    }
+  ]
+}

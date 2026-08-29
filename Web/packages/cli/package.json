@@ -14,6 +14,7 @@
     }
   },
   "bin": {
+    "despia": "./dist/bin/dsx.js",
     "dsx": "./dist/bin/dsx.js"
   },
   "files": [
@@ -30,7 +31,7 @@
     "url": "git+https://github.com/despia-native/despia.git",
     "directory": "Web/packages/cli"
   },
-  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/cli",
+  "homepage": "https://github.com/despia-native/despia/tree/main/Web/packages/cli",
   "bugs": {
     "url": "https://github.com/despia-native/despia/issues"
   },
@@ -48,7 +49,7 @@
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
     "build": "npm run clean && tsc -p tsconfig.build.json && npm run copy:document",
-    "copy:document": "node -e \"const f=require('node:fs');f.mkdirSync('dist/src',{recursive:true});f.copyFileSync('src/dsx.cli.dsx','dist/src/dsx.cli.dsx')\"",
+    "copy:document": "node -e \"const f=require('node:fs');f.mkdirSync('dist/src',{recursive:true});f.copyFileSync('src/dsx.cli.dsx','dist/src/dsx.cli.dsx');f.copyFileSync('src/first-party-index.json','dist/src/first-party-index.json')\"",
     "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\"",
     "test": "node --test test/*.test.ts"
   }

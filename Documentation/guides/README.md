@@ -25,6 +25,16 @@ never hit an eject moment.
 8. **[Staging, testing & the dev center](staging-and-testing.md)** — switch prod ⇄ staging inside the same TestFlight build (shake → dev center), environment channels, sandbox best practices, the release checklist.
 9. **[Transport & OTA integrity](transport-and-ota-integrity.md)** — HTTPS-by-default transport, scoped per-app exceptions, and `bundle_signing` (signed OTA updates — when you need it, when you don't).
 10. **[Adaptive large-screen shells](adaptive-native-shells.md)** — one `<scaffold>` contract for iPad/iOS, Android, Web, macOS, Windows, and Linux, with native/semantic panes and explicit compact behavior.
+11. **[Styling with CSS](styling.md)** — the CSS surface: `theme.css`, component sidecar sheets, inline styles, units, and what the bridge maps today.
+12. **[Theming](theming.md)** — re-pinning the kernel's own 237 design tokens so every built-in control restyles at once, the five-tier cascade, and when to reach past a token.
+13. **[Routing](routing.md)** — the route table, params and catch-all, guards and redirects, `href` for crawlable links, and the line between what ships over the air and what needs a build.
+14. **[The `despia` command line](cli.md)** — the twenty-one commands as workflows: the dev loop, the gates CI runs, shipping, native export, store assets, packages and the MCP face.
+
+**Writing the app itself** lives one shelf over, in [`Skills/`](../../Skills/README.md): `writing-an-app.md` (the mental model, state in
+order of preference, the list-row laws), `designing-an-app.md` (the design bar and the four
+states every screen owes) and `thinking-in-dsx.md` (the React translation table). Those pages
+are also what an agent reads: `npx skills add despia-native/skills` installs them for any
+agent host, which is why they stay the single source rather than being copied here.
 
 ## At a glance
 

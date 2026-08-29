@@ -1,0 +1,663 @@
+{
+  "version": 1,
+  "_note": "V01 — the inline native surfaces exemplar (architecture/proposals/inline-native-surfaces.md), pinned against the hardest vendor first: if the pattern survives payments it survives anything. Four sections, one law each. sessionRef[] is the SECURITY BOUNDARY: a component attribute declared role:\"secret\" carries a REFERENCE to a module-held session and never the session itself, because markup travels over OTA into the content plane and an attribute is a value in a file on a CDN. The rule is an ALLOWLIST OF REFERENCE SHAPES, never a denylist of key prefixes - a denylist is bypassed by whatever key format the vendor ships next quarter, an allowlist fails closed. The pk_live_/sk_/rk_/whsec_/ek_/pi_..._secret_ rows are refused because they are LITERALS, and the family only sharpens the message. machine[] is the ONE SESSION, TWO VIEWS law: the overlay face (the vendor's presented sheet) and the component face (the vendor's view inline) are two views onto one state machine; two machines that disagree is a double charge, so a second attempt while one is in flight is refused `busy`, an outcome notifies BOTH faces including one that already detached mid-confirm, and detaching never cancels. A dismissed sheet cancels the ATTEMPT and leaves the intent reusable; cancelling with nothing in flight abandons the SESSION and that is terminal. cardField[] folds the vendor's per-part verdicts into ONE form field so a vendor input joins <form> validity through the same aggregation every other field uses - and carries `complete`/`` as its value, never card data (the PCI boundary). retain[] is the keyed-identity law (SceneBind: keys keeping their instantiated subtree) applied to an expensive stateful vendor view: same key = same live view across any unrelated re-render or reorder.",
+
+  "sessionRef": {
+    "_note": "resolveSessionRef(raw). An OMITTED attribute is the canonical spelling: the component binds its owning module's CURRENT session, so the markup names no session at all. A PRESENT value must be exactly one reference - bare, or a single whole-value {{ }} interpolation.",
+    "kinds": ["implicit", "module-context", "store-var", "global", "config", "attribute", "scope"],
+    "refusals": ["missing_reference", "literal_secret", "literal_value", "compound_template", "unknown_reference"],
+    "families": ["secret_key", "restricted_key", "client_secret", "webhook_secret", "ephemeral_key", "publishable_key"],
+    "cases": [
+      { "name": "omitted binds the module's current session",
+        "value": null, "expect": { "kind": "implicit", "path": "" } },
+
+      { "name": "the canonical module-context reference",
+        "value": "dsx.module.stripe.context.session",
+        "expect": { "kind": "module-context", "path": "dsx.module.stripe.context.session" } },
+
+      { "name": "the .state. plane is the same plane, normalized to context",
+        "value": "dsx.module.stripe.state.session",
+        "expect": { "kind": "module-context", "path": "dsx.module.stripe.context.session" } },
+
+      { "name": "a nested module chain resolves whole",
+        "value": "dsx.module.payments.stripe.context.session",
+        "expect": { "kind": "module-context", "path": "dsx.module.payments.stripe.context.session" } },
+
+      { "name": "a single whole-value interpolation is the same reference",
+        "value": "{{ dsx.module.stripe.context.session }}",
+        "expect": { "kind": "module-context", "path": "dsx.module.stripe.context.session" } },
+
+      { "name": "surrounding whitespace is trimmed",
+        "value": "   dsx.module.stripe.context.session   ",
+        "expect": { "kind": "module-context", "path": "dsx.module.stripe.context.session" } },
+
+      { "name": "a store variable holding the handle",
+        "value": "dsx.variable.checkout",
+        "expect": { "kind": "store-var", "path": "dsx.variable.checkout" } },
+
+      { "name": "a dotted store path",
+        "value": "{{ dsx.variable.checkout.session }}",
+        "expect": { "kind": "store-var", "path": "dsx.variable.checkout.session" } },
+
+      { "name": "global app state",
+        "value": "dsx.global.session.stripe",
+        "expect": { "kind": "global", "path": "dsx.global.session.stripe" } },
+
+      { "name": "a build-time config token is a reference, not a literal in markup",
+        "value": "dsx.config.stripe_session",
+        "expect": { "kind": "config", "path": "dsx.config.stripe_session" } },
+
+      { "name": "a component forwards its own declared attribute",
+        "value": "{{ dsx.attribute.session }}",
+        "expect": { "kind": "attribute", "path": "dsx.attribute.session" } },
+
+      { "name": "a row scope reference",
+        "value": "item.session",
+        "expect": { "kind": "scope", "path": "item.session" } },
+
+      { "name": "dsx.this inside a component event scope",
+        "value": "dsx.this.session",
+        "expect": { "kind": "scope", "path": "dsx.this.session" } },
+
+      { "name": "a live publishable key is refused and named",
+        "value": "pk_live_fixture_4bb51ebe",
+        "expect": { "error": "literal_secret", "family": "publishable_key" } },
+
+      { "name": "a test publishable key is refused exactly the same - test keys reach production markup",
+        "value": "pk_test_fixture_d3ba7bd9",
+        "expect": { "error": "literal_secret", "family": "publishable_key" } },
+
+      { "name": "a secret key is the worst case and is named first",
+        "value": "sk_live_fixture_42d3f93b",
+        "expect": { "error": "literal_secret", "family": "secret_key" } },
+
+      { "name": "a restricted key is refused",
+        "value": "rk_live_fixture_8af7f58e",
+        "expect": { "error": "literal_secret", "family": "restricted_key" } },
+
+      { "name": "a PaymentIntent client secret is refused",
+        "value": "pi_3PqR4sLmNoPqRsTu_secret_VwXyZ0123456789",
+        "expect": { "error": "literal_secret", "family": "client_secret" } },
+
+      { "name": "a SetupIntent client secret is refused",
+        "value": "seti_1PqR4sLmNoPqRsTu_secret_VwXyZ0123456789",
+        "expect": { "error": "literal_secret", "family": "client_secret" } },
+
+      { "name": "a Checkout Session client secret is refused",
+        "value": "cs_test_a1B2c3D4e5F6g7H8_secret_VwXyZ0123456789",
+        "expect": { "error": "literal_secret", "family": "client_secret" } },
+
+      { "name": "a webhook signing secret is refused",
+        "value": "whsec_VwXyZ0123456789abcdefghij",
+        "expect": { "error": "literal_secret", "family": "webhook_secret" } },
+
+      { "name": "an ephemeral key is refused",
+        "value": "ek_test_fixture_c01a8e5e",
+        "expect": { "error": "literal_secret", "family": "ephemeral_key" } },
+
+      { "name": "concatenating a key into an expression does not launder it",
+        "value": "{{ 'pk_live_51H8xKzLmNoPqRsTu' + suffix }}",
+        "expect": { "error": "literal_secret", "family": "publishable_key" } },
+
+      { "name": "a key hidden in a compound template is still named a secret",
+        "value": "{{ prefix }}pk_live_51H8xKzLmNoPqRsTu",
+        "expect": { "error": "literal_secret", "family": "publishable_key" } },
+
+      { "name": "the most dangerous family wins when several appear",
+        "value": "{{ 'pk_live_51H8xKzLmNoPqRsTu' + 'sk_live_51H8xKzLmNoPqRsTu' }}",
+        "expect": { "error": "literal_secret", "family": "secret_key" } },
+
+      { "name": "a bare object id is refused too - it is not a credential, and it is not a reference either",
+        "value": "pi_3PqR4sLmNoPqRsTu",
+        "expect": { "error": "unknown_reference" } },
+
+      { "name": "an arbitrary literal is refused - the rule is an allowlist, not secret detection",
+        "value": "my-checkout-session",
+        "expect": { "error": "literal_value" } },
+
+      { "name": "a quoted literal is refused",
+        "value": "'session-1'",
+        "expect": { "error": "literal_value" } },
+
+      { "name": "an empty attribute is a mistake, not the implicit session",
+        "value": "",
+        "expect": { "error": "missing_reference" } },
+
+      { "name": "whitespace only is the same mistake",
+        "value": "   ",
+        "expect": { "error": "missing_reference" } },
+
+      { "name": "an empty interpolation is the same mistake",
+        "value": "{{   }}",
+        "expect": { "error": "missing_reference" } },
+
+      { "name": "two interpolations are not one reference",
+        "value": "{{ a }}{{ b }}",
+        "expect": { "error": "compound_template" } },
+
+      { "name": "text around an interpolation is not one reference",
+        "value": "session-{{ dsx.variable.checkout }}",
+        "expect": { "error": "compound_template" } },
+
+      { "name": "an unpermitted reference root is refused loudly rather than trusted",
+        "value": "dsx.session.current",
+        "expect": { "error": "unknown_reference" } },
+
+      { "name": "a bare identifier is not a permitted plane",
+        "value": "checkout",
+        "expect": { "error": "unknown_reference" } },
+
+      { "name": "window is not a plane",
+        "value": "window.stripeSession",
+        "expect": { "error": "unknown_reference" } },
+
+      { "name": "a module reference must name the context plane",
+        "value": "dsx.module.stripe.session",
+        "expect": { "error": "unknown_reference" } },
+
+      { "name": "an expression is not a reference",
+        "value": "{{ a ? b : c }}",
+        "expect": { "error": "literal_value" } }
+    ]
+  },
+
+  "machine": {
+    "_note": "One session, two views. `notify` lists the faces owed the news, in canonical order, and includes an originator that has already detached - a face that unmounted mid-confirm is still owed its outcome, and dropping it is how an app charges a card and never tells the user. THE WALLET RIDES `overlay`, and that is not a compromise: the two views are `presented over the app` and `rendered into the layout`, and Apple Pay (PKPaymentAuthorizationController) and Google Pay (its own activity) are both presented over the app. What is inline about <stripe.ExpressCheckout/> is the BUTTON, and a button is not an attempt. The modules therefore carry a THIRD face word (`wallet`) for which live view a confirm reads and which method name a settle reports, and fold it onto this view for the double-charge guard - so a wallet tap and a PaymentSheet can never both be in flight, which is exactly right, because two modal sheets cannot both be presented either. The wallet rows below (`the wallet is an overlay face`, ...) are that fold, pinned.",
+    "views": ["overlay", "inline"],
+    "states": ["idle", "ready", "confirming", "succeeded", "failed", "canceled"],
+    "refusals": ["already_open", "not_ready", "busy", "settled", "not_confirming", "detached_view"],
+    "cases": [
+      { "name": "the inline face alone: open, attach, pay",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "inline" },
+          { "op": "complete" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["inline"], "attempts": 1, "by": "inline" },
+          { "state": "succeeded", "notify": ["inline"], "attempts": 1, "outcome": "succeeded", "by": "inline" }
+        ] },
+
+      { "name": "started by the action face, completed inline - ONE session, both faces told",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "attach", "view": "overlay" },
+          { "op": "start", "view": "overlay" },
+          { "op": "complete" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["overlay", "inline"], "attempts": 1, "by": "overlay" },
+          { "state": "succeeded", "notify": ["overlay", "inline"], "attempts": 1, "outcome": "succeeded", "by": "overlay" }
+        ] },
+
+      { "name": "THE DOUBLE-CHARGE GUARD: the other face cannot start a second attempt",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "attach", "view": "overlay" },
+          { "op": "start", "view": "inline" },
+          { "op": "start", "view": "overlay" },
+          { "op": "complete" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["overlay", "inline"], "attempts": 1, "by": "inline" },
+          { "error": "busy", "state": "confirming" },
+          { "state": "succeeded", "notify": ["overlay", "inline"], "attempts": 1, "outcome": "succeeded", "by": "inline" }
+        ] },
+
+      { "name": "the same face cannot double-tap Pay either",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "inline" },
+          { "op": "start", "view": "inline" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["inline"], "attempts": 1, "by": "inline" },
+          { "error": "busy", "state": "confirming" }
+        ] },
+
+      { "name": "detaching mid-confirm never cancels, and the detached originator is still notified",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "inline" },
+          { "op": "detach", "view": "inline" },
+          { "op": "complete" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["inline"], "attempts": 1, "by": "inline" },
+          { "state": "confirming", "notify": [], "attempts": 1 },
+          { "state": "succeeded", "notify": ["inline"], "attempts": 1, "outcome": "succeeded", "by": "inline" }
+        ] },
+
+      { "name": "a failed attempt leaves the intent reusable and the retry counts",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "inline" },
+          { "op": "fail", "code": "card_declined" },
+          { "op": "start", "view": "inline" },
+          { "op": "complete" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["inline"], "attempts": 1, "by": "inline" },
+          { "state": "failed", "notify": ["inline"], "attempts": 1, "outcome": "failed", "by": "inline", "code": "card_declined" },
+          { "state": "confirming", "notify": ["inline"], "attempts": 2, "by": "inline" },
+          { "state": "succeeded", "notify": ["inline"], "attempts": 2, "outcome": "succeeded", "by": "inline" }
+        ] },
+
+      { "name": "dismissing the sheet cancels the ATTEMPT; the session stays usable and the other face finishes it",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "overlay" },
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "overlay" },
+          { "op": "cancel", "view": "overlay" },
+          { "op": "start", "view": "inline" },
+          { "op": "complete" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["overlay", "inline"], "attempts": 1, "by": "overlay" },
+          { "state": "ready", "notify": ["overlay", "inline"], "attempts": 1, "outcome": "canceled", "by": "overlay" },
+          { "state": "confirming", "notify": ["overlay", "inline"], "attempts": 2, "by": "inline" },
+          { "state": "succeeded", "notify": ["overlay", "inline"], "attempts": 2, "outcome": "succeeded", "by": "inline" }
+        ] },
+
+      { "name": "cancelling with nothing in flight abandons the SESSION, and that is terminal",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "cancel", "view": "inline" },
+          { "op": "start", "view": "inline" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "canceled", "notify": ["inline"], "attempts": 0, "outcome": "canceled", "by": "inline" },
+          { "error": "settled", "state": "canceled" }
+        ] },
+
+      { "name": "a settled session takes no further attempt from either face - mint a new one",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "attach", "view": "overlay" },
+          { "op": "start", "view": "inline" },
+          { "op": "complete" },
+          { "op": "start", "view": "overlay" },
+          { "op": "complete" },
+          { "op": "open" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["overlay", "inline"], "attempts": 1, "by": "inline" },
+          { "state": "succeeded", "notify": ["overlay", "inline"], "attempts": 1, "outcome": "succeeded", "by": "inline" },
+          { "error": "settled", "state": "succeeded" },
+          { "error": "settled", "state": "succeeded" },
+          { "error": "settled", "state": "succeeded" }
+        ] },
+
+      { "name": "an attempt before the module hands over a session is refused, not queued",
+        "steps": [
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "inline" },
+          { "op": "open" },
+          { "op": "start", "view": "inline" }
+        ],
+        "expect": [
+          { "state": "idle", "notify": [], "attempts": 0 },
+          { "error": "not_ready", "state": "idle" },
+          { "state": "ready", "notify": ["inline"], "attempts": 0 },
+          { "state": "confirming", "notify": ["inline"], "attempts": 1, "by": "inline" }
+        ] },
+
+      { "name": "a face that never attached cannot start",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "overlay" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "error": "detached_view", "state": "ready" }
+        ] },
+
+      { "name": "an outcome with no attempt in flight is refused",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "complete" },
+          { "op": "fail", "code": "card_declined" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "error": "not_confirming", "state": "ready" },
+          { "error": "not_confirming", "state": "ready" }
+        ] },
+
+      { "name": "opening twice is refused - one module, one session at a time",
+        "steps": [
+          { "op": "open" },
+          { "op": "open" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "error": "already_open", "state": "ready" }
+        ] },
+
+      { "name": "attaching twice is idempotent",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "inline" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["inline"], "attempts": 1, "by": "inline" }
+        ] },
+
+      { "name": "detaching a face that never attached is a no-op",
+        "steps": [
+          { "op": "open" },
+          { "op": "detach", "view": "overlay" },
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "inline" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["inline"], "attempts": 1, "by": "inline" }
+        ] },
+
+      { "name": "THE WALLET IS AN OVERLAY FACE: a wallet sheet in flight refuses the card field AND a second wallet tap",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "inline" },
+          { "op": "attach", "view": "overlay" },
+          { "op": "start", "view": "overlay" },
+          { "op": "start", "view": "inline" },
+          { "op": "start", "view": "overlay" },
+          { "op": "complete" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["overlay", "inline"], "attempts": 1, "by": "overlay" },
+          { "error": "busy", "state": "confirming" },
+          { "error": "busy", "state": "confirming" },
+          { "state": "succeeded", "notify": ["overlay", "inline"], "attempts": 1, "outcome": "succeeded", "by": "overlay" }
+        ] },
+
+      { "name": "a dismissed wallet sheet is not a failure - the SAME button may be tapped again",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "overlay" },
+          { "op": "start", "view": "overlay" },
+          { "op": "cancel", "view": "overlay" },
+          { "op": "start", "view": "overlay" },
+          { "op": "complete" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["overlay"], "attempts": 1, "by": "overlay" },
+          { "state": "ready", "notify": ["overlay"], "attempts": 1, "outcome": "canceled", "by": "overlay" },
+          { "state": "confirming", "notify": ["overlay"], "attempts": 2, "by": "overlay" },
+          { "state": "succeeded", "notify": ["overlay"], "attempts": 2, "outcome": "succeeded", "by": "overlay" }
+        ] },
+
+      { "name": "a wallet button that unmounts while its sheet is up is still told the outcome",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "overlay" },
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "overlay" },
+          { "op": "detach", "view": "overlay" },
+          { "op": "complete" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["overlay", "inline"], "attempts": 1, "by": "overlay" },
+          { "state": "confirming", "notify": [], "attempts": 1 },
+          { "state": "succeeded", "notify": ["overlay", "inline"], "attempts": 1, "outcome": "succeeded", "by": "overlay" }
+        ] },
+
+      { "name": "a wallet that cannot launch fails the ATTEMPT, and the card field still takes the payment",
+        "steps": [
+          { "op": "open" },
+          { "op": "attach", "view": "overlay" },
+          { "op": "attach", "view": "inline" },
+          { "op": "start", "view": "overlay" },
+          { "op": "fail", "code": "wallet_unavailable" },
+          { "op": "start", "view": "inline" },
+          { "op": "complete" }
+        ],
+        "expect": [
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "ready", "notify": [], "attempts": 0 },
+          { "state": "confirming", "notify": ["overlay", "inline"], "attempts": 1, "by": "overlay" },
+          { "state": "failed", "notify": ["overlay", "inline"], "attempts": 1, "outcome": "failed", "by": "overlay", "code": "wallet_unavailable" },
+          { "state": "confirming", "notify": ["overlay", "inline"], "attempts": 2, "by": "inline" },
+          { "state": "succeeded", "notify": ["overlay", "inline"], "attempts": 2, "outcome": "succeeded", "by": "inline" }
+        ] }
+    ]
+  },
+
+  "cardField": {
+    "_note": "The vendor owns validation; this fold turns its per-part verdicts into ONE <form> field. A vendor ERROR beats an incomplete part, and within each tier the first part in canonical order owns the message. `value` is `complete` or the empty string and never card data - the PCI boundary is that this fold cannot carry a PAN even by accident.",
+    "partOrder": ["number", "expiry", "cvc", "postalCode"],
+    "requiredMessage": "Required",
+    "incompleteMessages": {
+      "number": "Your card number is incomplete.",
+      "expiry": "Your card's expiration date is incomplete.",
+      "cvc": "Your card's security code is incomplete.",
+      "postalCode": "Your postal code is incomplete."
+    },
+    "cases": [
+      { "name": "a complete card is valid and contributes the complete sentinel",
+        "required": true,
+        "parts": [
+          { "part": "number", "empty": false, "complete": true },
+          { "part": "expiry", "empty": false, "complete": true },
+          { "part": "cvc", "empty": false, "complete": true }
+        ],
+        "expect": { "complete": true, "valid": true, "pristine": false, "error": "", "offender": "", "value": "complete" } },
+
+      { "name": "an untouched required field asks for the field, not for a part",
+        "required": true,
+        "parts": [
+          { "part": "number", "empty": true, "complete": false },
+          { "part": "expiry", "empty": true, "complete": false },
+          { "part": "cvc", "empty": true, "complete": false }
+        ],
+        "expect": { "complete": false, "valid": false, "pristine": true, "error": "Required", "offender": "number", "value": "" } },
+
+      { "name": "an untouched optional field is silent",
+        "required": false,
+        "parts": [
+          { "part": "number", "empty": true, "complete": false },
+          { "part": "expiry", "empty": true, "complete": false },
+          { "part": "cvc", "empty": true, "complete": false }
+        ],
+        "expect": { "complete": false, "valid": true, "pristine": true, "error": "", "offender": "", "value": "" } },
+
+      { "name": "the first incomplete part in canonical order owns the message",
+        "required": true,
+        "parts": [
+          { "part": "number", "empty": false, "complete": true },
+          { "part": "expiry", "empty": false, "complete": false },
+          { "part": "cvc", "empty": false, "complete": false }
+        ],
+        "expect": { "complete": false, "valid": false, "pristine": false, "error": "Your card's expiration date is incomplete.", "offender": "expiry", "value": "" } },
+
+      { "name": "canonical order beats declaration order",
+        "required": true,
+        "parts": [
+          { "part": "cvc", "empty": false, "complete": false },
+          { "part": "expiry", "empty": false, "complete": false },
+          { "part": "number", "empty": false, "complete": true }
+        ],
+        "expect": { "complete": false, "valid": false, "pristine": false, "error": "Your card's expiration date is incomplete.", "offender": "expiry", "value": "" } },
+
+      { "name": "a vendor error beats an incomplete part and is carried through verbatim",
+        "required": true,
+        "parts": [
+          { "part": "number", "empty": false, "complete": false, "error": "Your card number is invalid." },
+          { "part": "expiry", "empty": false, "complete": false },
+          { "part": "cvc", "empty": true, "complete": false }
+        ],
+        "expect": { "complete": false, "valid": false, "pristine": false, "error": "Your card number is invalid.", "offender": "number", "value": "" } },
+
+      { "name": "a vendor error on a complete card still invalidates the field",
+        "required": true,
+        "parts": [
+          { "part": "number", "empty": false, "complete": true },
+          { "part": "expiry", "empty": false, "complete": true, "error": "Your card's expiration year is in the past." },
+          { "part": "cvc", "empty": false, "complete": true }
+        ],
+        "expect": { "complete": true, "valid": false, "pristine": false, "error": "Your card's expiration year is in the past.", "offender": "expiry", "value": "" } },
+
+      { "name": "an earlier vendor error wins over a later one",
+        "required": true,
+        "parts": [
+          { "part": "number", "empty": false, "complete": false, "error": "Your card number is invalid." },
+          { "part": "cvc", "empty": false, "complete": false, "error": "Your card's security code is invalid." }
+        ],
+        "expect": { "complete": false, "valid": false, "pristine": false, "error": "Your card number is invalid.", "offender": "number", "value": "" } },
+
+      { "name": "a declared postal part participates like any other",
+        "required": true,
+        "parts": [
+          { "part": "number", "empty": false, "complete": true },
+          { "part": "expiry", "empty": false, "complete": true },
+          { "part": "cvc", "empty": false, "complete": true },
+          { "part": "postalCode", "empty": false, "complete": false }
+        ],
+        "expect": { "complete": false, "valid": false, "pristine": false, "error": "Your postal code is incomplete.", "offender": "postalCode", "value": "" } },
+
+      { "name": "an undeclared part is simply absent - no postal field, no postal message",
+        "required": true,
+        "parts": [
+          { "part": "number", "empty": false, "complete": true },
+          { "part": "expiry", "empty": false, "complete": true },
+          { "part": "cvc", "empty": false, "complete": true }
+        ],
+        "expect": { "complete": true, "valid": true, "pristine": false, "error": "", "offender": "", "value": "complete" } },
+
+      { "name": "a partly touched field is not pristine, so it names the offending part",
+        "required": true,
+        "parts": [
+          { "part": "number", "empty": false, "complete": false },
+          { "part": "expiry", "empty": true, "complete": false },
+          { "part": "cvc", "empty": true, "complete": false }
+        ],
+        "expect": { "complete": false, "valid": false, "pristine": false, "error": "Your card number is incomplete.", "offender": "number", "value": "" } },
+
+      { "name": "no declared parts at all is not a valid field",
+        "required": true,
+        "parts": [],
+        "expect": { "complete": false, "valid": false, "pristine": false, "error": "Required", "offender": "", "value": "" } }
+    ],
+    "formField": {
+      "_note": "The forms.ts FormFieldState a folded vendor input contributes, so <form> validity is ONE system and not two.",
+      "cases": [
+        { "name": "a valid card contributes a satisfied required field",
+          "fieldName": "card", "required": true,
+          "parts": [
+            { "part": "number", "empty": false, "complete": true },
+            { "part": "expiry", "empty": false, "complete": true },
+            { "part": "cvc", "empty": false, "complete": true }
+          ],
+          "expect": { "name": "card", "value": "complete", "initial": "", "validate": "", "message": "" } },
+
+        { "name": "an incomplete card contributes a failing required field carrying the vendor wording",
+          "fieldName": "card", "required": true,
+          "parts": [
+            { "part": "number", "empty": false, "complete": true },
+            { "part": "expiry", "empty": false, "complete": false },
+            { "part": "cvc", "empty": false, "complete": false }
+          ],
+          "expect": { "name": "card", "value": "", "initial": "", "validate": "required", "message": "Your card's expiration date is incomplete." } }
+      ]
+    }
+  },
+
+  "retain": {
+    "_note": "A vendor view is expensive and stateful, so identity is declared, not positional-by-accident. An explicit key= wins outright; without one the identity is tag + session reference + sibling position. The key never carries the session VALUE - that would put a secret in a diff log.",
+    "keys": [
+      { "name": "an explicit key wins outright",
+        "input": { "tag": "stripe.CardInput", "key": "checkout", "session": "dsx.module.stripe.context.session", "index": 3 },
+        "expect": "stripe.CardInput#checkout" },
+      { "name": "a blank key falls back to the derived identity",
+        "input": { "tag": "stripe.CardInput", "key": "   ", "session": "dsx.module.stripe.context.session", "index": 0 },
+        "expect": "stripe.CardInput@dsx.module.stripe.context.session[0]" },
+      { "name": "no key derives from tag, session and position",
+        "input": { "tag": "stripe.CardInput", "session": "dsx.module.stripe.context.session", "index": 2 },
+        "expect": "stripe.CardInput@dsx.module.stripe.context.session[2]" },
+      { "name": "the implicit session still derives a stable key",
+        "input": { "tag": "stripe.PaymentElement", "index": 0 },
+        "expect": "stripe.PaymentElement@[0]" },
+      { "name": "two instances on one session are distinguished by position",
+        "input": { "tag": "stripe.CardInput", "session": "dsx.variable.checkout", "index": 1 },
+        "expect": "stripe.CardInput@dsx.variable.checkout[1]" }
+    ],
+    "reconcile": [
+      { "name": "an unrelated re-render retains every live view",
+        "previous": ["stripe.CardInput#checkout"],
+        "next": ["stripe.CardInput#checkout"],
+        "expect": { "mounted": [], "retained": ["stripe.CardInput#checkout"], "released": [] } },
+      { "name": "identity survives reorder - the SceneBind law, applied to a vendor view",
+        "previous": ["a", "b", "c"],
+        "next": ["c", "a", "b"],
+        "expect": { "mounted": [], "retained": ["c", "a", "b"], "released": [] } },
+      { "name": "a new key mounts and a vanished key releases",
+        "previous": ["a", "b"],
+        "next": ["b", "c"],
+        "expect": { "mounted": ["c"], "retained": ["b"], "released": ["a"] } },
+      { "name": "a first render mounts everything",
+        "previous": [],
+        "next": ["a", "b"],
+        "expect": { "mounted": ["a", "b"], "retained": [], "released": [] } },
+      { "name": "an emptied surface releases everything",
+        "previous": ["a", "b"],
+        "next": [],
+        "expect": { "mounted": [], "retained": [], "released": ["a", "b"] } },
+      { "name": "a session change re-keys, so the old view releases and a fresh one mounts",
+        "previous": ["stripe.CardInput@dsx.variable.first[0]"],
+        "next": ["stripe.CardInput@dsx.variable.second[0]"],
+        "expect": { "mounted": ["stripe.CardInput@dsx.variable.second[0]"], "retained": [], "released": ["stripe.CardInput@dsx.variable.first[0]"] } }
+    ]
+  }
+}

@@ -1,0 +1,706 @@
+{
+ "_note": "THE COUNTRY / DIAL-CODE TABLE — the ONE table all three renderers use (forms/README.md, 'Where the table came from'). Each twin embeds a literal copy and the conformance runners assert byte equality with THIS file, so the three can never drift. `dial` is the E.164 country calling code (no +); `trunk` is the national trunk prefix a national-format entry may carry and which the parser strips; `nsnMin`/`nsnMax` bound the national significant number; `format` is the national display mask (mask.json grammar) and is present ONLY when nsnMin == nsnMax == the mask's placeholder capacity — the runners enforce that invariant; `primary` resolves a SHARED dial code (+1 → US, +7 → RU) — refining +1 to CA/PR by area code is a named absence. `flag` is NOT stored: it is the pure function formsFlag(iso) = the two regional-indicator code points, pinned in phone.json.",
+ "default": "US",
+ "countries": [
+  {
+   "iso": "US",
+   "name": "United States",
+   "dial": "1",
+   "trunk": "",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": "(###) ###-####",
+   "primary": true
+  },
+  {
+   "iso": "CA",
+   "name": "Canada",
+   "dial": "1",
+   "trunk": "",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": "(###) ###-####",
+   "primary": false
+  },
+  {
+   "iso": "GB",
+   "name": "United Kingdom",
+   "dial": "44",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 10,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "IE",
+   "name": "Ireland",
+   "dial": "353",
+   "trunk": "0",
+   "nsnMin": 7,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "FR",
+   "name": "France",
+   "dial": "33",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "# ## ## ## ##",
+   "primary": true
+  },
+  {
+   "iso": "DE",
+   "name": "Germany",
+   "dial": "49",
+   "trunk": "0",
+   "nsnMin": 6,
+   "nsnMax": 11,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "AT",
+   "name": "Austria",
+   "dial": "43",
+   "trunk": "0",
+   "nsnMin": 4,
+   "nsnMax": 13,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "CH",
+   "name": "Switzerland",
+   "dial": "41",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "## ### ## ##",
+   "primary": true
+  },
+  {
+   "iso": "NL",
+   "name": "Netherlands",
+   "dial": "31",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "BE",
+   "name": "Belgium",
+   "dial": "32",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "LU",
+   "name": "Luxembourg",
+   "dial": "352",
+   "trunk": "",
+   "nsnMin": 4,
+   "nsnMax": 11,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "ES",
+   "name": "Spain",
+   "dial": "34",
+   "trunk": "",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "### ## ## ##",
+   "primary": true
+  },
+  {
+   "iso": "PT",
+   "name": "Portugal",
+   "dial": "351",
+   "trunk": "",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "### ### ###",
+   "primary": true
+  },
+  {
+   "iso": "IT",
+   "name": "Italy",
+   "dial": "39",
+   "trunk": "",
+   "nsnMin": 6,
+   "nsnMax": 11,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "GR",
+   "name": "Greece",
+   "dial": "30",
+   "trunk": "",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": "### ### ####",
+   "primary": true
+  },
+  {
+   "iso": "SE",
+   "name": "Sweden",
+   "dial": "46",
+   "trunk": "0",
+   "nsnMin": 7,
+   "nsnMax": 13,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "NO",
+   "name": "Norway",
+   "dial": "47",
+   "trunk": "",
+   "nsnMin": 8,
+   "nsnMax": 8,
+   "format": "### ## ###",
+   "primary": true
+  },
+  {
+   "iso": "DK",
+   "name": "Denmark",
+   "dial": "45",
+   "trunk": "",
+   "nsnMin": 8,
+   "nsnMax": 8,
+   "format": "## ## ## ##",
+   "primary": true
+  },
+  {
+   "iso": "FI",
+   "name": "Finland",
+   "dial": "358",
+   "trunk": "0",
+   "nsnMin": 5,
+   "nsnMax": 12,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "IS",
+   "name": "Iceland",
+   "dial": "354",
+   "trunk": "",
+   "nsnMin": 7,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "PL",
+   "name": "Poland",
+   "dial": "48",
+   "trunk": "",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "### ### ###",
+   "primary": true
+  },
+  {
+   "iso": "CZ",
+   "name": "Czechia",
+   "dial": "420",
+   "trunk": "",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "### ### ###",
+   "primary": true
+  },
+  {
+   "iso": "SK",
+   "name": "Slovakia",
+   "dial": "421",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "### ### ###",
+   "primary": true
+  },
+  {
+   "iso": "HU",
+   "name": "Hungary",
+   "dial": "36",
+   "trunk": "06",
+   "nsnMin": 8,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "RO",
+   "name": "Romania",
+   "dial": "40",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "### ### ###",
+   "primary": true
+  },
+  {
+   "iso": "BG",
+   "name": "Bulgaria",
+   "dial": "359",
+   "trunk": "0",
+   "nsnMin": 7,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "HR",
+   "name": "Croatia",
+   "dial": "385",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "SI",
+   "name": "Slovenia",
+   "dial": "386",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 8,
+   "format": "## ### ###",
+   "primary": true
+  },
+  {
+   "iso": "RS",
+   "name": "Serbia",
+   "dial": "381",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "UA",
+   "name": "Ukraine",
+   "dial": "380",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "## ### ####",
+   "primary": true
+  },
+  {
+   "iso": "RU",
+   "name": "Russia",
+   "dial": "7",
+   "trunk": "8",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": " ### ###-##-##",
+   "primary": true
+  },
+  {
+   "iso": "KZ",
+   "name": "Kazakhstan",
+   "dial": "7",
+   "trunk": "8",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": " ### ###-##-##",
+   "primary": false
+  },
+  {
+   "iso": "TR",
+   "name": "Turkey",
+   "dial": "90",
+   "trunk": "0",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": "### ### ## ##",
+   "primary": true
+  },
+  {
+   "iso": "IL",
+   "name": "Israel",
+   "dial": "972",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "AE",
+   "name": "United Arab Emirates",
+   "dial": "971",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "SA",
+   "name": "Saudi Arabia",
+   "dial": "966",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "QA",
+   "name": "Qatar",
+   "dial": "974",
+   "trunk": "",
+   "nsnMin": 8,
+   "nsnMax": 8,
+   "format": "#### ####",
+   "primary": true
+  },
+  {
+   "iso": "KW",
+   "name": "Kuwait",
+   "dial": "965",
+   "trunk": "",
+   "nsnMin": 8,
+   "nsnMax": 8,
+   "format": "#### ####",
+   "primary": true
+  },
+  {
+   "iso": "EG",
+   "name": "Egypt",
+   "dial": "20",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 10,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "ZA",
+   "name": "South Africa",
+   "dial": "27",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "## ### ####",
+   "primary": true
+  },
+  {
+   "iso": "NG",
+   "name": "Nigeria",
+   "dial": "234",
+   "trunk": "0",
+   "nsnMin": 7,
+   "nsnMax": 10,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "KE",
+   "name": "Kenya",
+   "dial": "254",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "### ######",
+   "primary": true
+  },
+  {
+   "iso": "GH",
+   "name": "Ghana",
+   "dial": "233",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "## ### ####",
+   "primary": true
+  },
+  {
+   "iso": "MA",
+   "name": "Morocco",
+   "dial": "212",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "### ######",
+   "primary": true
+  },
+  {
+   "iso": "IN",
+   "name": "India",
+   "dial": "91",
+   "trunk": "0",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": "##### #####",
+   "primary": true
+  },
+  {
+   "iso": "PK",
+   "name": "Pakistan",
+   "dial": "92",
+   "trunk": "0",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": "### #######",
+   "primary": true
+  },
+  {
+   "iso": "BD",
+   "name": "Bangladesh",
+   "dial": "880",
+   "trunk": "0",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "LK",
+   "name": "Sri Lanka",
+   "dial": "94",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "## ### ####",
+   "primary": true
+  },
+  {
+   "iso": "CN",
+   "name": "China",
+   "dial": "86",
+   "trunk": "0",
+   "nsnMin": 5,
+   "nsnMax": 12,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "HK",
+   "name": "Hong Kong",
+   "dial": "852",
+   "trunk": "",
+   "nsnMin": 8,
+   "nsnMax": 8,
+   "format": "#### ####",
+   "primary": true
+  },
+  {
+   "iso": "TW",
+   "name": "Taiwan",
+   "dial": "886",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "JP",
+   "name": "Japan",
+   "dial": "81",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 10,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "KR",
+   "name": "South Korea",
+   "dial": "82",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 10,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "SG",
+   "name": "Singapore",
+   "dial": "65",
+   "trunk": "",
+   "nsnMin": 8,
+   "nsnMax": 8,
+   "format": "#### ####",
+   "primary": true
+  },
+  {
+   "iso": "MY",
+   "name": "Malaysia",
+   "dial": "60",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 10,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "TH",
+   "name": "Thailand",
+   "dial": "66",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "## ### ####",
+   "primary": true
+  },
+  {
+   "iso": "VN",
+   "name": "Vietnam",
+   "dial": "84",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 10,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "ID",
+   "name": "Indonesia",
+   "dial": "62",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 12,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "PH",
+   "name": "Philippines",
+   "dial": "63",
+   "trunk": "0",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": "### ### ####",
+   "primary": true
+  },
+  {
+   "iso": "AU",
+   "name": "Australia",
+   "dial": "61",
+   "trunk": "0",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "### ### ###",
+   "primary": true
+  },
+  {
+   "iso": "NZ",
+   "name": "New Zealand",
+   "dial": "64",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 10,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "BR",
+   "name": "Brazil",
+   "dial": "55",
+   "trunk": "0",
+   "nsnMin": 10,
+   "nsnMax": 11,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "AR",
+   "name": "Argentina",
+   "dial": "54",
+   "trunk": "0",
+   "nsnMin": 10,
+   "nsnMax": 11,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "CL",
+   "name": "Chile",
+   "dial": "56",
+   "trunk": "",
+   "nsnMin": 9,
+   "nsnMax": 9,
+   "format": "# #### ####",
+   "primary": true
+  },
+  {
+   "iso": "CO",
+   "name": "Colombia",
+   "dial": "57",
+   "trunk": "",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": "### #######",
+   "primary": true
+  },
+  {
+   "iso": "PE",
+   "name": "Peru",
+   "dial": "51",
+   "trunk": "0",
+   "nsnMin": 8,
+   "nsnMax": 9,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "VE",
+   "name": "Venezuela",
+   "dial": "58",
+   "trunk": "0",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": null,
+   "primary": true
+  },
+  {
+   "iso": "MX",
+   "name": "Mexico",
+   "dial": "52",
+   "trunk": "",
+   "nsnMin": 10,
+   "nsnMax": 10,
+   "format": "### ### ####",
+   "primary": true
+  },
+  {
+   "iso": "CR",
+   "name": "Costa Rica",
+   "dial": "506",
+   "trunk": "",
+   "nsnMin": 8,
+   "nsnMax": 8,
+   "format": "#### ####",
+   "primary": true
+  },
+  {
+   "iso": "PA",
+   "name": "Panama",
+   "dial": "507",
+   "trunk": "",
+   "nsnMin": 8,
+   "nsnMax": 8,
+   "format": "#### ####",
+   "primary": true
+  }
+ ]
+}

@@ -1,0 +1,416 @@
+{
+  "meta": {
+    "contract": "Container semantics of the DSX element layer, held to the web renderer's CSS flex model (the parity reference plane). Decision rows run on :core (FlexSemanticsConformanceTest). The same situations' GEOMETRY is pinned against a real CSS engine by the browser leg: ClosedSource/scripts/dsxcss/fixtures 08-column-stretch-vs-hug, 09-max-width-align-self, 10-row-spacer-hug, 11-percent-in-hug, 12-stretch-content-contribution, 13-margins-in-column, 14-flex-grow-row, 15-divider-stretch-hug, 16-row-shrink, 17-clamped-hug-flex (npm run layout-oracle). A renderer consuming these decisions (Compose Desktop, Android :render) is measured end to end by the parity capture planes.",
+    "skinTruths": {
+      "stack": "flex-direction: column; align-items: start (children hug)",
+      "hstack": "flex-direction: row; align-items: center",
+      "scroll": "flex-direction: column; no align-items (flex default: children stretch)",
+      "spacer": "flex: 1 1 0 (absorbs only extra main-axis space)",
+      "grow": "width:100% children fill, then clamp under their own max-width; align-self places the element"
+    }
+  },
+  "panes": [
+    {
+      "name": "head is not a pane",
+      "children": [
+        "head",
+        "scroll",
+        "scroll",
+        "scroll"
+      ],
+      "expect": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "name": "declarations are not panes",
+      "children": [
+        "variable",
+        "watch",
+        "stack"
+      ],
+      "expect": [
+        2
+      ]
+    },
+    {
+      "name": "declaration between panes",
+      "children": [
+        "scroll",
+        "api",
+        "scroll"
+      ],
+      "expect": [
+        0,
+        2
+      ]
+    },
+    {
+      "name": "slot renders content and stays a pane",
+      "children": [
+        "slot",
+        "stack"
+      ],
+      "expect": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "all panes when nothing declares",
+      "children": [
+        "stack",
+        "stack"
+      ],
+      "expect": [
+        0,
+        1
+      ]
+    }
+  ],
+  "selfAlign": [
+    {
+      "attrs": {
+        "alignSelf": "center"
+      },
+      "expect": "center"
+    },
+    {
+      "attrs": {
+        "alignSelf": "flex-end"
+      },
+      "expect": "end"
+    },
+    {
+      "attrs": {
+        "alignSelf": "end"
+      },
+      "expect": "end"
+    },
+    {
+      "attrs": {
+        "alignSelf": "trailing"
+      },
+      "expect": "end"
+    },
+    {
+      "attrs": {
+        "alignSelf": "flex-start"
+      },
+      "expect": "start"
+    },
+    {
+      "attrs": {
+        "alignSelf": "start"
+      },
+      "expect": "start"
+    },
+    {
+      "attrs": {
+        "alignSelf": "leading"
+      },
+      "expect": "start"
+    },
+    {
+      "attrs": {
+        "alignSelf": "stretch"
+      },
+      "expect": "stretch"
+    },
+    {
+      "attrs": {},
+      "expect": null
+    },
+    {
+      "attrs": {
+        "alignSelf": "bogus"
+      },
+      "expect": null
+    }
+  ],
+  "crossStretch": [
+    {
+      "attrs": {
+        "alignItems": "stretch"
+      },
+      "defaultStretch": false,
+      "expect": true
+    },
+    {
+      "attrs": {
+        "align": "stretch"
+      },
+      "defaultStretch": false,
+      "expect": true
+    },
+    {
+      "attrs": {
+        "alignItems": "center"
+      },
+      "defaultStretch": false,
+      "expect": false
+    },
+    {
+      "attrs": {},
+      "defaultStretch": false,
+      "expect": false
+    },
+    {
+      "attrs": {},
+      "defaultStretch": true,
+      "expect": true
+    },
+    {
+      "attrs": {
+        "alignItems": "center"
+      },
+      "defaultStretch": true,
+      "expect": false
+    },
+    {
+      "attrs": {
+        "alignItems": "stretch"
+      },
+      "defaultStretch": true,
+      "expect": true
+    }
+  ],
+  "defaultSelfStretch": [
+    {
+      "tag": "field",
+      "attrs": {},
+      "compact": false,
+      "expect": true
+    },
+    {
+      "tag": "field",
+      "attrs": {},
+      "compact": true,
+      "expect": true
+    },
+    {
+      "tag": "row",
+      "attrs": {},
+      "compact": false,
+      "expect": true
+    },
+    {
+      "tag": "pressable",
+      "attrs": {},
+      "compact": false,
+      "expect": true
+    },
+    {
+      "tag": "divider",
+      "attrs": {},
+      "compact": false,
+      "expect": true
+    },
+    {
+      "tag": "divider",
+      "attrs": {},
+      "compact": true,
+      "expect": true
+    },
+    {
+      "tag": "button",
+      "attrs": {},
+      "compact": false,
+      "expect": false
+    },
+    {
+      "tag": "button",
+      "attrs": {},
+      "compact": true,
+      "expect": true
+    },
+    {
+      "tag": "glassButton",
+      "attrs": {},
+      "compact": true,
+      "expect": true
+    },
+    {
+      "tag": "form",
+      "attrs": {},
+      "compact": false,
+      "expect": false
+    },
+    {
+      "tag": "form",
+      "attrs": {},
+      "compact": true,
+      "expect": true
+    },
+    {
+      "tag": "stack",
+      "attrs": {},
+      "compact": false,
+      "expect": false
+    },
+    {
+      "tag": "stack",
+      "attrs": {},
+      "compact": true,
+      "expect": true
+    },
+    {
+      "tag": "vstack",
+      "attrs": {},
+      "compact": true,
+      "expect": true
+    },
+    {
+      "tag": "stack",
+      "attrs": {
+        "flexDirection": "row"
+      },
+      "compact": true,
+      "expect": false
+    },
+    {
+      "tag": "text",
+      "attrs": {},
+      "compact": true,
+      "expect": false
+    },
+    {
+      "tag": "hstack",
+      "attrs": {},
+      "compact": true,
+      "expect": false
+    },
+    {
+      "tag": "toggle",
+      "attrs": {},
+      "compact": true,
+      "expect": false
+    }
+  ],
+  "childFillsCross": [
+    {
+      "parentStretch": true,
+      "attrs": {},
+      "axis": "width",
+      "expect": true
+    },
+    {
+      "parentStretch": false,
+      "attrs": {},
+      "axis": "width",
+      "expect": false
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "width": "220"
+      },
+      "axis": "width",
+      "expect": false
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "width": "fit"
+      },
+      "axis": "width",
+      "expect": false
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "grow": "width"
+      },
+      "axis": "width",
+      "expect": false
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "grow": "true"
+      },
+      "axis": "width",
+      "expect": false
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "grow": "both"
+      },
+      "axis": "width",
+      "expect": false
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "grow": "height"
+      },
+      "axis": "width",
+      "expect": true
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "alignSelf": "center"
+      },
+      "axis": "width",
+      "expect": false
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "alignSelf": "stretch"
+      },
+      "axis": "width",
+      "expect": true
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "height": "40"
+      },
+      "axis": "width",
+      "expect": true
+    },
+    {
+      "parentStretch": true,
+      "attrs": {},
+      "axis": "height",
+      "expect": true
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "height": "40"
+      },
+      "axis": "height",
+      "expect": false
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "grow": "height"
+      },
+      "axis": "height",
+      "expect": false
+    },
+    {
+      "parentStretch": true,
+      "attrs": {
+        "width": "220"
+      },
+      "axis": "height",
+      "expect": true
+    },
+    {
+      "parentStretch": false,
+      "attrs": {
+        "alignSelf": "stretch"
+      },
+      "axis": "height",
+      "expect": false
+    }
+  ]
+}

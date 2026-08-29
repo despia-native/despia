@@ -6,14 +6,16 @@
 //
 
 import {
-  DSXState, ModuleRegistry, JSESeams, installScreenPhase, installJsTier, invalidateCookies, string,
+  DSXState, DSXStrings, ModuleRegistry, JSESeams, installScreenPhase, installJsTier, invalidateCookies, string,
   type WebModule, type Dict,
 } from "@despia/kernel";
 import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
 import type { Registry } from "@despia/compiler/resolve";
 import { FrameRouter, frameIdCursor } from "./router.ts";
-import { setCookieWriter, setLinkSeam } from "./mount.ts";
+import { routeModule } from "./route-module.ts";
+import { setCookieWriter, setLinkSeam, WebMcpSeam } from "./mount.ts";
 import { abandonAdopt, applyStreamChunk, beginAdopt, finishAdopt, seedApiEnvelopes } from "./adopt.ts";
+import { bindWebMcpTools } from "./webmcp.ts";
 import { ELEMENTS, registerGlobalElements, registerRichElements } from "./elements.ts";
 import { FORM_ELEMENTS, FORM_ELEMENTS_CSS } from "./forms.ts";
 import { NATIVE_CONTROLS_CSS, registerNativeControls } from "./native-controls.ts";
@@ -26,11 +28,13 @@ import {
   MEDIA_LIGHTBOX_CSS, MEDIA_PLAYBACK_CSS, MEDIA_SVG_CSS, registerMediaSurfaces,
 } from "./media-surfaces.ts";
 import { SCENE_CSS, registerSceneSurface } from "./scene.ts";
+import { CANVAS_CSS, registerCanvasSurface } from "./canvas.ts";
 import { installButtonKeyboardActivation } from "./keyboard.ts";
 import {
   TOKENS_CSS, APPLICATION_ELEMENTS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS, RICH_ELEMENTS_CSS,
 } from "./theme.ts";
 import { UNIVERSAL_GLOBAL_ELEMENTS, GLOBAL_ELEMENTS_CSS } from "./globals.ts";
+import { PROSE_CSS } from "./prose.ts";
 import { normalizePlan, RootPlanFold, type PlanCandidate } from "./root-plan.ts";
 
 export type BootOptions = {
@@ -48,6 +52,12 @@ export type BootOptions = {
   attrs?: Dict;
   /** module chunks present in THIS build (export-presence = the gate, /web/03) */
   modules?: WebModule[];
+  /** THE PLATFORM CATALOG — `ModulePlatformSupport.generated.json` verbatim (X2 §4). The
+   *  browser has no compiled-in table like the two natives, so the build hands it here and
+   *  the kernel folds it against this OS. Without it a native-only action answers
+   *  `not_loaded`, which the bus defines as a caller bug and which is a lie when a manifest
+   *  already said the action cannot run in a browser. */
+  platformSupport?: { byScheme?: Record<string, string[]>; byAction?: Record<string, string[]> };
   /** app identity seeded under global.app */
   app?: Dict;
   /** app-wide constants (App.json `consts`) seeded under the reactive `dsx.const.*`
@@ -57,6 +67,17 @@ export type BootOptions = {
   /** surface integration hook, invoked after construction but before any frame mounts */
   configureRouter?: (router: FrameRouter) => void;
 };
+
+/** The strings BUILD tier's loader over the registry's folded tables (P12): DSXStrings
+ *  wants JSON TEXT per candidate tag (the same contract as the native bundle reads), so
+ *  the fold serializes on demand - a page that never leaves its source language never
+ *  pays for it. Absent tables mean a null loader answer, which is the fail-open floor. */
+function wireStringsLoader(registry: Registry): void {
+  const tables = registry.strings;
+  DSXStrings.loader = tables === undefined
+    ? null
+    : (lang) => (tables[lang] === undefined ? null : JSON.stringify(tables[lang]));
+}
 
 function injectStyle(css: string, id: string): void {
   if (document.getElementById(id) !== null) return;
@@ -162,6 +183,7 @@ export function bootDsx(opts: BootOptions): FrameRouter {
   registerApplicationControls();
   registerMediaSurfaces();
   registerSceneSurface();   // <scene> (dsx-scene.md P1) — full apps only; embeds slice it out
+  registerCanvasSurface();  // <canvas> (parity/U04) — the 2-D drawing surface
   // the cascade: the FIRST layer statement fixes the order, weakest → strongest
   injectStyle(LAYER_STATEMENT, "dsx-layers");
   injectStyle(TOKENS_CSS, "dsx-tokens");
@@ -179,8 +201,25 @@ export function bootDsx(opts: BootOptions): FrameRouter {
   injectStyle(MEDIA_SVG_CSS, "dsx-media-svg");
   injectStyle(MEDIA_LIGHTBOX_CSS, "dsx-media-lightbox");
   injectStyle(SCENE_CSS, "dsx-scene");
+  injectStyle(CANVAS_CSS, "dsx-canvas");
   injectStyle(GLOBAL_ELEMENTS_CSS, "dsx-global-elements");
+  // The prose plane rides the markdown fold: checked INSIDE the condition like the
+  // element factory (elements.ts), so a build defining the flag false folds the sheet
+  // away with the vocabulary it skins (/web/13 byte law).
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_MARKDOWN__?: boolean })
+    .__DSX_OPTIONAL_MARKDOWN__ !== false) {
+    injectStyle(PROSE_CSS, "dsx-prose");
+  }
   injectStyle(opts.registry.css, "dsx-app-css");
+
+  // The strings BUILD tier (P12): the registry carries the app's Strings.<tag>.json
+  // tables, and the kernel seam gets its synchronous loader over them - wired BEFORE
+  // mount so the first paint already localizes. The define is checked inside the
+  // condition (the markdown fold's pattern) so embeds shed the tier entirely.
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_STRINGS__?: boolean })
+    .__DSX_OPTIONAL_STRINGS__ !== false) {
+    wireStringsLoader(opts.registry);
+  }
 
   DSXState.batch(() => {
     DSXState.set("app", {
@@ -206,6 +245,15 @@ export function bootDsx(opts: BootOptions): FrameRouter {
   seedScreen();
 
   wireCookies();
+  // WebMCP (proposals/webmcp.md §3): fill the seam mount.ts holds, so a document's `<tool>`
+  // rows can reach the user agent. Wired HERE rather than by a side-effect import in the
+  // adapter, because this package declares `sideEffects: false` and a bundler is entitled
+  // to drop an import whose exports nobody names — which is exactly what happened the first
+  // time, silently. An embed never boots, so it still never carries the adapter.
+  WebMcpSeam.bind = bindWebMcpTools;
+  // BEFORE any module registers: a call can be made from a boot hook, and the catalog is the
+  // only thing that keeps its failure honest.
+  if (opts.platformSupport !== undefined) ModuleRegistry.setPlatformSupport(opts.platformSupport);
   for (const m of opts.modules ?? []) ModuleRegistry.register(m);
 
   // ADOPT-HYDRATION (W6, adopt.ts): a renderPage document marks its host
@@ -242,6 +290,12 @@ export function bootDsx(opts: BootOptions): FrameRouter {
     opts.host.replaceChildren();
   }
   opts.host.setAttribute("data-dsx-root", "");
+  // The claimed host is the app's one landmark: everything this boot mounts (frames,
+  // chrome, overlays) lives inside it, so `main` here puts all content in a landmark
+  // (axe `region`). Author-set roles win; a <body> host cannot be a landmark itself.
+  if (!opts.host.hasAttribute("role") && opts.host.tagName !== "BODY") {
+    opts.host.setAttribute("role", "main");
+  }
 
   // ── the ROOT PLAN fold (root-plan.ts — the corpus-pinned engine). Each candidate
   // gets a fresh FrameRouter into the same host; the seam closures read `liveRouter`
@@ -275,6 +329,13 @@ export function bootDsx(opts: BootOptions): FrameRouter {
       const router = new FrameRouter(opts.registry, opts.host);
       liveRouter = router;
       setLinkSeam({ url: (p) => router.hrefUrl(p), navigate: (p) => router.navigateHref(p) });
+      // `dsx.module.route` — the programmatic twin of `href=`, same names as both natives
+      // (route-module.ts). FALLBACK registration: a bundled Routing facet (chrome, the
+      // component verbs) already owns the scheme and must stay the owner — an unmarked
+      // registration here shadowed it and killed the web system bar (NavBar's
+      // route.chrome claim → unknown_action). A later boot still replaces the previous
+      // fallback instance; a provided module is never replaced.
+      ModuleRegistry.register(routeModule(router), { fallback: true });
       // Bind system chrome/history consumers before start mounts the entry and any cold
       // deep-link frame. Binding after start collapses both chrome claims onto depth one.
       opts.configureRouter?.(router);
@@ -376,5 +437,35 @@ export function bootDsx(opts: BootOptions): FrameRouter {
   // finishAdopt counts it, says so once, and removes it (fail-open). Later fallback
   // candidates go through mount(c, i>0), which abandons any residue anyway.
   finishAdopt();
-  return liveRouter ?? new FrameRouter(opts.registry, opts.host);
+  const handle = liveRouter ?? new FrameRouter(opts.registry, opts.host);
+  // The devtools state door: the live data-store panel (despia edit) and anything else
+  // debugging this page read the active screen's variables here. A page's own JS heap is
+  // already open in devtools, so this exposes reach, not access.
+  (globalThis as typeof globalThis & { __DSX_STATE__?: unknown }).__DSX_STATE__ = {
+    snapshot: () => handle.devState(),
+    set: (name: string, value: unknown) => handle.devSetState(name, value),
+    sink: (fn: () => void) => handle.devSinkState(fn),
+    // "Try it" (platform/09 WE6): the studio runs a declared action here as an entry call.
+    call: (action: string, args: { [k: string]: unknown }) => handle.devCallAction(action, args),
+  };
+  // The devtools SWAP door (master plan P2): the dev reload client hands a freshly
+  // compiled registry here instead of reloading the page — new css injected over the
+  // same style node, every live frame re-instantiated with its variable state carried.
+  // Same reach-not-access reasoning as the state door; production pages simply never
+  // receive the swap event that would call it.
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_EDIT_TAGS__?: boolean })
+    .__DSX_OPTIONAL_EDIT_TAGS__ !== false) {
+    (globalThis as typeof globalThis & { __DSX_SWAP__?: unknown }).__DSX_SWAP__ = (registry: Registry): void => {
+      injectStyle(registry.css, "dsx-app-css");
+      // a swapped registry may carry different strings tables; the seam's cache keys on
+      // (lang, version), so re-wire AND drop it or a stale table survives the swap
+      if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_STRINGS__?: boolean })
+        .__DSX_OPTIONAL_STRINGS__ !== false) {
+        wireStringsLoader(registry);
+        DSXStrings.reset();
+      }
+      handle.hotSwap(registry);
+    };
+  }
+  return handle;
 }

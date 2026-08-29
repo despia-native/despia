@@ -1,0 +1,17 @@
+[
+  {
+    "line": 8,
+    "level": "error",
+    "rule": "sample-json"
+  },
+  {
+    "line": 9,
+    "level": "error",
+    "rule": "sample-deferred"
+  },
+  {
+    "line": 10,
+    "level": "error",
+    "rule": "sample-deferred"
+  }
+]

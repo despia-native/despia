@@ -163,7 +163,19 @@ export type FacetFacts = {
   excluded: boolean;
   /** the platform catalog knows this scheme but not on this OS (the X-tier) */
   offPlatform: boolean;
+  /** the platform catalog knows THIS ACTION and its manifest declares it off this OS
+   *  (X2 §4 `platforms`). Separate from `offPlatform` because it OUTRANKS `unknown_action`:
+   *  the module can be registered and correct here and still not run this action, and
+   *  `unknown_action` names a caller bug the caller did not commit. Optional — a fact set
+   *  only where an action-level row exists, so every existing construction is unchanged. */
+  offPlatformAction?: boolean;
 };
+
+/** The action catalog's key. The manifest spells a nested action path with dots and the wire
+ *  spells it with slashes, so both fold to one spelling here rather than at each call site. */
+export function actionPlatformKey(chain: string, action: string): string {
+  return `${chain.toLowerCase()}.${action.toLowerCase().replace(/\//g, ".")}`;
+}
 
 /**
  * THE LADDER, pure (`OpenSource/Conformance/facets/facets.json` drives exactly this):
@@ -174,7 +186,9 @@ export type FacetFacts = {
  *     the typed `unreachable`, never a hang. A generated client-link route is the same rung.
  *  3. **typed unavailable** — the reason IS the code (durability.md P4). Precedence is frozen
  *     by the shipped funnels and deliberate: `unknown_action` (the module IS here — a caller
- *     bug, not absence) > `unsupported_platform` (the platform catalog, then the row that
+ *     bug, not absence — but an ACTION the catalog declares off this platform outranks even
+ *     that, since the caller asked for something declared impossible) > `unsupported_platform`
+ *     (the platform catalog, then the row that
  *     neither provides nor reaches us — the NEVER-ON-THIS-FACET class, which keeps its
  *     shipping name; the draft spelling `never_on_facet` is retired) > `excluded` (a build
  *     fact beats a runtime one) > `prerequisites_missing` (the row promised a local
@@ -187,7 +201,10 @@ export function resolveFacetLadder(f: FacetFacts): FacetVerdict {
   if (f.linked) return { rung: "reach", code: null, via: "link" };
 
   let code = ERROR_NOT_LOADED;
-  if (f.module) code = ERROR_UNKNOWN_ACTION;
+  // The ACTION-level narrowing sits AHEAD of `unknown_action` — the one rung that can be
+  // true while the module itself is present. Everything below it keeps the frozen order.
+  if (f.offPlatformAction === true) code = ERROR_UNSUPPORTED_PLATFORM;
+  else if (f.module) code = ERROR_UNKNOWN_ACTION;
   else if (f.offPlatform) code = ERROR_UNSUPPORTED_PLATFORM;
   else code = facetAbsence(f) ?? (f.excluded ? ERROR_EXCLUDED : ERROR_NOT_LOADED);
   return { rung: "unavailable", code, via: null };
@@ -445,9 +462,18 @@ class ModuleRegistryImpl {
   private excludedIdentities = new Map<string, { reason: "excluded" } | { reason: "cascade"; from: string }>();
   /** legacy alias spelling → the excluded chain it belongs to (excludedFact answers). */
   private excludedAliases = new Map<string, string>();
-  /** platform catalog — schemes that exist in the product but not on this OS (X-tier).
-   *  Populated from the build manifest so `unsupported_platform` is honest. */
+  /** schemes whose CURRENT registrant arrived via `register(…, { fallback: true })` —
+   *  a later provided module replaces it and clears the mark; a later fallback may too. */
+  private fallbackSchemes = new Set<string>();
+  /** platform catalog — schemes that exist in the product but not on this OS (X-tier),
+   *  each mapped to the platforms that DO implement it. Populated from the build manifest
+   *  (`setPlatformSupport`) so `unsupported_platform` is honest. PRE-FILTERED by design: a
+   *  chain is in this map only when the current OS is absent from its list, which is what
+   *  lets `offPlatform` be a `.has()` and the ladder stay a pure function of facts. */
   readonly unsupportedPlatforms = new Map<string, string[]>();
+  /** the same, keyed "<chain>.<action>" — the actions whose manifest NARROWS their module's
+   *  platform set (X2 §4). Sparse: an action with no narrowing has no row and inherits. */
+  readonly unsupportedActionPlatforms = new Map<string, string[]>();
   /** module-call diagnostics funnel: true while `module.callFailed` hooks are delivering
    *  (fire is synchronous), so a hook whose own body makes a failing call can't feed the
    *  funnel its own output (fire → hook → failing call → fire → …). */
@@ -516,13 +542,23 @@ class ModuleRegistryImpl {
   }
   private reportingAmbientError = false;
 
-  register(module: WebModule, opts: { aliases?: string[] } = {}): void {
+  register(module: WebModule, opts: { aliases?: string[]; fallback?: boolean } = {}): void {
     const scheme = module.scheme.toLowerCase();
     // `dsx` is RESERVED (the error-system's global mirror channel, error-system.md §3.3b) —
     // a module claiming it would shadow every app's global error listener. Refused, loudly.
     if (scheme === "dsx" || (opts.aliases ?? []).some((a) => a.toLowerCase() === "dsx")) {
       console.warn(`[dsx bus] scheme "dsx" is reserved (the error-system mirror) — module refused`);
       return;
+    }
+    // A FALLBACK registration (the surface's built-in twin, e.g. boot's route module)
+    // yields to a PROVIDED module: it lands only while the scheme is unowned or owned by
+    // a previous fallback — a re-boot replaces its own stale instance, never a facet's.
+    // Modules provide, surfaces consume; the built-in twin must never shadow the module.
+    if (opts.fallback === true) {
+      if (this.modules.has(scheme) && !this.fallbackSchemes.has(scheme)) return;
+      this.fallbackSchemes.add(scheme);
+    } else {
+      this.fallbackSchemes.delete(scheme);
     }
     this.modules.set(scheme, module);
     // dsx.json `aliases` — extra schemes routed to the SAME module (the
@@ -569,6 +605,28 @@ class ModuleRegistryImpl {
       }
       this.excludedIdentities.set(chain, from === null ? { reason: "excluded" } : { reason: "cascade", from });
       for (const alias of aliases) this.excludedAliases.set(alias.toLowerCase(), chain);
+    }
+  }
+
+  /** The build seam for the PLATFORM CATALOG — the twin of `setExcludedIdentities`, and the
+   *  thing whose absence made `unsupported_platform` unreachable on this renderer (X1 H3: the
+   *  ladder and the table both shipped; nothing ever filled the table outside a test, so 359
+   *  native-only actions answered `not_loaded`, which the bus itself documents as a caller bug).
+   *
+   *  Takes the FULL catalog — every chain and every narrowed action, exactly as
+   *  `ClosedSource/Registry/ModulePlatformSupport.generated.json` carries it — and folds it
+   *  against this runtime's OS, so what lands in the maps is only what is off-platform HERE.
+   *  Filtering at install rather than at lookup is what keeps the ladder a pure function of
+   *  facts and the `.has()` reads honest. Re-callable; each call replaces both tables. */
+  setPlatformSupport(catalog: { byScheme?: Record<string, string[]>; byAction?: Record<string, string[]> },
+                     os: string = JSESeams.platformOS): void {
+    this.unsupportedPlatforms.clear();
+    this.unsupportedActionPlatforms.clear();
+    for (const [chain, platforms] of Object.entries(catalog.byScheme ?? {})) {
+      if (!platforms.includes(os)) this.unsupportedPlatforms.set(chain.toLowerCase(), [...platforms]);
+    }
+    for (const [key, platforms] of Object.entries(catalog.byAction ?? {})) {
+      if (!platforms.includes(os)) this.unsupportedActionPlatforms.set(key.toLowerCase(), [...platforms]);
     }
   }
 
@@ -771,6 +829,10 @@ class ModuleRegistryImpl {
       // spelling is not an identity here (excludedFact answers those on the member plane)
       excluded: this.excludedIdentities.has(chain),
       offPlatform: this.unsupportedPlatforms.has(chain),
+      // only when the MODULE itself is on-platform: otherwise the module-level rung already
+      // says it, and the two would race to describe the same absence
+      offPlatformAction: !this.unsupportedPlatforms.has(chain) &&
+        this.unsupportedActionPlatforms.has(actionPlatformKey(chain, action)),
     };
   }
 
@@ -816,7 +878,9 @@ class ModuleRegistryImpl {
       return this.excludedFact(chain);
     }
     if (code === ERROR_UNSUPPORTED_PLATFORM) {
-      const platforms = this.unsupportedPlatforms.get(chain);
+      // the ACTION row first — it is the more specific claim (facetFacts pins the precedence)
+      const platforms = this.unsupportedActionPlatforms.get(actionPlatformKey(chain, host)) ??
+        this.unsupportedPlatforms.get(chain);
       // the platform catalog's own shape when it owns the answer; otherwise the FACET
       // shape — the row exists and neither provides nor reaches this runtime's word
       if (platforms) return { scheme, platform: JSESeams.platformOS, supportedPlatforms: platforms };

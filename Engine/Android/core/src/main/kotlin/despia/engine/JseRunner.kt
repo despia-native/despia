@@ -44,9 +44,13 @@
 //    evaluator-visible subset and stays untouched, so those members live in a WeakHashMap
 //    sidecar exposed as `StackStore.<member>` extensions — byte-identical call sites
 //    (`store.flowSignal`, `store.timers[key]`), the StackStorePublisher precedent.
-//  • `x = e` in an action ALWAYS writes the store (never the block locals) — a local of the
-//    same name shadows reads, so classic `for (let i = 0; …; i++)` spins to the loop budget
-//    on iOS and here alike; store-var counters (`for (i = 0; …)`) are the working idiom.
+//  • AUTHORED LOCALS (`x = e` routing, all three runners): a name the author DECLARED in
+//    scope (const/let/var, a loop var, a catch var) is an authored local, and assigning it
+//    writes the LOCAL — so classic `for (let i = 0; …; i++)` counts in its own counter.
+//    Every other name keeps the store-always contract (entry-payload keys, row fields
+//    never shadow a store write). The old pin (`x = e` always wrote the store, so a `let`
+//    counter spun to the loop budget) is retired; actions corpus
+//    classic-for-let-counter-is-local / let-declaration-assignment-stays-local pin the law.
 //  • startOp's dsx.module slice starts at offset 12 — one PAST the 11-char "dsx.module."
 //    prefix (Stack.swift:2476) — so a Promise-combinator dsx.module element loses its
 //    scheme's first char and settles { ok:false, error:"unavailable" }. Parity-pinned quirk:
@@ -189,10 +193,13 @@ interface JSERunnerRouter {
     fun dismissModal(target: String?)
     fun presentComponent(name: String, scope: String?, mode: String, vars: Map<String, Any?>?,
                          detents: List<String>?, touch: String? = null,
-                         attrs: Map<String, Any?>? = null)
+                         attrs: Map<String, Any?>? = null,
+                         overrides: Map<String, Any?>? = null)
     fun pushComponent(name: String, scope: String?, path: String, vars: Map<String, Any?>?,
-                      attrs: Map<String, Any?>? = null)
-    fun updateComponent(target: String?, attrs: Map<String, Any?>)
+                      attrs: Map<String, Any?>? = null,
+                      overrides: Map<String, Any?>? = null)
+    fun updateComponent(target: String?, attrs: Map<String, Any?>,
+                        overrides: Map<String, Any?> = emptyMap())
 }
 
 /// The owning call's Context, as far as the runner reaches it (resolve/error/broadcast).
@@ -502,8 +509,11 @@ class JSERunner(
         /// (quote-, template- AND regex-literal-aware, `://` URL guard), so a
         /// `replace(/\//g, '-')` statement is never half-eaten as a comment. One
         /// implementation: JSE.stripComments (syntax wave 1); this forwarder keeps
-        /// every existing call site source-compatible.
-        fun stripJSComments(s: String): String = JSE.stripComments(s)
+        /// every existing call site source-compatible. Operator entities decode FIRST
+        /// (syntax-006): the `;` inside `&amp;` would otherwise split a statement in
+        /// half at the string level. Both passes are idempotent — continuations may
+        /// pass pre-processed text.
+        fun stripJSComments(s: String): String = JSE.stripComments(JSE.decodeOperatorEntities(s))
 
         /// Statement sugar: `i++` / `i--` / `++i` / `--i` → `i = i ± 1`, and compound
         /// assignment `x += e` (also `-=` `*=` `/=` `%=` `**=`) → `x = x op (e)`.
@@ -874,6 +884,59 @@ class JSERunner(
         }
     }
 
+    /// THE ENTRY CALL — a HOST invokes a declared action with a payload.
+    ///
+    /// There are exactly two kinds of call and only one of them has a caller. A SURFACE call
+    /// comes from another action or an `on:*` handler and has a scope, so a declared
+    /// `inputs="id: item.id"` means "compute this from what the caller can see". An ENTRY call
+    /// comes from outside the document — an HTTP request, a CLI invocation, a queue message, a
+    /// native host handing over a payload — and has no scope at all, so a declared
+    /// `inputs="message"` means "I accept a payload key by that name".
+    ///
+    /// Both readings are correct and they are not the same. Applying the surface rule to an
+    /// entry evaluates the input against nothing, binds the absent sentinel, and DISCARDS what
+    /// the host sent — which is what happened on the TS side until the corpus's `entry-*` cases
+    /// pinned it: a `<server>` action declaring `inputs="title, total"` received null for both,
+    /// so declaring the contract was strictly worse than omitting it.
+    ///
+    /// The expression is not ignored here, it is the FALLBACK: a payload silent about an input
+    /// lets its expression resolve against the store, which is how a declared default survives
+    /// the entry path.
+    fun runAction(name: String, payload: Map<String, Any?>, item: Map<String, Any?>? = null) {
+        val f = store.actions[name]
+        if (f == null) { println("[dsx runner] unknown action: $name"); return }
+        if (store.actionDepth == 0) {
+            store.loopWork = 0; store.flowSignal = null; store.thrownValue = null
+            store.returnValue = null; store.tryDepth = 0
+        }
+        val scope = HashMap<String, Any?>(item ?: emptyMap())
+        scope.putAll(payload)
+        for ((k, e) in f.inputs) {
+            if (payload.containsKey(k)) continue
+            scope[k] = JSE.eval(e, store, null) ?: NSNull
+        }
+        if (store.actionDepth >= 32) return
+        store.actionDepth += 1
+        val savedEvents = store.actionEvents
+        val savedFlow = store.flowSignal
+        val savedThrown = store.thrownValue
+        val savedBody = store.entryBody
+        store.actionEvents = emptyMap()
+        store.actionNameStack.add(name)
+        store.flowSignal = null
+        store.entryBody = f.body
+        runActionBody(f.body, scope, payload)
+        val returned = if (store.flowSignal == "return") store.returnValue else null
+        if (store.flowSignal != "throw") {
+            store.flowSignal = savedFlow; store.thrownValue = savedThrown; store.entryBody = savedBody
+        }
+        store.returnValue = returned
+        store.actionNameStack.removeAt(store.actionNameStack.size - 1)
+        store.actionEvents = savedEvents
+        store.actionDepth -= 1
+        reportEntryUncaught()
+    }
+
     private val bareActionName = Regex("^[A-Za-z_][A-Za-z0-9_]*$")
 
     /// JS-syntax statements (no `verb:` prefix), mapped onto the same operations:
@@ -889,7 +952,7 @@ class JSERunner(
             if (eq > 0) {
                 val v = JSE.eval(trimWhitespacesRunner(a.substring(eq + 1)), store, item)
                 JSE.destructureBind(trimWhitespacesRunner(a.substring(0, eq)), v, store, item ?: emptyMap()) { n, value ->
-                    write(n, value ?: NSNull)
+                    write(n, value ?: NSNull, item)
                 }
                 return
             }
@@ -919,10 +982,10 @@ class JSERunner(
             val trimmedRHS = trimWhitespacesRunner(rhs)
             if (trimmedRHS.startsWith("new WebSocket(") && trimmedRHS.endsWith(")")) {
                 val argStr = trimmedRHS.substring("new WebSocket(".length, trimmedRHS.length - 1)
-                write(lhs, openWebSocket(argStr, item ?: emptyMap()))
+                write(lhs, openWebSocket(argStr, item ?: emptyMap()), item)
                 return
             }
-            write(lhs, JSE.eval(rhs, store, item) ?: "")
+            write(lhs, JSE.eval(rhs, store, item) ?: "", item)
             return
         }
         val lp = a.indexOf('(')
@@ -958,16 +1021,21 @@ class JSERunner(
             val vars = opts["vars"] as? Map<String, Any?>
             @Suppress("UNCHECKED_CAST")
             val attrs = opts["attrs"] as? Map<String, Any?>
+            @Suppress("UNCHECKED_CAST")
+            val overrides = opts["overrides"] as? Map<String, Any?>   // the STYLE contract's verb door (dsx.override)
             if (verb == "update") {
-                JSERunner.router?.updateComponent(if (name.isEmpty()) null else name, attrs ?: emptyMap())
+                JSERunner.router?.updateComponent(if (name.isEmpty()) null else name, attrs ?: emptyMap(),
+                                                  overrides = overrides ?: emptyMap())
                 return
             }
             if (name.isEmpty()) return
             if (verb == "present") {
                 JSERunner.router?.presentComponent(name, scope, (opts["as"] as? String) ?: "sheet",
-                    vars, opts["detents"] as? List<String>, touch = opts["touch"] as? String, attrs = attrs)
+                    vars, opts["detents"] as? List<String>, touch = opts["touch"] as? String, attrs = attrs,
+                    overrides = overrides)
             } else {   // push
-                JSERunner.router?.pushComponent(name, scope, (opts["path"] as? String) ?: "", vars, attrs = attrs)
+                JSERunner.router?.pushComponent(name, scope, (opts["path"] as? String) ?: "", vars, attrs = attrs,
+                                                overrides = overrides)
             }
             return
         }
@@ -1145,7 +1213,7 @@ class JSERunner(
                             val params: Any = mutable["searchParams"] ?: LinkedHashMap<String, Any?>()
                             mutable["searchParams"] = JSECore.mutate(method, params, vals) ?: params
                             JSECore.resyncURL(mutable)
-                            write(parent, mutable)
+                            write(parent, mutable, item)
                             return
                         }
                     }
@@ -1372,7 +1440,12 @@ class JSERunner(
                     i.v = aa.after
                     val envelope = callActionForValue(aa.name, aa.args, locals, args)
                     if (envelope != null && aa.bind != null) {
-                        if (aa.decl) locals[aa.bind] = envelope else write(aa.bind, envelope)
+                        // The MARKED spelling binds the { ok, data } envelope (the pinned
+                        // dsx.module success shape); the BARE spelling is an ordinary call
+                        // expression, so it binds the return value itself.
+                        val bound: Any = if (aa.marked) envelope else (envelope["data"] ?: NSNull)
+                        if (aa.decl) { locals[aa.bind] = bound; declareLocal(locals, aa.bind) }
+                        else write(aa.bind, bound, locals)
                     }
                     continue
                 }
@@ -1426,7 +1499,7 @@ class JSERunner(
     )
     private class AwaitPackageMatch(val bind: String?, val callee: String, val args: String, val after: Int)
     private class AwaitPromiseMatch(val bind: String?, val kind: String, val elements: List<String>, val after: Int)
-    private class AwaitActionMatch(val bind: String?, val decl: Boolean, val name: String, val args: String, val after: Int)
+    private class AwaitActionMatch(val bind: String?, val decl: Boolean, val marked: Boolean, val name: String, val args: String, val after: Int)
     private class WebSocketMatch(val bind: String?, val args: String, val after: Int)
     private class BindPrefix(val bind: String?, val p: Int)
 
@@ -1895,10 +1968,11 @@ class JSERunner(
         runActionBody(rest, scope, args)
     }
 
-    /// Match `[const|let|var NAME =] await dsx.action.name( … )` — the RETURNING action
-    /// call — and its bare-assignment form `path = await dsx.action.name( … )` (no decl
-    /// keyword; that bind writes the STORE, the pinned `x = e` rule). Sibling of
-    /// matchAwaitPackage; the "dsx.action." marker keeps `dsx.module.…` on its own path.
+    /// Match `[const|let|var NAME =] await [dsx.action.]name( … )` — the RETURNING action
+    /// call in both its marked and BARE spellings — and its bare-assignment form
+    /// `path = await …` (no decl keyword; that bind writes the STORE, the pinned `x = e`
+    /// rule). Sibling of matchAwaitPackage; the "dsx.action." marker keeps `dsx.module.…`
+    /// on its own path, and the unmarked form is claimed only for a DECLARED action.
     private fun matchAwaitAction(c: CharArray, start: Int): AwaitActionMatch? {
         val bp = matchBindPrefix(c, start) ?: return null
         var bind = bp.bind
@@ -1919,17 +1993,25 @@ class JSERunner(
         }
         if (!jsWord(c, p.v, "await")) return null
         p.v += 5; jsSkipWs(c, p)
+        //  THE BARE SPELLING TOO. `await x({ … })` is the way the documentation tells an
+        //  author to sequence one action after another, and it was matched only with the
+        //  `dsx.action.` marker — so the bare form fell through to the expression evaluator,
+        //  which knows nothing about declared actions: the action never ran and its argument
+        //  vanished, silently (actions corpus, "await on a bare action call"). The bare form
+        //  is claimed ONLY when the store actually declares an action of that name, so
+        //  `await fetch(…)`, `await dsx.module.…` and every other awaitable keep their paths.
         val marker = "dsx.action."
-        if (p.v + marker.length >= c.size) return null
-        for ((k, ch) in marker.withIndex()) if (c[p.v + k] != ch) return null
-        p.v += marker.length
+        var marked = p.v + marker.length < c.size
+        if (marked) for ((k, ch) in marker.withIndex()) if (c[p.v + k] != ch) { marked = false; break }
+        if (marked) p.v += marker.length
         val nm = StringBuilder()
         while (p.v < c.size && jsIsWord(c[p.v])) { nm.append(c[p.v]); p.v += 1 }
         jsSkipWs(c, p)
         if (nm.isEmpty() || p.v >= c.size || c[p.v] != '(') return null
+        if (!marked && store.actions[nm.toString()] == null) return null
         val args = jsParens(c, p)
         val q = Ix(p.v); jsSkipWs(c, q); if (q.v < c.size && c[q.v] == ';') q.v += 1
-        return AwaitActionMatch(bind, decl, nm.toString(), args, q.v)
+        return AwaitActionMatch(bind, decl, marked, nm.toString(), args, q.v)
     }
 
     /// Run `await dsx.action.<name>(argsObj)` SYNCHRONOUSLY (actions never suspend their
@@ -2084,7 +2166,9 @@ class JSERunner(
             val patternText = trimWhitespacesRunner(if (eq >= 0) p.substring(0, eq) else p)
             val exprText = trimWhitespacesRunner(if (eq >= 0) p.substring(eq + 1) else "")
             val v = if (exprText.isEmpty()) null else JSE.eval(exprText, store, locals)
-            bindDestructure(patternText, v, locals) { n, value -> locals[n] = value ?: NSNull }
+            bindDestructure(patternText, v, locals) { n, value ->
+                locals[n] = value ?: NSNull; declareLocal(locals, n)
+            }
         }
     }
 
@@ -2255,7 +2339,9 @@ class JSERunner(
         if (fo != null) {
             for (el in JSE.spreadValues(JSE.eval(fo.second, store, locals))) {
                 if (!loopStep()) break
-                bindDestructure(fo.first, el, locals) { n, value -> locals[n] = value ?: NSNull }
+                bindDestructure(fo.first, el, locals) { n, value ->
+                    locals[n] = value ?: NSNull; declareLocal(locals, n)
+                }
                 runCaptured(body, locals, args)
                 if (!loopContinues()) break
             }
@@ -2270,7 +2356,9 @@ class JSERunner(
             if (fi != null) {
                 for (el in JSE.forInKeys(JSE.eval(fi.second, store, locals))) {
                     if (!loopStep()) break
-                    bindDestructure(fi.first, el, locals) { n, value -> locals[n] = value ?: NSNull }
+                    bindDestructure(fi.first, el, locals) { n, value ->
+                        locals[n] = value ?: NSNull; declareLocal(locals, n)
+                    }
                     runCaptured(body, locals, args)
                     if (!loopContinues()) break
                 }
@@ -2434,7 +2522,7 @@ class JSERunner(
         store.tryDepth -= 1
         if (store.flowSignal == "throw" && hasCatch) {
             store.flowSignal = null
-            if (catchParam.isNotEmpty()) locals[catchParam] = store.thrownValue ?: NSNull
+            if (catchParam.isNotEmpty()) { locals[catchParam] = store.thrownValue ?: NSNull; declareLocal(locals, catchParam) }
             store.thrownValue = null
             runCaptured(catchBody, locals, args)
         }
@@ -2541,7 +2629,7 @@ class JSERunner(
     private fun assign(s: String, item: Map<String, Any?>?) {
         val kv = splitOnAssign(s) ?: return
         if (kv.first.isEmpty()) return
-        write(kv.first, JSE.eval(kv.second, store, item) ?: "")
+        write(kv.first, JSE.eval(kv.second, store, item) ?: "", item)
     }
 
     /// Indexed assignment `name[expr] = rhs` (one index level; quote-aware bracket scan) —
@@ -2572,14 +2660,41 @@ class JSERunner(
         val idx = JSE.eval(String(chars, i + 1, close - i - 1), store, item)
         val n = JSE.number(idx)
         val seg = if (n != null && n.isFinite() && n == Math.floor(n)) n.toLong().toString() else JSE.string(idx)
-        write("$name.$seg", JSE.eval(String(chars, k + 1, chars.size - k - 1), store, item) ?: "")
+        write("$name.$seg", JSE.eval(String(chars, k + 1, chars.size - k - 1), store, item) ?: "", item)
         return true
     }
 
     /// Write a state path to the right store: `global.*` / `route.*` → the app-wide DSXState;
     /// `cookie.*` → the cookie seam; anything else → the surface store. Path-aware (nested +
     /// array index), so `set: feed.data.5.name = …` edits an item in place.
-    private fun write(rawKey: String, value: Any) {
+    ///
+    /// AUTHORED LOCALS (the TS runner's LOCALS law, actions corpus): when `scope` is given
+    /// and the path's first segment is a name the author DECLARED in that scope (const/let/
+    /// var, a loop var, a catch var), the write stays in the scope — the classic
+    /// `for (let i = 0; i < n; i++)` counter increments its own local instead of spinning
+    /// against a store copy. Names that merely EXIST in scope (the entry payload, row
+    /// fields) still route to the store — the store-always contract, unchanged.
+    private fun write(rawKey: String, value: Any, scope: Map<String, Any?>? = null) {
+        val raw = trimWhitespacesRunner(rawKey)
+        if (scope != null && !raw.startsWith("dsx.")) {
+            val first = raw.substringBefore('.')
+            if (isLocal(scope, first) && scope.containsKey(first)) {
+                @Suppress("UNCHECKED_CAST")
+                val m = scope as? MutableMap<String, Any?>
+                if (m != null) {
+                    if (!raw.contains('.')) {
+                        m[raw] = value
+                    } else {
+                        val parts = DsxStatePathPolicy.segments(raw)
+                        if (parts != null && parts.size > 1) {
+                            val r = DsxStatePathPolicy.rebuild(m[first], parts.drop(1), value)
+                            if (r.accepted) m[first] = r.value
+                        }
+                    }
+                    return
+                }
+            }
+        }
         val key = JSE.normalizeScope(rawKey)
         when {
             key.startsWith("global.") -> DSX.state.setPath(key.substring(7), value)
@@ -2589,18 +2704,35 @@ class JSERunner(
         }
     }
 
+    /// The authored-locals mark rides IN the scope map under a key no author can spell
+    /// (a JSE identifier cannot contain NUL), so scope copies (`HashMap(locals)`) carry
+    /// their authored set — the map-form twin of the TS runner's LOCALS symbol.
+    private val localsMark = "\u0000dsx.locals"
+
+    private fun declareLocal(locals: MutableMap<String, Any?>, name: String) {
+        @Suppress("UNCHECKED_CAST")
+        val set = locals[localsMark] as? MutableSet<String>
+            ?: HashSet<String>().also { locals[localsMark] = it }
+        set.add(name)
+    }
+
+    private fun isLocal(scope: Map<String, Any?>, name: String): Boolean {
+        @Suppress("UNCHECKED_CAST")
+        return (scope[localsMark] as? Set<String>)?.contains(name) == true
+    }
+
     /// Read the array at a state path, apply `mutate`, write it back — the basis for the
     /// array-mutation verbs (push/pop/insert/…).
     private fun mutateArray(path: String, item: Map<String, Any?>?, mutate: (MutableList<Any?>) -> Unit) {
         val arr = ArrayList(JSE.asArray(JSE.eval(path, store, item)))
         mutate(arr)
-        write(path, arr)
+        write(path, arr, item)
     }
 
     /// Read-modify-write for a non-array value at `path` (the JS-core object mutations).
     private fun mutateValue(path: String, item: Map<String, Any?>?, mutate: (Any) -> Any) {
         val v: Any = JSE.eval(path, store, item) ?: NSNull
-        write(path, mutate(v))
+        write(path, mutate(v), item)
     }
 
     /// `remove: arr where <pred>` — drop rows where the per-row predicate is truthy (`{{ }}`

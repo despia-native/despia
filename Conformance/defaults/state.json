@@ -1,0 +1,114 @@
+{
+ "_note": "The system-defaults STATE corpus - the interaction plane (design-system.md Part 1, 'derived interaction states'). RATIFIED, NOT INVENTED: every web value is the value already shipping in packages/dom/src/theme.ts, read out of the sheet rather than chosen here. THIS AXIS WAS THE LARGEST HOLE IN THE SKIN. Before 2026-08-25 there was no state token at all and 144 hand-written color-mix() calls stood in its place, one component at a time. Measured before ratifying: the shipped percentages scattered from 4% to 45% with NO cluster to adopt - hover alone spanned 4/5/8/10/12/15/16/20/22/24/28/30/40/45 - so the platform law was ratified rather than an average of the improvisation. ONE LAW, TWO PARTS: a strength per state, and a TINT the strength is applied to. An accent-tinted region re-declares the tint once and every hover, press, focus and selected state inside it restyles correctly in both schemes, which is the whole reason the layer is derived instead of written per component. The strengths are the Material 3 state-layer opacities, which the Compose targets get from the OS; the Apple targets apply one system tint treatment instead, so their column names the treatment rather than a percentage. The web drift gate is packages/dom/test/theme.test.ts; the element layer is held to this vocabulary by packages/dom/test/design-system-gate.test.ts, which fails a literal on this axis inside @layer dsx-elements.",
+ "tokens": {
+  "hover": {
+   "ios": "systemTintHighlight",
+   "watchos": "systemTintHighlight",
+   "macos": "systemTintHighlight",
+   "android": "stateLayer.hover",
+   "wear": "stateLayer.hover",
+   "windows": "stateLayer.hover",
+   "linux": "stateLayer.hover",
+   "web": {
+    "css": "--dsx-state-hover",
+    "opacity": "8%",
+    "layer": "--dsx-state-layer-hover"
+   }
+  },
+  "focus": {
+   "ios": "systemTintHighlight",
+   "watchos": "systemTintHighlight",
+   "macos": "systemTintHighlight",
+   "android": "stateLayer.focus",
+   "wear": "stateLayer.focus",
+   "windows": "stateLayer.focus",
+   "linux": "stateLayer.focus",
+   "web": {
+    "css": "--dsx-state-focus",
+    "opacity": "10%",
+    "layer": "--dsx-state-layer-focus"
+   }
+  },
+  "pressed": {
+   "ios": "systemTintHighlight",
+   "watchos": "systemTintHighlight",
+   "macos": "systemTintHighlight",
+   "android": "stateLayer.pressed",
+   "wear": "stateLayer.pressed",
+   "windows": "stateLayer.pressed",
+   "linux": "stateLayer.pressed",
+   "web": {
+    "css": "--dsx-state-pressed",
+    "opacity": "10%",
+    "layer": "--dsx-state-layer-pressed"
+   }
+  },
+  "dragged": {
+   "ios": "systemTintHighlight",
+   "watchos": "systemTintHighlight",
+   "macos": "systemTintHighlight",
+   "android": "stateLayer.dragged",
+   "wear": "stateLayer.dragged",
+   "windows": "stateLayer.dragged",
+   "linux": "stateLayer.dragged",
+   "web": {
+    "css": "--dsx-state-dragged",
+    "opacity": "16%",
+    "layer": "--dsx-state-layer-dragged"
+   }
+  },
+  "selected": {
+   "ios": "systemTintHighlight",
+   "watchos": "systemTintHighlight",
+   "macos": "systemTintHighlight",
+   "android": "stateLayer.selected",
+   "wear": "stateLayer.selected",
+   "windows": "stateLayer.selected",
+   "linux": "stateLayer.selected",
+   "web": {
+    "css": "--dsx-state-selected",
+    "opacity": "12%",
+    "layer": "--dsx-state-layer-selected"
+   }
+  },
+  "disabledContent": {
+   "ios": "disabled",
+   "watchos": "disabled",
+   "macos": "disabled",
+   "android": "onSurface@38%",
+   "wear": "onSurface@38%",
+   "windows": "onSurface@38%",
+   "linux": "onSurface@38%",
+   "web": {
+    "css": "--dsx-state-disabled-content",
+    "opacity": "0.38"
+   }
+  },
+  "disabledSurface": {
+   "ios": "disabled",
+   "watchos": "disabled",
+   "macos": "disabled",
+   "android": "onSurface@12%",
+   "wear": "onSurface@12%",
+   "windows": "onSurface@12%",
+   "linux": "onSurface@12%",
+   "web": {
+    "css": "--dsx-state-disabled-surface",
+    "opacity": "0.12"
+   }
+  },
+  "tint": {
+   "ios": "label",
+   "watchos": "label",
+   "macos": "label",
+   "android": "onSurface",
+   "wear": "onSurface",
+   "windows": "onSurface",
+   "linux": "onSurface",
+   "web": {
+    "css": "--dsx-state-tint",
+    "value": "var(--dsx-label)"
+   }
+  }
+ }
+}

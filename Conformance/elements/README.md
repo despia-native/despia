@@ -1,11 +1,19 @@
-# elements/ — the ELEMENT PARITY corpus (pixel-perfect, testable)
+# elements/ — the ELEMENT PARITY corpus (the per-element constants, testable)
 
 One fixture per **canonical element tag** (`<tag>.json`), extracted **from the Swift source**
 (the reference renderer): the per-element defaults, hardcoded geometry, and semantic color
-tokens that make "pixel-perfect on both platforms" a diffable contract instead of an
-aspiration. Every constant cites its Swift line in a `_src` field — if a fixture and the
-Swift source disagree, the source is right and the fixture is a bug (fix it in the same
-commit).
+tokens that make cross-renderer agreement a diffable contract instead of an aspiration.
+Every constant cites its Swift line in a `_src` field — if a fixture and the Swift source
+disagree, the source is right and the fixture is a bug (fix it in the same commit).
+
+**Scope, so nobody reads more into this than it says.** These are the numbers a builder
+hardcodes, not a rendered result. A fixture agreeing with an implementation proves the two
+SAY the same thing; it does not prove they DRAW the same thing. Rendered fidelity is the
+`parity/` corpus's job, and native is held there to a budgeted near-pixel contract with a
+published gap ledger, never to pixel identity (`../parity/README.md`). The static
+cross-renderer twin of this file is
+`ClosedSource/scripts/check_renderer_constants.rb`, which diffs a curated set of these
+constants across all three sources with no toolchain at all.
 
 ## Schema (`despia-element-parity-v1`)
 
@@ -66,7 +74,7 @@ regenerate them mechanically.
   Foundation's entry there is pending, tracked in android-status.md §Component parity.)
 - **Kernel structural/declaration tags** (`head`, `event`, `expects`, `action`,
   `variable`/`var`/`let`, `component`, `formula`, `script`/`functions`, `watch`,
-  `attribute`, `style`, `slot`, `node`/`dynamic`): they register logic and render nothing —
+  `attribute`, `style`, `slot`, `node`/`dynamic`, `tool`): they register logic and render nothing —
   their behavior is covered by the `jse/` corpus and the kernel unit suites, not by
   rendered-shape fixtures.
 - **Universal style attributes** (padding/width/radius/… on any element): owned by

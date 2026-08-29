@@ -23,8 +23,9 @@ import { ActionRunner, isNSNull, makeRunEnv, ModuleCallError, ReactiveStore, typ
 
 import type { HostContext, HostHandler } from "./host.ts";
 import { repoFor } from "./repo.ts";
-import { enqueueMessage } from "./queue.ts";
+import { drainQueue, enqueueMessage, QUEUE_CLAIM_LIMIT } from "./queue.ts";
 import { callPackage, isPackageScheme, PackageError } from "./packages.ts";
+import { chargeSpend } from "./spend.ts";
 
 /** One declared action, as the emitter writes it. */
 export interface DeclaredAction {
@@ -55,6 +56,9 @@ export interface DeclaredAction {
 export const ACTION_LOOP_CAP = 50_000;
 export const ACTION_DEADLINE_MS = 10_000;
 export const ACTION_CALL_CAP = 64;
+/** Messages one declared drain claims by default. See the `queue.<q>.drain` seam for why it is
+ *  well under `QUEUE_CLAIM_LIMIT`. An author may ask for more, up to that ceiling. */
+export const DRAIN_DEFAULT_LIMIT = 25;
 
 /** The reason vocabulary a body may throw, mapped to the status the caller sees. Anything
  *  outside it is a fault, not a rejection, and answers 500 with nothing in the body. */
@@ -66,9 +70,29 @@ const REASON_STATUS: Record<string, number> = {
   not_found: 404,
   conflict: 409,
   rate_limited: 429,
+  spend_capped: 429,
   upstream: 502,
   unavailable: 503,
 };
+
+/** The spend plane's seam refusal (cost-guardrails.md): the deployment-level ceiling for this
+ *  kind of unit is spent. Thrown as a ModuleCallError so a body sees an ordinary failed call
+ *  (`{ ok: false, error }`) it can handle, and an unhandled one maps to 429 like any other
+ *  `spend_capped`. The message names the budget, because "which ceiling" is the entire
+ *  diagnosis. */
+function chargeSeam(kind: string, internal = false): void {
+  const verdict = chargeSpend(kind);
+  if (verdict.allowed) return;
+  // Internal dispatch (a cron worker, a queue drain - HostContext.internal) is metered above
+  // and never refused: a drain whose body throws `spend_capped` burns each claimed message's
+  // attempts and dead-letters accepted work for the whole tripped window, the exact outage the
+  // host's own requests-ceiling exemption exists to prevent.
+  if (internal) return;
+  throw new ModuleCallError(
+    "spend_capped",
+    `the deployment's "${verdict.budget}" budget is spent for this window (retry in ${verdict.retryAfterSeconds}s)`,
+  );
+}
 
 function jsonResponse(status: number, body: unknown, headers?: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
@@ -125,6 +149,25 @@ function toWire(value: unknown, depth = 0, seen = new WeakSet<object>()): unknow
   return out;
 }
 
+/** A thrown JSE value as one line of operator-readable text. The body's own `{ reason, message }`
+ *  is the common case; anything else is stringified rather than dropped. */
+function describeThrow(value: unknown): string {
+  if (value instanceof Error) return value.message;
+  if (value !== null && typeof value === "object") {
+    const reason = (value as Record<string, unknown>)["reason"];
+    const message = (value as Record<string, unknown>)["message"];
+    if (typeof reason === "string" || typeof message === "string") {
+      return [reason, message].filter((p) => typeof p === "string" && p !== "").join(": ");
+    }
+    try {
+      return JSON.stringify(value) ?? String(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
 /** A row id as the repository wants it. Only a string or a number is an id — an object or an
  *  array coerces to nonsense (`"[object Object]"`) that would reach the transport as a real
  *  lookup key, so those answer the empty string and the repository's own miss. */
@@ -155,7 +198,15 @@ function egressGate(allowed: readonly string[]): (url: string) => boolean {
   return (url: string): boolean => {
     const host = hostOf(url);
     if (host === null) return false;
-    return hosts.some((allow) => host === allow || host.endsWith(`.${allow}`));
+    if (!hosts.some((allow) => host === allow || host.endsWith(`.${allow}`))) return false;
+    // THE SPEND METER, on the admitted path only (a refused URL never left and costs nothing).
+    // Per-host egress ceilings are the plane's most valuable row — the largest real-world
+    // runaway is a paid model API called in a loop — and this is the one funnel every
+    // interpreter fetch passes through (runner.ts fetchFunnel). The gate is a boolean by
+    // kernel contract, so a capped call answers the same refused-fetch shape (status -2) an
+    // undeclared host does; the NAMED reason is on the event feed and the spend snapshot,
+    // which is where a ceiling's story lives.
+    return chargeSpend(`egress:${host}`).allowed;
   };
 }
 
@@ -168,7 +219,11 @@ function egressGate(allowed: readonly string[]): (url: string) => boolean {
  * another's rows. `RunEnv.callModule` (the kernel's one server seam) is what makes a
  * request-scoped table possible.
  */
-function moduleTable(spec: DeclaredAction, ctx: HostContext): (chain: string, args: Dict) => Promise<unknown> {
+function moduleTable(
+  spec: DeclaredAction,
+  ctx: HostContext,
+  callSibling: (name: string, args: Dict) => Promise<void>,
+): (chain: string, args: Dict) => Promise<unknown> {
   const secrets = new Set(spec.secrets ?? []);
   return async (chain: string, args: Dict): Promise<unknown> => {
     const parts = chain.split(".");
@@ -183,6 +238,15 @@ function moduleTable(spec: DeclaredAction, ctx: HostContext): (chain: string, ar
       // number from a path segment JSON-parsed on the way in. Coercing beats silently reading
       // the empty string, which would answer `null` and read as "no such row".
       const id = idOf(args["id"]);
+      // The spend charge sits at the SEAM, one per operation, before the transport round trip —
+      // the same place the egress gate sits for fetch. A declared-CRUD route never reaches this
+      // path (the host charged it at dispatch), so an operation is charged exactly once. Only a
+      // KNOWN verb is charged: a typo'd verb executes nothing, so it must cost nothing, and at a
+      // spent ceiling it must still answer `unknown_action` rather than misdirect the author's
+      // debugging toward the budget.
+      if (["create", "get", "update", "delete", "list"].includes(verb)) {
+        chargeSeam(verb === "get" || verb === "list" ? "data:reads" : "data:writes", ctx.internal === true);
+      }
       switch (verb) {
         case "create": return repo.create(entity, values);
         case "get": return repo.get(entity, id);
@@ -209,7 +273,44 @@ function moduleTable(spec: DeclaredAction, ctx: HostContext): (chain: string, ar
         throw new ModuleCallError("bad_request", `queue.${queue}.push needs a non-empty \`key\` (the idempotency key)`);
       }
       const payload = (args["payload"] ?? {}) as Record<string, unknown>;
+      // Charged per PUSH, not per drain: the push is where a cycle amplifies (a consumer that
+      // re-enqueues invents new keys each round, and this window ceiling is what caps it — the
+      // depth ceiling in enqueueMessage caps the standing backlog).
+      chargeSeam(`queue:${queue}`, ctx.internal === true);
       return enqueueMessage(queue, key, payload);
+    }
+
+    // THE DRAIN, and the reason it takes an ACTION NAME rather than a callback: JSE has no
+    // function values to hand across a seam, so a body that looped over claimed messages itself
+    // would have to re-implement per-message isolation, the lease, the release-vs-dead-letter
+    // decision and the settle — the four things `drainQueue` exists to get right once. Naming a
+    // sibling action keeps all of that in tested TypeScript and leaves the author with the only
+    // part that is theirs: what one message means.
+    //
+    // The contract the author sees is the same one a TypeScript worker gets. Return and the
+    // message is acked. THROW and it goes back for another attempt, until its attempts are spent
+    // and it dead-letters with the reason still attached.
+    if (head === "queue" && parts.length === 3 && verb === "drain") {
+      const queue = parts[1]!;
+      const action = typeof args["action"] === "string" ? args["action"] : "";
+      // A drain naming an action this document does not declare would claim every message,
+      // fail all of them, and park the queue — so it is refused before a single claim.
+      if (action === "" || (action !== spec.name && (spec.siblings ?? {})[action] === undefined)) {
+        throw new ModuleCallError("bad_request", `queue.${queue}.drain needs \`action\`, naming an action this document declares`);
+      }
+      const asked = typeof args["limit"] === "number" && Number.isFinite(args["limit"]) ? args["limit"] : DRAIN_DEFAULT_LIMIT;
+      // Lower default than a TypeScript drain takes, because each message here runs an
+      // INTERPRETED body against the same request deadline: a hundred of them is a drain that
+      // reliably runs out of clock and reports 503 having acked most of its work.
+      const limit = Math.max(1, Math.min(asked, QUEUE_CLAIM_LIMIT));
+      return drainQueue(queue, async (message) => {
+        await callSibling(action, {
+          message: {
+            id: message.id, key: message.key, payload: message.payload,
+            attempt: message.attempt, enqueuedAt: message.enqueuedAt,
+          },
+        } as Dict);
+      }, { limit });
     }
 
     if (head === "secret" && parts.length === 2 && verb === "read") {
@@ -260,9 +361,33 @@ export function declaredHandler(spec: DeclaredAction): HostHandler {
 
   return async (args: Record<string, unknown>, ctx: HostContext): Promise<unknown> => {
     const store = new ReactiveStore();
+    // The runner does not exist yet and the module table needs to reach it (the `queue.drain`
+    // seam runs one sibling action per claimed message). A holder rather than a rebuild, so
+    // there is exactly one runner per request and the per-message calls share its budgets.
+    let runner: ActionRunner | null = null;
+    const callSibling = async (name: string, callArgs: Dict): Promise<void> => {
+      if (runner === null) throw new ModuleCallError("unavailable", "the action runner is not ready");
+      // An ENTRY call: a queue message comes from outside the document, so there is no caller
+      // scope and a declared `inputs="message"` names the payload key. (This used to route the
+      // message through `callArgs` to dodge the surface rule clobbering it — the runner models
+      // the distinction now, so the workaround is gone.)
+      await runner.callAction(name, {}, null, callArgs, { entry: true });
+      // A throw from the per-message body is the RETRY SIGNAL, so it is taken off the runner
+      // (leaving it there would abort the outer drain and lose the settle for every message
+      // that succeeded) and re-thrown for `drainQueue` to catch per message.
+      //
+      // Re-thrown as an ERROR carrying the body's words, because the queue records
+      // `e instanceof Error ? e.message : String(e)` on the dead-letter row — and a body throws
+      // the error-system's `{ reason, message }` object, which `String()` renders as
+      // "[object Object]". That string is the ONLY thing an operator sees about why a message is
+      // buried, so losing it here would make the dead-letter table useless exactly when it is
+      // the last record of what went wrong.
+      const thrown = runner.takeThrow();
+      if (thrown !== null) throw new Error(describeThrow(thrown.value));
+    };
     const env = makeRunEnv(store, {
       ownerScheme: spec.chain,
-      callModule: moduleTable(spec, ctx),
+      callModule: moduleTable(spec, ctx, callSibling),
       egress: gate,
       loopCap,
       deadlineAt: Date.now() + deadlineMs,
@@ -282,9 +407,12 @@ export function declaredHandler(spec: DeclaredAction): HostHandler {
     // nothing to do here — there is no concurrent entry on THIS runner and its budgets start at
     // zero. Calling the action directly keeps the whole server-shaped path out of the kernel,
     // which matters: runner.ts ships in every bundle, self-contained embeds included.
-    const runner = new ActionRunner(env);
+    runner = new ActionRunner(env);
     const deadlineAt = env.deadlineAt!;
-    const value = await runner.callAction(spec.name, {}, null, args as Dict);
+    // An ENTRY call: the request is the payload and there is no caller scope. Without this a
+    // document declaring `inputs="title, total"` received null for both — declaring the contract
+    // was strictly worse than omitting it (Conformance/actions entry-* cases).
+    const value = await runner.callAction(spec.name, {}, null, args as Dict, { entry: true });
 
     // A BLOWN BUDGET IS A FAILURE, NOT A SHORTER ANSWER. The runner CONTAINS a runaway loop —
     // it stops iterating and the body runs on — which is the right thing for a surface, where

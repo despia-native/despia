@@ -1,0 +1,14 @@
+<!-- Stat — one number a person came to read, with its unit beside it and its caption under
+     it. The number is data and carries the weight; the unit stays chrome. -->
+<vstack class="sk-stat" style="gap: 0.125rem; min-width: 0">
+  <head>
+    <attribute as="value"/>
+    <attribute as="unit" default=""/>
+    <attribute as="caption" default=""/>
+  </head>
+  <hstack style="align-items: baseline; gap: 0.25rem">
+    <text value="{{ dsx.attribute.value }}" class="sk-stat-value" fontFeature="tnum"/>
+    <text value="{{ dsx.attribute.unit }}" class="sk-stat-unit" visible-if="dsx.attribute.unit != ''"/>
+  </hstack>
+  <text value="{{ dsx.attribute.caption }}" class="sk-stat-caption" visible-if="dsx.attribute.caption != ''"/>
+</vstack>

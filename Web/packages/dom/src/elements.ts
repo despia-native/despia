@@ -6,16 +6,21 @@
 //  globals.ts so embeds that do not use them do not pay for them.
 //
 
-import { string, number, truthy, type Dict } from "@despia/kernel";
+import { string, number, truthy, DSXEvents, ModuleRegistry, type Dict } from "@despia/kernel";
 import { segmentOptions, type SegmentOption } from "@despia/compiler/options";
 import { mapStyleValue } from "@despia/compiler/cssmap";
-import type { MountCtx } from "./mount.ts";
+import { resolveComponent } from "@despia/compiler/resolve";
+import { admitSrc } from "./src-gate.ts";
+import { multilineReturn, type MountCtx } from "./mount.ts";
 import type { XmlNode } from "@despia/compiler/xml";
 import { qrMatrix, type QrCorrection } from "./qr.ts";
 import { resolveAdaptiveShell } from "./adaptive-shell.ts";
 import { ICON_FALLBACKS, ICON_VECTORS } from "./icons.generated.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { markdownBlocksFragment } from "./markdown-blocks.ts";
+import { applyScrollBehaviour } from "./scroll.ts";
+import { TYPE_ROLES } from "./type-roles.ts";
+import { applyImageAttributes } from "./image.ts";
 
 export type ElementFactory = (node: XmlNode, ctx: MountCtx, api: ElementApi) => HTMLElement;
 
@@ -23,6 +28,11 @@ export type ElementFactory = (node: XmlNode, ctx: MountCtx, api: ElementApi) => 
 export type ElementApi = {
   /** reactive read of an interpolatable attribute ("" when absent) */
   bindText(expr: string | undefined, apply: (v: string) => void): void;
+  /** bindText THROUGH the localization seam (P12): for DISPLAY text only - text value /
+   *  inner text, button labels, placeholders. Always an effect, even for a static
+   *  template, so `global.locale` / `global.strings` writes re-resolve live surfaces;
+   *  bound dynamic content (`bind=`) stays source-language per localization.md. */
+  bindDisplay(expr: string | undefined, apply: (v: string) => void): void;
   /** reactive JSE read (visible-if / bind expressions — raw, no {{ }}) */
   bindValue(expr: string | undefined, apply: (v: unknown) => void): void;
   /** two-way write back to a bind= path */
@@ -31,8 +41,10 @@ export type ElementApi = {
   handler(name: string, payload?: Dict): void;
   hasHandler(name: string): boolean;
   /** mount this node's children into a parent (the default flow). `inherit` carries
-   * renderer-owned environment values such as the enclosing form namespace. */
-  children(parent: HTMLElement, nodes?: readonly XmlNode[], inherit?: { formNamespace?: string }): void;
+   * renderer-owned environment values such as the enclosing form namespace, and — for
+   * the factories that REMOUNT content (DSXView re-resolving `src`) — a private
+   * disposer list so the previous mount's subscriptions can be torn down. */
+  children(parent: HTMLElement, nodes?: readonly XmlNode[], inherit?: { formNamespace?: string; disposers?: Array<() => void> }): void;
 };
 
 function el(tag: string, cls: string): HTMLElement {
@@ -101,11 +113,10 @@ export function iconSvg(name: string, size: number): SVGSVGElement {
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("width", String(size));
   svg.setAttribute("height", String(size));
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
+  // AXIS v2 (sf-map.json _web_axis): the corpus web paths are Boxicons FILL paths,
+  // painted with the current color - the stroke tier retired with the hand-drawn set.
+  svg.setAttribute("fill", "currentColor");
+  svg.setAttribute("stroke", "none");
   svg.setAttribute("aria-hidden", "true");
 
   const d = iconEntry(ICON_VECTORS, name);
@@ -294,6 +305,20 @@ export function booleanWord(value: string | undefined): boolean {
   return normalized === "" || normalized === "true" || normalized === "1";
 }
 
+/** The DECLARED control-boolean read (`disabled="false"`, `disabled="{{ locked }}"`).
+ *  Mirrors the Swift component reader (`dsx.bool`: `s == "true" || Double(s) != 0`) and the
+ *  Kotlin `SelectionControl.declaredBool` twin, NOT `truthy()`: truthy("false") is true by
+ *  the JSE string law, so the truthy read DISABLED a control the author explicitly enabled —
+ *  on web and Android, while iOS honored the author. A bound `{{ locked }}` arrives "1"/""
+ *  here, which is why the empty string stays false (unlike `booleanWord`, whose bare-word
+ *  spelling has no bound form). */
+export function declaredBool(value: string): boolean {
+  const v = value.trim();
+  if (v === "true") return true;
+  const n = Number(v);
+  return v !== "" && !Number.isNaN(n) && n !== 0;
+}
+
 // ── the `<list axis="horizontal" autoscroll="N">` MARQUEE (List.swift StackMarquee) ──
 //
 //  N is points/second. The loop is SEAMLESS with no cloned DOM: once the leading row has
@@ -406,11 +431,19 @@ const markdownEl: ElementFactory = (node, _ctx, api) => {
       e.textContent = v;
     }
   };
-  // Same precedence <text> uses: bind > value > inner text.
-  const source = node.attrs["bind"] ?? node.attrs["value"];
-  if (source !== undefined) api.bindText(source, write);
-  else if (node.text.trim().length > 0) api.bindText(node.text.trim(), write);
-  else write("");
+  // Same precedence AND the same evaluation split <text> uses: bind= is a JSE
+  // expression (the SSR twin evals it, render.ts <markdown> branch), value=/inner
+  // text interpolate. Folding bind into bindText rendered the expression string
+  // literally on the client while the server painted the real document.
+  if (node.attrs["bind"] !== undefined) {
+    api.bindValue(node.attrs["bind"], (v) => { write(string(v)); });
+  } else if (node.attrs["value"] !== undefined) {
+    api.bindText(node.attrs["value"], write);
+  } else if (node.text.trim().length > 0) {
+    api.bindText(node.text.trim(), write);
+  } else {
+    write("");
+  }
   return e;
 };
 
@@ -442,12 +475,23 @@ const textEl: ElementFactory = (node, _ctx, api) => {
   if (node.attrs["bind"] !== undefined) {
     api.bindValue(node.attrs["bind"], (v) => { write(string(v)); });
   } else if (node.attrs["value"] !== undefined) {
-    api.bindText(node.attrs["value"], (v) => { write(v); });
+    api.bindDisplay(node.attrs["value"], (v) => { write(v); });
   } else if (node.text.trim().length > 0) {
-    api.bindText(node.text.trim(), (v) => { write(v); });
+    api.bindDisplay(node.text.trim(), (v) => { write(v); });
   }
   if (node.attrs["lineLimit"] !== undefined) {
     api.bindText(node.attrs["lineLimit"], (v) => applyLineClamp(e, v));
+  }
+  // `type=` names a rung of the ratified ramp; the element layer carries one rule per role
+  // (theme.ts TYPE_ROLE_RULES). Bound like every other attribute so an interpolated role
+  // flips live, and an unknown word is DROPPED rather than written: a typo must fall back to
+  // the body default, never leave the element styled by an attribute nothing matches.
+  if (node.attrs["type"] !== undefined) {
+    api.bindText(node.attrs["type"], (v) => {
+      const role = v.trim();
+      if ((TYPE_ROLES as readonly string[]).includes(role)) e.dataset["dsxType"] = role;
+      else delete e.dataset["dsxType"];
+    });
   }
   return e;
 };
@@ -507,7 +551,7 @@ const buttonEl: ElementFactory = (node, _ctx, api) => {
     };
     if (node.attrs["disabled"] !== undefined) {
       api.bindText(node.attrs["disabled"], (value) => {
-        declaredDisabled = truthy(value);
+        declaredDisabled = declaredBool(value);
         reflectDisabled();
       });
     }
@@ -546,7 +590,7 @@ const buttonEl: ElementFactory = (node, _ctx, api) => {
     const span = document.createElement("span");
     span.setAttribute("data-dsx-part", "label");
     e.appendChild(span);
-    api.bindText(node.attrs["label"], (v) => { span.textContent = v; });
+    api.bindDisplay(node.attrs["label"], (v) => { span.textContent = v; });
   }
   // Pressables/rows always own arbitrary content. A canonical button falls back to
   // its slot only when neither label nor icon is supplied, matching native precedence.
@@ -615,9 +659,19 @@ const imageEl: ElementFactory = (node, _ctx, api) => {
   // cached bytes" is a per-mount cache-bust key; the default rides the normal HTTP
   // cache, which IS the platform's own memory/disk tier.
   const bust = node.attrs["cache"] === "none" ? `dsx-nc=${nextCacheBustKey()}` : "";
-  const setSource = (v: string): void => {
+  // U05: contentFit/contentPosition/placeholder/transition/priority/cachePolicy and the
+  // load+error handlers, all off the shared image core (Conformance/image/resolution.json).
+  const dsxImage = applyImageAttributes(e, node.attrs, api);
+  const setSource = (raw: string): void => {
+    const v = admitSrc(e, raw);
     if (v.length === 0) return;
-    e.src = bust.length === 0 ? v : `${v}${v.includes("?") ? "&" : "?"}${bust}`;
+    const url = bust.length === 0 ? v : `${v}${v.includes("?") ? "&" : "?"}${bust}`;
+    // `update` runs FIRST and only manages the recycling ladder: on a reused row it drops the
+    // stale src in the same turn as the identity change, which is the whole point of clearing
+    // before the new bytes arrive. It does not assign the source, so the write below still is
+    // the assignment.
+    dsxImage.update({ src: url });
+    e.src = url;
   };
   if (node.attrs["src"] !== undefined) api.bindText(node.attrs["src"], setSource);
   else if (node.attrs["asset"] !== undefined) {
@@ -643,6 +697,9 @@ const scroll: ElementFactory = (node, _ctx, api) => {
     e.classList.toggle("dsx-scroll-x", value === "horizontal");
   });
   api.children(e);
+  // U01: metrics, snap, paging, insets, the scroll-linked custom properties and the
+  // scroll/scrollEnd/reachEnd handlers (Conformance/scroll/*.json).
+  applyScrollBehaviour(e, node.attrs, api);
   return e;
 };
 
@@ -652,6 +709,30 @@ const divider: ElementFactory = (node, _ctx, api) => {
   bindSemanticColor(node, api, line, "--dsx-divider-color");
   return line;
 };
+
+/** disabled= / disabled-if= on the interactive control set (the W9 grammar wave): the
+ *  pair reflects into the factory's real control(s) — native `disabled`, so the CSS
+ *  state selectors, focusability, and event suppression all follow the platform —
+ *  exactly the button family's contract above, sharing its define. Zero cost when the
+ *  element authors neither spelling. */
+function bindControlDisabled(
+  node: XmlNode,
+  api: ElementApi,
+  apply: (disabled: boolean) => void,
+): void {
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_DISABLED__?: boolean })
+    .__DSX_OPTIONAL_DISABLED__ === false) return;
+  if (node.attrs["disabled"] === undefined && node.attrs["disabled-if"] === undefined) return;
+  let declared = false;
+  let conditional = false;
+  const reflect = (): void => apply(declared || conditional);
+  if (node.attrs["disabled"] !== undefined) {
+    api.bindText(node.attrs["disabled"], (value) => { declared = declaredBool(value); reflect(); });
+  }
+  if (node.attrs["disabled-if"] !== undefined) {
+    api.bindValue(node.attrs["disabled-if"], (value) => { conditional = truthy(value); reflect(); });
+  }
+}
 
 const toggle: ElementFactory = (node, _ctx, api) => {
   // the /web/17 anatomy verbatim: semantics ride the real <input>, parts are aria-hidden
@@ -674,6 +755,7 @@ const toggle: ElementFactory = (node, _ctx, api) => {
     api.writeBack(node.attrs["bind"], input.checked);
     api.handler("change", { value: input.checked });
   });
+  bindControlDisabled(node, api, (disabled) => { input.disabled = disabled; });
   return label;
 };
 
@@ -707,6 +789,7 @@ const slider: ElementFactory = (node, _ctx, api) => {
     api.writeBack(node.attrs["bind"], Number(input.value));
     api.handler("change", { value: Number(input.value) });
   });
+  bindControlDisabled(node, api, (disabled) => { input.disabled = disabled; });
   return input;
 };
 
@@ -793,11 +876,10 @@ function controlGlyph(d: string, size: number): SVGSVGElement {
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("width", String(size));
   svg.setAttribute("height", String(size));
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
+  // AXIS v2 (sf-map.json _web_axis): the corpus web paths are Boxicons FILL paths,
+  // painted with the current color - the stroke tier retired with the hand-drawn set.
+  svg.setAttribute("fill", "currentColor");
+  svg.setAttribute("stroke", "none");
   svg.setAttribute("aria-hidden", "true");
   const path = document.createElementNS(SVG_NS, "path");
   path.setAttribute("d", d);
@@ -861,7 +943,7 @@ const textfield: ElementFactory = (node, _ctx, api) => {
   applyKeyboardHints(node, input, secure, search);
   if (node.attrs["placeholder"] !== undefined || search) {
     // SearchBar.swift:41 — the placeholder DEFAULT is "Search", not empty.
-    api.bindText(node.attrs["placeholder"] ?? (search ? "Search" : ""), (v) => { input.placeholder = v; });
+    api.bindDisplay(node.attrs["placeholder"] ?? (search ? "Search" : ""), (v) => { input.placeholder = v; });
   }
   api.bindValue(node.attrs["bind"], (v) => {
     const s = string(v);
@@ -880,6 +962,7 @@ const textfield: ElementFactory = (node, _ctx, api) => {
       if (e.key === "Enter") api.handler("submit", { value: input.value });
     });
   }
+  bindControlDisabled(node, api, (disabled) => { input.disabled = disabled; });
   return search ? searchBarShell(node, api, input) : input;
 };
 
@@ -896,6 +979,7 @@ export function textAreaLineCount(value: unknown, fallback: number): number {
 
 const textareaEl: ElementFactory = (node, _ctx, api) => {
   const area = el("textarea", "dsx-textarea") as HTMLTextAreaElement;
+  let submitOnEnter = false;
   area.setAttribute("data-dsx-component", "text-area");
   area.setAttribute("data-dsx-part", "control");
   const declaredMin = textAreaLineCount(node.attrs["minLines"] ?? "3", 3);
@@ -903,12 +987,36 @@ const textareaEl: ElementFactory = (node, _ctx, api) => {
   const minLines = Math.min(declaredMin, declaredMax);
   const maxLines = Math.max(declaredMin, declaredMax);
   area.rows = minLines;
-  // `lineLimit(min...max)` on iOS grows the field with its content and then scrolls.
-  // The browser twin grows `rows` the same way and caps the box in CSS, so SOFT-wrapped
-  // lines are capped too (the sheet reads --dsx-textarea-max-lines).
+  // `lineLimit(min...max)` on iOS grows the field with its RENDERED lines and then scrolls,
+  // and the floor is minLines rather than a fixed height. Both bounds ride the sheet so the
+  // box is sized by the author's numbers, never by a hardcoded rem.
   area.style.setProperty("--dsx-textarea-max-lines", String(maxLines));
+  area.style.setProperty("--dsx-textarea-min-lines", String(minLines));
+  // GROWTH IS MEASURED, NOT COUNTED. Counting "\n" grows the box for typed newlines and
+  // ignores every SOFT-wrapped line, so a tagline typed as one long sentence stayed one row
+  // tall on the web while iOS grew it - the field scrolled its own content away as you
+  // typed. Measuring the laid-out content is the only definition that matches what the
+  // reader sees, and it is what makes the three renderers agree.
   const autoGrow = (): void => {
-    const wanted = area.value.length === 0 ? minLines : area.value.split("\n").length;
+    const counted = area.value.length === 0 ? minLines : area.value.split("\n").length;
+    let wanted = counted;
+    // A DOM SHIM HAS NO LAYOUT, and it is a legitimate host: the unit suites mount elements
+    // against one, and a server render has no view either. Reach for the window defensively
+    // and fall through to the counted estimate rather than throwing inside an input handler.
+    const view = area.ownerDocument?.defaultView ?? null;
+    if (view !== null && typeof view.getComputedStyle === "function") {
+      // Shrink to the floor first: scrollHeight reports the LARGER of content and box, so a
+      // box already grown never reports a smaller content and the field could only ever
+      // ratchet upward.
+      area.rows = minLines;
+      const cs = view.getComputedStyle(area);
+      const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.35;
+      const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      const inner = area.scrollHeight - pad;
+      // Environments without layout (a server render, a DOM shim) report 0 here; the counted
+      // fallback keeps those correct rather than collapsing every field to one line.
+      if (line > 0 && inner > 0) wanted = Math.max(Math.round(inner / line), 1);
+    }
     const rows = Math.min(Math.max(wanted, minLines), maxLines);
     if (area.rows !== rows) area.rows = rows;
   };
@@ -920,14 +1028,51 @@ const textareaEl: ElementFactory = (node, _ctx, api) => {
     if (area.value !== s) area.value = s;
     autoGrow();
   });
+  // MEASURE AGAIN ONCE THERE IS A LAYOUT. The initial value arrives through bindValue while
+  // the element is still being built, so it is not in the document yet: getComputedStyle
+  // answers for an unattached node, scrollHeight is 0, and the measured path falls through to
+  // the counted estimate - one row for a value that wraps to three. The field then opened
+  // clipped and only corrected itself when someone typed in it. One deferred pass fixes every
+  // bound textarea; it is a no-op when the counted estimate was already right.
+  queueMicrotask(autoGrow);
   area.addEventListener("input", () => {
     autoGrow();
     api.writeBack(node.attrs["bind"], area.value);
     api.handler("change", { value: area.value });
   });
-  // focus/blur mirror textfield; no on:submit — return inserts a newline here
+  // A USER-RESIZABLE BOX IS A DECISION, and it belongs to the author. The default stays
+  // `vertical` - prose fields want it - but a textarea laid UNDER a highlighted view (a code
+  // surface) cannot have its height dragged out from under the layer it is aligned to, and
+  // there was no spelling for saying so. Native text views have no user resize handle, so
+  // `none` is what iOS and Android already do; this is the web catching up to them.
+  if (node.attrs["resize"] === "none") area.style.resize = "none";
+  // `on:submit` on a MULTILINE field. Return already means "newline" here and keeps meaning it;
+  // what this adds is the two ways a hardware keyboard says "send" - the primary-modifier chord
+  // (Cmd/Ctrl+Return), always available, and bare Return when the author wrote `submitOnEnter`.
+  // The decision itself is the shared grammar (Conformance/input/multiline-submit.json), so the
+  // browser cannot drift from the native lanes on which chord does what.
+  if (api.hasHandler("submit")) {
+    // The exact word `true`, NOT JSE truthy(): truthy("false") is true by the JSE string law,
+    // so the truthy read made `submitOnEnter="false"` submit on web while all three native
+    // renderers (== "true" / the strict bool read) inserted the newline the author asked for.
+    api.bindText(node.attrs["submitOnEnter"] ?? "", (raw) => { submitOnEnter = raw.trim() === "true"; });
+    area.addEventListener("keydown", (event) => {
+      const e = event as KeyboardEvent;
+      const action = multilineReturn(
+        { key: e.key, shift: e.shiftKey, meta: e.metaKey, ctrl: e.ctrlKey, alt: e.altKey },
+        submitOnEnter, true,
+      );
+      // `ignore` is NOT `newline`: it means this grammar has no opinion, so the event must
+      // reach the field untouched rather than being consumed into nothing.
+      if (action !== "submit") return;
+      e.preventDefault();
+      api.handler("submit", { value: area.value });
+    });
+  }
+  // focus/blur mirror textfield
   if (api.hasHandler("focus")) area.addEventListener("focus", () => api.handler("focus", { value: area.value }));
   if (api.hasHandler("blur")) area.addEventListener("blur", () => api.handler("blur", { value: area.value }));
+  bindControlDisabled(node, api, (disabled) => { area.disabled = disabled; });
   return area;
 };
 
@@ -940,11 +1085,16 @@ const progress: ElementFactory = (node, _ctx, api) => {
   fill.setAttribute("aria-hidden", "true");
   wrap.appendChild(fill);
   const max = number(node.attrs["max"] ?? "1") ?? 1;
-  api.bindValue(node.attrs["bind"] ?? node.attrs["value"], (v) => {
+  const apply = (v: unknown): void => {
     const n = Math.min(Math.max((number(v) ?? 0) / (max === 0 ? 1 : max), 0), 1);
     fill.style.width = `${n * 100}%`;
     wrap.setAttribute("aria-valuenow", String(n));
-  });
+  };
+  // both spellings, like ProgressRing's bindNumber: "{{ expr }}" interpolates, bare evals -
+  // the same value= must mean the same thing on every progress surface
+  const expr = node.attrs["bind"] ?? node.attrs["value"];
+  if (expr !== undefined && expr.includes("{{")) api.bindText(expr, (v) => apply(v));
+  else api.bindValue(expr, apply);
   return wrap;
 };
 
@@ -1005,11 +1155,13 @@ const stepper: ElementFactory = (node, _ctx, api) => {
   const min = number(node.attrs["min"] ?? "0") ?? 0;
   const max = number(node.attrs["max"] ?? "100") ?? 100;
   let current = 0;
+  let forced = false;
   const reflect = (): void => {
     valueEl.textContent = string(current);
-    minus.disabled = current <= min;
-    plus.disabled = current >= max;
+    minus.disabled = forced || current <= min;
+    plus.disabled = forced || current >= max;
   };
+  bindControlDisabled(node, api, (disabled) => { forced = disabled; reflect(); });
   api.bindValue(node.attrs["bind"], (v) => {
     current = number(v) ?? 0;
     reflect();
@@ -1072,6 +1224,20 @@ const segmented: ElementFactory = (node, ctx, api) => {
   let controls: HTMLButtonElement[] = [];
   let resizeObserver: ResizeObserver | null = null;
 
+  // WHICH OPTION decides whether the pill glides - not which call site asked, and not the
+  // measurements. `choose` writes back to the bound store, which re-reflects this control
+  // through its own subscription, so one tap positions twice in an order neither call
+  // controls; the second measurement also drifts a pixel (76px -> 75px) as the selected
+  // label takes its own weight, so "did the size change" reads that noise as a layout
+  // event. The selected INDEX is the actual question. A first placement has no option to
+  // come from and lands as a fact - that one used to animate the pill in from the whole
+  // track's width, because the first measurement is taken pre-layout while option one
+  // still spans it. A same-option correction leaves the flag untouched so it retargets a
+  // glide already in flight instead of cancelling it, and transitionend clears the flag so
+  // a later resize lands instantly.
+  let placedIndex = -1;
+  let placed: { x: number; y: number; width: number; height: number } | null = null;
+  indicator.addEventListener("transitionend", () => indicator.removeAttribute("data-animate"));
   const positionIndicator = (): void => {
     const selectedIndex = options.findIndex((option) => sameValue(option.value, selected));
     const control = controls[selectedIndex];
@@ -1081,10 +1247,25 @@ const segmented: ElementFactory = (node, ctx, api) => {
     const width = control.offsetWidth;
     const height = control.offsetHeight;
     if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return;
+    // Nothing moved: return before touching a single attribute, so a redundant reflect
+    // cannot disturb a glide that is still running.
+    if (placed !== null && placed.x === x && placed.y === y
+      && placed.width === width && placed.height === height) return;
+    // A transition that first applies in the same style recalculation as the value change
+    // does not run: dropping the flag alongside the write is what makes a placement land
+    // instantly, and committing it first is what lets a slide actually animate.
+    if (placedIndex >= 0 && placedIndex !== selectedIndex) {
+      indicator.setAttribute("data-animate", "true");
+      void indicator.offsetWidth;
+    } else if (placedIndex < 0) {
+      indicator.removeAttribute("data-animate");
+    }
     group.style.setProperty("--dsx-segment-indicator-x", `${x}px`);
     group.style.setProperty("--dsx-segment-indicator-y", `${y}px`);
     group.style.setProperty("--dsx-segment-indicator-width", `${width}px`);
     group.style.setProperty("--dsx-segment-indicator-height", `${height}px`);
+    placed = { x, y, width, height };
+    placedIndex = selectedIndex;
     indicator.setAttribute("data-positioned", "true");
   };
   const scheduleIndicator = (): void => queueMicrotask(positionIndicator);
@@ -1092,7 +1273,7 @@ const segmented: ElementFactory = (node, ctx, api) => {
     resizeObserver?.disconnect();
     resizeObserver = null;
     if (typeof ResizeObserver === "undefined") return;
-    resizeObserver = new ResizeObserver(positionIndicator);
+    resizeObserver = new ResizeObserver(() => positionIndicator());
     resizeObserver.observe(group);
     controls.forEach((control) => resizeObserver?.observe(control));
   };
@@ -1102,14 +1283,16 @@ const segmented: ElementFactory = (node, ctx, api) => {
   });
 
   const sameValue = (a: unknown, b: unknown): boolean => Object.is(a, b) || string(a) === string(b);
+  let forced = false;
   const reflect = (): void => {
     const selectedIndex = options.findIndex((option) => sameValue(option.value, selected));
     const tabStop = selectedIndex >= 0 ? selectedIndex : 0;
     group.style.setProperty("--dsx-segment-count", String(Math.max(options.length, 1)));
     indicator.hidden = selectedIndex < 0 || options.length === 0;
-    if (indicator.hidden) indicator.removeAttribute("data-positioned");
+    if (indicator.hidden) { indicator.removeAttribute("data-positioned"); placed = null; placedIndex = -1; }
     controls.forEach((control, index) => {
       const on = sameValue(options[index]?.value, selected);
+      control.disabled = forced;
       control.setAttribute("aria-checked", String(on));
       control.dataset["selected"] = String(on);
       control.tabIndex = index === tabStop ? 0 : -1;
@@ -1144,7 +1327,7 @@ const segmented: ElementFactory = (node, ctx, api) => {
   };
 
   group.addEventListener("keydown", (event) => {
-    if (controls.length === 0) return;
+    if (forced || controls.length === 0) return;
     const current = Math.max(0, options.findIndex((o) => sameValue(o.value, selected)));
     let next: number | null = null;
     if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (current + 1) % controls.length;
@@ -1165,6 +1348,7 @@ const segmented: ElementFactory = (node, ctx, api) => {
     });
   }
   api.bindValue(node.attrs["bind"], (v) => { selected = v; reflect(); });
+  bindControlDisabled(node, api, (disabled) => { forced = disabled; reflect(); });
   return group;
 };
 
@@ -1236,6 +1420,7 @@ const stars: ElementFactory = (node, _ctx, api) => {
   wrap.setAttribute("aria-label", accessibleLabel);
   wrap.setAttribute("role", readonly ? "img" : "radiogroup");
   let current = 0;
+  let forced = false;
   const cells: Array<{ host: HTMLElement; clip: SVGRectElement }> = [];
 
   const reflect = (): void => {
@@ -1279,10 +1464,17 @@ const stars: ElementFactory = (node, _ctx, api) => {
   }
   if (!readonly) {
     wrap.addEventListener("keydown", (event) => {
+      if (forced) return;
       if (event.key === "ArrowRight" || event.key === "ArrowUp") { event.preventDefault(); choose(current + 1); }
       else if (event.key === "ArrowLeft" || event.key === "ArrowDown") { event.preventDefault(); choose(current - 1); }
       else if (event.key === "Home") { event.preventDefault(); choose(1); }
       else if (event.key === "End") { event.preventDefault(); choose(count); }
+    });
+    bindControlDisabled(node, api, (disabled) => {
+      forced = disabled;
+      for (const { host } of cells) {
+        if (host instanceof HTMLButtonElement) host.disabled = disabled;
+      }
     });
   }
   api.bindValue(node.attrs["bind"], (v) => { current = number(v) ?? 0; reflect(); });
@@ -1290,7 +1482,10 @@ const stars: ElementFactory = (node, _ctx, api) => {
 };
 
 export type ChartPoint = { x: string; y: number; source: Dict };
+export type ChartSeries = { name: string; points: ChartPoint[] };
 export const CHART_RENDER_POINT_LIMIT = 2_000;
+export const CHART_SERIES_LIMIT = 24;
+const CHART_DEFAULT_PALETTE = ["var(--dsx-accent)", "#FF9500", "#34C759", "#AF52DE", "#FF3B30"];
 
 export function chartPoints(rows: unknown, xKey: string, yKey: string): ChartPoint[] {
   if (!Array.isArray(rows)) return [];
@@ -1303,6 +1498,42 @@ export function chartPoints(rows: unknown, xKey: string, yKey: string): ChartPoi
     result.push({ x: string(row[xKey] ?? result.length + 1), y, source: row });
   }
   return result;
+}
+
+/** Group rows by `series=` the way the desktop Compose twin does (`desktopChartSeries`).
+ *  An empty series key is one series. Caps at CHART_SERIES_LIMIT so a hostile bind cannot
+ *  allocate an SVG path per unique string. */
+export function chartSeries(
+  rows: unknown,
+  xKey: string,
+  yKey: string,
+  seriesKey = "",
+): ChartSeries[] {
+  if (!Array.isArray(rows)) return [];
+  const groups = new Map<string, ChartPoint[]>();
+  rows.slice(0, 10_000).forEach((raw, index) => {
+    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return;
+    const row = raw as Dict;
+    const y = number(row[yKey]);
+    if (y === null || y === undefined || !Number.isFinite(y)) return;
+    const x = string(row[xKey] ?? index + 1).slice(0, 128);
+    const name = seriesKey === ""
+      ? "Series"
+      : (string(row[seriesKey] ?? "").slice(0, 128) || "Series");
+    const list = groups.get(name) ?? [];
+    list.push({ x, y, source: row });
+    groups.set(name, list);
+  });
+  return [...groups.entries()].slice(0, CHART_SERIES_LIMIT).map(([name, points]) => ({ name, points }));
+}
+
+export function chartPalette(raw: string | undefined, fallback: string): string[] {
+  const parts = String(raw ?? "")
+    .split(/[|,]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => mapStyleValue("color", part) || part);
+  return parts.length > 0 ? parts : [fallback, ...CHART_DEFAULT_PALETTE.slice(1)];
 }
 
 /** Deterministic min/max bucket sampling. It preserves the first and last points and
@@ -1341,8 +1572,19 @@ function svgNode<K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNam
   return document.createElementNS("http://www.w3.org/2000/svg", tag);
 }
 
-function linePath(points: Array<{ x: number; y: number }>, smooth: boolean): string {
+export function chartLinePath(
+  points: Array<{ x: number; y: number }>,
+  interpolation = "linear",
+): string {
   if (points.length === 0) return "";
+  if (interpolation === "step") {
+    let path = `M${points[0]!.x.toFixed(2)} ${points[0]!.y.toFixed(2)}`;
+    for (let i = 1; i < points.length; i++) {
+      path += ` L${points[i]!.x.toFixed(2)} ${points[i - 1]!.y.toFixed(2)} L${points[i]!.x.toFixed(2)} ${points[i]!.y.toFixed(2)}`;
+    }
+    return path;
+  }
+  const smooth = interpolation === "smooth" || interpolation === "monotone";
   if (!smooth || points.length < 3) {
     return points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
   }
@@ -1367,20 +1609,30 @@ const chart: ElementFactory = (node, _ctx, api) => {
   const svg = svgNode("svg");
   svg.setAttribute("viewBox", "0 0 600 240");
   svg.setAttribute("preserveAspectRatio", "none");
-  svg.style.cssText = "display:block;width:100%;height:100%;min-height:180px;overflow:visible";
+  // The svg fills its figure; the 180px DEFAULT floor lives on .dsx-chart in the theme
+  // sheet, so an authored height (a 44px sparkline) is honored instead of overridden -
+  // an inline min-height here decided the floor on the author's behalf.
+  svg.style.cssText = "display:block;width:100%;height:100%;overflow:visible";
   figure.appendChild(svg);
+  bindSemanticColor(node, api, figure, "color");
   const xKey = node.attrs["x"] ?? "x";
   const yKey = node.attrs["y"] ?? "y";
+  const seriesKey = node.attrs["series"] ?? "";
   const type = (node.attrs["type"] ?? "line").toLowerCase();
   const showPoints = truthy(node.attrs["showPoints"] ?? type === "point");
   const lineWidth = Math.max(0.5, number(node.attrs["lineWidth"] ?? "2") ?? 2);
   const areaOpacity = Math.min(Math.max(number(node.attrs["areaOpacity"] ?? ".25") ?? .25, 0), 1);
+  const palette = chartPalette(node.attrs["colors"], "currentColor");
 
   api.bindValue(node.attrs["data"], (raw) => {
-    const sourcePoints = chartPoints(raw, xKey, yKey);
-    const points = downsampleChartPoints(sourcePoints);
+    const grouped = chartSeries(raw, xKey, yKey, seriesKey);
+    const sourcePoints = grouped.flatMap((entry) => entry.points);
+    const series = grouped.map((entry) => ({
+      name: entry.name,
+      points: downsampleChartPoints(entry.points),
+    }));
     svg.replaceChildren();
-    if (points.length === 0) {
+    if (sourcePoints.length === 0) {
       const label = svgNode("text");
       label.setAttribute("x", "300");
       label.setAttribute("y", "120");
@@ -1403,50 +1655,67 @@ const chart: ElementFactory = (node, _ctx, api) => {
     const right = 584;
     const top = 14;
     const bottom = 205;
-    const xAt = (index: number): number => points.length === 1 ? (left + right) / 2 : left + index / (points.length - 1) * (right - left);
+    const maxPoints = Math.max(1, ...series.map((entry) => entry.points.length));
+    const xAt = (index: number): number => maxPoints === 1 ? (left + right) / 2 : left + index / (maxPoints - 1) * (right - left);
     const yAt = (value: number): number => bottom - (value - min) / (max - min) * (bottom - top);
+    const axisPoints = series.reduce((best, entry) => entry.points.length > best.length ? entry.points : best, series[0]!.points);
 
-    if (!truthy(node.attrs["yHide"] ?? false)) {
+    const yHide = truthy(node.attrs["yHide"] ?? false);
+    const yGridOn = !yHide && (node.attrs["yGrid"] === undefined || truthy(node.attrs["yGrid"]));
+    const xGridOn = truthy(node.attrs["xGrid"] ?? false);
+    if (!yHide) {
       for (let i = 0; i <= 4; i++) {
         const y = top + i / 4 * (bottom - top);
-        const grid = svgNode("line");
-        grid.setAttribute("x1", String(left)); grid.setAttribute("x2", String(right));
-        grid.setAttribute("y1", String(y)); grid.setAttribute("y2", String(y));
-        grid.setAttribute("stroke", "var(--dsx-separator)"); grid.setAttribute("stroke-width", "1");
+        if (yGridOn) {
+          const grid = svgNode("line");
+          grid.setAttribute("data-dsx-grid", "y");
+          grid.setAttribute("x1", String(left)); grid.setAttribute("x2", String(right));
+          grid.setAttribute("y1", String(y)); grid.setAttribute("y2", String(y));
+          grid.setAttribute("stroke", "var(--dsx-separator)"); grid.setAttribute("stroke-width", "1");
+          svg.appendChild(grid);
+        }
         const label = svgNode("text");
         label.setAttribute("x", String(left - 6)); label.setAttribute("y", String(y + 4));
         label.setAttribute("text-anchor", "end"); label.setAttribute("fill", "var(--dsx-secondary-label)");
         label.setAttribute("font-size", "10"); label.textContent = (max - i / 4 * (max - min)).toFixed(0);
-        svg.append(grid, label);
+        svg.appendChild(label);
       }
     }
-    const geometry = points.map((p, i) => ({ x: xAt(i), y: yAt(p.y) }));
-    if (type === "bar") {
-      const slot = (right - left) / Math.max(points.length, 1);
-      geometry.forEach((p, i) => {
-        const rect = svgNode("rect");
-        const zero = yAt(0);
-        rect.setAttribute("x", String(p.x - Math.min(32, slot * .68) / 2));
-        rect.setAttribute("y", String(Math.min(zero, p.y)));
-        rect.setAttribute("width", String(Math.min(32, slot * .68)));
-        rect.setAttribute("height", String(Math.max(1, Math.abs(zero - p.y))));
-        rect.setAttribute("rx", "3"); rect.setAttribute("fill", "currentColor");
-        rect.setAttribute("aria-label", `${points[i]!.x}: ${points[i]!.y}`);
-        svg.appendChild(rect);
-      });
-    } else {
-      const d = linePath(geometry, node.attrs["interpolation"] === "smooth" || node.attrs["interpolation"] === "monotone");
+    series.forEach((entry, seriesIndex) => {
+      const tint = palette[seriesIndex % palette.length]!;
+      const geometry = entry.points.map((p, i) => ({ x: xAt(i), y: yAt(p.y) }));
+      if (type === "bar") {
+        const slot = (right - left) / maxPoints;
+        const barWidth = Math.max(1, Math.min(32, slot * .68) / series.length);
+        geometry.forEach((p, i) => {
+          const rect = svgNode("rect");
+          const zero = yAt(0);
+          const offset = (seriesIndex - (series.length - 1) / 2) * barWidth;
+          rect.setAttribute("x", String(p.x + offset - barWidth / 2));
+          rect.setAttribute("y", String(Math.min(zero, p.y)));
+          rect.setAttribute("width", String(barWidth));
+          rect.setAttribute("height", String(Math.max(1, Math.abs(zero - p.y))));
+          rect.setAttribute("rx", "3"); rect.setAttribute("fill", tint);
+          rect.setAttribute("data-dsx-series", entry.name);
+          rect.setAttribute("aria-label", `${entry.name} ${entry.points[i]!.x}: ${entry.points[i]!.y}`);
+          svg.appendChild(rect);
+        });
+        return;
+      }
+      const d = chartLinePath(geometry, node.attrs["interpolation"] ?? "linear");
       if (type === "area") {
         const area = svgNode("path");
         area.setAttribute("d", `${d} L${geometry.at(-1)!.x} ${bottom} L${geometry[0]!.x} ${bottom} Z`);
-        area.setAttribute("fill", "currentColor"); area.setAttribute("opacity", String(areaOpacity));
+        area.setAttribute("fill", tint); area.setAttribute("opacity", String(areaOpacity));
+        area.setAttribute("data-dsx-series", entry.name);
         svg.appendChild(area);
       }
       if (type !== "point") {
         const path = svgNode("path");
         path.setAttribute("d", d); path.setAttribute("fill", "none");
-        path.setAttribute("stroke", "currentColor"); path.setAttribute("stroke-width", String(lineWidth));
+        path.setAttribute("stroke", tint); path.setAttribute("stroke-width", String(lineWidth));
         path.setAttribute("stroke-linecap", "round"); path.setAttribute("stroke-linejoin", "round");
+        path.setAttribute("data-dsx-series", entry.name);
         svg.appendChild(path);
       }
       if (showPoints || type === "point") {
@@ -1454,16 +1723,25 @@ const chart: ElementFactory = (node, _ctx, api) => {
           const point = svgNode("circle");
           point.setAttribute("cx", String(p.x)); point.setAttribute("cy", String(p.y));
           point.setAttribute("r", String(Math.max(2, Math.sqrt(number(node.attrs["pointSize"] ?? "40") ?? 40) / 2)));
-          point.setAttribute("fill", "currentColor");
-          point.setAttribute("aria-label", `${points[i]!.x}: ${points[i]!.y}`);
+          point.setAttribute("fill", tint);
+          point.setAttribute("data-dsx-series", entry.name);
+          point.setAttribute("aria-label", `${entry.name} ${entry.points[i]!.x}: ${entry.points[i]!.y}`);
           svg.appendChild(point);
         });
       }
-    }
+    });
     if (!truthy(node.attrs["xHide"] ?? false)) {
-      const stride = Math.max(1, Math.ceil(points.length / 7));
-      points.forEach((point, i) => {
-        if (i % stride !== 0 && i !== points.length - 1) return;
+      const stride = Math.max(1, Math.ceil(axisPoints.length / 7));
+      axisPoints.forEach((point, i) => {
+        if (i % stride !== 0 && i !== axisPoints.length - 1) return;
+        if (xGridOn) {
+          const grid = svgNode("line");
+          grid.setAttribute("data-dsx-grid", "x");
+          grid.setAttribute("x1", String(xAt(i))); grid.setAttribute("x2", String(xAt(i)));
+          grid.setAttribute("y1", String(top)); grid.setAttribute("y2", String(bottom));
+          grid.setAttribute("stroke", "var(--dsx-separator)"); grid.setAttribute("stroke-width", "1");
+          svg.appendChild(grid);
+        }
         const label = svgNode("text");
         label.setAttribute("x", String(xAt(i))); label.setAttribute("y", "226");
         label.setAttribute("text-anchor", "middle"); label.setAttribute("fill", "var(--dsx-secondary-label)");
@@ -1471,8 +1749,10 @@ const chart: ElementFactory = (node, _ctx, api) => {
         svg.appendChild(label);
       });
     }
-    const sampling = points.length < sourcePoints.length ? `; showing ${points.length} representative marks` : "";
-    figure.setAttribute("aria-label", `${type} chart with ${sourcePoints.length} points${sampling}; values range from ${min} to ${max}`);
+    const sampled = series.reduce((sum, entry) => sum + entry.points.length, 0);
+    const sampling = sampled < sourcePoints.length ? `; showing ${sampled} representative marks` : "";
+    const seriesNote = series.length > 1 ? `; ${series.length} series` : "";
+    figure.setAttribute("aria-label", `${type} chart with ${sourcePoints.length} points${seriesNote}${sampling}; values range from ${min} to ${max}`);
   });
   return figure;
 };
@@ -1554,7 +1834,7 @@ const mapEl: ElementFactory = (node, ctx, api) => {
       pin.style.cssText =
         `position:absolute;left:${point.x}px;top:${point.y}px;transform:translate(-50%,-100%);pointer-events:auto;` +
         "width:44px;height:44px;padding:0;border:0;background:transparent;color:var(--dsx-accent);" +
-        "font-size:30px;line-height:1;text-shadow:0 1px 2px var(--dsx-background);cursor:pointer";
+        "font-size:var(--dsx-glyph-size-xl);line-height:var(--dsx-type-leading-none);text-shadow:0 1px 2px var(--dsx-background);cursor:pointer";
       pinsLayer.appendChild(pin);
     }
     const state = `${centerLat.toFixed(5)}, ${centerLon.toFixed(5)} · z${zoom.toFixed(1)}`;
@@ -1678,7 +1958,8 @@ const webView: ElementFactory = (node, ctx, api) => {
   const controller: WebSurfaceController = {
     frame,
     load(url) {
-      const safe = safeWebSurfaceUrl(url);
+      const safe = admitSrc(frame, safeWebSurfaceUrl(url));
+      if (safe.length === 0) { frame.src = "about:blank"; return; }
       api.handler("start", { url: safe });
       frame.src = safe;
     },
@@ -1749,6 +2030,89 @@ const webView: ElementFactory = (node, ctx, api) => {
     }
   });
   return frame;
+};
+
+/** `<DSXWebView/>` — the composed APP web surface (web-surface-policy.md). On this
+ *  renderer the app IS the web, so the surface is the page's own origin: `path`
+ *  resolves against it (an explicit `origin` still wins) and the embed rides the same
+ *  policy-constrained iframe `<WebView>` mounts, including the named-surface controls
+ *  the Dom facet targets (default name "web" — `dsx.module.dom.*` reaches this surface
+ *  exactly like the native app surface). Nothing native is faked: there is no BridgeKit
+ *  twin, so the embedded page gets the plain `window.app.send` channel and the
+ *  bridge-gate `on:denied` event never fires here. */
+const dsxWebView: ElementFactory = (node, ctx, api) => {
+  const attrs = { ...node.attrs };
+  if (attrs["src"] === undefined && attrs["origin"] === undefined) attrs["src"] = attrs["path"] ?? "/";
+  return webView({ ...node, attrs }, ctx, api);
+};
+
+/** "player/Scrubber.dsx" → "Scrubber" (the DSXView.swift componentName rule); a folder
+ *  src ("…/player/") folds to its folder name. */
+function dsxViewComponentName(src: string): string | null {
+  const path = src.replace(/[?#].*$/, "").replace(/\/+$/, "");
+  const last = path.split("/").filter((part) => part.length > 0).at(-1) ?? "";
+  const name = last.endsWith(".dsx") ? last.slice(0, -4) : last;
+  return name.length > 0 ? name : null;
+}
+
+/** `<DSXView/>` — the remote/native DSX surface. On this renderer every screen is
+ *  already native DSX (the router-painted frame is the DSXView analogue), so the honest
+ *  mapping renders the screen `src` names FROM THIS BUILD's compiled registry — the web
+ *  reading of the native rule "a shipped tag of the same name always wins", where the
+ *  build is all there is. Remote fetch, screen-folder manifests, and the DSXRemoteCache
+ *  policy are native-only (`origin` is not consumed); a src this build does not ship
+ *  renders a labelled unavailable card, never blank. Lifecycle mirrors the native
+ *  contract on the stable `dsx-view` scheme (loading/ready/failed/disappear). */
+const dsxView: ElementFactory = (node, ctx, api) => {
+  const host = el("div", "dsx-view");
+  let inner: Array<() => void> | null = null;
+  const clear = (): void => {
+    inner?.forEach((dispose) => dispose());
+    inner = null;
+    host.replaceChildren();
+  };
+  const origin = node.attrs["origin"] ?? "";
+  let lastSrc: string | null = null;
+  ctx.disposers.push(() => {
+    clear();
+    if (lastSrc !== null) DSXEvents.publish("dsx-view:disappear", { src: lastSrc, origin });
+  });
+  api.bindText(node.attrs["src"] ?? "", (raw) => {
+    clear();
+    const src = raw.trim();
+    lastSrc = src;
+    DSXEvents.publish("dsx-view:loading", { src, origin });
+    const name = dsxViewComponentName(src);
+    // The mount tag must preserve exactly the resolution that shipped it: a
+    // Capitalized/dotted name rides mountNode's own component ladder; a lowercase
+    // screen name (a folder src) is qualified so the component route still fires.
+    let target: string | null = null;
+    if (name !== null) {
+      if (/^[A-Z]/.test(name) || name.includes(".")) {
+        target = resolveComponent(ctx.registry, ctx.scheme, name) !== null
+          || ModuleRegistry.facetComponent(name) !== null
+          || GLOBAL_ELEMENTS[name] !== undefined ? name : null;
+      } else if (resolveComponent(ctx.registry, ctx.scheme, `${ctx.scheme}.${name}`) !== null) {
+        target = `${ctx.scheme}.${name}`;
+      } else if (resolveComponent(ctx.registry, ctx.scheme, `shared.${name}`) !== null) {
+        target = `shared.${name}`;
+      }
+    }
+    if (target === null) {
+      const message = el("span", "dsx-view-unavailable");
+      message.setAttribute("role", "status");
+      message.textContent = src.length === 0
+        ? "Screen is not configured. Add a valid src to DSXView."
+        : `Screen unavailable: this build does not ship "${name ?? src}".`;
+      host.appendChild(message);
+      DSXEvents.publish("dsx-view:failed", { src, origin });
+      return;
+    }
+    inner = [];
+    api.children(host, [{ tag: target, attrs: {}, children: [], text: "" }], { disposers: inner });
+    DSXEvents.publish("dsx-view:ready", { src, origin });
+  });
+  return host;
 };
 
 const qrcode: ElementFactory = (node, _ctx, api) => {
@@ -1851,7 +2215,7 @@ export const ELEMENTS: { [tag: string]: ElementFactory } = {
  * WebView control or the QR encoder. Full applications install this set at boot;
  * sliced embeds install it only when their registry actually references one. */
 export const RICH_ELEMENT_TAGS: ReadonlySet<string> = new Set([
-  "segmented", "stars", "chart", "map", "WebView", "qrcode",
+  "segmented", "stars", "chart", "map", "WebView", "DSXWebView", "DSXView", "qrcode",
 ]);
 
 export function registerRichElements(): void {
@@ -1861,6 +2225,8 @@ export function registerRichElements(): void {
     chart,
     map: mapEl,
     WebView: webView,
+    DSXWebView: dsxWebView,
+    DSXView: dsxView,
     qrcode,
   });
 }

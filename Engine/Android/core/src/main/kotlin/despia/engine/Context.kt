@@ -723,6 +723,8 @@ class Context : JSERunnerDsx {
             linked = false,   // no Kotlin client link yet — see FacetFacts.linked
             excluded = ModuleRegistry.shared.excludedEntry(scheme) != null,
             offPlatform = ModuleRegistry.shared.unsupportedPlatforms(scheme) != null,
+            offPlatformAction = ModuleRegistry.shared.unsupportedPlatforms(scheme) == null &&
+                ModuleRegistry.shared.unsupportedPlatforms(scheme, action) != null,
         )
 
     /// Rung two: hand the call to the installed reach transport. The seam settles `outcome`;
@@ -793,7 +795,7 @@ class Context : JSERunnerDsx {
             return ModuleCallError.ActionFailed(code = "unknown_action", data = mapOf("action" to host))
         }
         if (code == "unsupported_platform") {
-            val supported = ModuleRegistry.shared.unsupportedPlatforms(scheme)
+            val supported = ModuleRegistry.shared.unsupportedPlatforms(scheme, action)
             val data = if (supported != null) ModuleRegistry.shared.unsupportedPlatformData(scheme, supported)
                        else facetData(scheme, action)
             val hint = if (supported != null) "implemented on: ${supported.joinToString(", ")}"

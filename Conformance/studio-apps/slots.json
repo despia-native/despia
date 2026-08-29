@@ -1,0 +1,636 @@
+{
+  "_note": "THE MOUNT-TABLE FOLD (studio-apps.md §8): resolveStudioApps(apps, state, opts) is PURE — discovered apps (each a kind: builtin | dev | installed, plus its validated manifest) + the consent state + the host options (denylist, verified approvals, the host's studioApi) fold into the mount table (rail · styleSections · inspectorSections · cards · tools · automations) and the REFUSALS, deterministically. The laws pinned here: a builtin/dev app with an enabled row mounts; a disabled row unmounts everything silently; an INSTALLED app without a consent row refuses loudly ('grants have not been reviewed'); an installed app without a verified approval refuses (the shelf signs coordinate/version/treeHash/grants — dev mode is how you run a working tree); an approval for a DIFFERENT version refuses; a denylisted scheme refuses with the recorded reason; a studioApi skew refuses per-app, typed, never a blank pane; an update that WIDENED grants beyond the recorded consent holds the whole app until re-consent (the panel renders the diff); rows order by (order, app, contribution id) so the rail is stable across machines. Each case's `apps` rows carry raw manifests — the runner validates through readAppManifest first, so this corpus also proves the fold consumes exactly what the grammar admits. Single-runner (the web Studio host — the spend-corpus standing). Runner: packages/cli/test/studio-apps-slots.test.ts.",
+  "cases": [
+    {
+      "name": "an enabled builtin app mounts its rows into their slots",
+      "apps": [
+        {
+          "kind": "builtin",
+          "manifest": {
+            "name": "Marketing",
+            "scheme": "marketing",
+            "version": "1.0.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "board": {
+                  "slot": "studio.rail",
+                  "component": "Components/Board.dsx",
+                  "title": "Distribution",
+                  "icon": "photo",
+                  "order": "10",
+                  "grants": [
+                    "project:read"
+                  ]
+                },
+                "tone": {
+                  "slot": "studio.style.section",
+                  "component": "Components/Tone.dsx",
+                  "title": "Tone",
+                  "grants": [
+                    "selection:read"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "marketing": {
+          "enabled": true,
+          "version": "1.0.0",
+          "grants": [
+            "project:read",
+            "selection:read"
+          ],
+          "grantedAt": "t"
+        }
+      },
+      "expect": {
+        "rail": [
+          "marketing#board"
+        ],
+        "styleSections": [
+          "marketing#tone"
+        ],
+        "refusals": []
+      }
+    },
+    {
+      "name": "a disabled row unmounts everything, silently",
+      "apps": [
+        {
+          "kind": "builtin",
+          "manifest": {
+            "name": "M",
+            "scheme": "m",
+            "version": "1.0.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "board": {
+                  "slot": "studio.rail",
+                  "component": "Components/B.dsx",
+                  "title": "B",
+                  "icon": "b"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "m": {
+          "enabled": false,
+          "version": "1.0.0",
+          "grants": [],
+          "grantedAt": "t"
+        }
+      },
+      "expect": {
+        "rail": [],
+        "refusals": []
+      }
+    },
+    {
+      "name": "an installed app with no consent row refuses loudly",
+      "apps": [
+        {
+          "kind": "installed",
+          "lockId": "github:acme/copy@1.2.0",
+          "manifest": {
+            "name": "AcmeCopy",
+            "scheme": "acmecopy",
+            "version": "1.2.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "p": {
+                  "slot": "studio.rail",
+                  "component": "Components/P.dsx",
+                  "title": "Copy",
+                  "icon": "c",
+                  "grants": [
+                    "project:read"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {},
+      "expect": {
+        "rail": [],
+        "refusals": [
+          {
+            "app": "acmecopy",
+            "reason": "not enabled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "an installed app without a verified approval refuses — dev mode is how a working tree runs",
+      "apps": [
+        {
+          "kind": "installed",
+          "lockId": "github:acme/copy@1.2.0",
+          "manifest": {
+            "name": "AcmeCopy",
+            "scheme": "acmecopy",
+            "version": "1.2.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "p": {
+                  "slot": "studio.rail",
+                  "component": "Components/P.dsx",
+                  "title": "Copy",
+                  "icon": "c",
+                  "grants": [
+                    "project:read"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "acmecopy": {
+          "enabled": true,
+          "version": "1.2.0",
+          "grants": [
+            "project:read"
+          ],
+          "grantedAt": "t"
+        }
+      },
+      "expect": {
+        "rail": [],
+        "refusals": [
+          {
+            "app": "acmecopy",
+            "reason": "no verified approval"
+          }
+        ]
+      }
+    },
+    {
+      "name": "an approval for a different version refuses",
+      "apps": [
+        {
+          "kind": "installed",
+          "lockId": "github:acme/copy@1.3.0",
+          "manifest": {
+            "name": "AcmeCopy",
+            "scheme": "acmecopy",
+            "version": "1.3.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "p": {
+                  "slot": "studio.rail",
+                  "component": "Components/P.dsx",
+                  "title": "Copy",
+                  "icon": "c",
+                  "grants": [
+                    "project:read"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "acmecopy": {
+          "enabled": true,
+          "version": "1.3.0",
+          "grants": [
+            "project:read"
+          ],
+          "grantedAt": "t"
+        }
+      },
+      "opts": {
+        "approvals": {
+          "acmecopy": "1.2.0"
+        }
+      },
+      "expect": {
+        "rail": [],
+        "refusals": [
+          {
+            "app": "acmecopy",
+            "reason": "approval covers 1.2.0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "an approved installed app mounts",
+      "apps": [
+        {
+          "kind": "installed",
+          "lockId": "github:acme/copy@1.2.0",
+          "manifest": {
+            "name": "AcmeCopy",
+            "scheme": "acmecopy",
+            "version": "1.2.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "p": {
+                  "slot": "studio.rail",
+                  "component": "Components/P.dsx",
+                  "title": "Copy",
+                  "icon": "c",
+                  "grants": [
+                    "project:read"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "acmecopy": {
+          "enabled": true,
+          "version": "1.2.0",
+          "grants": [
+            "project:read"
+          ],
+          "grantedAt": "t"
+        }
+      },
+      "opts": {
+        "approvals": {
+          "acmecopy": "1.2.0"
+        }
+      },
+      "expect": {
+        "rail": [
+          "acmecopy#p"
+        ],
+        "refusals": []
+      }
+    },
+    {
+      "name": "a dev app mounts without an approval — the working tree is the developer's own trust",
+      "apps": [
+        {
+          "kind": "dev",
+          "manifest": {
+            "name": "MyApp",
+            "scheme": "myapp",
+            "version": "0.1.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "panel": {
+                  "slot": "studio.inspector.section",
+                  "component": "Components/Panel.dsx",
+                  "title": "Mine",
+                  "grants": [
+                    "selection:read"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "myapp": {
+          "enabled": true,
+          "version": "0.1.0",
+          "grants": [
+            "selection:read"
+          ],
+          "grantedAt": "t"
+        }
+      },
+      "expect": {
+        "inspectorSections": [
+          "myapp#panel"
+        ],
+        "refusals": []
+      }
+    },
+    {
+      "name": "a denylisted scheme refuses with the recorded ground",
+      "apps": [
+        {
+          "kind": "builtin",
+          "manifest": {
+            "name": "Bad",
+            "scheme": "bad",
+            "version": "1.0.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "p": {
+                  "slot": "studio.rail",
+                  "component": "Components/P.dsx",
+                  "title": "Bad",
+                  "icon": "b"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "bad": {
+          "enabled": true,
+          "version": "1.0.0",
+          "grants": [],
+          "grantedAt": "t"
+        }
+      },
+      "opts": {
+        "denylist": [
+          "bad"
+        ]
+      },
+      "expect": {
+        "rail": [],
+        "refusals": [
+          {
+            "app": "bad",
+            "reason": "denylisted"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a studioApi skew refuses per-app, typed",
+      "apps": [
+        {
+          "kind": "builtin",
+          "manifest": {
+            "name": "Future",
+            "scheme": "future",
+            "version": "1.0.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "p": {
+                  "slot": "studio.rail",
+                  "component": "Components/P.dsx",
+                  "title": "F",
+                  "icon": "f"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "future": {
+          "enabled": true,
+          "version": "1.0.0",
+          "grants": [],
+          "grantedAt": "t"
+        }
+      },
+      "opts": {
+        "studioApi": 2
+      },
+      "expect": {
+        "rail": [],
+        "refusals": [
+          {
+            "app": "future",
+            "reason": "Studio API"
+          }
+        ]
+      }
+    },
+    {
+      "name": "widened grants hold the app until re-consent, naming the new permissions",
+      "apps": [
+        {
+          "kind": "builtin",
+          "manifest": {
+            "name": "Grown",
+            "scheme": "grown",
+            "version": "2.0.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "p": {
+                  "slot": "studio.rail",
+                  "component": "Components/P.dsx",
+                  "title": "G",
+                  "icon": "g",
+                  "grants": [
+                    "project:read",
+                    "project:write"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "grown": {
+          "enabled": true,
+          "version": "1.0.0",
+          "grants": [
+            "project:read"
+          ],
+          "grantedAt": "t"
+        }
+      },
+      "expect": {
+        "rail": [],
+        "refusals": [
+          {
+            "app": "grown",
+            "reason": "project:write"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rows order by (order, app, id) — the rail is stable across machines",
+      "apps": [
+        {
+          "kind": "builtin",
+          "manifest": {
+            "name": "Bee",
+            "scheme": "bee",
+            "version": "1.0.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "late": {
+                  "slot": "studio.rail",
+                  "component": "Components/L.dsx",
+                  "title": "L",
+                  "icon": "l",
+                  "order": "20"
+                },
+                "early": {
+                  "slot": "studio.rail",
+                  "component": "Components/E.dsx",
+                  "title": "E",
+                  "icon": "e",
+                  "order": "5"
+                }
+              }
+            }
+          }
+        },
+        {
+          "kind": "builtin",
+          "manifest": {
+            "name": "Ant",
+            "scheme": "ant",
+            "version": "1.0.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "mid": {
+                  "slot": "studio.rail",
+                  "component": "Components/M.dsx",
+                  "title": "M",
+                  "icon": "m",
+                  "order": "20"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "bee": {
+          "enabled": true,
+          "version": "1.0.0",
+          "grants": [],
+          "grantedAt": "t"
+        },
+        "ant": {
+          "enabled": true,
+          "version": "1.0.0",
+          "grants": [],
+          "grantedAt": "t"
+        }
+      },
+      "expect": {
+        "rail": [
+          "bee#early",
+          "ant#mid",
+          "bee#late"
+        ],
+        "refusals": []
+      }
+    },
+    {
+      "name": "tools and automations fold into their own lanes",
+      "apps": [
+        {
+          "kind": "builtin",
+          "manifest": {
+            "name": "Full",
+            "scheme": "full",
+            "version": "1.0.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "gen": {
+                  "slot": "tool",
+                  "action": "generate",
+                  "title": "Generate",
+                  "run": "Server/Tools.dsx#generate"
+                },
+                "notes": {
+                  "slot": "automation",
+                  "on": "build.finished",
+                  "run": "Server/A.dsx#draft",
+                  "grants": [
+                    "automation:deploy"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "full": {
+          "enabled": true,
+          "version": "1.0.0",
+          "grants": [
+            "automation:deploy"
+          ],
+          "grantedAt": "t"
+        }
+      },
+      "expect": {
+        "tools": [
+          "full#gen"
+        ],
+        "automations": [
+          "full#notes"
+        ],
+        "refusals": []
+      }
+    },
+    {
+      "name": "the panel lane: a docked side panel folds beside a full-window rail destination, one app, both placements",
+      "apps": [
+        {
+          "kind": "builtin",
+          "manifest": {
+            "name": "Both",
+            "scheme": "both",
+            "version": "1.0.0",
+            "studioApi": 1,
+            "facets": {
+              "apps": {
+                "side": {
+                  "slot": "studio.panel",
+                  "component": "Components/Side.dsx",
+                  "title": "Side",
+                  "icon": "sidebar.right",
+                  "order": "10"
+                },
+                "board": {
+                  "slot": "studio.rail",
+                  "component": "Components/Board.dsx",
+                  "title": "Board",
+                  "icon": "square.grid.2x2",
+                  "order": "20"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "state": {
+        "both": {
+          "enabled": true,
+          "version": "1.0.0",
+          "grants": [],
+          "grantedAt": "x"
+        }
+      },
+      "expect": {
+        "panels": [
+          "both#side"
+        ],
+        "rail": [
+          "both#board"
+        ],
+        "refusals": []
+      }
+    }
+  ]
+}

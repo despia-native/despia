@@ -38,6 +38,23 @@ test("SSR gives static structure controls the same semantic first-paint anatomy"
   assert.ok(html.includes('aria-roledescription="slide"'));
 });
 
+test("SSR list align: unset stamps NOTHING (stretch), authored words stamp — static and bound", () => {
+  // wave-7 F3, the server twin: the first frame must state the same answer the client
+  // mount re-derives — no data-dsx-align for unset, the authored word otherwise.
+  const component = compileComponent("Aligns", "t", `<stack>
+    <head><variable as="rows">return [{ id: 1 }]</variable></head>
+    <list><text value="bare"/></list>
+    <list align="center"><text value="centered"/></list>
+    <list bind="rows" key="id"><text value="{{ item.id }}"/></list>
+    <list bind="rows" key="id" align="trailing"><text value="{{ item.id }}"/></list>
+  </stack>`);
+  const registry: Registry = { components: { "t.Aligns": component }, globalPool: {}, css: "", schemes: [] };
+  const html = renderToString(registry, "t.Aligns");
+  assert.equal((html.match(/data-dsx-align/g) ?? []).length, 2, "exactly the two authored lists stamp");
+  assert.ok(html.includes('data-dsx-align="center"'));
+  assert.ok(html.includes('data-dsx-align="trailing"'));
+});
+
 test("SSR bound grids share the corrected three-column default and grid semantics", () => {
   const component = compileComponent("BoundGrid", "t", `<stack>
     <head><variable as="rows">return [{ id: 1 }, { id: 2 }]</variable></head>

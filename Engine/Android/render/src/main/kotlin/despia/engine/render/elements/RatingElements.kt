@@ -29,10 +29,14 @@ package despia.engine.render.elements
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -62,16 +66,20 @@ private fun StarsView(ctx: ComposeStackComponentContext) {
     val size = ctx.num("size") ?: ElementDefaults.STARS_SIZE
     val tint = StackStyle.color(ctx.str("color", ElementDefaults.STARS_TINT))
     val readonly = ctx.bool("readonly")
+    // disabled= / disabled-if= (W9): folds with readonly — same inert row, dimmed
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
+    val inert = readonly || disabled
     Row(
         Modifier.elementModifier(ctx)
+            .alpha(if (disabled) 0.5f else 1f)
             .dsxAccessibleRange(
                 value = value.toFloat().coerceIn(0f, count.toFloat()),
                 valueRange = 0f..count.toFloat(),
                 steps = (count - 1).coerceAtLeast(0),
-                enabled = !readonly && key.isNotEmpty(),
+                enabled = !inert && key.isNotEmpty(),
                 stateDescription = "${value.coerceIn(0.0, count.toDouble())} / $count",
                 onSetProgress = { target ->
-                    if (readonly || key.isEmpty()) false
+                    if (inert || key.isEmpty()) false
                     else {
                         ctl.setBound(key, target.roundToInt().coerceIn(0, count).toDouble())
                         true
@@ -82,19 +90,35 @@ private fun StarsView(ctx: ComposeStackComponentContext) {
     ) {
         for (i in 0 until count) {
             val fraction = ElementMath.starFraction(value, i)
-            Canvas(
-                Modifier.size(size.dp).pointerInput(key, i, readonly) {
-                    detectTapGestures {
-                        if (!readonly) ctl.setBound(key, (i + 1).toDouble())   // whole-star tap → bound write → on:change
+            val cell: @Composable (Modifier) -> Unit = { m ->
+                Canvas(m.size(size.dp)) {
+                    val star = starPath(this.size)
+                    // Empty state: the outline star at 30% tint (the SF `star` stand-in).
+                    drawPath(star, tint.copy(alpha = ElementDefaults.STARS_EMPTY_OPACITY.toFloat()), style = Stroke(width = this.size.width * 0.07f))
+                    // Fill state: the filled star clipped to `fraction` of the width, left-aligned.
+                    if (fraction > 0f) {
+                        clipRect(right = this.size.width * fraction) { drawPath(star, tint) }
                     }
-                },
-            ) {
-                val star = starPath(this.size)
-                // Empty state: the outline star at 30% tint (the SF `star` stand-in).
-                drawPath(star, tint.copy(alpha = ElementDefaults.STARS_EMPTY_OPACITY.toFloat()), style = Stroke(width = this.size.width * 0.07f))
-                // Fill state: the filled star clipped to `fraction` of the width, left-aligned.
-                if (fraction > 0f) {
-                    clipRect(right = this.size.width * fraction) { drawPath(star, tint) }
+                }
+            }
+            if (readonly) {
+                // Display-only: the bare glyph row (the iOS starRow twin — no hit boxes).
+                cell(Modifier)
+            } else {
+                // Interactive: the authored glyph stays its size, the tap target rides the
+                // platform minimum (density-following via the funnel's
+                // LocalMinimumInteractiveComponentSize pin) — the iOS 44pt-frame /
+                // web padded-hit-box twin. pointerInput sits OUTSIDE the floor modifier so
+                // the whole floored box, not just the glyph, is tappable.
+                Box(
+                    Modifier.pointerInput(key, i, inert) {
+                        detectTapGestures {
+                            if (!inert) ctl.setBound(key, (i + 1).toDouble())   // whole-star tap → bound write → on:change
+                        }
+                    }.minimumInteractiveComponentSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    cell(Modifier)
                 }
             }
         }

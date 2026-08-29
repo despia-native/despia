@@ -1,0 +1,420 @@
+{
+  "hydrate": {
+    "global": {
+      "user": {
+        "name": "John Doe"
+      },
+      "locale": "en"
+    }
+  },
+  "defaults": {
+    "device": "iphone-6.9",
+    "scheme": "light",
+    "target": "ios",
+    "at": "2026-01-01T09:41:00Z"
+  },
+  "outDir": "shots",
+  "shots": [
+    {
+      "document": "Orders",
+      "as": "01-orders"
+    },
+    {
+      "document": "Orders",
+      "as": "02-orders-dark",
+      "scheme": "dark"
+    },
+    {
+      "document": "NoSample",
+      "as": "neg-01-no-sample"
+    },
+    {
+      "document": "EmptyList",
+      "as": "neg-02-empty-list"
+    },
+    {
+      "document": "EmptyList",
+      "as": "neg-03-empty-allowed",
+      "allowEmpty": [
+        "orderList"
+      ]
+    },
+    {
+      "document": "StoreCard",
+      "as": "10-store-card",
+      "allowEmpty": true
+    },
+    {
+      "document": "ShotHero",
+      "as": "20-hero",
+      "allowEmpty": true
+    },
+    {
+      "document": "ShotAngled",
+      "as": "21-angled",
+      "allowEmpty": true
+    },
+    {
+      "document": "ShotBleed",
+      "as": "22-bleed",
+      "allowEmpty": true
+    },
+    {
+      "document": "ShotFeature",
+      "as": "23-feature",
+      "device": "play-feature",
+      "allowEmpty": true
+    },
+    {
+      "document": "Blank",
+      "as": "neg-04-blank",
+      "allowEmpty": true
+    },
+    {
+      "document": "ShotPro",
+      "as": "neg-05-cover",
+      "allowEmpty": true,
+      "vars": {
+        "parts": [
+          {
+            "t": "Covered"
+          }
+        ],
+        "sub": "",
+        "deviceWidth": "96%",
+        "deviceTop": "30px",
+        "deviceCrop": "620px",
+        "decor": [
+          {
+            "id": 1,
+            "kind": "chip",
+            "x": "20%",
+            "y": "42%",
+            "icon": "bolt.fill",
+            "label": "Works offline"
+          }
+        ]
+      }
+    },
+    {
+      "document": "ShotPro",
+      "as": "neg-06-crowded",
+      "allowEmpty": true,
+      "vars": {
+        "parts": [
+          {
+            "t": "Crowded"
+          }
+        ],
+        "sub": "",
+        "deviceWidth": "108%",
+        "deviceTop": "30px",
+        "deviceCrop": "620px",
+        "decor": []
+      }
+    },
+    {
+      "document": "ShotMockup",
+      "as": "24-mockup",
+      "allowEmpty": true
+    },
+    {
+      "document": "FrameProof",
+      "as": "90-frame-proof",
+      "allowEmpty": true
+    },
+    {
+      "document": "ShotShowcase",
+      "as": "30-showcase",
+      "allowEmpty": true,
+      "vars": {
+        "decor": [
+          {
+            "id": 1,
+            "kind": "asset",
+            "src": "app-logo.png",
+            "x": "8%",
+            "y": "5%",
+            "w": "13%",
+            "label": "Orders"
+          },
+          {
+            "id": 2,
+            "kind": "badge",
+            "x": "8%",
+            "y": "80.5%",
+            "icon": "star.fill",
+            "label": "4.9",
+            "sub": "12,483 ratings",
+            "over": "screen"
+          },
+          {
+            "id": 3,
+            "kind": "chip",
+            "x": "57%",
+            "y": "82.4%",
+            "icon": "bolt.fill",
+            "label": "Works offline",
+            "over": "screen"
+          },
+          {
+            "id": 4,
+            "kind": "callout",
+            "x": "20.5%",
+            "y": "67.6%",
+            "w": "61%",
+            "h": "4.7%",
+            "label": "Live totals, no refresh",
+            "over": "screen"
+          }
+        ]
+      }
+    },
+    {
+      "document": "PosProbe",
+      "as": "91-pos-probe",
+      "allowEmpty": true
+    },
+    {
+      "document": "ArtProof",
+      "as": "92-art-proof",
+      "allowEmpty": true
+    },
+    {
+      "as": "40-strip-1",
+      "vars": {
+        "ground": "#eceef6",
+        "card": "#ffffff",
+        "ink": "#0d0f14",
+        "accent": "#16a34a",
+        "parts": [
+          {
+            "t": "Gym tracker"
+          },
+          {
+            "t": "for serious"
+          },
+          {
+            "t": "lifters",
+            "accent": true
+          }
+        ],
+        "sub": "Every set, every session, tracked in seconds.",
+        "align": "center",
+        "headlineSize": "42px",
+        "deviceWidth": "98%",
+        "deviceTop": "24px",
+        "deviceCrop": "640px",
+        "decor": [
+          {
+            "id": 1,
+            "kind": "laurel",
+            "src": "laurel-dark.png",
+            "x": "30%",
+            "y": "78%",
+            "w": "40%",
+            "label": "Built for\nstrength",
+            "sub": "since 2019"
+          }
+        ],
+        "subMeasure": "15em",
+        "screen": "01-orders.png"
+      },
+      "document": "ShotPro",
+      "allowEmpty": true
+    },
+    {
+      "as": "40-strip-2",
+      "vars": {
+        "ground": "#eceef6",
+        "card": "#ffffff",
+        "ink": "#0d0f14",
+        "accent": "#16a34a",
+        "parts": [
+          {
+            "t": "Log sets in"
+          },
+          {
+            "t": "seconds",
+            "accent": true
+          }
+        ],
+        "sub": "Weight, reps and effort without leaving the set.",
+        "align": "center",
+        "deviceWidth": "96%",
+        "deviceTop": "24px",
+        "deviceCrop": "560px",
+        "decor": [
+          {
+            "id": 1,
+            "kind": "zoom",
+            "src": "01-orders.png",
+            "x": "5%",
+            "y": "61%",
+            "w": "90%",
+            "rotate": "-2deg",
+            "tint": "#16a34a",
+            "region": {
+              "x": 2.5,
+              "y": 34.6,
+              "w": 95,
+              "h": 8.0
+            },
+            "label": "Mechanical keyboard order row, enlarged",
+            "over": "screen"
+          },
+          {
+            "id": 2,
+            "kind": "panel",
+            "x": "7%",
+            "y": "79%",
+            "w": "86%",
+            "tone": "rgba(22,163,74,0.13)",
+            "label": "Stay consistent with structured routines",
+            "sub": "Follow your plan step by step, even offline."
+          }
+        ],
+        "subMeasure": "15em",
+        "screen": "01-orders.png"
+      },
+      "document": "ShotPro",
+      "allowEmpty": true
+    },
+    {
+      "as": "40-strip-3",
+      "vars": {
+        "ground": "#eceef6",
+        "card": "#ffffff",
+        "ink": "#0d0f14",
+        "accent": "#16a34a",
+        "parts": [
+          {
+            "t": "Loved by"
+          },
+          {
+            "t": "12,000+",
+            "accent": true
+          },
+          {
+            "t": "lifters"
+          }
+        ],
+        "sub": "",
+        "align": "center",
+        "deviceWidth": "88%",
+        "deviceTop": "26px",
+        "deviceCrop": "620px",
+        "decor": [
+          {
+            "id": 1,
+            "kind": "badge",
+            "x": "57.6%",
+            "y": "15.8%",
+            "icon": "star.fill",
+            "label": "4.9",
+            "sub": "12,483 ratings",
+            "lean": "-12deg",
+            "over": "screen"
+          },
+          {
+            "id": 2,
+            "kind": "review",
+            "x": "4.5%",
+            "y": "38.4%",
+            "w": "56%",
+            "lean": "-12deg",
+            "label": "“Finally a tracker that doesn’t fight me.”",
+            "sub": "Priya M.",
+            "over": "screen"
+          },
+          {
+            "id": 3,
+            "kind": "review",
+            "x": "43.4%",
+            "y": "58.4%",
+            "w": "52%",
+            "lean": "-12deg",
+            "label": "“I stopped keeping a paper log after one week.”",
+            "sub": "Daniel R.",
+            "over": "screen"
+          },
+          {
+            "id": 4,
+            "kind": "panel",
+            "x": "7%",
+            "y": "80%",
+            "w": "86%",
+            "tone": "rgba(22,163,74,0.13)",
+            "label": "Join 12,000+ lifters",
+            "sub": "Free to start. No ads, ever."
+          }
+        ],
+        "lean": "-15deg",
+        "screen": "01-orders.png"
+      },
+      "document": "ShotPro",
+      "allowEmpty": true
+    },
+    {
+      "as": "40-strip-4",
+      "vars": {
+        "ground": "#eceef6",
+        "card": "#ffffff",
+        "ink": "#0d0f14",
+        "accent": "#16a34a",
+        "parts": [
+          {
+            "t": "Start"
+          },
+          {
+            "t": "today",
+            "box": true
+          },
+          {
+            "t": "free"
+          }
+        ],
+        "sub": "No account needed. Works offline from the first set.",
+        "align": "center",
+        "deviceWidth": "100%",
+        "deviceTop": "24px",
+        "deviceCrop": "540px",
+        "decor": [
+          {
+            "id": 3,
+            "kind": "asset",
+            "src": "app-logo.png",
+            "x": "42.5%",
+            "y": "77.5%",
+            "w": "15%",
+            "label": "Orders"
+          },
+          {
+            "id": 4,
+            "kind": "chip",
+            "x": "35.5%",
+            "y": "87.5%",
+            "icon": "checkmark.circle.fill",
+            "label": "Free to start",
+            "tint": "#16a34a"
+          }
+        ],
+        "chips": [
+          {
+            "icon": "bolt.fill",
+            "label": "Works offline",
+            "tint": "#16a34a"
+          },
+          {
+            "icon": "sparkles",
+            "label": "No ads",
+            "tint": "#16a34a"
+          }
+        ],
+        "screen": "01-orders.png"
+      },
+      "document": "ShotPro",
+      "allowEmpty": true
+    }
+  ]
+}

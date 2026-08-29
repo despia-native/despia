@@ -101,6 +101,7 @@ class FakeEvent {
 
 (globalThis as { document?: unknown }).document = {
   createElement: (tag: string) => new FakeElement(tag),
+  createElementNS: (_ns: string, tag: string) => new FakeElement(tag),
 };
 
 type ApiHarness = {
@@ -117,6 +118,7 @@ function harness(values: Record<string, unknown> = {}): ApiHarness {
     events,
     api: {
       bindText: (expression, apply) => { if (expression !== undefined) apply(expression); },
+      bindDisplay: (expression, apply) => { if (expression !== undefined) apply(expression); },
       bindValue: (expression, apply) => { if (expression !== undefined) apply(values[expression]); },
       writeBack: (path, value) => { writes.push([path, value]); values[path ?? ""] = value; },
       handler: (name, payload) => { events.push([name, payload]); },
@@ -238,6 +240,63 @@ test("range bounds reject non-finite/negative steps and the factory exposes two 
   low.dispatch("change");
   assert.equal(h.writes.at(-1)?.[1], 80, "the low thumb cannot cross the high thumb");
   for (const dispose of ctx.disposers) dispose();
+});
+
+test("the combobox search field carries the clear affordance: filled-only, the change contract, Escape layering", () => {
+  const h = harness({ city: "Ber" });
+  const ctx = { disposers: [] } as unknown as MountCtx;
+  const root = NATIVE_CONTROL_ELEMENTS["combobox"]!(
+    makeNode("combobox", { bind: "city", options: "Berlin,Bern,Paris" }),
+    ctx,
+    h.api,
+  ) as unknown as FakeElement;
+  const input = root.childAt(0);
+  const clear = root.childAt(1);
+  const list = root.childAt(2);
+  assert.equal(input.tagName, "INPUT");
+  assert.equal(clear.tagName, "BUTTON");
+  assert.equal(list.getAttribute("role"), "listbox");
+  assert.equal(clear.type, "button");
+  assert.equal(clear.getAttribute("aria-label"), "Clear search");
+  assert.equal(clear.getAttribute("data-dsx-part"), "clear");
+  assert.equal(clear.childAt(0).tagName, "SVG", "the glyph is drawn chrome, not an icon-corpus lookup");
+  assert.equal(clear.hidden, false, "a bound non-empty value shows the affordance");
+
+  clear.dispatch("click");
+  assert.equal(input.value, "", "activating the clear empties the field");
+  assert.equal(clear.hidden, true, "an empty field hides the affordance");
+  assert.deepEqual(h.writes, [["city", ""]], "clearing writes back through the bind path");
+  assert.deepEqual(h.events, [["change", { value: "" }]], "clearing rides the same change contract as typing");
+
+  input.value = "Ber";
+  input.dispatch("input");
+  assert.equal(clear.hidden, false, "typing refills the affordance");
+  assert.equal(list.hidden, false, "the refocused field filters and opens");
+  input.dispatch("keydown", { key: "Escape" });
+  assert.equal(list.hidden, true, "the first Escape closes the list");
+  assert.equal(input.value, "Ber", "the first Escape keeps the value");
+  input.dispatch("keydown", { key: "Escape" });
+  assert.equal(input.value, "", "Escape with the list closed clears the field");
+  assert.equal(clear.hidden, true);
+  assert.deepEqual(h.writes, [["city", ""], ["city", "Ber"], ["city", ""]]);
+});
+
+test("the clear affordance's presentation: absolute trailing, expanded hit box, disabled-gated", () => {
+  const start = NATIVE_CONTROLS_CSS.indexOf(".dsx-combobox-clear {");
+  assert.ok(start >= 0);
+  const body = NATIVE_CONTROLS_CSS.slice(start, NATIVE_CONTROLS_CSS.indexOf("}", start));
+  assert.ok(body.includes("position: absolute"), "the affordance floats at the trailing edge");
+  assert.ok(body.includes("inset-inline-end"), "trailing is logical, so RTL mirrors for free");
+  assert.ok(body.includes("padding: 0.5rem"), "the padded hit box expands well past the 17px glyph");
+  assert.ok(NATIVE_CONTROLS_CSS.includes(".dsx-combobox-clear[hidden] { display: none; }"));
+  assert.ok(NATIVE_CONTROLS_CSS.includes(".dsx-combobox-input:disabled ~ .dsx-combobox-clear { display: none; }"),
+    "a disabled field never offers the clear");
+  assert.ok(NATIVE_CONTROLS_CSS.includes(".dsx-combobox-input { width: 100%; padding-inline-end: 2.25rem;"),
+    "the input reserves the trailing lane so text never runs under the glyph");
+  assert.match(
+    NATIVE_CONTROLS_CSS,
+    /\.dsx-combobox-clear:focus-visible \{[\s\S]*?outline: var\(--dsx-focus-ring-width\) solid var\(--dsx-accent\);[\s\S]*?outline-offset: var\(--dsx-focus-ring-offset\);[\s\S]*?\}/,
+  );
 });
 
 test("crossed programmatic range bindings use the same low-first ordering as native and SSR", () => {

@@ -130,6 +130,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import despia.engine.DSXStrings
 import despia.engine.JSE
 import despia.engine.StackNode
 import despia.engine.render.Bound
@@ -321,12 +325,25 @@ private fun ConstructList(ctx: ComposeStackComponentContext, template: StackNode
             items(count = section.rows.size, key = { b.keys[section.rows[it]] }) { pos ->
                 val i = section.rows[pos]
                 val last = i == b.rows.size - 1
+                // Non-pointer equivalents of the list constructs (iOS `.swipeActions` surfaces
+                // them automatically): every swipe button and, under reorder, Move up/down
+                // become TalkBack/Switch Access custom actions on the row.
+                val rowActions = buildList {
+                    for (a in leading + trailing) {
+                        if (a.label.isNotEmpty()) add(CustomAccessibilityAction(a.label) { fireSwipe(a, i); true })
+                    }
+                    if (reorder) {
+                        if (i > 0) add(CustomAccessibilityAction(DSXStrings.localize("Move up")) { commitMove(i, i - 1); true })
+                        if (i < b.rows.size - 1) add(CustomAccessibilityAction(DSXStrings.localize("Move down")) { commitMove(i, i + 1); true })
+                    }
+                }
                 ListRowCell(
                     system = system,
                     shift = rowShift(i, dragFrom, dragBy, plan),
                     lifted = dragFrom == i,
                     leading = leading, trailing = trailing,
                     fullLeading = fullLeading, fullTrailing = fullTrailing,
+                    accessibilityActions = rowActions,
                     onAction = { a -> fireSwipe(a, i) },
                     dragModifier = if (!reorder) Modifier else Modifier.pointerInput(i) {
                         detectDragGesturesAfterLongPress(
@@ -378,12 +395,16 @@ private fun SectionHeader(title: String, system: Boolean) {
 private fun ListRowCell(system: Boolean, shift: Float, lifted: Boolean,
                         leading: List<SwipeAction>, trailing: List<SwipeAction>,
                         fullLeading: Boolean, fullTrailing: Boolean,
+                        accessibilityActions: List<CustomAccessibilityAction>,
                         onAction: (SwipeAction) -> Unit, dragModifier: Modifier,
                         content: @Composable () -> Unit) {
-    val outer = Modifier.fillMaxWidth()
+    var outer = Modifier.fillMaxWidth()
         .offset { IntOffset(0, shift.roundToInt()) }
         .zIndex(if (lifted) 1f else 0f)
         .then(dragModifier)
+    if (accessibilityActions.isNotEmpty()) {
+        outer = outer.semantics { customActions = accessibilityActions }
+    }
     if (leading.isEmpty() && trailing.isEmpty()) {
         if (system) {
             SystemMaterialListItem(outer) { content() }

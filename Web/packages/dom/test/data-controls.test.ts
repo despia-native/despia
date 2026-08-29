@@ -80,7 +80,7 @@ test("weak data-control sheet covers responsive, RTL-safe, reduced-motion and fo
   assert.ok(DATA_CONTROLS_CSS.includes("@media (prefers-reduced-motion: reduce)"));
   assert.ok(DATA_CONTROLS_CSS.includes("@media (forced-colors: active)"));
   assert.ok(DATA_CONTROLS_CSS.includes("var(--dsx-surface-highlight)"));
-  assert.ok(DATA_CONTROLS_CSS.includes("box-shadow: inset 0 0 0 3px var(--dsx-data-tint)"));
+  assert.ok(DATA_CONTROLS_CSS.includes("box-shadow: inset 0 0 0 var(--dsx-focus-ring-width) var(--dsx-data-tint)"));
   assert.match(
     DATA_CONTROLS_CSS,
     /@media \(min-width: 64rem\)[\s\S]*?\.dsx-segmented-button-item\s*\{[^}]*min-height:\s*36px;/,

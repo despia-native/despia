@@ -63,9 +63,13 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import despia.engine.DSXStrings
 import despia.engine.JSE
 import despia.engine.render.ComposeStackComponentContext
 import despia.engine.render.ComposeStackComponents
@@ -155,7 +159,16 @@ private fun RefreshableView(ctx: ComposeStackComponentContext) {
         refreshing = false
     }
 
-    Box(Modifier.elementModifier(ctx).then(Modifier.nestedScroll(connection)).clipToBounds()) {
+    Box(Modifier.elementModifier(ctx).then(Modifier.nestedScroll(connection)).clipToBounds()
+            // The non-pointer refresh path (the iOS `.refreshable` exposes one automatically):
+            // a TalkBack/Switch Access custom action arms the same refresh cycle the pull does.
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction(DSXStrings.localize("Refresh")) {
+                        if (refreshing) false else { refreshing = true; true }
+                    },
+                )
+            }) {
         // The revealed indicator band above the content.
         Box(Modifier.fillMaxWidth().height(with(density) { pullPx.toDp() }),
             contentAlignment = Alignment.Center) {

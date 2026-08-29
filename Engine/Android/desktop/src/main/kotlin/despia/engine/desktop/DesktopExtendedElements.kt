@@ -11,6 +11,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,11 +25,13 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -67,8 +71,10 @@ import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -88,6 +94,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.key.Key
@@ -98,6 +105,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
@@ -118,10 +126,14 @@ import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import despia.engine.JSE
+import despia.engine.LayoutSemantics
 import despia.engine.NSNull
+import despia.engine.SplitPlan
 import despia.engine.StackNode
+import despia.engine.InkCore
 import despia.engine.getPath
 import despia.engine.setPath
+import despia.engine.varsFlow
 import despia.engine.writeBound
 import java.io.ByteArrayOutputStream
 import java.net.URI
@@ -158,9 +170,9 @@ internal val desktopStudioNativeTags: Set<String> = linkedSetOf(
 
 internal val desktopExtendedNativeTags: Set<String> = linkedSetOf(
     "Accordion", "ChatBubble", "Checkbox", "Drawer", "LevelMeter", "MenuBar",
-    "ProgressRing", "RadioGroup", "Skeleton", "Table", "calendar", "carousel",
+    "ProgressRing", "RadioGroup", "Signature", "Skeleton", "Table", "calendar", "carousel",
     "contextmenu", "datepicker", "field", "lightbox", "menu", "otp", "pager",
-    "popover", "rangeslider", "searchbar", "stars", "wheelpicker",
+    "popover", "rangeslider", "searchbar", "split", "stars", "wheelpicker",
 ) + desktopStudioNativeTags
 
 internal val desktopExtendedFocusableTags: Set<String> = setOf(
@@ -170,6 +182,19 @@ internal val desktopExtendedFocusableTags: Set<String> = setOf(
 
 internal const val MAX_DESKTOP_TABLE_ROWS = 10_000
 internal const val MAX_DESKTOP_TABLE_COLUMNS = 128
+// The `<Signature>` pad's own chrome, mirroring :render ElementDefaults.SIGNATURE_* (the ink
+// law it draws with lives in :core InkCore, shared with every other renderer).
+internal const val SIGNATURE_PAD_HEIGHT = 180.0
+internal const val SIGNATURE_PAD_RADIUS = 12.0
+internal const val SIGNATURE_PAD_BORDER = 1.0
+internal const val SIGNATURE_PAD_BASELINE_INSET = 24.0
+internal const val SIGNATURE_PAD_BASELINE_BOTTOM = 36.0
+internal const val SIGNATURE_PAD_PLACEHOLDER_FONT = 15.0
+internal const val SIGNATURE_PAD_INK = "label"
+internal const val SIGNATURE_PAD_RULE = "separator"
+internal const val SIGNATURE_PAD_PLACEHOLDER = "secondary"
+internal const val MAX_DESKTOP_SIGNATURE_STROKES = 2_000
+internal const val MAX_DESKTOP_SIGNATURE_POINTS = 20_000
 internal const val MAX_DESKTOP_OTP_LENGTH = 32
 internal const val MAX_DESKTOP_STAR_COUNT = 20
 internal const val MAX_DESKTOP_BOUND_ROWS = 10_000
@@ -201,6 +226,7 @@ internal fun DesktopExtendedElement(
         "MenuBar" -> DesktopMenuBar(context, modifier, disabled)
         "ProgressRing" -> DesktopProgressRing(context, modifier)
         "RadioGroup" -> DesktopRadioGroup(context, modifier, disabled)
+        "Signature" -> DesktopSignature(context, modifier, disabled)
         "Skeleton" -> DesktopSkeleton(context, modifier)
         "Table" -> DesktopTable(context, modifier)
         "calendar" -> DesktopCalendar(context, modifier, disabled)
@@ -215,6 +241,7 @@ internal fun DesktopExtendedElement(
         "popover" -> DesktopPopover(context, modifier, disabled)
         "rangeslider" -> DesktopRangeSlider(context, modifier, disabled)
         "searchbar" -> DesktopSearchBar(context, modifier, disabled)
+        "split" -> DesktopSplit(context, modifier, disabled)
         "stars" -> DesktopStars(context, modifier, disabled)
         "wheelpicker" -> DesktopWheelPicker(context, modifier, disabled)
     }
@@ -528,7 +555,7 @@ private fun DesktopDrawer(context: DesktopElementContext, modifier: Modifier, di
     val scope = rememberCoroutineScope()
     Column(
         modifier.fillMaxWidth().offset { IntOffset(0, drag.coerceAtLeast(0f).roundToInt()) }
-            .clip(RoundedCornerShape(24.dp)).background(color("#1C1C1C"))
+            .clip(RoundedCornerShape(24.dp)).background(color("secondaryBackground"))   // the elevated-surface slot (Drawer.swift twin — was the pinned #1C1C1C)
             .pointerInput(disabled) {
                 if (!disabled) detectDragGestures(
                     onDragEnd = {
@@ -646,6 +673,91 @@ private fun DesktopRadioGroup(context: DesktopElementContext, modifier: Modifier
         }
     }
 }
+
+/** The Kotlin twin of `<Signature/>` on the desktop: the SAME :core ink law, a Compose Canvas,
+ *  and the mouse or pen as the pointer. Geometry mirrors Foundation Core/Signature.swift through
+ *  InkCore, so the pad is the same object on all four renderers. */
+@Composable
+private fun DesktopSignature(context: DesktopElementContext, modifier: Modifier, disabled: Boolean) {
+    val strokes = InkCore.decode(context.rows("bind", MAX_DESKTOP_SIGNATURE_STROKES))
+    val key = context.attributes["bind"].orEmpty()
+    val width = context.num("strokeWidth", InkCore.STROKE_WIDTH)
+    val radius = dimension(context.attributes["radius"], SIGNATURE_PAD_RADIUS.toFloat())
+    val height = dimension(context.attributes["height"], SIGNATURE_PAD_HEIGHT.toFloat())
+    val placeholder = context.value("placeholder").orEmpty()
+    val readOnly = disabled || context.bool("readOnly")
+    val ink = color(context.attributes["color"] ?: SIGNATURE_PAD_INK)
+    val rule = color(SIGNATURE_PAD_RULE)
+    var live by remember { mutableStateOf(emptyList<InkCore.Point>()) }
+    val empty = strokes.isEmpty() && live.isEmpty()
+    val shape = RoundedCornerShape(radius.dp)
+    Box(
+        modifier.fillMaxWidth().height(height.dp).clip(shape)
+            .border(SIGNATURE_PAD_BORDER.dp, rule, shape)
+            .pointerInput(readOnly, key, width) {
+                if (readOnly) return@pointerInput
+                val minDistancePx = InkCore.MIN_POINT_DISTANCE.dp.toPx().toDouble()
+                awaitEachGesture {
+                    val boxW = size.width.toDouble()
+                    val boxH = size.height.toDouble()
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    live = listOf(desktopCapture(down.position, boxW, boxH))
+                    context.fire("begin", mapOf("strokes" to strokes.size))
+                    var event = awaitPointerEvent()
+                    while (event.changes.any { it.pressed }) {
+                        for (change in event.changes) {
+                            if (!change.pressed) continue
+                            val point = desktopCapture(change.position, boxW, boxH)
+                            val last = live.last()
+                            val dx = (point.x - last.x) * boxW
+                            val dy = (point.y - last.y) * boxH
+                            if (dx * dx + dy * dy >= minDistancePx * minDistancePx) live = live + point
+                            change.consume()
+                        }
+                        event = awaitPointerEvent()
+                    }
+                    val captured = live.take(MAX_DESKTOP_SIGNATURE_POINTS)
+                    live = emptyList()
+                    if (captured.isNotEmpty()) {
+                        val next = strokes + InkCore.Stroke(captured, width)
+                        context.write(key, InkCore.encode(next))
+                        context.fire("end", mapOf("strokes" to next.size, "points" to captured.size))
+                    }
+                }
+            }
+            .semantics(mergeDescendants = true) {
+                contentDescription = context.value("a11yLabel")
+                    ?: placeholder.ifEmpty { "Signature" }
+                stateDescription = if (empty) "Empty" else "Signed"
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            if (context.bool("baseline", true)) {
+                val inset = SIGNATURE_PAD_BASELINE_INSET.dp.toPx()
+                val y = size.height - SIGNATURE_PAD_BASELINE_BOTTOM.dp.toPx()
+                drawLine(rule, Offset(inset, y), Offset(size.width - inset, y),
+                    strokeWidth = SIGNATURE_PAD_BORDER.dp.toPx())
+            }
+            for (stroke in strokes) {
+                drawPath(desktopInkPath(stroke.points, size), color = ink,
+                    style = Stroke(stroke.width.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+            if (live.isNotEmpty()) {
+                drawPath(desktopInkPath(live, size), color = ink,
+                    style = Stroke(width.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+        }
+        if (empty && placeholder.isNotEmpty()) {
+            Text(placeholder, color = color(SIGNATURE_PAD_PLACEHOLDER),
+                 fontSize = SIGNATURE_PAD_PLACEHOLDER_FONT.sp)
+        }
+    }
+}
+
+private fun desktopCapture(position: Offset, width: Double, height: Double): InkCore.Point =
+    InkCore.point(position.x.toDouble(), position.y.toDouble(), width, height)
+
 
 @Composable
 private fun DesktopSkeleton(context: DesktopElementContext, modifier: Modifier) {
@@ -1347,6 +1459,195 @@ private fun DesktopSearchBar(context: DesktopElementContext, modifier: Modifier,
         keyboardActions = KeyboardActions(onSearch = { context.fire("submit", mapOf("value" to value)) }),
         shape = RoundedCornerShape(22.dp),
     )
+}
+
+/** The head vocabulary: contract, state and logic, never a pane. A structural container counts
+ * its BODY children only (dsx-anatomy.md), and the declarations themselves are already registered
+ * eagerly by `prepareDesktopDocument` before any of this renders. The one table lives in :core
+ * (LayoutSemantics, flex-semantics corpus) so the render lanes cannot drift. */
+internal val desktopDocumentDeclarationTags: Set<String> = LayoutSemantics.declarationTags
+
+/** `<split>` — the two/three-pane adaptive container. The decisions belong to the shared
+ * planner (`:core SplitPlan`, corpus OpenSource/Conformance/split/split.json, the same file the
+ * TS and Swift twins execute); this function only spends them on Compose pixels, exactly as the
+ * Android `:render SplitElement` twin does. Desktop adds what the pointer earns: a draggable
+ * hairline between columns, clamped to the planner's own min/max, and Escape to pop a pushed
+ * detail the way the platform Back does on the phone hosts. */
+@Composable
+private fun DesktopSplit(context: DesktopElementContext, modifier: Modifier, disabled: Boolean) {
+    val declarations = context.node.children.filter { it.tag in desktopDocumentDeclarationTags }
+    val children = context.node.children.filterNot { it.tag in desktopDocumentDeclarationTags }.take(3)
+    if (children.isEmpty()) return
+    val declaredRoles = children.map { it.attrs["paneRole"] }
+    val planAttributes = context.attributes.mapValues { (_, raw) -> JSE.interpolate(raw, context.store, context.item) }
+    val valueKey = context.attributes["value"].orEmpty()
+    var sidebarOpen by remember(context.node) { mutableStateOf(false) }
+    val paneDelta = remember(context.node) { mutableStateMapOf<String, Float>() }
+
+    BoxWithConstraints(modifier.fillMaxSize().testTag("dsx.split")) {
+        // BoxWithConstraints subcomposes during layout, so this body does not inherit the
+        // surface's state subscription — it has to track the store itself or a selection
+        // write would never re-plan the panes.
+        context.store.varsFlow.collectAsState().value
+        if (declarations.isNotEmpty()) context.render(declarations)
+        val plan = SplitPlan.resolve(planAttributes, declaredRoles, maxWidth.value.toDouble())
+        val selected = plan.detail && valueKey.isNotEmpty() &&
+            SplitPlan.selectionActive(context.bound(valueKey))
+        val resizable = plan.resizable && !disabled
+
+        @Composable
+        fun Pane(role: String, paneModifier: Modifier) {
+            val index = plan.roles.indexOf(role)
+            if (index < 0) return
+            // The pane is a sized cell whose authored child FILLS it (the web split's
+            // grid cells): min-propagation keeps a hug pane stack from collapsing to
+            // its content while the web twin spans the full pane.
+            Box(
+                paneModifier.testTag("dsx.split.$role")
+                    .semantics { contentDescription = role.replaceFirstChar(Char::uppercaseChar) },
+                propagateMinConstraints = true,
+            ) { context.render(listOf(children[index])) }
+        }
+
+        fun paneWidth(role: String): Float {
+            val widths = if (role == SplitPlan.SIDEBAR) plan.sidebar else plan.content
+            return (widths.ideal.toFloat() + (paneDelta[role] ?: 0f))
+                .coerceIn(widths.min.toFloat(), widths.max.toFloat())
+        }
+
+        if (plan.presentation == "stack") {
+            Pane(plan.host, Modifier.fillMaxSize())
+            if (plan.host != SplitPlan.DETAIL && selected) {
+                // A pushed detail takes the keyboard the way the platform hosts hand it to a
+                // pushed column, which is also what makes Escape reachable at all.
+                val detailFocus = remember(context.node) { FocusRequester() }
+                LaunchedEffect(detailFocus) { runCatching { detailFocus.requestFocus() } }
+                Column(Modifier.fillMaxSize().background(color("background"))) {
+                    // The web's pushed-detail Back band (`.dsx-split-back`, a 48px row):
+                    // the pointer affordance Escape already mirrors, and the 48px content
+                    // offset the parity plane measures.
+                    Row(
+                        Modifier.fillMaxWidth().height(48.dp)
+                            .testTag("dsx.split.back")
+                            .clickable { context.write(valueKey, "") }
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text("‹", color = color("accent"))
+                        Text(context.attributes["backLabel"] ?: "Back", color = color("accent"))
+                    }
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        // The keyboard envelope stays ON the pane node (the tagged cell),
+                        // so assistive focus and the Escape pop address the same target.
+                        Pane(
+                            SplitPlan.DETAIL,
+                            Modifier.fillMaxSize()
+                                .focusRequester(detailFocus)
+                                .focusable()
+                                .onPreviewKeyEvent { event ->
+                                    if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                                        context.write(valueKey, "")
+                                        true
+                                    } else false
+                                },
+                        )
+                    }
+                }
+            }
+        } else {
+            Row(Modifier.fillMaxSize()) {
+                plan.columns.forEachIndexed { position, role ->
+                    if (position > 0) {
+                        val resized = plan.columns[position - 1]
+                        DesktopSplitDivider(resizable) { travel ->
+                            val widths = if (resized == SplitPlan.SIDEBAR) plan.sidebar else plan.content
+                            paneDelta[resized] = ((paneDelta[resized] ?: 0f) + travel)
+                                .coerceIn(
+                                    (widths.min - widths.ideal).toFloat(),
+                                    (widths.max - widths.ideal).toFloat(),
+                                )
+                        }
+                    }
+                    if (position == plan.columns.size - 1) {
+                        val floor = if (role == SplitPlan.DETAIL) plan.detailMin.toFloat().dp else 0.dp
+                        Pane(role, Modifier.weight(1f).fillMaxHeight().widthIn(min = floor))
+                    } else {
+                        Pane(role, Modifier.fillMaxHeight().width(paneWidth(role).dp))
+                    }
+                }
+            }
+        }
+
+        // The web keeps every pane mounted (hidden panels measure 0x0); mirror that so
+        // the node set matches structurally and pane state survives a plan change.
+        val visible = buildSet {
+            if (plan.presentation == "stack") {
+                add(plan.roles.indexOf(plan.host))
+                if (plan.host != SplitPlan.DETAIL && selected) add(plan.roles.indexOf(SplitPlan.DETAIL))
+            } else {
+                plan.columns.forEach { add(plan.roles.indexOf(it)) }
+            }
+            if (plan.overlay && sidebarOpen) add(plan.roles.indexOf(SplitPlan.SIDEBAR))
+        }
+        children.indices.forEach { index ->
+            if (index !in visible) {
+                DesktopHiddenPane { context.render(listOf(children[index])) }
+            }
+        }
+
+        if (plan.overlay) {
+            if (sidebarOpen) {
+                Box(
+                    Modifier.fillMaxSize().background(Color(0f, 0f, 0f, 0.32f))
+                        .testTag("dsx.split.scrim")
+                        .clickable { sidebarOpen = false },
+                )
+                Pane(
+                    SplitPlan.SIDEBAR,
+                    Modifier.fillMaxHeight().width(paneWidth(SplitPlan.SIDEBAR).dp)
+                        .background(color("secondaryBackground")),
+                )
+            }
+            Column(
+                Modifier.padding(8.dp).size(40.dp)
+                    .testTag("dsx.split.toggle")
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = if (sidebarOpen) "Hide sidebar" else "Show sidebar"
+                    }
+                    .clickable { sidebarOpen = !sidebarOpen }
+                    .padding(11.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                repeat(3) {
+                    Box(Modifier.fillMaxWidth().height(2.dp).background(color("secondaryLabel")))
+                }
+            }
+        }
+    }
+}
+
+/** The column hairline. Inert (a 1dp rule) unless the plan says the split is resizable, in which
+ * case it becomes a 9dp horizontal drag target reporting its travel in dp. */
+@Composable
+private fun DesktopSplitDivider(resizable: Boolean, onDrag: (Float) -> Unit) {
+    if (!resizable) {
+        Box(Modifier.width(1.dp).fillMaxHeight().background(color("outline")).testTag("dsx.split.divider"))
+        return
+    }
+    Box(
+        Modifier.width(9.dp).fillMaxHeight()
+            .testTag("dsx.split.divider")
+            .semantics { contentDescription = "Resize panes" }
+            .pointerInput(Unit) {
+                detectDragGestures { change, amount ->
+                    change.consume()
+                    onDrag(amount.x.toDp().value)
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) { Box(Modifier.width(1.dp).fillMaxHeight().background(color("outline"))) }
 }
 
 @Composable

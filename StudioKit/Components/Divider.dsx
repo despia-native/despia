@@ -1,0 +1,4 @@
+<!-- Divider — one hairline. Whitespace first, lines only where a boundary is real. -->
+<stack class="sk-divider" grow="width">
+  <head/>
+</stack>

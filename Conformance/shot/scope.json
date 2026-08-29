@@ -1,0 +1,671 @@
+{
+  "version": 1,
+  "_note": "The SHOT SCOPE ladder (platform/10-screenshot-execution.md \u00a75), platform-neutral. Expected values were authored by hand from the ladder, never recorded from an implementation. THE LAW: a screenshot must never render a raw binding or a placeholder, so every name a screen reads resolves through one precedence order, and a name that reaches the bottom of it FAILS THE SHOT rather than rendering empty. Two ladders, because the two planes have different declaration sites: leaf state (attribute/variable/expects) runs override > snapshot > routeParam > sample > default > initial > FAIL, and the global plane - which has no `sample=` site to hang a value on, and is exactly why the project `hydrate` plane exists - runs override > snapshot > hydrate > FAIL. Runners: TS packages/kernel/test/shot-conformance.test.ts (reference, per-PR).",
+  "ladder": [
+    {
+      "name": "an override beats everything",
+      "head": {
+        "attributes": [
+          {
+            "as": "title",
+            "sample": "\"Sampled\"",
+            "default": "'Defaulted'"
+          }
+        ],
+        "variables": [],
+        "apis": []
+      },
+      "snapshot": {
+        "vars": [
+          {
+            "name": "title",
+            "value": "Snapshotted"
+          }
+        ]
+      },
+      "overrides": {
+        "vars": {
+          "title": "Overridden"
+        }
+      },
+      "expectUnresolved": [],
+      "expectAttrs": {
+        "title": "Overridden"
+      }
+    },
+    {
+      "name": "a captured snapshot beats a sample",
+      "head": {
+        "attributes": [
+          {
+            "as": "title",
+            "sample": "\"Sampled\""
+          }
+        ],
+        "variables": [],
+        "apis": []
+      },
+      "snapshot": {
+        "vars": [
+          {
+            "name": "title",
+            "value": "Snapshotted"
+          }
+        ]
+      },
+      "expectUnresolved": [],
+      "expectAttrs": {
+        "title": "Snapshotted"
+      }
+    },
+    {
+      "name": "a route param beats a sample, because it is the value the frame really mounts with",
+      "head": {
+        "attributes": [
+          {
+            "as": "id",
+            "sample": "3"
+          }
+        ],
+        "variables": [],
+        "apis": []
+      },
+      "routeParams": {
+        "id": 7
+      },
+      "expectUnresolved": [],
+      "expectAttrs": {
+        "id": 7
+      }
+    },
+    {
+      "name": "a sample beats a default",
+      "head": {
+        "attributes": [
+          {
+            "as": "title",
+            "sample": "\"Sampled\"",
+            "default": "'Defaulted'"
+          }
+        ],
+        "variables": [],
+        "apis": []
+      },
+      "expectUnresolved": [],
+      "expectAttrs": {
+        "title": "Sampled"
+      }
+    },
+    {
+      "name": "a default resolves the name without seeding it - the runtime evaluates the expression",
+      "head": {
+        "attributes": [
+          {
+            "as": "title",
+            "default": "'Defaulted'"
+          }
+        ],
+        "variables": [],
+        "apis": []
+      },
+      "expectUnresolved": [],
+      "expectAttrs": {}
+    },
+    {
+      "name": "an attribute with nothing at any tier FAILS THE SHOT",
+      "head": {
+        "attributes": [
+          {
+            "as": "title"
+          }
+        ],
+        "variables": [],
+        "apis": []
+      },
+      "expectUnresolved": [
+        {
+          "kind": "attribute",
+          "name": "title"
+        }
+      ],
+      "expectAttrs": {}
+    }
+  ],
+  "variables": [
+    {
+      "name": "a variable body resolves itself, so it is never unresolved",
+      "head": {
+        "attributes": [],
+        "variables": [
+          {
+            "as": "count",
+            "body": "return 0",
+            "computed": false
+          }
+        ],
+        "apis": []
+      },
+      "expectVars": {},
+      "expectUnresolved": []
+    },
+    {
+      "name": "a variable sample seeds the leaf the graph runs from",
+      "head": {
+        "attributes": [],
+        "variables": [
+          {
+            "as": "orders",
+            "body": "return []",
+            "computed": false,
+            "sample": "[{\"id\":1},{\"id\":2}]"
+          }
+        ],
+        "apis": []
+      },
+      "expectVars": {
+        "orders": [
+          {
+            "id": 1
+          },
+          {
+            "id": 2
+          }
+        ]
+      },
+      "expectUnresolved": []
+    },
+    {
+      "name": "a computed variable is NOT sampled - seed the leaves, run the graph",
+      "head": {
+        "attributes": [],
+        "variables": [
+          {
+            "as": "total",
+            "body": "return orders.length",
+            "computed": true
+          }
+        ],
+        "apis": []
+      },
+      "expectVars": {},
+      "expectUnresolved": []
+    },
+    {
+      "name": "malformed sample JSON is not a value, so the name falls through honestly",
+      "head": {
+        "attributes": [
+          {
+            "as": "title",
+            "sample": "{not json"
+          }
+        ],
+        "variables": [],
+        "apis": []
+      },
+      "expectVars": {},
+      "expectUnresolved": [
+        {
+          "kind": "attribute",
+          "name": "title"
+        }
+      ]
+    }
+  ],
+  "expects": [
+    {
+      "name": "an <expects> row with no seeder FAILS - a headless shot has no mounting side",
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": [],
+        "expects": [
+          "session"
+        ]
+      },
+      "expectVars": {},
+      "expectUnresolved": [
+        {
+          "kind": "expects",
+          "name": "session"
+        }
+      ]
+    },
+    {
+      "name": "the project hydrate plane can seed an expects row",
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": [],
+        "expects": [
+          "session"
+        ]
+      },
+      "hydrate": {
+        "global": {
+          "session": {
+            "premium": true
+          }
+        }
+      },
+      "expectVars": {
+        "session": {
+          "premium": true
+        }
+      },
+      "expectUnresolved": []
+    }
+  ],
+  "globals": [
+    {
+      "name": "hydrate is the global plane's floor",
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": []
+      },
+      "hydrate": {
+        "global": {
+          "user": {
+            "name": "John Doe"
+          }
+        }
+      },
+      "expectGlobals": {
+        "user": {
+          "name": "John Doe"
+        }
+      },
+      "expectUnresolved": []
+    },
+    {
+      "name": "a captured snapshot beats hydrate",
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": []
+      },
+      "hydrate": {
+        "global": {
+          "locale": "en"
+        }
+      },
+      "snapshot": {
+        "vars": [],
+        "globals": {
+          "locale": "fr"
+        }
+      },
+      "expectGlobals": {
+        "locale": "fr"
+      },
+      "expectUnresolved": []
+    },
+    {
+      "name": "an override beats the snapshot",
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": []
+      },
+      "hydrate": {
+        "global": {
+          "locale": "en"
+        }
+      },
+      "snapshot": {
+        "vars": [],
+        "globals": {
+          "locale": "fr"
+        }
+      },
+      "overrides": {
+        "globals": {
+          "locale": "de"
+        }
+      },
+      "expectGlobals": {
+        "locale": "de"
+      },
+      "expectUnresolved": []
+    }
+  ],
+  "responsePlane": [
+    {
+      "name": "a GET with a sample arms one seam route and one SSR seed",
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": [
+          {
+            "as": "orders",
+            "attrs": {
+              "url": "/api/orders"
+            },
+            "sample": "[{\"id\":1}]"
+          }
+        ]
+      },
+      "expectSeeds": {
+        "orders": [
+          {
+            "id": 1
+          }
+        ]
+      },
+      "expectRoutes": [
+        {
+          "as": "orders",
+          "method": "GET",
+          "template": "/api/orders"
+        }
+      ],
+      "expectUnresolved": []
+    },
+    {
+      "name": "a GET with no sample FAILS in sample mode rather than rendering a spinner",
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": [
+          {
+            "as": "orders",
+            "attrs": {
+              "url": "/api/orders"
+            }
+          }
+        ]
+      },
+      "expectSeeds": {},
+      "expectUnresolved": [
+        {
+          "kind": "api",
+          "name": "orders"
+        }
+      ]
+    },
+    {
+      "name": "a MUTATION never auto-fires, so it needs no sample",
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": [
+          {
+            "as": "createOrder",
+            "attrs": {
+              "url": "/api/orders",
+              "method": "POST"
+            }
+          }
+        ]
+      },
+      "expectSeeds": {},
+      "expectUnresolved": []
+    },
+    {
+      "name": "auto=false never fires either",
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": [
+          {
+            "as": "orders",
+            "attrs": {
+              "url": "/api/orders",
+              "auto": "false"
+            }
+          }
+        ]
+      },
+      "expectSeeds": {},
+      "expectUnresolved": []
+    },
+    {
+      "name": "replay answers from the cassette, so no sample is demanded",
+      "mode": "replay",
+      "cassetteKeys": [
+        "orders"
+      ],
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": [
+          {
+            "as": "orders",
+            "attrs": {
+              "url": "/api/orders"
+            }
+          }
+        ]
+      },
+      "expectSeeds": {},
+      "expectUnresolved": []
+    },
+    {
+      "name": "replay with no cassette entry still FAILS",
+      "mode": "replay",
+      "cassetteKeys": [],
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": [
+          {
+            "as": "orders",
+            "attrs": {
+              "url": "/api/orders"
+            }
+          }
+        ]
+      },
+      "expectSeeds": {},
+      "expectUnresolved": [
+        {
+          "kind": "api",
+          "name": "orders"
+        }
+      ]
+    },
+    {
+      "name": "live reaches the network, so a missing sample is not a failure",
+      "mode": "live",
+      "head": {
+        "attributes": [],
+        "variables": [],
+        "apis": [
+          {
+            "as": "orders",
+            "attrs": {
+              "url": "/api/orders"
+            }
+          }
+        ]
+      },
+      "expectSeeds": {},
+      "expectUnresolved": []
+    },
+    {
+      "name": "THE OWNER'S CASE: an api bound on a variable is armed by TEMPLATE, because the hole's value is whatever the DAG interpolates at fire time",
+      "head": {
+        "attributes": [],
+        "variables": [
+          {
+            "as": "userId",
+            "body": "return null",
+            "computed": false,
+            "sample": "\"u_42\""
+          }
+        ],
+        "apis": [
+          {
+            "as": "orders",
+            "attrs": {
+              "url": "/api/orders?user={{ userId }}"
+            },
+            "sample": "[{\"id\":1},{\"id\":2}]"
+          }
+        ]
+      },
+      "expectVars": {
+        "userId": "u_42"
+      },
+      "expectRoutes": [
+        {
+          "as": "orders",
+          "method": "GET",
+          "template": "/api/orders?user={{ userId }}"
+        }
+      ],
+      "expectUnresolved": []
+    }
+  ],
+  "templates": [
+    {
+      "name": "a literal url is exact",
+      "template": "/api/orders",
+      "matches": [
+        "/api/orders"
+      ],
+      "rejects": [
+        "/api/orders/1",
+        "/api/order"
+      ]
+    },
+    {
+      "name": "a hole is one path segment",
+      "template": "/api/notes/{{ id }}",
+      "matches": [
+        "/api/notes/7",
+        "/api/notes/abc"
+      ],
+      "rejects": [
+        "/api/notes/7/comments",
+        "/api/notes"
+      ]
+    },
+    {
+      "name": "a hole is one query value and never swallows the next parameter",
+      "template": "/api/orders?user={{ id }}",
+      "matches": [
+        "/api/orders?user=42",
+        "/api/orders?user="
+      ],
+      "rejects": [
+        "/api/orders?user=42&admin=1"
+      ]
+    },
+    {
+      "name": "regex metacharacters in the literal are literal",
+      "template": "/api/a.b+c",
+      "matches": [
+        "/api/a.b+c"
+      ],
+      "rejects": [
+        "/api/axbxc"
+      ]
+    },
+    {
+      "name": "two holes",
+      "template": "/api/{{ a }}/{{ b }}",
+      "matches": [
+        "/api/x/y"
+      ],
+      "rejects": [
+        "/api/x/y/z"
+      ]
+    }
+  ],
+  "collisions": [
+    {
+      "name": "two templates that could answer one request with DIFFERENT data collide at plan time",
+      "routes": [
+        {
+          "as": "one",
+          "method": "GET",
+          "template": "/api/{{ x }}",
+          "data": [
+            1
+          ]
+        },
+        {
+          "as": "two",
+          "method": "GET",
+          "template": "/api/orders",
+          "data": [
+            2
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "a": "one",
+          "b": "two"
+        }
+      ]
+    },
+    {
+      "name": "identical shapes carrying identical data are NOT a collision - it does not matter which answers",
+      "routes": [
+        {
+          "as": "one",
+          "method": "GET",
+          "template": "/api/orders",
+          "data": [
+            1
+          ]
+        },
+        {
+          "as": "two",
+          "method": "GET",
+          "template": "/api/orders",
+          "data": [
+            1
+          ]
+        }
+      ],
+      "expect": []
+    },
+    {
+      "name": "different methods never collide",
+      "routes": [
+        {
+          "as": "one",
+          "method": "GET",
+          "template": "/api/orders",
+          "data": [
+            1
+          ]
+        },
+        {
+          "as": "two",
+          "method": "POST",
+          "template": "/api/orders",
+          "data": [
+            2
+          ]
+        }
+      ],
+      "expect": []
+    },
+    {
+      "name": "disjoint literals never collide",
+      "routes": [
+        {
+          "as": "one",
+          "method": "GET",
+          "template": "/api/orders",
+          "data": [
+            1
+          ]
+        },
+        {
+          "as": "two",
+          "method": "GET",
+          "template": "/api/users",
+          "data": [
+            2
+          ]
+        }
+      ],
+      "expect": []
+    }
+  ]
+}

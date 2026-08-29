@@ -1,0 +1,835 @@
+{
+  "version": 1,
+  "_note": "V06 - Core/QRScanner inline preview (architecture/proposals/inline-native-surfaces.md). The same law: the module owns the scan session, and the overlay face (dsx.module.scanner, the page-sheet camera the module already ships) and the component face (<scanner.Preview/>) are two views onto ONE state machine, so a code delivered inline settles the awaiting overlay caller and never both. gate[] is the LIVE SURFACE LADDER (the same fold stream.json pins). scan[] is the DEDUPE, and it is the difference between a working scanner and one that pushes the same route thirty times: a live preview hands the analyzer the same payload on every frame.",
+  "sessionRef": {
+    "_note": "The security boundary for <scanner.Preview/> session=. A scanner holds no credential, and the rule still applies unchanged: the attribute takes a reference to the module-held scan session, never a value. Uniformity is the point - a rule that only applies where a secret is obvious is a rule authors have to think about, and one they will get wrong on the vendor that matters.",
+    "kinds": [
+      "implicit",
+      "module-context",
+      "store-var",
+      "global",
+      "config",
+      "attribute",
+      "scope"
+    ],
+    "refusals": [
+      "missing_reference",
+      "literal_secret",
+      "literal_value",
+      "compound_template",
+      "unknown_reference"
+    ],
+    "families": [],
+    "cases": [
+      {
+        "name": "omitted binds the module's current scan session",
+        "value": null,
+        "expect": {
+          "kind": "implicit",
+          "path": ""
+        }
+      },
+      {
+        "name": "the canonical module-context reference",
+        "value": "dsx.module.scanner.context.session",
+        "expect": {
+          "kind": "module-context",
+          "path": "dsx.module.scanner.context.session"
+        }
+      },
+      {
+        "name": "a store variable holding the scan handle",
+        "value": "dsx.variable.scan",
+        "expect": {
+          "kind": "store-var",
+          "path": "dsx.variable.scan"
+        }
+      },
+      {
+        "name": "a row field, for a scanner in a list of stations",
+        "value": "item.session",
+        "expect": {
+          "kind": "scope",
+          "path": "item.session"
+        }
+      },
+      {
+        "name": "an empty attribute is an author mistake",
+        "value": "",
+        "expect": {
+          "error": "missing_reference"
+        }
+      },
+      {
+        "name": "a bare session name is refused",
+        "value": "checkoutScanner",
+        "expect": {
+          "error": "unknown_reference"
+        }
+      },
+      {
+        "name": "a url is refused as a literal",
+        "value": "https://example.com/scan",
+        "expect": {
+          "error": "literal_value"
+        }
+      }
+    ]
+  },
+  "machine": {
+    "_note": "One scan session, two views. `start` is a decoded code being HANDED OVER, `complete` is the consumer accepting it, `fail` is a code the consumer rejected (an expired ticket, a barcode from the wrong catalogue) and is NOT terminal so the user can simply scan again, `cancel` while handing over withdraws that code, and `cancel` with nothing in flight closes the scanner, which is terminal.",
+    "views": [
+      "overlay",
+      "inline"
+    ],
+    "states": [
+      "idle",
+      "ready",
+      "confirming",
+      "succeeded",
+      "failed",
+      "canceled"
+    ],
+    "refusals": [
+      "already_open",
+      "not_ready",
+      "busy",
+      "settled",
+      "not_confirming",
+      "detached_view"
+    ],
+    "cases": [
+      {
+        "name": "the inline preview alone: open, attach, scan, accepted",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "the sheet scanner and the inline preview are ONE session",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "THE DOUBLE-DELIVERY GUARD: two codes cannot be in flight at once",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "overlay"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "error": "busy",
+            "state": "confirming"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "a rejected code leaves the scanner scanning",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "fail",
+            "code": "rejected"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "failed",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "failed",
+            "by": "inline",
+            "code": "rejected"
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "the preview unmounts mid-delivery and the awaiting caller is STILL settled",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "detach",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "confirming",
+            "notify": [],
+            "attempts": 1
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "closing the scanner is terminal",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "cancel"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "canceled",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 0,
+            "outcome": "canceled"
+          },
+          {
+            "error": "settled",
+            "state": "canceled"
+          }
+        ]
+      },
+      {
+        "name": "scanning before the session opened is not_ready",
+        "steps": [
+          {
+            "op": "start",
+            "view": "inline"
+          }
+        ],
+        "expect": [
+          {
+            "error": "not_ready",
+            "state": "idle"
+          }
+        ]
+      }
+    ]
+  },
+  "gate": {
+    "_note": "The same live-surface ladder stream.json pins, applied to the camera a scanner preview needs. One fold, two vendors: a second permission ladder would be a second set of words for the same five answers.",
+    "renders": [
+      "surface",
+      "request",
+      "fallback"
+    ],
+    "codes": [
+      "",
+      "unsupported_platform",
+      "permission_required",
+      "permission_denied",
+      "permission_restricted"
+    ],
+    "cases": [
+      {
+        "name": "camera granted renders the live preview",
+        "input": {
+          "capability": "present",
+          "permission": "granted",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "surface",
+          "code": "",
+          "message": "",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "not yet asked renders the ASK",
+        "input": {
+          "capability": "present",
+          "permission": "prompt",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "request",
+          "code": "permission_required",
+          "message": "Camera access has not been granted yet.",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "denied renders the fallback and points at Settings",
+        "input": {
+          "capability": "present",
+          "permission": "denied",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "fallback",
+          "code": "permission_denied",
+          "message": "Camera access was denied. Enable it in Settings to continue.",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "restricted by device policy is not recoverable",
+        "input": {
+          "capability": "present",
+          "permission": "restricted",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "fallback",
+          "code": "permission_restricted",
+          "message": "Camera access is restricted on this device.",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "a simulator with no camera is typed absence",
+        "input": {
+          "capability": "absent",
+          "permission": "granted",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "fallback",
+          "code": "unsupported_platform",
+          "message": "Camera is not available on this device.",
+          "recoverable": false
+        }
+      }
+    ]
+  },
+  "scan": {
+    "_note": "Whether a decoded frame becomes an event. A live preview hands the analyzer the same payload on every frame; without this an on:scan handler that pushes a route fires thirty times before the transition starts. ORDER IS THE LAW: an unwanted FORMAT is filtered before the mode is consulted, so a barcode in a QR-only surface never settles a once-mode scanner and leaves it deaf to the code it was waiting for.",
+    "modes": [
+      "once",
+      "continuous"
+    ],
+    "defaultDebounceMs": 1500,
+    "reasons": [
+      "empty",
+      "format_filtered",
+      "duplicate_settled",
+      "first",
+      "changed",
+      "repeat_debounced",
+      "repeat"
+    ],
+    "cases": [
+      {
+        "name": "a frame that decoded nothing is not an event",
+        "input": {
+          "value": "",
+          "format": "",
+          "at": 100,
+          "formats": [],
+          "mode": "once",
+          "lastValue": "",
+          "lastAt": 0,
+          "emitted": false
+        },
+        "expect": {
+          "emit": false,
+          "reason": "empty"
+        }
+      },
+      {
+        "name": "the first code fires",
+        "input": {
+          "value": "https://despia.com",
+          "format": "qr",
+          "at": 100,
+          "formats": [],
+          "mode": "once",
+          "lastValue": "",
+          "lastAt": 0,
+          "emitted": false
+        },
+        "expect": {
+          "emit": true,
+          "reason": "first"
+        }
+      },
+      {
+        "name": "the SAME code on the next frame does not fire again",
+        "input": {
+          "value": "https://despia.com",
+          "format": "qr",
+          "at": 133,
+          "formats": [],
+          "mode": "once",
+          "lastValue": "https://despia.com",
+          "lastAt": 100,
+          "emitted": false
+        },
+        "expect": {
+          "emit": false,
+          "reason": "repeat_debounced"
+        }
+      },
+      {
+        "name": "the same code after the window is a deliberate re-scan",
+        "input": {
+          "value": "https://despia.com",
+          "format": "qr",
+          "at": 2000,
+          "formats": [],
+          "mode": "continuous",
+          "lastValue": "https://despia.com",
+          "lastAt": 100,
+          "emitted": false
+        },
+        "expect": {
+          "emit": true,
+          "reason": "repeat"
+        }
+      },
+      {
+        "name": "a different code always fires",
+        "input": {
+          "value": "other",
+          "format": "qr",
+          "at": 110,
+          "formats": [],
+          "mode": "once",
+          "lastValue": "https://despia.com",
+          "lastAt": 100,
+          "emitted": false
+        },
+        "expect": {
+          "emit": true,
+          "reason": "changed"
+        }
+      },
+      {
+        "name": "a once-mode surface that already delivered stays quiet",
+        "input": {
+          "value": "other",
+          "format": "qr",
+          "at": 5000,
+          "formats": [],
+          "mode": "once",
+          "lastValue": "https://despia.com",
+          "lastAt": 100,
+          "emitted": true
+        },
+        "expect": {
+          "emit": false,
+          "reason": "duplicate_settled"
+        }
+      },
+      {
+        "name": "a continuous surface keeps delivering",
+        "input": {
+          "value": "other",
+          "format": "qr",
+          "at": 5000,
+          "formats": [],
+          "mode": "continuous",
+          "lastValue": "https://despia.com",
+          "lastAt": 100,
+          "emitted": true
+        },
+        "expect": {
+          "emit": true,
+          "reason": "changed"
+        }
+      },
+      {
+        "name": "an undeclared FORMAT is filtered before the mode is consulted",
+        "input": {
+          "value": "0123456789012",
+          "format": "ean13",
+          "at": 100,
+          "formats": [
+            "qr"
+          ],
+          "mode": "once",
+          "lastValue": "",
+          "lastAt": 0,
+          "emitted": false
+        },
+        "expect": {
+          "emit": false,
+          "reason": "format_filtered"
+        }
+      },
+      {
+        "name": "a filtered format never settles a once scanner",
+        "input": {
+          "value": "0123456789012",
+          "format": "ean13",
+          "at": 100,
+          "formats": [
+            "qr"
+          ],
+          "mode": "once",
+          "lastValue": "",
+          "lastAt": 0,
+          "emitted": false
+        },
+        "expect": {
+          "emit": false,
+          "reason": "format_filtered"
+        }
+      },
+      {
+        "name": "a declared format passes the filter",
+        "input": {
+          "value": "0123456789012",
+          "format": "ean13",
+          "at": 100,
+          "formats": [
+            "qr",
+            "ean13"
+          ],
+          "mode": "once",
+          "lastValue": "",
+          "lastAt": 0,
+          "emitted": false
+        },
+        "expect": {
+          "emit": true,
+          "reason": "first"
+        }
+      },
+      {
+        "name": "no declared formats means every format the SDK decodes",
+        "input": {
+          "value": "0123456789012",
+          "format": "ean13",
+          "at": 100,
+          "formats": [],
+          "mode": "once",
+          "lastValue": "",
+          "lastAt": 0,
+          "emitted": false
+        },
+        "expect": {
+          "emit": true,
+          "reason": "first"
+        }
+      },
+      {
+        "name": "a custom debounce window is honoured",
+        "input": {
+          "value": "x",
+          "format": "qr",
+          "at": 400,
+          "formats": [],
+          "mode": "continuous",
+          "lastValue": "x",
+          "lastAt": 100,
+          "emitted": false,
+          "debounceMs": 200
+        },
+        "expect": {
+          "emit": true,
+          "reason": "repeat"
+        }
+      },
+      {
+        "name": "a zero debounce fires on every repeat",
+        "input": {
+          "value": "x",
+          "format": "qr",
+          "at": 101,
+          "formats": [],
+          "mode": "continuous",
+          "lastValue": "x",
+          "lastAt": 100,
+          "emitted": false,
+          "debounceMs": 0
+        },
+        "expect": {
+          "emit": true,
+          "reason": "repeat"
+        }
+      }
+    ]
+  },
+  "retain": {
+    "_note": "Keyed identity. A camera preview owns a capture session: rebuilding it on an unrelated re-render black-frames the preview and re-runs the permission path.",
+    "keys": [
+      {
+        "name": "an explicit key wins outright",
+        "input": {
+          "tag": "scanner.Preview",
+          "key": "checkout",
+          "session": "dsx.module.scanner.context.session",
+          "index": 0
+        },
+        "expect": "scanner.Preview#checkout"
+      },
+      {
+        "name": "no key derives from tag, session reference and position",
+        "input": {
+          "tag": "scanner.Preview",
+          "session": "dsx.variable.scan",
+          "index": 2
+        },
+        "expect": "scanner.Preview@dsx.variable.scan[2]"
+      },
+      {
+        "name": "the implicit session still derives a stable key",
+        "input": {
+          "tag": "scanner.Preview",
+          "index": 0
+        },
+        "expect": "scanner.Preview@[0]"
+      }
+    ]
+  }
+}

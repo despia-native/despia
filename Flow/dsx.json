@@ -1,0 +1,6 @@
+{
+  "name": "Flow",
+  "scheme": "flow",
+  "version": "0.1.0",
+  "_note": "The flow-canvas library: a pannable, zoomable, fitted-by-default viewport for node-and-edge surfaces, authored entirely in DSX. It owns the viewport and only the viewport - the dot grid, the pan surface, the world transform, the zoom cluster, the fit contract. Nodes, edges, panels and meaning stay the consumer's, passed through slots and drawn in the consumer's own data scope. Pure markup, zero script payload, so one implementation serves every renderer and the whole library is inspectable by the people who consume it."
+}

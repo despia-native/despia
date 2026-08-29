@@ -883,7 +883,7 @@ profiles mint. The flag defaults to
 (OneSignal's `INCLUDE_ONESIGNALNOTIFICATION`). No feature name lives in CI.
 
 Worked examples: `Core/Firebase` (the plist), `Mandatory/Splash`
-(`splash.gif`), `Mandatory/Dom` (`local-www/index.html` + `custom.js` — the
+(`splash.gif`), `Core/Dom` (`local-www/index.html` + `custom.js` — the
 web layer's app content), `Core/Sounds` (the `ios_sounds/*.wav` folder set).
 
 ## Minimal examples

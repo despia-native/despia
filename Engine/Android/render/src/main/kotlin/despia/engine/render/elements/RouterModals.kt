@@ -148,6 +148,8 @@ private fun RouterModalEntry(entry: Map<*, *>, open: Boolean, onExited: () -> Un
     }
     @Suppress("UNCHECKED_CAST")
     val attrs = entry["attrs"] as? Map<String, Any?>
+    @Suppress("UNCHECKED_CAST")
+    val overrides = entry["overrides"] as? Map<String, Any?>
     val store = remember {
         StackStore().also { s ->
             s.frameId = id   // frame-scoped package calls: a modal's chrome claim carries ITS id (never in nav.stack) → dropped, not the app bar's
@@ -157,12 +159,16 @@ private fun RouterModalEntry(entry: Map<*, *>, open: Boolean, onExited: () -> Un
             // Jse.kt consults first for `dsx.attribute.x` (runtime values win over defaults),
             // identical to a hard-coding consumer's props.
             attrs?.let { if (it.isNotEmpty()) s.set("dsx.attribute", it) }
+            // the STYLE contract's verb door: overrides seed the reactive `dsx.override` dict
+            // (typed reads resolve through the head's <override> declarations — Conformance/overrides)
+            overrides?.let { if (it.isNotEmpty()) s.set("dsx.override", it) }
         }
     }
     // LIVE updates (route.updateComponent): the entry's published attrs changed → re-seed the
     // reactive dict; bindings recalc via the store publish. (`<attribute on:change>` handlers
     // stay the documented :render deferral — the existing pin.)
     LaunchedEffect(attrs) { attrs?.let { store.set("dsx.attribute", it) } }
+    LaunchedEffect(overrides) { overrides?.let { store.set("dsx.override", it) } }
     val env = remember { JSERunner(store) }
     fun dismiss() { Router.shared?.hostDismissedModal(id) }           // identity-keyed — idempotent
 

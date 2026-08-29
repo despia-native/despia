@@ -1,4 +1,4 @@
-# Global app state — `global.*`
+# Global app state: `global.*`
 
 > Audience: app authors building with DSX / DespiaScript.
 

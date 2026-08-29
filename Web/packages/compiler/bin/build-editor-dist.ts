@@ -17,7 +17,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node
 import { join, dirname, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 
-import { buildSync } from "esbuild";
+import { build, buildSync } from "esbuild";
 
 import { buildRegistry } from "../src/registry.ts";
 import { readExpose, sliceRegistry } from "../src/expose.ts";
@@ -52,7 +52,12 @@ mkdirSync(outDir, { recursive: true });
 // Canvas' file:// distribution on an older expression implementation.
 const canvasJseEntry = join(pkg, "src", "canonical-jse.ts");
 const canvasJseOut = join(pkg, "src", "canonical-jse.js");
-buildSync({ entryPoints: [canvasJseEntry], bundle: true, format: "iife", target: "es2022", outfile: canvasJseOut, absWorkingDir: web, logLevel: "silent" });
+// nodePaths, because the bridge lives OUTSIDE the web workspace and so cannot resolve a
+// bare `@despia/kernel` by walking up. It imports the package rather than a deep path into
+// packages/kernel/src for a reason that only shows up in the element bundle below: a deep
+// source path is a DIFFERENT module than the package entry, so the two would not dedupe.
+const KERNEL_RESOLVE = [join(web, "node_modules")];
+buildSync({ entryPoints: [canvasJseEntry], bundle: true, format: "iife", target: "es2022", outfile: canvasJseOut, absWorkingDir: web, logLevel: "silent", nodePaths: KERNEL_RESOLVE });
 execSync(`node --check ${JSON.stringify(canvasJseOut)}`);
 
 // the entry lives INSIDE the web workspace — esbuild resolves bare @despia/* specifiers
@@ -66,7 +71,22 @@ writeFileSync(entryPath, [
   "",
 ].join("\n"));
 const outfile = join(outDir, "despia-editor.js");
-buildSync({ entryPoints: [entryPath], bundle: true, minify: true, format: "esm", target: "es2022", outfile, absWorkingDir: web, logLevel: "silent" });
+// ONE INTERPRETER IN THE ARTIFACT.
+//
+// canvas-editor.js is UMD, and its CommonJS arm does `require("./canonical-jse.js")` to pick
+// up the pre-bundled kernel bridge - which is right for the standalone file:// SDK, where
+// that IIFE is the only kernel present. esbuild follows the require statically, so the
+// ELEMENT bundle was carrying the bridge's whole bundled copy of the interpreter ON TOP of
+// the live kernel modules it already links: ~82 KB of duplicate, and two evaluators that
+// could in principle disagree about the same expression while both claiming to be canonical.
+//
+// Resolving that require to the bridge's SOURCE lets it collapse into the kernel this bundle
+// already has. It is a plugin rather than `alias` because esbuild rejects a relative alias
+// name, and async rather than buildSync because buildSync takes no plugins.
+const canonicalSource = { name: "canvas-jse-source", setup(b: { onResolve: Function }) {
+  b.onResolve({ filter: /canonical-jse\.js$/ }, () => ({ path: canvasJseEntry }));
+} };
+await build({ entryPoints: [entryPath], bundle: true, minify: true, format: "esm", target: "es2022", outfile, absWorkingDir: web, logLevel: "silent", nodePaths: KERNEL_RESOLVE, plugins: [canonicalSource] });
 rmSync(entryPath);
 
 const bundle = readFileSync(outfile);

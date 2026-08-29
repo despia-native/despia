@@ -1,0 +1,248 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "schema": "dev.dsx.split/v1",
+  "description": "Renderer-neutral planning for the <split> two/three-pane adaptive container. Roles are canonical (sidebar/content/detail); width classes decide stack vs columns and whether a three-pane sidebar pins or overlays; selection routing decides whether a detail is active. Native renderers delegate the visual collapse to their platform split host; this plan is the semantic twin all three runners execute.",
+  "defaults": {
+    "collapseAt": 760,
+    "expandAt": 1104,
+    "resizable": true,
+    "sidebar": { "min": 220, "ideal": 280, "max": 360 },
+    "content": { "min": 280, "ideal": 340, "max": 480 },
+    "detailMin": 360,
+    "bounds": {
+      "breakpoint": { "min": 320, "max": 4096 },
+      "columnMin": { "min": 120, "max": 1024 },
+      "columnIdeal": { "min": 120, "max": 1600 },
+      "columnMax": { "min": 120, "max": 1600 },
+      "detailMin": { "min": 120, "max": 1024 }
+    }
+  },
+  "cases": [
+    {
+      "name": "two panes default to sidebar plus detail columns on desktop",
+      "attrs": {},
+      "childRoles": [null, null],
+      "width": 1200,
+      "expect": {
+        "panes": 2,
+        "roles": ["sidebar", "detail"],
+        "presentation": "columns",
+        "columns": ["sidebar", "detail"],
+        "host": "sidebar",
+        "overlay": false,
+        "detail": true,
+        "resizable": true,
+        "collapseAt": 760,
+        "expandAt": 1104,
+        "sidebar": { "min": 220, "ideal": 280, "max": 360 },
+        "content": { "min": 280, "ideal": 340, "max": 480 },
+        "detailMin": 360
+      }
+    },
+    {
+      "name": "two panes stack on phone with the sidebar hosting",
+      "attrs": {},
+      "childRoles": [null, null],
+      "width": 390,
+      "expect": { "panes": 2, "roles": ["sidebar", "detail"], "presentation": "stack", "columns": [], "host": "sidebar", "overlay": false, "detail": true, "resizable": false }
+    },
+    {
+      "name": "three panes default to sidebar content detail",
+      "attrs": {},
+      "childRoles": [null, null, null],
+      "width": 1680,
+      "expect": { "panes": 3, "roles": ["sidebar", "content", "detail"], "presentation": "columns", "columns": ["sidebar", "content", "detail"], "host": "content", "overlay": false, "detail": true, "resizable": true }
+    },
+    {
+      "name": "three panes below the expand step pin content and detail with an overlay sidebar",
+      "attrs": {},
+      "childRoles": [null, null, null],
+      "width": 1024,
+      "expect": { "panes": 3, "roles": ["sidebar", "content", "detail"], "presentation": "columns", "columns": ["content", "detail"], "host": "content", "overlay": true, "detail": true, "resizable": true }
+    },
+    {
+      "name": "three panes stack on phone with content hosting and the sidebar as overlay",
+      "attrs": {},
+      "childRoles": [null, null, null],
+      "width": 390,
+      "expect": { "panes": 3, "roles": ["sidebar", "content", "detail"], "presentation": "stack", "columns": [], "host": "content", "overlay": true, "detail": true, "resizable": false }
+    },
+    {
+      "name": "the expand boundary itself pins all three panes",
+      "attrs": {},
+      "childRoles": [null, null, null],
+      "width": 1104,
+      "expect": { "panes": 3, "presentation": "columns", "columns": ["sidebar", "content", "detail"], "overlay": false }
+    },
+    {
+      "name": "the collapse boundary itself is a columns presentation",
+      "attrs": {},
+      "childRoles": [null, null],
+      "width": 760,
+      "expect": { "panes": 2, "presentation": "columns", "columns": ["sidebar", "detail"], "resizable": true }
+    },
+    {
+      "name": "explicit roles are kept and columns render in canonical order",
+      "attrs": {},
+      "childRoles": ["detail", "sidebar"],
+      "width": 1200,
+      "expect": { "panes": 2, "roles": ["detail", "sidebar"], "columns": ["sidebar", "detail"], "host": "sidebar", "detail": true }
+    },
+    {
+      "name": "an unknown role word falls back to its positional default",
+      "attrs": {},
+      "childRoles": ["primary", null],
+      "width": 1200,
+      "expect": { "panes": 2, "roles": ["sidebar", "detail"] }
+    },
+    {
+      "name": "roles normalize whitespace and case",
+      "attrs": {},
+      "childRoles": [" Sidebar ", null],
+      "width": 1200,
+      "expect": { "panes": 2, "roles": ["sidebar", "detail"] }
+    },
+    {
+      "name": "a duplicate role keeps its first claimant and refills the rest",
+      "attrs": {},
+      "childRoles": ["detail", "detail"],
+      "width": 1200,
+      "expect": { "panes": 2, "roles": ["detail", "sidebar"], "columns": ["sidebar", "detail"] }
+    },
+    {
+      "name": "explicit content plus detail hosts on content",
+      "attrs": {},
+      "childRoles": ["content", "detail"],
+      "width": 1200,
+      "expect": { "panes": 2, "roles": ["content", "detail"], "columns": ["content", "detail"], "host": "content", "overlay": false }
+    },
+    {
+      "name": "sidebar plus content without a detail keeps selection inert",
+      "attrs": {},
+      "childRoles": ["sidebar", "content"],
+      "width": 1200,
+      "expect": { "panes": 2, "roles": ["sidebar", "content"], "columns": ["sidebar", "content"], "host": "content", "detail": false }
+    },
+    {
+      "name": "a single child is the content pane at every width",
+      "attrs": {},
+      "childRoles": [null],
+      "width": 1200,
+      "expect": { "panes": 1, "roles": ["content"], "presentation": "columns", "columns": ["content"], "host": "content", "overlay": false, "detail": false, "resizable": false }
+    },
+    {
+      "name": "a single explicit detail child hosts itself",
+      "attrs": {},
+      "childRoles": ["detail"],
+      "width": 390,
+      "expect": { "panes": 1, "roles": ["detail"], "presentation": "stack", "columns": [], "host": "detail", "detail": true }
+    },
+    {
+      "name": "children beyond three are ignored",
+      "attrs": {},
+      "childRoles": [null, null, null, null],
+      "width": 1680,
+      "expect": { "panes": 3, "roles": ["sidebar", "content", "detail"], "columns": ["sidebar", "content", "detail"] }
+    },
+    {
+      "name": "the panes attribute is advisory and the children win",
+      "attrs": { "panes": "2" },
+      "childRoles": [null, null, null],
+      "width": 1680,
+      "expect": { "panes": 3, "roles": ["sidebar", "content", "detail"] }
+    },
+    {
+      "name": "no children resolve to an empty total plan",
+      "attrs": {},
+      "childRoles": [],
+      "width": 1200,
+      "expect": { "panes": 0, "roles": [], "presentation": "columns", "columns": [], "host": "content", "overlay": false, "detail": false, "resizable": false }
+    },
+    {
+      "name": "an authored collapse breakpoint moves the stack step",
+      "attrs": { "collapseAt": "900" },
+      "childRoles": [null, null],
+      "width": 880,
+      "expect": { "panes": 2, "presentation": "stack", "collapseAt": 900 }
+    },
+    {
+      "name": "breakpoints trim authoring whitespace",
+      "attrs": { "collapseAt": " 900 " },
+      "childRoles": [null, null],
+      "width": 880,
+      "expect": { "presentation": "stack", "collapseAt": 900 }
+    },
+    {
+      "name": "breakpoints clamp into the shared bounds",
+      "attrs": { "collapseAt": "100", "expandAt": "99999" },
+      "childRoles": [null, null, null],
+      "width": 4000,
+      "expect": { "collapseAt": 320, "expandAt": 4096, "presentation": "columns", "columns": ["content", "detail"], "overlay": true }
+    },
+    {
+      "name": "nonnumeric breakpoints keep the defaults",
+      "attrs": { "collapseAt": "NaN", "expandAt": "" },
+      "childRoles": [null, null],
+      "width": 390,
+      "expect": { "collapseAt": 760, "expandAt": 1104, "presentation": "stack" }
+    },
+    {
+      "name": "an expand step below the collapse step rises to meet it",
+      "attrs": { "collapseAt": "1000", "expandAt": "800" },
+      "childRoles": [null, null, null],
+      "width": 1000,
+      "expect": { "collapseAt": 1000, "expandAt": 1000, "presentation": "columns", "columns": ["sidebar", "content", "detail"], "overlay": false }
+    },
+    {
+      "name": "nonfinite width plans as zero",
+      "attrs": {},
+      "childRoles": [null, null],
+      "width": "nonfinite",
+      "expect": { "presentation": "stack" }
+    },
+    {
+      "name": "negative width plans as zero",
+      "attrs": {},
+      "childRoles": [null, null],
+      "width": -200,
+      "expect": { "presentation": "stack" }
+    },
+    {
+      "name": "resizable false disables desktop dividers",
+      "attrs": { "resizable": " False " },
+      "childRoles": [null, null],
+      "width": 1680,
+      "expect": { "presentation": "columns", "resizable": false }
+    },
+    {
+      "name": "column width triplets normalize like the adaptive scaffold",
+      "attrs": { "sidebarMin": "5000", "sidebarIdeal": "NaN", "sidebarMax": "1" },
+      "childRoles": [null, null],
+      "width": 1200,
+      "expect": { "sidebar": { "min": 1024, "ideal": 1024, "max": 1024 } }
+    },
+    {
+      "name": "content widths carry their own defaults and authored values",
+      "attrs": { "contentMin": "300", "contentIdeal": "420", "contentMax": "500" },
+      "childRoles": [null, null, null],
+      "width": 1680,
+      "expect": { "content": { "min": 300, "ideal": 420, "max": 500 }, "sidebar": { "min": 220, "ideal": 280, "max": 360 } }
+    },
+    {
+      "name": "the detail floor clamps into the column bounds",
+      "attrs": { "detailMin": "60" },
+      "childRoles": [null, null],
+      "width": 1200,
+      "expect": { "detailMin": 120 }
+    }
+  ],
+  "selection": [
+    { "name": "null is no selection", "value": null, "active": false },
+    { "name": "false is no selection", "value": false, "active": false },
+    { "name": "an empty string is no selection", "value": "", "active": false },
+    { "name": "whitespace is no selection", "value": "   ", "active": false },
+    { "name": "a string id activates the detail", "value": "note-1", "active": true },
+    { "name": "the numeric id zero stays selectable", "value": 0, "active": true },
+    { "name": "true activates", "value": true, "active": true }
+  ]
+}

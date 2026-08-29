@@ -1,0 +1,61 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "canvas",
+  "aliases": [],
+  "source": "OpenSource/Engine/iOS/StackCanvas.swift",
+  "attributes": {
+    "opaque": {
+      "type": "boolean",
+      "default": "false",
+      "_src": "OpenSource/Engine/iOS/StackCanvas.swift header (skips the alpha channel; a meaningful perf win for a full-bleed canvas)"
+    },
+    "scale": {
+      "type": "string",
+      "default": "device",
+      "_src": "OpenSource/Web/packages/dom/src/canvas.ts raster() (1 | 2 | device raster scale; native surfaces are already device-scaled)"
+    },
+    "commands": {
+      "type": "expression",
+      "default": null,
+      "_src": "OpenSource/Conformance/canvas/tier2.json (the tier-2 command list: rows of [method, args...], replayed through the kernel recorder)"
+    },
+    "a11yLabel": {
+      "type": "string",
+      "default": null,
+      "_src": "OpenSource/Conformance/canvas/a11y.json (REQUIRED by lint_dsx when a gesture handler is bound and no a11yChildren are declared)"
+    },
+    "a11yChildren": {
+      "type": "expression",
+      "default": null,
+      "_src": "OpenSource/Conformance/canvas/a11y.json (the declared semantic overlay: rows of {role, label, value})"
+    },
+    "on:draw": {
+      "type": "action",
+      "default": null,
+      "_src": "OpenSource/Conformance/canvas/a11y.json (a paint notification, NOT interaction: a painted background stays decorative)"
+    },
+    "on:frame": {
+      "type": "action",
+      "default": null,
+      "_src": "OpenSource/Conformance/canvas/frames.json (display-linked {time, delta, frame}; installed only while bound, mounted and on screen)"
+    },
+    "on:layout": {
+      "type": "action",
+      "default": null,
+      "_src": "OpenSource/Web/packages/dom/src/canvas.ts paint() ({width, height} after layout, before the first draw)"
+    },
+    "on:strokeStart": {
+      "type": "action",
+      "default": null,
+      "_src": "OpenSource/Conformance/canvas/ink.json (raised on pointer-down over an <ink> child; the surface owns the events, <ink> owns the value)"
+    },
+    "on:strokeEnd": {
+      "type": "action",
+      "default": null,
+      "_src": "OpenSource/Conformance/canvas/ink.json (raised on pointer-up, after the one store write that commits the stroke)"
+    }
+  },
+  "geometry": {},
+  "colors": {},
+  "notes": "The 2-D drawing surface. TIER 1 is the declarative child set - path / rect / circle / ellipse / line / polygon / polyline / text / image, the group / blur / shadow / blend wrappers and gradient / stop - reconciled as a keyed display list; attribute naming is SVG's exactly. TIER 2 is the Canvas2D subset as a command LIST replayed through the kernel recorder (corpus tier2.json), not a live ctx object. No Skia, no shader language, no pixel readback: each platform's own rasteriser draws the same kernel display list. Numbers live in CanvasCore.swift / CanvasCore.kt / canvas-core.ts; corpus OpenSource/Conformance/canvas/. FOUR RENDERERS, no exceptions: SwiftUI, Compose (Android), Compose Desktop (DesktopCanvas.kt - Windows and Linux) and the DOM. Each replays the same kernel display list through its own rasteriser, so a picture drawn on a phone is the picture a desktop window draws. DRAWN ON: the `<ink>` child makes the surface a pointer target - the committed strokes fold back into ordinary tier-1 stroked paths, the in-flight stroke is transient native paint, and the bound value is written exactly once per stroke on pointer-up. The two stroke events belong to the SURFACE, not to `<ink>`, because a canvas can carry ink beside other geometry."
+}

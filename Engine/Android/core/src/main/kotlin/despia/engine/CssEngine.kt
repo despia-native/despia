@@ -101,6 +101,26 @@ object CSSEngine {
         return computed
     }
 
+    /// The `@keyframes` table an element's `animation` names (runtime-pressure R28), normalized
+    /// to ordered stops. Its own component sheet first, then the app theme, which is how an
+    /// author gets one `@keyframes shimmer` every component can name. An unknown name is an
+    /// EMPTY timeline, never a throw: an animation nobody defined is an element that does not
+    /// move, exactly as on the web.
+    ///
+    /// Separate from [sheetAttributes] because a keyframe is a TABLE, not a declaration that
+    /// applies to the element — leaking a stop into paint is the failure mode this shape rules
+    /// out (`MotionKeyframeLookupTest`).
+    fun keyframes(component: String?, name: String, ctx: CSSResolver.Context): List<MotionCore.Stop> {
+        if (name.isEmpty()) return emptyList()
+        val own = component?.let { synchronized(lock) { sheets[it] } }
+        if (own != null) {
+            val timeline = CSSResolver.keyframes(own, name, ctx)
+            if (timeline.isNotEmpty()) return timeline
+        }
+        val t = synchronized(lock) { theme } ?: return emptyList()
+        return CSSResolver.keyframes(t, name, ctx)
+    }
+
     /// Inline style="" CSS → legacy attributes. `ctx.classes` feeds &.class
     /// matching once the inline parser grows nested blocks. `owner` is the
     /// element's css-owner component: its sheet's custom properties join the

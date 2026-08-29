@@ -897,25 +897,27 @@ class JseRunnerTest {
         JSERunner.router = object : JSERunnerRouter {
             override fun dismissModal(target: String?) { log.add("dismiss:$target") }
             override fun presentComponent(name: String, scope: String?, mode: String, vars: Map<String, Any?>?,
-                                          detents: List<String>?, touch: String?, attrs: Map<String, Any?>?) {
-                log.add("present:$name:$mode:$touch:${attrs?.get("id")}")
+                                          detents: List<String>?, touch: String?, attrs: Map<String, Any?>?,
+                                          overrides: Map<String, Any?>?) {
+                log.add("present:$name:$mode:$touch:${attrs?.get("id")}:${overrides?.get("radius")}")
             }
             override fun pushComponent(name: String, scope: String?, path: String, vars: Map<String, Any?>?,
-                                       attrs: Map<String, Any?>?) {
-                log.add("push:$name:$path:${attrs?.get("id")}")
+                                       attrs: Map<String, Any?>?, overrides: Map<String, Any?>?) {
+                log.add("push:$name:$path:${attrs?.get("id")}:${overrides?.get("radius")}")
             }
-            override fun updateComponent(target: String?, attrs: Map<String, Any?>) {
-                log.add("update:$target:${attrs["id"]}")
+            override fun updateComponent(target: String?, attrs: Map<String, Any?>,
+                                         overrides: Map<String, Any?>) {
+                log.add("update:$target:${attrs["id"]}:${overrides["radius"]}")
             }
         }
-        runner.run("dsx.component.push('Cart', { path: '/cart', attrs: { id: '42' } })", null)
+        runner.run("dsx.component.push('Cart', { path: '/cart', attrs: { id: '42' }, overrides: { radius: '6' } })", null)
         runner.run("dsx.component.present('Login', { as: 'fullscreen' })", null)
         runner.run("dsx.component.present('Bar', { as: 'overlay', touch: 'block' })", null)
-        runner.run("dsx.component.update('Bar', { attrs: { id: '7' } })", null)
+        runner.run("dsx.component.update('Bar', { attrs: { id: '7' }, overrides: { radius: '12' } })", null)
         runner.run("dsx.component.dismiss()", null)
         runner.run("dsx.component.mount('X')", null)                  // unknown verb → log + no-op
-        assertEquals(listOf("push:Cart:/cart:42", "present:Login:fullscreen:null:null",
-                            "present:Bar:overlay:block:null", "update:Bar:7", "dismiss:null"), log)
+        assertEquals(listOf("push:Cart:/cart:42:6", "present:Login:fullscreen:null:null:null",
+                            "present:Bar:overlay:block:null:null", "update:Bar:7:12", "dismiss:null"), log)
     }
 
     // ── watch scheduling (fireWatch = WatchView.fire) ───────────────────────────────────

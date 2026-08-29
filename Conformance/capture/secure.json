@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "_note": "The refusal contract (parity/F11-capture.md 7). `Core/ScreenShield` exists so an app can declare its content uncapturable; a capture module that quietly bypassed it would make that module a lie. This corpus pins WHICH actions refuse, WHAT the refusal is, and that no argument can turn it off.",
+
+  "gate": {
+    "_note": "One gate, read the same way ScreenShield itself reads it (Article 4: another module's config through the config plane, never a cross-module call and never a private hook).",
+    "module": "security",
+    "key": "prevent_screen_capture",
+    "default": false,
+    "platformEvidence": {
+      "ios": "the ScreenShield SPM obscures the protected view in screenshots and recordings, so a render taken anyway would be blank; refusing is the honest answer rather than handing back an empty image",
+      "android": "the host window carries FLAG_SECURE, and the facet ALSO reads the live window flag so a window secured by anything other than this config still refuses",
+      "web": "a browser has no equivalent protection to honour, so the gate is inert there and the README says so rather than implying a guarantee"
+    }
+  },
+
+  "cases": [
+    { "name": "a whole-screen capture of a protected app refuses",
+      "action": "screen", "protected": true, "expect": { "error": "secure_content" } },
+    { "name": "an element capture inside a protected app refuses",
+      "action": "element", "protected": true, "expect": { "error": "secure_content" } },
+    { "name": "a PDF of protected content refuses",
+      "action": "pdf", "protected": true, "expect": { "error": "secure_content" } },
+    { "name": "an OFFSCREEN render is allowed, because it never touches the protected surface",
+      "action": "offscreen", "protected": true, "expect": { "ok": true },
+      "_note": "This is a deliberate ruling, not an oversight. `offscreen` mounts a fresh detached host from the component registry; nothing the user's protected screen is showing is in it. Refusing here would break share cards in every banking app for no security gain, and the app author still controls what the component renders." },
+    { "name": "an unprotected app captures the screen normally",
+      "action": "screen", "protected": false, "expect": { "ok": true } },
+    { "name": "an unprotected app captures an element normally",
+      "action": "element", "protected": false, "expect": { "ok": true } }
+  ],
+
+  "notOverridable": {
+    "_note": "The refusal is not a warning and takes no override. An argument that turned it off would be the whole attack.",
+    "forbiddenArgs": ["force", "allowSecure", "bypassSecure", "includeSecure", "ignoreScreenShield"],
+    "code": "secure_content",
+    "recoverable": false
+  },
+
+  "excludeSecure": {
+    "_note": "`screen({ excludeSecure: true })` is the OPPOSITE control and is easy to confuse with an override, so it is pinned here. It does not capture protected content: it asks for the capture to SUCCEED with protected subtrees omitted, for the case where one card in a list is sensitive and the rest of the screen is not. When the WHOLE surface is protected there is nothing left to return and the refusal stands.",
+    "cases": [
+      { "name": "a partially protected screen returns the rest",
+        "protected": "subtree", "excludeSecure": true, "expect": { "ok": true, "omitted": true } },
+      { "name": "a partially protected screen without the flag still refuses",
+        "protected": "subtree", "excludeSecure": false, "expect": { "error": "secure_content" } },
+      { "name": "a fully protected screen refuses even with the flag",
+        "protected": true, "excludeSecure": true, "expect": { "error": "secure_content" } }
+    ]
+  }
+}

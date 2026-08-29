@@ -1,0 +1,23 @@
+{
+  "engine": "chromium",
+  "browserVersion": "Chromium 141.0.7390.37",
+  "shots": [
+    "01-launcher.png",
+    "02-flex.png",
+    "03-flex-flipped.png",
+    "04-basics.png",
+    "05-system.png",
+    "06-deeplink-flex.png",
+    "07-errors.png",
+    "08-data.png",
+    "09-gestures.png",
+    "10-embed.png",
+    "11-editor-embed.png",
+    "matrix-compact-phone.png",
+    "matrix-desktop.png",
+    "matrix-gallery-compact-phone.png",
+    "matrix-gallery-desktop.png",
+    "matrix-gallery-tablet.png",
+    "matrix-tablet.png"
+  ]
+}

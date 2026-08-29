@@ -15,6 +15,16 @@
       "type": "color",
       "default": "accent",
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift:18"
+    },
+    "disabled": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift:14 (the W9 disabled-grammar pair \u2014 `disabled` OR `disabled-if` truthy disables; all three renderers)"
+    },
+    "disabled-if": {
+      "type": "expr",
+      "default": null,
+      "_src": "the conditional half of the W9 disabled-grammar pair, ratified with `disabled` and implemented on all three renderers - see the `disabled` row above"
     }
   },
   "geometry": {
@@ -41,5 +51,5 @@
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift:18"
     }
   },
-  "notes": "on:change fires from setBound's write seam on actual change only (Toggle.swift:15). SYSTEM IDENTITY (system-defaults.md, the Android M3-identity wave): iOS renders the native UISwitch always (SwiftUI Toggle, tint= compatible — Toggle.swift:16-18); web renders the real <input type=checkbox role=switch> (elements.ts toggle); Android renders the real M3 Switch when the element is FULLY unstyled (StackSystemControls.kt SystemControl.TOGGLE — bind + safe base only), at the Switch's own 52x32 metric with explicit role colors (selected onPrimary/primary, unselected outline/surfaceContainerHighest); ANY styling attr — color= included, the SystemButton word-less rule — ejects to the legacy 51x31 capsule byte-identically (the pinned geometry above IS that legacy path + the iOS metric). Android joining COMPLETES the three-renderer native-control parity for this element. Token slots: system track/thumb ride the platform's own switch roles, never re-specified here; colors.tint stays the legacy path's accent."
+  "notes": "on:change fires from setBound's write seam on actual change only (Toggle.swift:15). SYSTEM IDENTITY (system-defaults.md, the Android M3-identity wave): iOS renders the native UISwitch always (SwiftUI Toggle, tint= compatible — Toggle.swift:16-18); web renders the real <input type=checkbox role=switch> (elements.ts toggle) with a token-overridable iOS-26-ish capsule polyfill (63x28, pill thumb; --dsx-toggle-* / color=); Android renders the real M3 Switch when the element is FULLY unstyled (StackSystemControls.kt SystemControl.TOGGLE — bind + safe base only), at the Switch's own 52x32 metric with explicit role colors (selected onPrimary/primary, unselected outline/surfaceContainerHighest); ANY styling attr — color= included, the SystemButton word-less rule — ejects to the legacy 51x31 capsule byte-identically (the pinned geometry above IS that legacy path + the iOS metric). Android joining COMPLETES the three-renderer native-control parity for this element. Token slots: system track/thumb ride the platform's own switch roles, never re-specified here; colors.tint stays the legacy path's accent."
 }

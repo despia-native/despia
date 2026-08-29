@@ -1,0 +1,177 @@
+{
+  "_note": "Core/SystemBars (F17.5) — the platform-neutral corpus for the system bars and immersive mode. Android 15 makes edge-to-edge mandatory, which changes what a colour on the navigation bar even DOES (the bar goes transparent and the app draws under it), and iOS has no navigation bar at all but does have a home indicator that expresses the same author intent. Left to each platform, `immersive` would mean three things. What is pinned here: the closed vocabularies, the colour parser, the icon-contrast decision that `style: \"auto\"` really asks, the edge-to-edge interaction rules, and the iOS mapping. Read by kernel/test/systembars-conformance.test.ts (TS, reference), :core SystemBarsConformanceTest (Kotlin) and Engine/iOS/SystemBars.swift.",
+
+  "vocabulary": {
+    "styles": ["light", "dark", "auto"],
+    "behaviors": ["default", "swipe"],
+    "modes": ["none", "leanback", "sticky"],
+    "lumaThreshold": 0.5,
+    "_note": "The luma formula is ITU-R BT.601 with INTEGER weights, deliberately, not WCAG relative luminance: WCAG needs a per-channel power function and pow() is not guaranteed identical to the last bit across three languages. A one-ULP difference at the threshold flips a bar's icons from black to white on one platform only, which is exactly the drift this core exists to prevent."
+  },
+
+  "style": [
+    { "name": "absent defaults to auto", "kind": "style", "raw": null, "ok": true, "expect": "auto" },
+    { "name": "light", "kind": "style", "raw": "light", "ok": true, "expect": "light" },
+    { "name": "case folds", "kind": "style", "raw": "Dark", "ok": true, "expect": "dark" },
+    { "name": "an invented style is refused rather than silently defaulted", "kind": "style", "raw": "translucent", "ok": false, "error": "unknown_style" },
+    { "name": "behavior defaults to default", "kind": "behavior", "raw": "", "ok": true, "expect": "default" },
+    { "name": "swipe is the transient-bars behavior", "kind": "behavior", "raw": "swipe", "ok": true, "expect": "swipe" },
+    { "name": "an invented behavior", "kind": "behavior", "raw": "hover", "ok": false, "error": "unknown_behavior" },
+    { "name": "mode defaults to none", "kind": "mode", "raw": null, "ok": true, "expect": "none" },
+    { "name": "leanback", "kind": "mode", "raw": "leanback", "ok": true, "expect": "leanback" },
+    { "name": "separators are ignored so lean-back folds too", "kind": "mode", "raw": "lean-back", "ok": true, "expect": "leanback" },
+    { "name": "sticky", "kind": "mode", "raw": "sticky", "ok": true, "expect": "sticky" },
+    { "name": "an invented mode", "kind": "mode", "raw": "cinema", "ok": false, "error": "unknown_mode" }
+  ],
+
+  "color": [
+    { "name": "six-digit hex", "raw": "#1E90FF", "ok": true, "expect": { "r": 30, "g": 144, "b": 255, "a": 255 } },
+    { "name": "eight-digit hex carries alpha", "raw": "#1E90FF80", "ok": true, "expect": { "r": 30, "g": 144, "b": 255, "a": 128 } },
+    { "name": "three-digit hex doubles each digit, the same rule CSS uses", "raw": "#f0a", "ok": true, "expect": { "r": 255, "g": 0, "b": 170, "a": 255 } },
+    { "name": "four-digit hex doubles the alpha too", "raw": "#f0a8", "ok": true, "expect": { "r": 255, "g": 0, "b": 170, "a": 136 } },
+    { "name": "lowercase hex", "raw": "#1e90ff", "ok": true, "expect": { "r": 30, "g": 144, "b": 255, "a": 255 } },
+    { "name": "the legacy R,G,B triple bottombarcolor:// carried", "raw": "30,144,255", "ok": true, "expect": { "r": 30, "g": 144, "b": 255, "a": 255 } },
+    { "name": "a four-part triple carries alpha", "raw": "30,144,255,128", "ok": true, "expect": { "r": 30, "g": 144, "b": 255, "a": 128 } },
+    { "name": "spaces inside a triple are trimmed", "raw": " 30, 144, 255 ", "ok": true, "expect": { "r": 30, "g": 144, "b": 255, "a": 255 } },
+    { "name": "transparent is a word, not a hex value", "raw": "transparent", "ok": true, "expect": { "r": 0, "g": 0, "b": 0, "a": 0 } },
+    { "name": "TRANSPARENT folds", "raw": "TRANSPARENT", "ok": true, "expect": { "r": 0, "g": 0, "b": 0, "a": 0 } },
+    { "name": "empty", "raw": "", "ok": false, "error": "invalid_color" },
+    { "name": "a colour name is not a colour here — a bar that silently turns black looks deliberate", "raw": "dodgerblue", "ok": false, "error": "invalid_color" },
+    { "name": "a five-digit hex is not a hex colour", "raw": "#12345", "ok": false, "error": "invalid_color" },
+    { "name": "a non-hex character", "raw": "#12345g", "ok": false, "error": "invalid_color" },
+    { "name": "a channel above 255", "raw": "300,0,0", "ok": false, "error": "invalid_color" },
+    { "name": "a two-part triple", "raw": "30,144", "ok": false, "error": "invalid_color" },
+    { "name": "a negative channel", "raw": "-1,0,0", "ok": false, "error": "invalid_color" }
+  ],
+
+  "luma": [
+    { "name": "white is fully light", "color": "#ffffff", "luma": 1.0, "iconsDark": true },
+    { "name": "black is fully dark", "color": "#000000", "luma": 0.0, "iconsDark": false },
+    { "name": "dodger blue reads as dark, so the icons stay white", "color": "#1E90FF", "luma": 0.480659, "iconsDark": false },
+    { "name": "mid grey lands just above the threshold", "color": "#808080", "luma": 0.501961, "iconsDark": true },
+    { "name": "one step below mid grey lands just below it — the threshold is exact, not fuzzy", "color": "#7f7f7f", "luma": 0.498039, "iconsDark": false },
+    { "name": "amber is light enough for dark icons", "color": "#ffcc00", "luma": 0.7686, "iconsDark": true },
+    { "name": "magenta is not", "color": "#f0a", "luma": 0.375, "iconsDark": false }
+  ],
+
+  "transparentIcons": [
+    { "name": "a transparent bar over a light app needs dark icons", "color": "transparent", "appearanceIsDark": false, "iconsDark": true },
+    { "name": "a transparent bar over a dark app needs light icons", "color": "transparent", "appearanceIsDark": true, "iconsDark": false },
+    { "name": "an opaque bar ignores the app appearance entirely", "color": "#ffffff", "appearanceIsDark": true, "iconsDark": true }
+  ],
+
+  "plan": [
+    {
+      "name": "the default request: visible bars, auto style over a transparent bar in a light app",
+      "raw": {},
+      "ok": true,
+      "expect": {
+        "visible": true, "style": "dark", "behavior": "default", "immersive": "none",
+        "edgeToEdge": false, "color": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "dividerColor": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "iconsDark": true, "insetTop": true, "insetBottom": true,
+        "hidesHomeIndicator": false, "diagnostics": []
+      }
+    },
+    {
+      "name": "a coloured bar resolves its own icon contrast",
+      "raw": { "color": "#1E90FF" },
+      "ok": true,
+      "expect": {
+        "visible": true, "style": "light", "behavior": "default", "immersive": "none",
+        "edgeToEdge": false, "color": { "r": 30, "g": 144, "b": 255, "a": 255 },
+        "dividerColor": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "iconsDark": false, "insetTop": true, "insetBottom": true,
+        "hidesHomeIndicator": false, "diagnostics": []
+      }
+    },
+    {
+      "name": "an explicit style overrides the contrast calculation",
+      "raw": { "color": "#ffffff", "style": "light" },
+      "ok": true,
+      "expect": {
+        "visible": true, "style": "light", "behavior": "default", "immersive": "none",
+        "edgeToEdge": false, "color": { "r": 255, "g": 255, "b": 255, "a": 255 },
+        "dividerColor": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "iconsDark": false, "insetTop": true, "insetBottom": true,
+        "hidesHomeIndicator": false, "diagnostics": []
+      }
+    },
+    {
+      "name": "edge-to-edge drops the colour and SAYS SO rather than letting the author believe it worked",
+      "raw": { "edgeToEdge": true, "color": "#1E90FF", "dividerColor": "#000000", "appearanceIsDark": true },
+      "ok": true,
+      "expect": {
+        "visible": true, "style": "light", "behavior": "default", "immersive": "none",
+        "edgeToEdge": true, "color": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "dividerColor": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "iconsDark": false, "insetTop": false, "insetBottom": false,
+        "hidesHomeIndicator": false,
+        "diagnostics": ["color_ignored_edge_to_edge", "divider_ignored_edge_to_edge"]
+      }
+    },
+    {
+      "name": "edge-to-edge means the app owns its insets even while the bars are visible",
+      "raw": { "edgeToEdge": true },
+      "ok": true,
+      "expect": {
+        "visible": true, "style": "dark", "behavior": "default", "immersive": "none",
+        "edgeToEdge": true, "color": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "dividerColor": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "iconsDark": true, "insetTop": false, "insetBottom": false,
+        "hidesHomeIndicator": false, "diagnostics": []
+      }
+    },
+    {
+      "name": "leanback hides the bars, drops the insets, and hides the home indicator on iOS",
+      "raw": { "immersive": "leanback" },
+      "ok": true,
+      "expect": {
+        "visible": false, "style": "dark", "behavior": "default", "immersive": "leanback",
+        "edgeToEdge": false, "color": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "dividerColor": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "iconsDark": true, "insetTop": false, "insetBottom": false,
+        "hidesHomeIndicator": true, "diagnostics": []
+      }
+    },
+    {
+      "name": "sticky plus swipe is the video-player combination",
+      "raw": { "immersive": "sticky", "behavior": "swipe" },
+      "ok": true,
+      "expect": {
+        "visible": false, "style": "dark", "behavior": "swipe", "immersive": "sticky",
+        "edgeToEdge": false, "color": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "dividerColor": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "iconsDark": true, "insetTop": false, "insetBottom": false,
+        "hidesHomeIndicator": true, "diagnostics": []
+      }
+    },
+    {
+      "name": "asking for visible bars AND an immersive mode is a contradiction the mode wins, loudly",
+      "raw": { "immersive": "sticky", "visible": true },
+      "ok": true,
+      "expect": {
+        "visible": false, "style": "dark", "behavior": "default", "immersive": "sticky",
+        "edgeToEdge": false, "color": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "dividerColor": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "iconsDark": true, "insetTop": false, "insetBottom": false,
+        "hidesHomeIndicator": true, "diagnostics": ["visible_overridden_by_immersive"]
+      }
+    },
+    {
+      "name": "hiding the bars without an immersive mode still drops the insets",
+      "raw": { "visible": false },
+      "ok": true,
+      "expect": {
+        "visible": false, "style": "dark", "behavior": "default", "immersive": "none",
+        "edgeToEdge": false, "color": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "dividerColor": { "r": 0, "g": 0, "b": 0, "a": 0 },
+        "iconsDark": true, "insetTop": false, "insetBottom": false,
+        "hidesHomeIndicator": false, "diagnostics": []
+      }
+    },
+    { "name": "an invented style refuses the whole request", "raw": { "style": "translucent" }, "ok": false, "error": "unknown_style" },
+    { "name": "an invented mode refuses the whole request", "raw": { "immersive": "cinema" }, "ok": false, "error": "unknown_mode" },
+    { "name": "an unparseable colour refuses the whole request", "raw": { "color": "dodgerblue" }, "ok": false, "error": "invalid_color" }
+  ]
+}

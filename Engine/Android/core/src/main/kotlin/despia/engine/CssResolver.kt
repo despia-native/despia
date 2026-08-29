@@ -75,6 +75,40 @@ object CSSResolver {
         return out
     }
 
+    /**
+     * The `@keyframes <name>` timeline in a sheet, normalised by [MotionCore] (runtime-pressure
+     * R28). Keyframes reach these sheets VERBATIM - the generated IR carries every stop - and
+     * [declarations] deliberately does not surface them, because a keyframe is not a declaration
+     * that applies to an element: it is a table the element's `animation` names. This is the
+     * lookup that table needs.
+     *
+     * The LAST block wins on a duplicate name, which is CSS's rule. Nested at-rules are walked
+     * (a keyframes block inside `@media (prefers-reduced-motion: no-preference)` is a real and
+     * useful thing to write), and a block whose media query does not apply is skipped, so the
+     * preference is honoured by the same evaluation every other rule goes through.
+     */
+    fun keyframes(sheet: CSSSheet, name: String, ctx: Context): List<MotionCore.Stop> {
+        val found = ArrayList<Pair<String, Map<String, String>>>()
+        fun walk(rules: List<CSSRule>) {
+            for (rule in rules) {
+                if (rule.type != "at") continue
+                if (rule.name == "keyframes") {
+                    if ((rule.prelude ?: "").trim() != name) continue
+                    found.clear()
+                    for (stop in rule.children) {
+                        val declarations = LinkedHashMap<String, String>()
+                        for (d in stop.declarations) if (!d.custom) declarations[d.property] = d.value
+                        found.add((stop.selector ?: "") to declarations)
+                    }
+                    continue
+                }
+                if (mediaApplies(rule.name ?: "", rule.prelude ?: "", ctx)) walk(rule.children)
+            }
+        }
+        walk(sheet.rules)
+        return MotionCore.keyframeTimeline(found)
+    }
+
     private fun collectDeclarations(
         rules: List<CSSRule>,
         ctx: Context,

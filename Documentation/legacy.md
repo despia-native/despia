@@ -94,6 +94,23 @@ window.location.href =
 
 (Or, if a build ships an eSIM **module**, call it the modern way: `window.dsx.module.esim.setup({ cardData })`.)
 
+### 4. Health data verbs
+
+Declared rows on `Core/HealthKit` (chain `healthkit`); the identifiers ride the HOST slot,
+so each row hands its verbatim tail to the modern action.
+
+| Legacy form | Route | v3 response |
+|---|---|---|
+| `readhealthkit://<Id>[,<Id>…]?days=N[&raw=true]` | `healthkit.read({ query: "<tail>" })` | `window.healthkitResponse` = object keyed by type: daily `{ date, value, unit }`, raw `{ startDate, endDate, value, unit, source }`, sleep `{ startDate, endDate, value, label }` |
+| `writehealthkit://<Identifier>//<Value>` | `healthkit.write({ body: "<tail>" })` | `window.healthkitWriteResponse` = `{ ok, identifier, value[, error, message] }` (additive — v3 writes historically reported nothing) |
+| `healthkit://state[?types=<Id>,…]` | `healthkit.status({ types })` (routed in the module pre-filter — `state` is a reserved proxy member) | `window.healthkitState` = `{ available, reason?, requested, types }` |
+
+When the health store is unavailable, both rows' `push` mappings re-deliver the module's
+`unavailable` broadcast into the same globals as `{ error: "healthkit_unavailable", code,
+message }`, so a page polling them settles instead of timing out. Modern code uses
+`window.dsx.module.healthkit.read/write/status(...)` and the context plane
+(`dsx.module.healthkit.context.available`).
+
 ---
 
 ## Why these are legacy

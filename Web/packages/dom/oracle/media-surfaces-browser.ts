@@ -362,6 +362,23 @@ try {
   }
   await set("handoffActive", false);
 
+  // session= (audio) / audio= (video): the AVAudioSession category pair is reflected
+  // and normalized per kind (audio defaults playback, video defaults ambient).
+  if (await page.locator("audio.dsx-audio").first().getAttribute("data-dsx-session") !== "playback") {
+    errors.push("audio session category default did not reflect as playback");
+  }
+  if (await page.locator("video.test-video").getAttribute("data-dsx-session") !== "ambient") {
+    errors.push("video audio= category default did not reflect as ambient");
+  }
+  if (await page.locator("video.test-video").getAttribute("aria-label") !== "Preview video") {
+    errors.push("video authored a11yLabel missing");
+  }
+  if (await page.locator("video.unsafe-video").getAttribute("aria-label") !== "Video") {
+    errors.push("video default accessible name missing");
+  }
+  const fit = await page.locator("video.test-video").evaluate((element) => getComputedStyle(element).objectFit);
+  if (fit !== "contain") errors.push(`gravity="fit" did not declare object-fit contain: ${fit}`);
+
   const graphic = page.locator(".test-svg");
   if (await graphic.getAttribute("role") !== "img" || await graphic.getAttribute("aria-label") !== "Triangle") {
     errors.push("sanitized SVG lacks image semantics/label");

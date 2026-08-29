@@ -155,7 +155,7 @@ public struct DSXMessengerMount {
         let invoke = {
             if !ModuleRegistry.shared.handle(scheme: scheme, actionPath: action,
                                              params: params, includeInternal: false) {
-                if let supported = ModuleRegistry.shared.unsupportedPlatforms(scheme) {
+                if let supported = ModuleRegistry.shared.unsupportedPlatforms(scheme, action: action) {
                     // In the catalog but NOT implemented on this OS: the graceful, structured
                     // `unsupported_platform` envelope (message + data pinned in
                     // OpenSource/Skills/android/api-mapping.md "Unsupported platform"), distinct

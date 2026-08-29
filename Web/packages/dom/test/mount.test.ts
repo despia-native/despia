@@ -20,177 +20,10 @@ import { CssCollector, extractComponentCss } from "../../compiler/src/css.ts";
 import { mountNode, instantiate, type MountCtx } from "../src/mount.ts";
 import { iconSvg, registerGlobalElements, registerRichElements } from "../src/elements.ts";
 import { UNIVERSAL_GLOBAL_ELEMENTS } from "../src/globals.ts";
+import { ELEMENTS_CSS } from "../src/theme.ts";
 import { DATA_CONTROL_GLOBAL_ELEMENTS, DATA_CONTROL_LIMITS, registerDataControls } from "../src/data-controls.ts";
-
-// ── a minimal DOM stand-in (node --test runs this file in its own process) ──────────
-
-class FakeClassList {
-  private owner: { className: string };
-  constructor(owner: { className: string }) { this.owner = owner; }
-  private read(): Set<string> {
-    return new Set(this.owner.className.split(/\s+/).filter((c) => c.length > 0));
-  }
-  private write(s: Set<string>): void { this.owner.className = [...s].join(" "); }
-  contains(c: string): boolean { return this.read().has(c); }
-  add(...cs: string[]): void { const s = this.read(); for (const c of cs) s.add(c); this.write(s); }
-  remove(...cs: string[]): void { const s = this.read(); for (const c of cs) s.delete(c); this.write(s); }
-  toggle(c: string, force?: boolean): void {
-    const s = this.read();
-    const on = force ?? !s.has(c);
-    if (on) s.add(c); else s.delete(c);
-    this.write(s);
-  }
-}
-
-class FakeElement {
-  tagName: string;
-  nodeType = 1;
-  className = "";
-  textContent = "";
-  value = "";
-  type = "";
-  alt = "";
-  src = "";
-  placeholder = "";
-  rows = 0;
-  scope = "";
-  tabIndex = 0;
-  hidden = false;
-  inert = false;
-  checked = false;
-  disabled = false;
-  scrollLeft = 0;
-  scrollTop = 0;
-  clientWidth = 640;
-  clientHeight = 480;
-  readonly classList = new FakeClassList(this);
-  readonly style = {
-    values: new Map<string, string>(),
-    setProperty(k: string, v: string): void { this.values.set(k, v); },
-    removeProperty(k: string): void { this.values.delete(k); },
-  };
-  readonly dataset: { [key: string]: string } = {};
-  private attrs = new Map<string, string>();
-  private kids: FakeElement[] = [];
-  private parent: FakeElement | null = null;
-  private listeners = new Map<string, Array<(event: FakeEvent) => void>>();
-  constructor(tag: string) { this.tagName = tag.toUpperCase(); }
-  setAttribute(k: string, v: string): void { this.attrs.set(k, v); }
-  getAttribute(k: string): string | null { return this.attrs.get(k) ?? null; }
-  removeAttribute(k: string): void { this.attrs.delete(k); }
-  appendChild(c: FakeElement): FakeElement {
-    if (c.parent !== null) c.parent.kids = c.parent.kids.filter((child) => child !== c);
-    c.parent = this;
-    this.kids.push(c);
-    return c;
-  }
-  append(...cs: FakeElement[]): void { for (const c of cs) this.appendChild(c); }
-  prepend(c: FakeElement): void {
-    if (c.parent !== null) c.parent.kids = c.parent.kids.filter((child) => child !== c);
-    c.parent = this;
-    this.kids.unshift(c);
-  }
-  replaceChildren(...cs: FakeElement[]): void {
-    for (const child of this.kids) child.parent = null;
-    this.kids = [];
-    this.append(...cs);
-  }
-  contains(target: FakeElement): boolean {
-    return this === target || this.kids.some((child) => child.contains(target));
-  }
-  remove(): void {
-    if (this.parent !== null) this.parent.kids = this.parent.kids.filter((child) => child !== this);
-    this.parent = null;
-  }
-  querySelector(): null { return null; }
-  addEventListener(type: string, listener: (event: FakeEvent) => void): void {
-    const listeners = this.listeners.get(type) ?? [];
-    listeners.push(listener);
-    this.listeners.set(type, listeners);
-  }
-  click(): void {
-    if (this.disabled) return;
-    const event = new FakeEvent("click");
-    for (const listener of this.listeners.get("click") ?? []) listener(event);
-  }
-  dispatch(type: string): FakeEvent {
-    const event = new FakeEvent(type);
-    for (const listener of this.listeners.get(type) ?? []) listener(event);
-    return event;
-  }
-  pressKey(key: string): FakeEvent {
-    const event = new FakeEvent("keydown", key);
-    for (const listener of this.listeners.get("keydown") ?? []) listener(event);
-    return event;
-  }
-  focus(): void { fakeDocument.activeElement = this; }
-  getBoundingClientRect(): DOMRect {
-    return { width: this.clientWidth, height: this.clientHeight } as DOMRect;
-  }
-  get firstElementChild(): FakeElement | null { return this.kids[0] ?? null; }
-  get firstChild(): FakeElement | null { return this.kids[0] ?? null; }
-  get lastChild(): FakeElement | null { return this.kids[this.kids.length - 1] ?? null; }
-  get nextSibling(): FakeElement | null {
-    if (this.parent === null) return null;
-    const index = this.parent.kids.indexOf(this);
-    return index < 0 ? null : this.parent.kids[index + 1] ?? null;
-  }
-  childAt(i: number): FakeElement {
-    const c = this.kids[i];
-    if (c === undefined) throw new Error(`no child at ${i}`);
-    return c;
-  }
-  get childCount(): number { return this.kids.length; }
-}
-
-class FakeEvent {
-  defaultPrevented = false;
-  readonly type: string;
-  readonly key: string;
-  constructor(type: string, key = "") { this.type = type; this.key = key; }
-  preventDefault(): void { this.defaultPrevented = true; }
-  stopPropagation(): void {}
-}
-
-const fakeDocument = {
-  baseURI: "https://demo.example/",
-  activeElement: null as FakeElement | null,
-  createElement: (t: string) => new FakeElement(t),
-  createTextNode: (t: string) => {
-    const node = new FakeElement("#text");
-    node.nodeType = 3;
-    node.textContent = t;
-    return node;
-  },
-  createElementNS: (_ns: string, t: string) => new FakeElement(t),
-  createComment: (t: string) => new FakeElement(`#comment:${t}`),
-  createDocumentFragment: () => new FakeElement("#fragment"),
-};
-(globalThis as { document?: unknown }).document = fakeDocument;
-(globalThis as { HTMLAnchorElement?: unknown }).HTMLAnchorElement = FakeElement;
-(globalThis as { window?: unknown }).window = {
-  addEventListener: (): void => {},
-  removeEventListener: (): void => {},
-};
-
-class FakeIntersectionObserver {
-  static readonly instances: FakeIntersectionObserver[] = [];
-  private target: FakeElement | null = null;
-  private readonly callback: IntersectionObserverCallback;
-  constructor(callback: IntersectionObserverCallback) {
-    this.callback = callback;
-    FakeIntersectionObserver.instances.push(this);
-  }
-  observe(target: Element): void { this.target = target as unknown as FakeElement; }
-  unobserve(): void { this.target = null; }
-  disconnect(): void { this.target = null; }
-  takeRecords(): IntersectionObserverEntry[] { return []; }
-  trigger(intersecting = true): void {
-    if (this.target === null) return;
-    this.callback([{ target: this.target, isIntersecting: intersecting } as unknown as IntersectionObserverEntry], this as unknown as IntersectionObserver);
-  }
-}
-(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeIntersectionObserver;
+// imported for effect as well as for the classes: it installs document/window/observers
+import { FakeElement, FakeEvent, fakeDocument, FakeIntersectionObserver } from "./fake-dom.ts";
 
 // ── the harness: a REAL store + runner behind mountNode, so {{ }} bindings are the
 //    production makeApi path (staticApi fakes would pass template text through) ──────
@@ -432,6 +265,20 @@ test("fixture aliases retain canonical content and progress semantics", () => {
   assert.equal(capsule.getAttribute("aria-valuemin"), "0");
   assert.equal(capsule.getAttribute("aria-valuemax"), "1");
   assert.equal(capsule.getAttribute("aria-valuenow"), "0.5");
+});
+
+test("progress value= takes both spellings, like ProgressRing's bindNumber", () => {
+  // bare expression evals; "{{ }}" interpolates - the same value= must mean the same thing
+  // on every progress surface, and a moustache silently rendering a 0-width fill was how
+  // the two surfaces disagreed
+  const bare = mountOne("progress", { value: "0.25" }).el;
+  assert.equal(bare.getAttribute("aria-valuenow"), "0.25");
+  const bound = mountOne("progress", { value: "{{ ratio / 2 }}" }, { ratio: 1 }).el;
+  assert.equal(bound.getAttribute("aria-valuenow"), "0.5");
+  const live = mountOne("progress", { value: "{{ ratio / 2 }}" }, { ratio: 1 });
+  live.store.set("ratio", 2);
+  flushEffects();
+  assert.equal(live.el.getAttribute("aria-valuenow"), "1");
 });
 
 test("canonical layout attributes and scroll direction stay live in the DOM", () => {
@@ -925,6 +772,52 @@ test("surface material is universal, reactive, bounded, and survives class formu
   assert.ok(!el.classList.contains("dsx-surface-thick"));
 });
 
+test("the two glass tokens are a real frost, and it degrades rather than breaking", () => {
+  // `glass`/`ultraThin` are the tokens iOS renders as a real material (.glassEffect on 26+),
+  // and the browser has the primitive to mean it. They used to be a flat translucent fill,
+  // which reads as a wash - the frost is the whole reason the token is worth naming.
+  const glass = ELEMENTS_CSS.slice(ELEMENTS_CSS.indexOf(".dsx-surface-glass"));
+  assert.ok(glass.includes("backdrop-filter: blur(20px) saturate(1.6)"),
+    "the glass tokens must actually frost what is behind them");
+  assert.ok(glass.includes("-webkit-backdrop-filter: blur(20px) saturate(1.6)"),
+    "Safari still needs the prefixed spelling at the stamped 16.4 floor");
+  assert.ok(glass.includes("@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px)))"),
+    "an unsupported browser must land on the old flat fill, not on a transparent box");
+  assert.ok(glass.includes("@media (prefers-reduced-transparency: reduce)"),
+    "a frost is a compositor pass per element and the preference exists to decline it");
+
+  // THE TINT AND THE PRESS have to be READ, not merely emitted. Both compiled to a `-dsx-*`
+  // vendor spelling a browser drops on sight, and no rule consumed either one even had it been
+  // valid - so `glassTint` and `glassInteractive` were inert twice over while working on the
+  // three other renderers. The defaults are re-declared on the glass class itself because a
+  // custom property inherits: without that, a glass button inside a tinted glass sheet wears the
+  // sheet's colour, which is not what any native renderer does.
+  assert.ok(glass.includes("--dsx-glass-tint: var(--dsx-surface-level-1);"),
+    "the tint must default on the glass class, so it does not inherit into nested glass");
+  assert.ok(glass.includes("--dsx-glass-interactive: 0;"));
+  assert.ok(glass.includes("background: color-mix(in srgb, var(--dsx-glass-tint) 76%, transparent)"),
+    "the fill must resolve THROUGH the tint or the attribute is a declaration nobody reads");
+  assert.ok(glass.includes("background: color-mix(in srgb, var(--dsx-glass-tint) 56%, transparent)"),
+    "the frosted fill reads the tint too - a full-colour glass keeps its frost");
+  assert.ok(glass.includes("scale: calc(1 - 0.03 * var(--dsx-glass-interactive))"),
+    "the press is the geometry of the iOS 26 stretch, multiplied by the opt-in factor so a " +
+    "glass surface that did not ask for it computes an identity scale");
+  assert.ok(glass.includes("transition: scale var(--dsx-dur-fast) var(--dsx-ease)"),
+    "the press lands fast");
+  assert.ok(glass.includes("transition: scale var(--dsx-dur-slow) var(--dsx-ease-spring)"),
+    "and only the release springs - the asymmetry is what reads as a material rather than a fade");
+  assert.ok(glass.includes("@media (prefers-reduced-motion: reduce)"),
+    "a reader who declined motion declines this one too");
+
+  // The heavier tokens are opaque surfaces, not glass: frosting them would make every
+  // `surface=` a blur pass and erase the distinction the ladder exists to draw.
+  for (const token of ["thin", "regular", "thick"]) {
+    const rule = ELEMENTS_CSS.slice(ELEMENTS_CSS.indexOf(`.dsx-surface-${token} {`));
+    assert.ok(!rule.slice(0, 120).includes("backdrop-filter"),
+      `${token} is an opaque surface, not a material to blur through`);
+  }
+});
+
 test("device-agnostic Live and Watch preview symbols have deterministic web adapters", () => {
   const names = [
     "takeoutbag.and.cup.and.straw.fill",
@@ -1193,6 +1086,23 @@ test("<text markdown> flips live, and an unmarked <text> stays a plain text writ
   assert.equal(plain.el.childCount, 0);
 });
 
+test("<markdown bind> evals the expression like the SSR twin, and re-renders on write", () => {
+  // render.test.ts pins the server: bind= is JSE.eval, never interpolation. The client
+  // twin must agree, or a docs page paints the literal string "dsx.variable.body".
+  const md = mountOne("markdown", { bind: "dsx.variable.body" }, { body: "# Title\n\nA **bold** line." });
+  assert.equal(md.el.className, "dsx-markdown");
+  assert.equal(md.el.childAt(0).tagName, "H1");
+  assert.equal(md.el.childAt(0).childAt(0).textContent, "Title");
+  assert.equal(md.el.childAt(1).childAt(1).tagName, "STRONG");
+  md.store.set("body", "plain now");
+  flushEffects();
+  assert.equal(md.el.childCount, 1);
+  assert.equal(md.el.childAt(0).childAt(0).textContent, "plain now");
+
+  const interpolated = mountOne("markdown", { value: "{{ dsx.variable.note }}" }, { note: "## Sub" });
+  assert.equal(interpolated.el.childAt(0).tagName, "H2", "value= interpolates, unchanged");
+});
+
 test("<text lineLimit> clamps to N lines and releases on a zero/absent value", () => {
   const clamped = mountOne("text", {
     value: "long copy",
@@ -1390,4 +1300,29 @@ test("<Table> renders the whole native contract: header traits, one-element rows
   }, { rows: Array.from({ length: DATA_CONTROL_LIMITS.tableRows + 5 }, (_, i) => ({ n: i })) });
   assert.equal(huge.el.childAt(0).childAt(1).childCount, DATA_CONTROL_LIMITS.tableRows);
   assert.equal(huge.el.getAttribute("data-dsx-truncated"), "true");
+});
+
+// SLOT CHILDREN ARE THE EXCLUSION FALLBACK, on all three renderers.
+//
+// An excludable module element is only safe to write because an author can say what should
+// appear when the module is gone. iOS (Stack.swift) and Android (StackNodeView.kt) both render
+// the children of a tag nothing resolves; this renderer used to drop them, so the guarantee was
+// two-of-three and the markup an author wrote FOR the excluded build was the markup that
+// disappeared. Found while landing U12 rive, whose whole fallback story depends on it.
+test("an unresolved module tag renders its slot children, and the marker only when there are none", () => {
+  // The MODULE-COMPONENT path (a dotted or Capitalized tag no .dsx and no facet claims) is the
+  // one that dropped them. A bare lowercase unknown element already routed to the `unsupported`
+  // factory, which mounts children INSIDE its marker; this path had no such branch.
+  const withFallback = mountTree({
+    tag: "rive.Surface",
+    attrs: { src: "cart.riv" },
+    children: [{ tag: "text", attrs: { value: "Cart" }, children: [], text: "" }],
+    text: "",
+  });
+  assert.ok(!withFallback.el.classList.contains("dsx-unsupported"),
+    "an author who supplied a fallback gets the fallback, not a placeholder over it");
+
+  const bare = mountTree({ tag: "rive.Surface", attrs: { src: "cart.riv" }, children: [], text: "" });
+  assert.ok(bare.el.classList.contains("dsx-unsupported"),
+    "with nothing to fall back to the marker stays: a blank space is the hardest failure to diagnose");
 });

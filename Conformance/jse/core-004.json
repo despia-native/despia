@@ -1,0 +1,87 @@
+{
+  "_note": "JSE conformance corpus - LOOPS IN EXPRESSION BLOCKS (2026-08-22). A block body (a block-bodied lambda, an IIFE, a <variable>/function body) runs the full loop grammar: classic for (with the authored-locals law - `let i` counts in its own counter), for..of, for..in, while, do..while, and break/continue. Loops are BUDGETED, not banned: one shared 10000-iteration ledger per block evaluation, so a computed body stays total (the budget-stops-a-runaway case pins the cap's existence without pinning the cap). Before this file every loop in a computed/variable body was silently skipped (branch-only blocks) while the SAME statement looped fine in an action body - one grammar, two meanings. Swift = reference (record lane authoritates expected).",
+  "cases": [
+    {
+      "name": "classic-for-builds-a-series",
+      "scope": {},
+      "expression": "(() => { const out = []; for (let i = 0; i < 4; i++) { out.push(i * 2) } return out })()",
+      "expected": [
+        0,
+        2,
+        4,
+        6
+      ]
+    },
+    {
+      "name": "classic-for-accumulates",
+      "scope": {},
+      "expression": "(() => { let total = 0; for (let i = 1; i <= 5; i++) { total += i } return total })()",
+      "expected": 15
+    },
+    {
+      "name": "for-of-accumulates",
+      "scope": {},
+      "expression": "(() => { let s = ''; for (const ch of ['a', 'b', 'c']) { s = s + ch } return s })()",
+      "expected": "abc"
+    },
+    {
+      "name": "for-in-collects-keys",
+      "scope": {},
+      "expression": "(() => { let ks = ''; for (const k in { a: 1, b: 2 }) { ks = ks + k } return ks })()",
+      "expected": "ab"
+    },
+    {
+      "name": "while-counts-down",
+      "scope": {},
+      "expression": "(() => { let n = 5; let steps = 0; while (n > 0) { n -= 1; steps += 1 } return steps })()",
+      "expected": 5
+    },
+    {
+      "name": "do-while-runs-body-first",
+      "scope": {},
+      "expression": "(() => { let n = 0; do { n += 1 } while (n < 3) return n })()",
+      "expected": 3
+    },
+    {
+      "name": "break-exits-the-loop",
+      "scope": {},
+      "expression": "(() => { let n = 0; for (let i = 0; i < 100; i++) { if (i == 7) { break } n += 1 } return n })()",
+      "expected": 7
+    },
+    {
+      "name": "continue-skips-an-iteration",
+      "scope": {},
+      "expression": "(() => { let n = 0; for (let i = 0; i < 6; i++) { if (i % 2 == 0) { continue } n += 1 } return n })()",
+      "expected": 3
+    },
+    {
+      "name": "nested-loops-share-the-budget",
+      "scope": {},
+      "expression": "(() => { let hits = 0; for (let i = 0; i < 3; i++) { for (let j = 0; j < 4; j++) { hits += 1 } } return hits })()",
+      "expected": 12
+    },
+    {
+      "name": "budget-stops-a-runaway",
+      "scope": {},
+      "expression": "(() => { let n = 0; while (true) { n += 1; if (n > 20000) { return 'unbounded' } } return 'stopped' })()",
+      "expected": "stopped"
+    },
+    {
+      "name": "loop-var-stays-local",
+      "scope": {
+        "i": "outer"
+      },
+      "expression": "(() => { let n = 0; for (let i = 0; i < 3; i++) { n += i } return n })() + '|' + i",
+      "expected": "3|outer"
+    },
+    {
+      "name": "reduce-style-map-build-with-loop",
+      "scope": {},
+      "expression": "(() => { const m = {}; const rows = [{ id: 'a' }, { id: 'b' }]; for (const r of rows) { m[r.id] = 1 } return m })()",
+      "expected": {
+        "a": 1,
+        "b": 1
+      }
+    }
+  ]
+}

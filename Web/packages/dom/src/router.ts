@@ -15,6 +15,8 @@
 import {
   DSXState, DSXEvents, DSXPathMatch, ModuleRegistry, ReactiveStore, JSE, ScreenReadiness,
   NATIVE_SURFACE, isDict, string, truthy, type Dict,
+  orientationClaimPlan, orientationFrameSurface, orientationModalSurface,
+  type OrientationSurface,
 } from "@despia/kernel";
 import { resolveComponent, type Registry } from "@despia/compiler/resolve";
 import type { ComponentIR } from "@despia/compiler/component";
@@ -23,6 +25,7 @@ import { claimAdoptRoot } from "./adopt.ts";
 import { PresentLedger } from "./present.ts";
 import { coldRootHistoryUrl } from "./history.ts";
 export { coldRootHistoryUrl } from "./history.ts";
+import { SharedFlight, sharedSupport } from "./shared-transition.ts";
 import {
   DSX_EASING, DSX_MS, IOS_DIM_PEAK, IOS_EASING, IOS_MS,
   IOS_PARALLAX, MASTER_DETAIL_DEFAULT, MD_EASING, MD_MS, MD_RISE_PX, MOTION_CSS,
@@ -222,14 +225,14 @@ export function settlesManually(attrs: { [k: string]: string } | undefined): boo
  */
 export function echoKey(
   verb: string, component: string | null | undefined, path: string,
-  vars?: Dict, attrs?: Dict,
+  vars?: Dict, attrs?: Dict, overrides?: Dict,
 ): string {
   const digest = (d: Dict | undefined): string => {
     if (d === undefined) return "";
     const keys = Object.keys(d).sort();
     return keys.length === 0 ? "" : keys.map((k) => `${k}=${string(d[k])}`).join("&");
   };
-  return `${verb}:${component ?? ""}|${path}|${digest(vars)}|${digest(attrs)}`;
+  return `${verb}:${component ?? ""}|${path}|${digest(vars)}|${digest(attrs)}|${digest(overrides)}`;
 }
 
 /**
@@ -352,6 +355,15 @@ export class FrameRouter {
   private readonly echoGuard = new EchoGuard();
   /** the `dsxKey` of the history entry currently on screen — the scroll ledger's key */
   private currentKey: string | null = null;
+  // ── U03 shared element transitions (Conformance/router/shared.json) ──
+  /** the flight between the two frames of the transition in the air, or null. Held on the
+   *  router because the SWIPE-BACK has to be able to adopt one mid-air: that interruption is
+   *  the whole acceptance test, and a flight owned by the animation callback cannot be found. */
+  private sharedFlight: SharedFlight | null = null;
+  // ── F07b `lockOrientation=` (Conformance/input/orientation-binding.json) ──
+  /** what this router has claimed with the Orientation module, in claim order. The reconcile
+   *  is a function of the LIVE SET, so every dismissal path funnels into the same release. */
+  private orientationClaims: OrientationSurface[] = [];
   readonly registry: Registry;
   readonly host: HTMLElement;
   readonly routes: RouteEntry[];
@@ -404,6 +416,8 @@ export class FrameRouter {
     if (this.disposed) return;
     this.disposed = true;
     for (const off of this.teardown.splice(0)) off();
+    this.sharedFlight?.finish();   // a flight outliving its router would keep a dead plane on the host
+    this.sharedFlight = null;
     this.changeListeners.clear();
     this.historyLive = false;
     this.interactive = false;
@@ -433,6 +447,7 @@ export class FrameRouter {
   private notify(): void {
     this.applyLayout();
     this.publishRoute();
+    this.syncOrientation();   // F07b: the ONE funnel every dismissal path passes through
     for (const fn of [...this.changeListeners]) fn();
     const restore = this.pendingFocusRestore;
     this.pendingFocusRestore = null;
@@ -544,6 +559,24 @@ export class FrameRouter {
       query: top.route?.query ?? {},
       component: top.name,
     });
+    // ── nav: the back-affordance plane. The native routers publish this contract already
+    // (Kotlin Router.apply(): nav = { stack, canPop, depth, … }, pinned by RouterTest;
+    // StackReference documents the reads: `nav.canPop` / `nav.depth` "for back
+    // affordances"), and this renderer kept the stack private — so the documented
+    // guarded-back pattern silently read absent here. Only NAVIGATION frames count, the
+    // same scoping readiness reporting and chrome claims apply: chain sheets/covers and
+    // overlays never enter nav.stack on any renderer. The native `modal`/`chrome` planes
+    // are render-host contracts, not author reads, and stay native-side.
+    const pages = this.frames.filter((f) => f.tier === "page");
+    DSXState.set("nav", {
+      stack: pages.map((f) => ({
+        path: f.route?.path ?? null,
+        params: f.route?.params ?? {},
+        component: f.name,
+      })),
+      canPop: pages.length > 1,
+      depth: pages.length,
+    });
     // route meta drives the document title (the static exporter emits the same)
     const entry = this.routes.find((r) => r.component === top.name && r.redirect === undefined);
     const title = entry?.meta?.title;
@@ -557,6 +590,53 @@ export class FrameRouter {
     if (direct) return direct;
     const bare = name.includes(".") ? name.substring(name.indexOf(".") + 1) : name;
     return resolveComponent(this.registry, "", bare);
+  }
+
+  /** DEV HOT-SWAP (master plan P2): adopt a freshly compiled registry and re-instantiate
+   *  every live NAV frame in place, carrying each frame's plain declared-variable state
+   *  across, so an edit repaints the running app without a page load and without losing
+   *  what the person typed. Dev-lane only — the production bundle never calls this (the
+   *  dev reload client owns the door in boot.ts); overlays and chain sheets are transient
+   *  and are not carried; the deterministic recovery hatch (PREVIEW HATCH: 30 swaps or
+   *  20 minutes) still hard-reloads on its own cadence, so any drift this carry cannot
+   *  express — a renamed variable, a changed head shape — is bounded by construction. */
+  hotSwap(registry: Registry): void {
+    // optional fold (G10): a sliced embed never hot-swaps — the body sheds with the flag
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_EDIT_TAGS__?: boolean })
+      .__DSX_OPTIONAL_EDIT_TAGS__ === false) return;
+    if (this.disposed) return;
+    (this as { registry: Registry }).registry = registry;
+    (this as { routes: RouteEntry[] }).routes = registry.routes ?? [];
+    this.motionCfg = registry.router;
+    for (const frame of this.frames) {
+      const ir = this.resolve(frame.name);
+      if (ir === null) continue;
+      const old = frame.instance;
+      // carry every non-computed declared variable's CURRENT value, plus the router's
+      // own pushed vars — written pre-mount through opts.vars, the same door the router
+      // itself uses, so computeds and api blocks see the carried state from their very
+      // first evaluation instead of a flash of initials.
+      const carried: Dict = {};
+      for (const v of ir.head.variables) {
+        if (v.computed) continue;
+        if (old.ctx.store.jse.vars.has(v.as)) carried[v.as] = old.ctx.store.jse.vars.get(v.as) ?? null;
+      }
+      if (old.ctx.store.jse.vars.has("vars")) carried["vars"] = old.ctx.store.jse.vars.get("vars") ?? null;
+      const attrs = old.ctx.item as Dict;
+      // the style-override plane survives a rebuild the same way attrs do: the verb
+      // door's raw values live in the instance's dsx.override var
+      const carriedOverrides = old.ctx.store.jse.vars.get("dsx.override");
+      old.unmount();
+      const next = instantiate(ir, this.registry, {
+        attrs,
+        ...(isDict(carriedOverrides) ? { overrides: carriedOverrides } : {}),
+        vars: carried,
+        component: (verb, n, opts) => this.handle(verb, n, opts, ir.scheme),
+        frameId: frame.id,
+      });
+      frame.el.replaceChildren(next.root);
+      frame.instance = next;
+    }
   }
 
   /** The concrete route path a frame ABOUT to mount will carry — the same computation
@@ -575,7 +655,7 @@ export class FrameRouter {
     return this.appPath(new URL(this.toUrl(route.path, params, {}), "http://x").pathname);
   }
 
-  private mountFrame(name: string, vars: Dict, tier: "page" | "sheet" | "cover", attrs?: Dict): Frame | null {
+  private mountFrame(name: string, vars: Dict, tier: "page" | "sheet" | "cover", attrs?: Dict, overrides?: Dict): Frame | null {
     const ir = this.resolve(name);
     if (ir === null) {
       console.warn(`[dsx router] unknown component: ${name}`);
@@ -610,6 +690,7 @@ export class FrameRouter {
     const adoptRoot = claimAdoptRoot(ir.name);
     const instance = instantiate(ir, this.registry, {
       ...(attrs !== undefined ? { attrs } : {}),   // THE input contract → the reactive dsx.attribute dict
+      ...(overrides !== undefined ? { overrides } : {}),   // the STYLE contract's verb door → dsx.override
       ...(adoptRoot !== null ? { adopt: adoptRoot } : {}),
       vars: { vars },
       component: (verb, n, opts) => this.handle(verb, n, opts, ir.scheme),
@@ -666,10 +747,11 @@ export class FrameRouter {
     }
     top.instance.unmount();
     top.el.remove();
+    this.sharedFlight?.finish();   // an instant pop has no flight to finish; a torn-down one does
     this.clearMotionRest();
   }
 
-  push(name: string, vars: Dict = {}, opts: { fromHistory?: boolean; query?: Dict; attrs?: Dict; fromUrl?: boolean; entryKey?: string } = {}): void {
+  push(name: string, vars: Dict = {}, opts: { fromHistory?: boolean; query?: Dict; attrs?: Dict; overrides?: Dict; fromUrl?: boolean; entryKey?: string } = {}): void {
     if (this.disposed) return;   // see navigatePath: a disposed router mounts nothing, ever
     // bank the outgoing entry's scroll BEFORE the new frame mounts (a history-driven push
     // is the tail of a traversal that already banked, or of boot, which has nothing to bank)
@@ -680,11 +762,11 @@ export class FrameRouter {
     // (fromHistory) and URL pushes (navigatePath sets fromUrl — route.push/href/route.path stay
     // untouched, native rule) bypass it, exactly like the native call sites.
     if (opts.fromHistory !== true && opts.fromUrl !== true && name.length > 0 &&
-        this.echoGuard.isEcho(echoKey("push", name, "", vars, opts.attrs))) {
+        this.echoGuard.isEcho(echoKey("push", name, "", vars, opts.attrs, opts.overrides))) {
       console.warn(`[dsx router] push("${name}") dropped — identical to the push just before it (double-tap echo)`);
       return;
     }
-    const frame = this.mountFrame(name, vars, "page", opts.attrs);
+    const frame = this.mountFrame(name, vars, "page", opts.attrs, opts.overrides);
     if (frame === null) return;
     const route = this.routeForComponent(frame.name);
     frame.master = route?.master === true;
@@ -705,7 +787,13 @@ export class FrameRouter {
       this.pushEntry(this.frames.length, location.href, opts.entryKey);
     }
     this.notify();
+    // U03: the pairs fly BEFORE the frame animation, so the layer is already painted at
+    // progress 0 when the first frame of the push renders (no one-frame flash of the
+    // destination's real node).
+    this.startSharedFlight(this.frames[this.frames.length - 2], frame, "forward");
     this.animatePush(frame);
+    // A11Y: focus moves to the destination at transition START, not end, so a screen-reader
+    // user is never narrating a moving snapshot (SHARED_A11Y_FOCUS).
     this.focusFrame(frame);
   }
 
@@ -831,6 +919,90 @@ export class FrameRouter {
     });
   }
 
+  // ── U03 shared element transitions ────────────────────────────────────────────────────
+  //
+  // The router's whole part is: hand the two frame ELEMENTS to the flight at the moment a
+  // transition starts, and hand the finger to it when a gesture interrupts one. Which ids
+  // pair, where a pair is at a given progress, and what an interruption does are all the
+  // platform-neutral core's (Conformance/router/shared.json).
+
+  /** Fly the `shared=` pairs between two frames. A frame pair with nothing in common (or a
+   *  browser with neither View Transitions nor WAAPI) returns null and the caller runs the
+   *  ordinary transition untouched — the unmatched law: never an error, never a flash. */
+  private startSharedFlight(source: Frame | undefined, destination: Frame | undefined,
+                            direction: "forward" | "reverse"): void {
+    this.sharedFlight?.finish();
+    this.sharedFlight = null;
+    // THE SILENCE RULE: boot-path mounts never fly a pair either.
+    if (!this.interactive || source === undefined || destination === undefined) return;
+    // Reduced motion does NOT disable the flight — the core downgrades `move` to `crossfade`,
+    // which is an honest degradation rather than a feature the user loses.
+    if (sharedSupport() === "unsupported") return;
+    const flight = SharedFlight.create(this.host, source.el, destination.el, {
+      reducedMotion: this.reducedMotion(),
+      durationMs: this.frameKind(destination) === "md" ? MD_MS : IOS_MS,
+    });
+    if (flight === null) return;
+    this.sharedFlight = flight;
+    flight.begin(direction, () => { if (this.sharedFlight === flight) this.sharedFlight = null; });
+  }
+
+  /** The gesture asking to take an in-flight transition over. Returns the progress it adopted
+   *  (1 when it armed a fresh flight), or null when there is nothing to fly. */
+  private adoptSharedFlight(top: Frame, under: Frame | undefined): number | null {
+    const live = this.sharedFlight;
+    if (live !== null) return live.interrupt();
+    if (under === undefined) return null;
+    const flight = SharedFlight.create(this.host, under.el, top.el, {
+      reducedMotion: this.reducedMotion(),
+      durationMs: IOS_MS,
+    });
+    if (flight === null) return null;
+    this.sharedFlight = flight;
+    flight.beginInteractive(() => { if (this.sharedFlight === flight) this.sharedFlight = null; });
+    return 1;
+  }
+
+  // ── F07b `lockOrientation=` ────────────────────────────────────────────────────────────
+
+  /** Every live surface that declares `lockOrientation`, bottom-of-stack first — page frames
+   *  in stack order, then the presented chain and overlay entries, which is the order the
+   *  shared claim stack has to see them in. Read off the MOUNTED root, so a value the compiler
+   *  could not know statically is the one that reaches the module. */
+  private orientationSurfaces(): OrientationSurface[] {
+    const out: OrientationSurface[] = [];
+    const read = (el: HTMLElement, surface: string): void => {
+      // The SURFACE ROOT only: a `lockOrientation` deeper in a screen is not this attribute
+      // (F07 §3a — it is declared on a route frame or a presented surface, not on any box).
+      const to = (el.firstElementChild as HTMLElement | null)
+        ?.getAttribute("data-dsx-lock-orientation")?.trim();
+      if (to !== undefined && to !== "") out.push({ surface, to });
+    };
+    for (const frame of this.frames) {
+      if (this.chainFrames.size > 0 && [...this.chainFrames.values()].includes(frame)) continue;
+      read(frame.el, orientationFrameSurface(frame.id));
+    }
+    for (const [id, frame] of this.chainFrames) read(frame.el, orientationModalSurface(id));
+    for (const [id, overlay] of this.overlayViews) read(overlay.el, orientationModalSurface(id));
+    return out;
+  }
+
+  /** Reconcile the claims against what is on screen NOW. Called from notify(), so a button pop,
+   *  an edge-swipe back, a modal drag-dismiss and a deep link that replaces the whole stack all
+   *  revert through this ONE funnel rather than five hand-written undo sites — and a merely
+   *  COVERED screen (still in `frames`) correctly keeps its claim. */
+  private syncOrientation(): void {
+    const plan = orientationClaimPlan(this.orientationSurfaces(), this.orientationClaims);
+    this.orientationClaims = plan.ledger;
+    for (const op of plan.ops) {
+      // Over the BUS, because the module is excludable: an absent `orientation` scheme means
+      // the call rejects and nothing happens, which is exactly the pre-module behaviour
+      // (Article 7). The kernel never names the module's internals or holds its claim stack.
+      const args = op.op === "release" ? { surface: op.surface } : { surface: op.surface, to: op.to };
+      ModuleRegistry.call(`orientation.${op.op}`, args).catch(() => {});
+    }
+  }
+
   /** animate an interactive push — boot-path mounts never reach here (the silence rule),
    *  sheets keep their own presentation, a master under-pane never moves. */
   private animatePush(frame: Frame): void {
@@ -892,6 +1064,9 @@ export class FrameRouter {
     top.el.setAttribute("aria-hidden", "true");
     const under = this.frames[this.frames.length - 1];
     this.notify();
+    // U03: the pop is the same flight run backwards — source is the frame being REVEALED,
+    // destination the one leaving, so progress 1 is where the screen already is.
+    this.startSharedFlight(under, top, "reverse");
     this.animating = true;
     const done = (): void => {
       // THIS frame is released unconditionally, disposed or not: `popTop` took it out of
@@ -948,8 +1123,12 @@ export class FrameRouter {
     let startX = 0, startT = 0, width = 1;
     let top: Frame | null = null, under: Frame | null = null, dim: HTMLElement | null = null;
 
+    /** the shared-element flight this gesture owns — armed fresh, or ADOPTED mid-push */
+    let flight: SharedFlight | null = null;
+
     const cleanup = (): void => {
       armed = false; tracking = false; top = null; under = null; dim = null;
+      flight = null;
       window.removeEventListener("pointermove", onMove);
     };
 
@@ -972,6 +1151,9 @@ export class FrameRouter {
             .finished.then(() => d.remove()).catch(() => d.remove());
         }
       }
+      // U03: the flight settles with the frame — commit reverses it home to the source, cancel
+      // resumes it forward. Either way it travels only what is LEFT, never a full replay.
+      flight?.release(commit);
       const a = t.el.animate([{ transform: `translateX(${dx}px)` },
                               { transform: commit ? "translateX(100%)" : "translateX(0)" }],
                              { duration: ms, easing: IOS_EASING });
@@ -1001,6 +1183,10 @@ export class FrameRouter {
         if (dx < 6) return; // slop — edge taps never engage
         tracking = true;
         this.markMotion(top.el, "ios", true);
+        // THE ACCEPTANCE TEST. A gesture starting while a push is still in the air ADOPTS that
+        // flight where it is — it does not restart it and it does not snap it to either end.
+        this.adoptSharedFlight(top, under ?? undefined);
+        flight = this.sharedFlight;
         if (under !== null && !under.el.classList.contains("dsx-master")) {
           under.el.style.transform = `translateX(${IOS_PARALLAX}%)`;
           dim = this.dimFor(under.el);
@@ -1013,6 +1199,10 @@ export class FrameRouter {
         under.el.style.transform = `translateX(${IOS_PARALLAX * (1 - p)}%)`;
         if (dim !== null) dim.style.opacity = String(IOS_DIM_PEAK * (1 - p));
       }
+      // U03: the finger drives the pairs on the SAME progress axis as the frame. `1 - p`
+      // because the gesture measures how far the top has travelled AWAY, while the flight
+      // measures how close it still is TO the destination.
+      flight?.drag(1 - p);
       e.preventDefault();
     };
 
@@ -1027,12 +1217,26 @@ export class FrameRouter {
     // router (the root plan reuses it for the next candidate) and would otherwise accumulate
     // one live edge-swipe handler per attempt.
     const onDown = (e: PointerEvent): void => {
-      if (!e.isPrimary || e.clientX > SWIPE_EDGE_PX || this.animating || this.reducedMotion()) return;
+      // U03: an in-flight SHARED transition is interruptible by contract, so `animating` no
+      // longer bars the gesture when one is up — that bar is exactly what produces a snap.
+      const interruptible = this.sharedFlight?.running === true;
+      if (!e.isPrimary || e.clientX > SWIPE_EDGE_PX || this.reducedMotion()) return;
+      if (this.animating && !interruptible) return;
       if (!swipeEnabled(this.motionCfg, this.motionTheme, this.viewportWidth(), this.frames.length)) return;
       const t = this.frames[this.frames.length - 1]!;
       if (t.el.classList.contains("dsx-frame-sheet") || t.el.classList.contains("dsx-frame-cover")) return;
       armed = true; tracking = false;
-      startX = e.clientX; startT = e.timeStamp;
+      if (interruptible) {
+        // Stop the push mid-air and CONTINUE from the pose it reached: seeding startX with the
+        // frame's live translation is what keeps the screen from jumping under the finger.
+        for (const running of t.el.getAnimations()) running.cancel();
+        const live = new DOMMatrixReadOnly(getComputedStyle(t.el).transform).m41;
+        t.el.style.transform = `translateX(${live}px)`;
+        this.animating = false;
+        startX = e.clientX - live; startT = e.timeStamp;
+      } else {
+        startX = e.clientX; startT = e.timeStamp;
+      }
       width = Math.max(1, this.host.clientWidth);
       top = t;
       under = this.frames[this.frames.length - 2] ?? null;
@@ -1060,12 +1264,14 @@ export class FrameRouter {
     const vars = (typeof rawVars === "object" && rawVars !== null ? rawVars : {}) as Dict;
     const rawAttrs = opts["attrs"];
     const attrs = (typeof rawAttrs === "object" && rawAttrs !== null ? rawAttrs : undefined) as Dict | undefined;
+    const rawOverrides = opts["overrides"];
+    const overrides = (isDict(rawOverrides) ? rawOverrides : undefined) as Dict | undefined;
     // The double-tap echo guard (Router.kt/.swift presentModal → isEcho): an identical
     // consecutive present of the same component + mode + seeds, inside 500ms, is one tap
     // dispatched twice — dropped before anything mounts (the ledger is untouched on a drop,
     // native ordering). The mode is the RAW `as` word (native keys on it too).
     const mode = typeof opts["as"] === "string" ? (opts["as"] as string) : "";
-    if (name.length > 0 && this.echoGuard.isEcho(echoKey(`present:${mode}`, name, "", vars, attrs))) {
+    if (name.length > 0 && this.echoGuard.isEcho(echoKey(`present:${mode}`, name, "", vars, attrs, overrides))) {
       console.warn(`[dsx router] present("${name}") dropped — identical to the present just before it (double-tap echo)`);
       return;
     }
@@ -1086,6 +1292,7 @@ export class FrameRouter {
       const frameId = nextFrameId++;
       const instance = instantiate(ir, this.registry, {
         ...(entry.attrs !== undefined ? { attrs: entry.attrs as Dict } : {}),
+        ...(overrides !== undefined ? { overrides } : {}),
         vars: { vars },
         component: (v, n, o) => this.handle(v, n, o, ir.scheme),
         frameId,
@@ -1096,12 +1303,15 @@ export class FrameRouter {
       this.notify();
       return;
     }
-    const frame = this.mountFrame(name, vars, entry.as, attrs);
+    const frame = this.mountFrame(name, vars, entry.as, attrs, overrides);
     if (frame === null) {
       this.ledger.removeById(entry.id);
       return;
     }
     this.chainFrames.set(entry.id, frame);
+    // U03: `present` behaves exactly like `push` — the same pairs, the same schedule. The
+    // sheet's own detent is the container's business, not the flight's.
+    this.startSharedFlight(this.frames[this.frames.length - 2], frame, "forward");
     if (this.historyLive) {
       // The sheet's own history entry now CARRIES it: `#sheet=<Name>` on the current URL.
       // Back (or dismiss(), which drives history.go) unwinds to the previous entry and the
@@ -1229,19 +1439,24 @@ export class FrameRouter {
     switch (verb) {
       case "push": {
         // the native contract: `attrs` is THE component input (the hard-coded-markup twin,
-        // Router.swift/.kt pushComponent); `vars` stays the legacy seed namespace
+        // Router.swift/.kt pushComponent); `vars` stays the legacy seed namespace;
+        // `overrides` is the style contract's verb door
         const rawVars = opts["vars"];
         const rawAttrs = opts["attrs"];
+        const rawOverrides = opts["overrides"];
         this.push(qualified, (typeof rawVars === "object" && rawVars !== null ? rawVars : {}) as Dict, {
           ...(typeof rawAttrs === "object" && rawAttrs !== null ? { attrs: rawAttrs as Dict } : {}),
+          ...(isDict(rawOverrides) ? { overrides: rawOverrides } : {}),
         });
         break;
       }
       case "present": this.present(qualified, opts); break;
       case "update": {
         const rawAttrs = opts["attrs"];
+        const rawOverrides = opts["overrides"];
         this.updateAttrs(name.length > 0 ? qualified : undefined,
-                         (typeof rawAttrs === "object" && rawAttrs !== null ? rawAttrs : {}) as Dict);
+                         (typeof rawAttrs === "object" && rawAttrs !== null ? rawAttrs : {}) as Dict,
+                         (isDict(rawOverrides) ? rawOverrides : {}) as Dict);
         break;
       }
       case "pop": this.pop(); break;
@@ -1255,17 +1470,30 @@ export class FrameRouter {
    *  mounted instance's reactive `dsx.attribute` store, so bindings recalc — presented
    *  entries first (the dismiss matching rule), then pushed page frames by component name.
    *  Unmatched = documented no-op. */
-  updateAttrs(target: string | undefined, attrs: Dict): void {
-    if (Object.keys(attrs).length === 0) return;
-    const entry = this.ledger.updateAttrs(target ?? null, attrs);
+  updateAttrs(target: string | undefined, attrs: Dict, overrides: Dict = {}): void {
+    if (Object.keys(attrs).length === 0 && Object.keys(overrides).length === 0) return;
+    // one instance write per plane the caller supplied — attrs merge into the ledger
+    // entry (the state record, native contract); overrides re-seed the live instance's
+    // dsx.override var (the style plane keeps no entry record in v1)
+    const reseed = (inst: Instance): void => {
+      const store = inst.ctx.store;
+      if (Object.keys(attrs).length > 0) {
+        const current = (store.jse.vars.get("dsx.attribute") as Dict | undefined) ?? {};
+        store.set("dsx.attribute", { ...current, ...attrs });
+      }
+      if (Object.keys(overrides).length > 0) {
+        const current = (store.jse.vars.get("dsx.override") as Dict | undefined) ?? {};
+        store.set("dsx.override", { ...current, ...overrides });
+      }
+    };
+    const entry = Object.keys(attrs).length > 0
+      ? this.ledger.updateAttrs(target ?? null, attrs)
+      : this.ledger.find(target ?? null);
     if (entry !== null) {
       const ov = this.overlayViews.get(entry.id);
       const fr = this.chainFrames.get(entry.id);
       const inst = ov?.instance ?? fr?.instance;
-      if (inst !== undefined) {
-        const current = (inst.ctx.store.jse.vars.get("dsx.attribute") as Dict | undefined) ?? {};
-        inst.ctx.store.set("dsx.attribute", { ...current, ...attrs });
-      }
+      if (inst !== undefined) reseed(inst);
       return;
     }
     for (let i = this.frames.length - 1; i >= 0; i -= 1) {
@@ -1274,8 +1502,7 @@ export class FrameRouter {
       const matches = target === undefined ? i === this.frames.length - 1
         : (f.name === target || bare === target || (target.includes(".") && target.endsWith(`.${bare}`)));
       if (matches) {
-        const current = (f.instance.ctx.store.jse.vars.get("dsx.attribute") as Dict | undefined) ?? {};
-        f.instance.ctx.store.set("dsx.attribute", { ...current, ...attrs });
+        reseed(f.instance);
         return;
       }
     }
@@ -1356,6 +1583,97 @@ export class FrameRouter {
 
   top(): string | null {
     return this.frames.length > 0 ? this.frames[this.frames.length - 1]!.name : null;
+  }
+
+  // ── the devtools state door (boot.ts exposes it as window.__DSX_STATE__) ────────────
+  //
+  //  The ACTIVE screen's variable store, as data — the web twin of the DevSettings
+  //  drawer, and what the studio's live data-store panel reads and writes. Deliberately
+  //  a narrow façade: names and values in, one set() out, never the store object itself.
+  //  Not a security surface: this is the page's own JS heap, already open in devtools.
+
+  /** The `global.*` plane as data - the door's READ half.
+   *
+   *  The WRITE half already reached the whole state plane (runtime-pressure R16: a `global.*`
+   *  name writes the app-wide store), but the snapshot returned only the top frame's vars, so
+   *  "freeze exactly what I am looking at" silently lost the half of the state carrying
+   *  session, user, entitlement and theme - the half a screenshot shows the most of. Additive:
+   *  `screen` and `vars` keep their shape, so every existing consumer parses unchanged. */
+  private globalPlane(): Dict {
+    const out: Dict = {};
+    for (const [k, v] of Object.entries(DSXState.vars)) out[k] = v;
+    return out;
+  }
+
+  devState(): { screen: string | null; vars: { name: string; value: unknown }[]; globals: Dict } {
+    const top = this.frames[this.frames.length - 1];
+    if (top === undefined) return { screen: null, vars: [], globals: this.globalPlane() };
+    // The declared names live in three places by design: `vars` holds only what was
+    // WRITTEN, `initials` the evaluated defaults, `computed` the reactive bodies. The
+    // panel wants the RESOLVED value per name, so evaluate each name through the same
+    // scope resolution a binding uses — written beats initial beats computed.
+    const store = top.instance.ctx.store;
+    const names = new Set<string>([
+      ...store.jse.initials.keys(),
+      ...store.jse.computed.keys(),
+      ...store.jse.vars.keys(),
+    ]);
+    names.delete("dsx.attribute"); // internal pseudo-key, not an authored variable
+    const vars: { name: string; value: unknown }[] = [];
+    for (const name of names) {
+      let value: unknown = null;
+      try { value = store.eval(name); } catch { value = null; }
+      vars.push({ name, value });
+    }
+    return { screen: top.name, vars, globals: this.globalPlane() };
+  }
+
+  devSetState(name: string, value: unknown): boolean {
+    // The door reaches the WHOLE state plane (runtime-pressure R16): a `global.*` name
+    // writes the app-wide store - the preview's locale switch is one `global.locale`
+    // write - anything else the active screen's own vars, the same split the runner's
+    // writePath keeps. Before this, the door decided "state" meant only the top screen.
+    if (name.startsWith("global.")) {
+      DSXState.set(name.substring("global.".length), value);
+      return true;
+    }
+    const top = this.frames[this.frames.length - 1];
+    if (top === undefined) return false;
+    top.instance.ctx.store.set(name, value);
+    return true;
+  }
+
+  /** Fire on writes to the ACTIVE screen's store. Navigation retires the subscription
+   *  with its frame, so a long-lived listener re-arms on a cadence — the dev client does. */
+  devSinkState(fn: () => void): () => void {
+    const top = this.frames[this.frames.length - 1];
+    if (top === undefined) return () => {};
+    return top.instance.ctx.store.sink(() => fn());
+  }
+
+  /** Run a declared action on the ACTIVE screen as an ENTRY call — the studio's "Try it"
+   *  (platform/09-agent-tools.md WE6). The same call shape every other entry uses (HTTP
+   *  route, CLI command, queue message, WebMCP dispatch): a payload and no caller scope.
+   *  Same reach-not-access reasoning as the doors above; a deliberate throw is the ANSWER
+   *  and comes back as the error string, exactly as the WebMCP adapter shapes it. */
+  async devCallAction(action: string, args: { [k: string]: unknown }): Promise<{ ok: boolean; value?: unknown; error?: string }> {
+    const top = this.frames[this.frames.length - 1];
+    if (top === undefined) return { ok: false, error: "no screen is mounted" };
+    const runner = top.instance.ctx.runner;
+    if (!runner.env.actions.has(action)) {
+      return { ok: false, error: `${top.name} declares no action "${action}"` };
+    }
+    try {
+      const value = await runner.callAction(action, {}, null, args as Dict, { entry: true });
+      const thrown = runner.takeThrow();
+      if (thrown !== null) {
+        const t = thrown.value;
+        return { ok: false, error: typeof t === "string" ? t : JSON.stringify(t) };
+      }
+      return { ok: true, value };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   // ── boot + history integration ─────────────────────────────────────────────────────

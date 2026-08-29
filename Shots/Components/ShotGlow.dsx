@@ -1,0 +1,28 @@
+<stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden;
+              background:
+                radial-gradient(120% 80% at 12% 6%, {{ dsx.attribute.a }} 0%, rgba(0,0,0,0) 55%),
+                radial-gradient(95% 70% at 94% 20%, {{ dsx.attribute.b }} 0%, rgba(0,0,0,0) 50%),
+                radial-gradient(150% 90% at 46% 108%, {{ dsx.attribute.a }} 0%, rgba(0,0,0,0) 58%),
+                linear-gradient(168deg, {{ dsx.attribute.c }} 0%, #07041a 100%)">
+  <head>
+    <!-- THE BACKGROUND PLANE. A mesh of soft radial lights over a base gradient: three
+         overlapping radials read as depth where one flat gradient reads as a template, and
+         the whole thing is one element with no image to load - so it can never be the
+         undecoded blank box the settle guard exists to catch.
+
+         `.dsx-zstack` lays children out on one grid cell and CENTERS them (theme.ts), so a
+         child that must fill the frame says width/height 100% rather than relying on `inset`.
+         Getting that wrong put a hard vertical seam down the middle of the first render. -->
+    <attribute as="a" default="'#6d5efc'"/>
+    <attribute as="b" default="'#f0a6ff'"/>
+    <attribute as="c" default="'#1b1145'"/>
+  </head>
+
+  <!-- one bright orb, heavily blurred: the specular moment that makes a flat plane feel lit -->
+  <stack style="position: absolute; top: -10%; left: 54%; width: 66%; height: 30%;
+                border-radius: 50%; background: {{ dsx.attribute.b }}; opacity: 0.5;
+                filter: blur(80px)"/>
+  <stack style="position: absolute; bottom: -6%; left: -18%; width: 62%; height: 26%;
+                border-radius: 50%; background: {{ dsx.attribute.a }}; opacity: 0.45;
+                filter: blur(90px)"/>
+</stack>

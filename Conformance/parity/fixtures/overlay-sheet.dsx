@@ -1,0 +1,32 @@
+<stack style="gap: 0; align-items: stretch; background: background">
+<head>
+  <!--
+    Parity fixture: the OVERLAY PRESENTATION. A sheet presented at rest (the
+    binding boots true) over a dimmed base screen: scrim, detent panel on
+    groupedBackground, grabber/title bar with its action, and form content inside
+    the panel. Captured settled - the enter motion belongs to the motion corpus;
+    this plane pins the presented geometry, scrim and panel colors.
+  -->
+  <variable as="open">return true</variable>
+</head>
+
+  <stack style="gap: 0.25rem; padding: 2rem 1.5rem">
+    <text value="Notes" style="font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em"/>
+    <text value="The base screen keeps its layout under the presentation." style="color: secondary"/>
+    <button label="Workspace settings" on:tap="dsx.variable.open = true"
+            style="margin-top: 1rem"/>
+  </stack>
+
+  <sheet present="dsx.variable.open" detents="half" background="groupedBackground"
+         title="Workspace settings" action="Save"
+         on:action="dsx.variable.open = false"
+         on:dismiss="dsx.variable.open = false">
+    <stack style="gap: 0.75rem; padding: 0.5rem 0 1rem">
+      <form as="workspace" submit="Rename">
+        <field name="name" label="Workspace name" placeholder="Field Notes"/>
+      </form>
+      <text value="Members can edit every note in this workspace." style="color: secondary; font-size: 0.875rem"/>
+      <button label="Done" on:tap="dsx.variable.open = false"/>
+    </stack>
+  </sheet>
+</stack>

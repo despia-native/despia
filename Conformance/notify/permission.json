@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "_note": "THE NOTIFICATION PERMISSION LADDER (parity/F02-notifications.md §3a `permission`/`status`). Two things every notification stack gets wrong are pinned here. (1) PROVISIONAL AUTHORIZATION: iOS will deliver quietly, to the notification centre, with NO PROMPT AT ALL, and will then offer the user a Keep/Turn-off choice on the first notification they actually see. It is the highest-conversion path in mobile and almost nobody ships it, because it is one option constant buried in a bitmask. Here it is one flag, and the escalation from provisional to full is a real transition with its own rule. (2) THE SETTINGS TRANSITION: a user turns notifications off in Settings while the app is backgrounded, and a module that trusts its cached status prompts into a void forever. The OS reading always wins, and that is a function, not a comment.",
+
+  "statuses": ["undetermined", "denied", "provisional", "granted"],
+  "_note_options": "The option vocabulary, exact case. `provisional` is an option like the rest so that quiet authorization is one flag rather than a second API.",
+  "options": ["alert", "sound", "badge", "carPlay", "announcement", "critical", "provisional"],
+  "defaultOptions": ["alert", "badge", "sound"],
+
+  "_note_support": "What each platform can honour. An option this platform cannot honour is DROPPED and REPORTED, never silently discarded: an app that asked for critical alerts and got ordinary ones has to be able to find that out.",
+  "support": {
+    "ios": ["alert", "sound", "badge", "carPlay", "announcement", "critical", "provisional"],
+    "android": ["alert", "sound", "badge"],
+    "web": ["alert", "sound", "badge"]
+  },
+
+  "_note_android": "POST_NOTIFICATIONS is a runtime permission from API 33. BELOW 33 THERE IS NOTHING TO ASK: the module answers granted with prompted:false rather than pretending to show a dialog. A user who turned the app's notifications off in system settings still reads as denied on any API level, and there the honest answer is a refusal pointing at Settings, because no in-app dialog can undo it.",
+  "androidRuntimePermissionSdk": 33,
+
+  "plan": [
+    { "name": "iOS: provisional authorization is granted with NO prompt",
+      "platform": "ios", "request": { "provisional": true },
+      "state": { "status": "undetermined", "promptShown": false },
+      "expect": { "action": "authorize", "prompted": false, "quiet": true,
+                  "options": ["alert", "badge", "provisional", "sound"], "dropped": [] } },
+
+    { "name": "iOS: a plain request shows the dialog",
+      "platform": "ios", "request": {},
+      "state": { "status": "undetermined", "promptShown": false },
+      "expect": { "action": "prompt", "prompted": true, "quiet": false,
+                  "options": ["alert", "badge", "sound"], "dropped": [] } },
+
+    { "name": "iOS: THE ESCALATION - a full request on top of provisional prompts, and says it is an escalation",
+      "platform": "ios", "request": {},
+      "state": { "status": "provisional", "promptShown": false },
+      "expect": { "action": "prompt", "prompted": true, "escalation": true,
+                  "options": ["alert", "badge", "sound"], "dropped": [] } },
+
+    { "name": "iOS: asking for provisional again while already provisional changes nothing",
+      "platform": "ios", "request": { "provisional": true },
+      "state": { "status": "provisional", "promptShown": false },
+      "expect": { "action": "settle", "status": "provisional", "prompted": false } },
+
+    { "name": "iOS: already granted settles without a second dialog",
+      "platform": "ios", "request": {},
+      "state": { "status": "granted", "promptShown": true },
+      "expect": { "action": "settle", "status": "granted", "prompted": false } },
+
+    { "name": "iOS: denied refuses, because the system will not prompt again",
+      "platform": "ios", "request": {},
+      "state": { "status": "denied", "promptShown": true },
+      "expect": { "action": "refuse", "error": "permission_denied", "prompted": false } },
+
+    { "name": "iOS: critical alerts without the Apple entitlement are dropped and reported, not refused",
+      "platform": "ios", "request": { "critical": true },
+      "state": { "status": "undetermined", "promptShown": false, "criticalEntitled": false },
+      "expect": { "action": "prompt", "prompted": true,
+                  "options": ["alert", "badge", "sound"], "dropped": ["critical"] } },
+
+    { "name": "iOS: critical alerts WITH the entitlement ride the request",
+      "platform": "ios", "request": { "critical": true },
+      "state": { "status": "undetermined", "promptShown": false, "criticalEntitled": true },
+      "expect": { "action": "prompt", "prompted": true,
+                  "options": ["alert", "badge", "critical", "sound"], "dropped": [] } },
+
+    { "name": "iOS: carPlay and announcement are real options and survive the request",
+      "platform": "ios", "request": { "alert": true, "carPlay": true, "announcement": true },
+      "state": { "status": "undetermined", "promptShown": false },
+      "expect": { "action": "prompt", "prompted": true,
+                  "options": ["alert", "announcement", "carPlay"], "dropped": [] } },
+
+    { "name": "Android 33: the runtime permission prompts",
+      "platform": "android", "sdk": 33, "request": {},
+      "state": { "status": "undetermined", "promptShown": false },
+      "expect": { "action": "prompt", "prompted": true,
+                  "options": ["alert", "badge", "sound"], "dropped": [] } },
+
+    { "name": "Android 33: provisional does not exist here and is dropped, not faked",
+      "platform": "android", "sdk": 33, "request": { "provisional": true },
+      "state": { "status": "undetermined", "promptShown": false },
+      "expect": { "action": "prompt", "prompted": true,
+                  "options": ["alert", "badge", "sound"], "dropped": ["provisional"] } },
+
+    { "name": "Android 32: there is no runtime permission, so it settles granted WITHOUT pretending to ask",
+      "platform": "android", "sdk": 32, "request": {},
+      "state": { "status": "undetermined", "promptShown": false },
+      "expect": { "action": "settle", "status": "granted", "prompted": false } },
+
+    { "name": "Android 32: notifications switched off in system settings still refuse, because no dialog can undo that",
+      "platform": "android", "sdk": 32, "request": {},
+      "state": { "status": "denied", "promptShown": false },
+      "expect": { "action": "refuse", "error": "permission_denied", "prompted": false } },
+
+    { "name": "Android 33: denied refuses rather than burning the one remaining prompt",
+      "platform": "android", "sdk": 33, "request": {},
+      "state": { "status": "denied", "promptShown": true },
+      "expect": { "action": "refuse", "error": "permission_denied", "prompted": false } },
+
+    { "name": "Web: the Notification API prompts once",
+      "platform": "web", "request": {},
+      "state": { "status": "undetermined", "promptShown": false },
+      "expect": { "action": "prompt", "prompted": true,
+                  "options": ["alert", "badge", "sound"], "dropped": [] } },
+
+    { "name": "Web: carPlay, announcement, critical and provisional are all dropped",
+      "platform": "web", "request": { "carPlay": true, "announcement": true, "critical": true, "provisional": true },
+      "state": { "status": "undetermined", "promptShown": false },
+      "expect": { "action": "prompt", "prompted": true, "options": [], "dropped": ["announcement", "carPlay", "critical", "provisional"] } },
+
+    { "name": "an unknown surface cannot ask for anything, and says so",
+      "platform": "watch", "request": {},
+      "state": { "status": "undetermined", "promptShown": false },
+      "expect": { "action": "refuse", "error": "unsupported_platform", "prompted": false } }
+  ],
+
+  "_note_apply": "Folding the OS's answer back. A DECLINED ESCALATION IS NOT A LOST GRANT: an app that was delivering quietly and asked for more must still be delivering quietly afterwards. A naive `granted ? granted : denied` throws away a working feature to record the refusal of a different one, and the user never sees another notification.",
+  "apply": [
+    { "name": "the quiet authorization lands as provisional",
+      "state": { "status": "undetermined", "promptShown": false }, "action": "authorize", "granted": true,
+      "expect": { "status": "provisional", "promptShown": false } },
+    { "name": "a refused quiet authorization is a denial",
+      "state": { "status": "undetermined", "promptShown": false }, "action": "authorize", "granted": false,
+      "expect": { "status": "denied", "promptShown": false } },
+    { "name": "an accepted prompt is a full grant and records that the dialog was spent",
+      "state": { "status": "undetermined", "promptShown": false }, "action": "prompt", "granted": true,
+      "expect": { "status": "granted", "promptShown": true } },
+    { "name": "a refused prompt is a denial",
+      "state": { "status": "undetermined", "promptShown": false }, "action": "prompt", "granted": false,
+      "expect": { "status": "denied", "promptShown": true } },
+    { "name": "AN ACCEPTED ESCALATION upgrades provisional to full",
+      "state": { "status": "provisional", "promptShown": false }, "action": "prompt", "escalation": true, "granted": true,
+      "expect": { "status": "granted", "promptShown": true } },
+    { "name": "A DECLINED ESCALATION KEEPS THE QUIET GRANT",
+      "state": { "status": "provisional", "promptShown": false }, "action": "prompt", "escalation": true, "granted": false,
+      "expect": { "status": "provisional", "promptShown": true } },
+    { "name": "settling changes nothing",
+      "state": { "status": "granted", "promptShown": true }, "action": "settle", "granted": true,
+      "expect": { "status": "granted", "promptShown": true } },
+    { "name": "a refusal changes nothing",
+      "state": { "status": "denied", "promptShown": true }, "action": "refuse", "granted": false,
+      "expect": { "status": "denied", "promptShown": true } }
+  ],
+
+  "_note_observe": "THE SETTINGS-CHANGED-WHILE-BACKGROUNDED TRANSITION. Every one of these happens outside the app, and the only correct response is to believe the OS. `broadcast` is true exactly when the status actually moved, so a resume that changed nothing is silent - a permission event on every foreground is noise nobody can act on.",
+  "observe": [
+    { "name": "nothing changed while we were away",
+      "state": { "status": "granted", "promptShown": true }, "os": "granted",
+      "expect": { "status": "granted", "promptShown": true, "changed": false, "broadcast": false } },
+    { "name": "THE CLASSIC: turned off in Settings while backgrounded",
+      "state": { "status": "granted", "promptShown": true }, "os": "denied",
+      "expect": { "status": "denied", "promptShown": true, "changed": true, "broadcast": true } },
+    { "name": "turned back ON in Settings, which no in-app dialog could have done",
+      "state": { "status": "denied", "promptShown": true }, "os": "granted",
+      "expect": { "status": "granted", "promptShown": true, "changed": true, "broadcast": true } },
+    { "name": "the user pressed Keep and then Turn On from a provisional notification",
+      "state": { "status": "provisional", "promptShown": false }, "os": "granted",
+      "expect": { "status": "granted", "promptShown": false, "changed": true, "broadcast": true } },
+    { "name": "the user pressed Turn Off from a provisional notification",
+      "state": { "status": "provisional", "promptShown": false }, "os": "denied",
+      "expect": { "status": "denied", "promptShown": false, "changed": true, "broadcast": true } },
+    { "name": "a reinstall resets the OS to undetermined, and the spent-prompt memory resets with it",
+      "state": { "status": "denied", "promptShown": true }, "os": "undetermined",
+      "expect": { "status": "undetermined", "promptShown": false, "changed": true, "broadcast": true } }
+  ],
+
+  "_note_sequence": "The whole ladder as one run, because the individual transitions above can each be right while the composition is wrong. AFTER A SETTINGS DENIAL THE NEXT permission() CALL MUST REFUSE - that is the bug this sequence exists to catch, and it is invisible to any test that only checks one transition.",
+  "sequence": [
+    { "name": "quiet start, converted, then killed from Settings, and the next ask refuses",
+      "platform": "ios",
+      "steps": [
+        { "do": "plan", "request": { "provisional": true }, "expect": { "action": "authorize", "quiet": true } },
+        { "do": "apply", "granted": true, "expect": { "status": "provisional" } },
+        { "do": "plan", "request": {}, "expect": { "action": "prompt", "escalation": true } },
+        { "do": "apply", "granted": true, "expect": { "status": "granted" } },
+        { "do": "observe", "os": "denied", "expect": { "status": "denied", "broadcast": true } },
+        { "do": "plan", "request": {}, "expect": { "action": "refuse", "error": "permission_denied" } }
+      ] },
+    { "name": "a declined escalation leaves the quiet delivery working and the next ask still escalatable",
+      "platform": "ios",
+      "steps": [
+        { "do": "plan", "request": { "provisional": true }, "expect": { "action": "authorize", "quiet": true } },
+        { "do": "apply", "granted": true, "expect": { "status": "provisional" } },
+        { "do": "plan", "request": {}, "expect": { "action": "prompt", "escalation": true } },
+        { "do": "apply", "granted": false, "expect": { "status": "provisional" } },
+        { "do": "plan", "request": { "provisional": true }, "expect": { "action": "settle", "status": "provisional" } }
+      ] }
+  ]
+}

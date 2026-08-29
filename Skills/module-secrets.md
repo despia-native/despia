@@ -1,4 +1,4 @@
-# Module secrets — build-time SDK credentials, dynamic across every app
+# Module secrets: build-time SDK credentials, dynamic across every app
 
 > Just want the setup steps? See the short
 > [build-secrets-setup.md](../Documentation/guides/build-secrets-setup.md). This doc is

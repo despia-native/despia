@@ -65,6 +65,15 @@
 //    identical to the pre-theme wave, so a missing theme root degrades, never diverges.
 //    Numeric parsing rides JSE.number (the Swift `Double(String)` grammar) so "1f"-
 //    style Java-isms are rejected exactly like iOS.
+//  • `fontFamily=` (the `fonts` facet): faces load from ASSETS via the generated
+//    DSXFontRegistry.json, not from `res/font` — Android resource names are lowercase-
+//    underscore only, so a res/font family would mean copying every binary under a mangled
+//    name, while the module's own file loads in place and leaves with the module. Face
+//    SELECTION for a requested weight is Compose's own FontMatcher, which implements the same
+//    CSS Fonts 4 algorithm the shared :core `StackFonts` pins — so the two agree by
+//    construction; the kernel core is what iOS resolves through and what the corpus runs.
+//    Variable axes ride `FontVariation.Settings` (API 26+; below that the static instance
+//    renders and the divergence is logged once per family, never per frame).
 //  • `fontDesign="rounded"`: PERMANENT DIVERGENCE, not a deferral. Apple ships SF Rounded
 //    as a system face; Android's platform font set (sans-serif / serif / monospace) has no
 //    rounded member, and no `FontFamily` token can conjure one — the only closure would be
@@ -73,12 +82,16 @@
 //    resolves to SansSerif, the honest platform default (system-defaults.md: degradation is
 //    legal, divergence is not — this one is DECLARED).
 //  • surface: iOS renders real materials (Liquid Glass on 26+, .ultraThinMaterial
-//    below); Compose has no system material and live blur is API 31+. Per the
-//    STRUCTURE.md fidelity rule (degradation is legal, divergence is not) every
-//    material token DEGRADES to a pinned DIM TRANSLUCENT fill (`material()` below —
-//    dark-first approximations of the iOS dark materials); `glassTint` falls back to
-//    a solid fill of the tint, exactly the iOS <26 fallback. A real blur/haze layer
-//    is a later wave.
+//    below); Material 3 has no frosted material and no BACKDROP blur — Modifier.blur
+//    blurs an element's own content, not what is behind it, and there is no Compose
+//    primitive that captures a backdrop. Per the STRUCTURE.md fidelity rule
+//    (degradation is legal, divergence is not) every material token DEGRADES to a
+//    TRANSLUCENT FILL over M3's own surface-container ladder, at the alpha its
+//    thickness names (`material()` below); `glassTint` falls back to a solid fill of
+//    the tint, exactly the iOS <26 fallback. The ladder is M3's rather than a
+//    fake-Cupertino frost because system-defaults.md makes the platform the baseline.
+//    Before this the fills were a pinned DARK table whatever the theme, so a light app
+//    got a dark slab; the dark table now stands only where no theme has composed.
 //  • surface/gradient layer order: the catalog names the steps "…background → surface
 //    → gradient…", but the Swift CODE (the reference) applies gradient BEFORE surface
 //    so the material lands FURTHEST BACK (its own comment: surface frosts what's
@@ -147,9 +160,12 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -157,8 +173,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import android.content.Context
+import android.os.Build
 import despia.engine.JSE
+import despia.engine.kernelLog
+import despia.engine.StackFonts
 import despia.engine.StackStore
+import despia.engine.SurfaceMaterials
+import despia.engine.StackTooltip
 
 object StackStyle {
 
@@ -245,21 +267,25 @@ object StackStyle {
         // 6b — gradient FIRST in code, like the Swift reference (see DEVIATIONS: prepending
         //      lands the LATER wrap outermost = painted first, so the stack comes out
         //      surface backmost → gradient → solid fill → content, same as iOS).
-        //      `gradient="c1|c2|…"` (2+ colors) + gradientDir = vertical (default) /
-        //      horizontal / diagonal. No shape — the radius clip (step 7) wraps it.
-        gradientColors(value("gradient"))?.let { cols ->
-            val (start, end) = gradientAxis(value("gradientDir"))
-            wrap(Modifier.background(Brush.linearGradient(colors = cols, start = start, end = end)))
-        }
+        //      The whole declared surface — linear · radial · angular · mesh, with stops,
+        //      angle, centre and radius — is StackGradients.kt, over the SAME
+        //      ControlsCore.resolveGradient decision the Swift renderer paints from;
+        //      `gradientDir` stays an exact alias. Mesh degrades to layers, so this is a
+        //      list. No shape — the radius clip (step 7) wraps it.
+        StackGradients.layers { k -> value(k) }.asReversed().forEach { wrap(Modifier.background(it)) }
         // 6 — surface: every material token (glass/ultraThin/thin/regular/thick/sheet)
         //     degrades to the pinned dim translucent fill (`material()` — see DEVIATIONS);
         //     `glassTint` falls back to a solid fill of the tint (the iOS <26 fallback).
-        //     Radius defaults like Swift: 24 for sheet, else 16. `glassInteractive`
-        //     (the iOS 26 press-stretch) has no Compose twin this wave — inert.
+        //     Radius defaults like Swift: 24 for sheet, else 16. `glassInteractive` is the
+        //     press response (StackGlass.kt) — the geometry of the iOS 26 press-stretch, since
+        //     Material 3 has no material to stretch. Wrapped AFTER the fill so it lands outside
+        //     it: the glass and its content move together instead of the content sliding under
+        //     a static pane.
         value("surface")?.let { tok ->
             val r = num(value("radius")) ?: (if (tok == "sheet") 24f else 16f)
             val fill = value("glassTint")?.let { color(it) } ?: material(tok)
             wrap(Modifier.background(fill, RoundedCornerShape(r.dp)))
+            if (value("glassInteractive") == "true") wrap(Modifier.glassPress())
         }
         // 7 — radius/clip: clip wraps the background (Swift .clipShape AFTER .background).
         num(value("radius"))?.let { wrap(Modifier.clip(RoundedCornerShape(it.dp))) }
@@ -288,16 +314,24 @@ object StackStyle {
             wrap(Modifier.border((num(value("borderWidth")) ?: 1f).dp, color(bc),
                                  if (r > 0f) RoundedCornerShape(r.dp) else RectangleShape))
         }
-        // 15 — shadow: elevation-style Modifier.shadow on the radius shape, iOS defaults
-        //      (black 25%, radius 8 → elevation dp), clip=false so content isn't cut to the
-        //      shape. shadowColor rides ambient+spot; shadowX/shadowY have no elevation twin
-        //      (see DEVIATIONS).
+        // 15 — shadow: a DRAWN shadow on the radius shape (StackShadow.kt), iOS defaults
+        //      (black 25%, blur 8, x 0, y 2). This used to be an elevation Modifier.shadow,
+        //      which asks the PLATFORM to light the element from a fixed position — so
+        //      shadowX/shadowY had nowhere to go and an author who leaned a shadow sideways
+        //      got one straight down. Painting it here is what makes the offsets real and the
+        //      blur weight match CSS and SwiftUI (Article 10).
         value("shadow")?.let { sh ->
             val r = num(value("radius")) ?: 0f
             val c = value("shadowColor")?.let { color(it) } ?: Color.Black.copy(alpha = 0.25f)
-            wrap(Modifier.shadow(elevation = (num(sh) ?: 8f).dp,
-                                 shape = if (r > 0f) RoundedCornerShape(r.dp) else RectangleShape,
-                                 clip = false, ambientColor = c, spotColor = c))
+            wrap(
+                Modifier.dsxShadow(
+                    blur = num(sh) ?: 8f,
+                    color = c,
+                    dx = num(value("shadowX")) ?: 0f,
+                    dy = num(value("shadowY")) ?: 2f,
+                    cornerRadius = r,
+                )
+            )
         }
         // 16 — offset: LAST positional adjustment of the FULLY-styled element (CSS-transform
         //      semantics — frame, background, border and shadow all ride along). `offset`
@@ -316,6 +350,8 @@ object StackStyle {
         //        a11yGroup="true" · role="group"     → semantics(mergeDescendants = true)
         //        a11yLabel        · aria-label       → contentDescription
         //        a11yHint         · aria-description → appended to the description (documented)
+        //          (a resolved `tooltip=` fills this slot when neither is authored — the
+        //           `described` duty of input/tooltip.json; a11yHintSlot below)
         //        a11yValue        · aria-valuetext   → stateDescription
         //        a11yTrait        · role             → heading()/Role.Button/Role.Image/selected
         //        a11yHidden       · aria-hidden      → clearAndSetSemantics (outermost — wins)
@@ -329,7 +365,7 @@ object StackStyle {
             // verbatim accessibility pass-through.
             val roleAttr = value("role")?.takeIf { it !in SystemButton.BUTTON_ROLES }
             val label = both("a11yLabel", "aria-label")
-            val hint = both("a11yHint", "aria-description")
+            val hint = a11yHintSlot { value(it) }
             val stateValue = both("a11yValue", "aria-valuetext")
             val traits = value("a11yTrait") ?: roleAttr?.takeIf { it != "group" }
             val grouped = attrs["a11yGroup"] == "true" || roleAttr == "group"
@@ -362,6 +398,15 @@ object StackStyle {
         }
         return m
     }
+
+    /// The a11y HINT slot for the arm above (pure; plain-JVM tested — StackTooltipAdapterTest):
+    /// the two equal authored spellings first — either PRESENT key wins, even one resolving
+    /// empty (the Swift `attrs[...] == nil` gate agrees) — then the resolved `tooltip=` text,
+    /// the `described` duty of OpenSource/Conformance/input/tooltip.json: a tooltip's content
+    /// is never gated behind hover, so on a touch surface (which never reveals the bubble —
+    /// Article 7) assistive tech still reads it. iOS twin: decorate's accessibilityHint arm.
+    internal fun a11yHintSlot(value: (String) -> String?): String? =
+        value("a11yHint") ?: value("aria-description") ?: StackTooltip.resolve(value("tooltip"), null)?.text
 
     /// The content anchor for a flexible frame — the pure twin of Swift `flexFrame`'s
     /// `Alignment(horizontal:vertical:)` computation (Stack.swift ~6009-6036), extracted so it
@@ -427,6 +472,170 @@ object StackStyle {
         else -> s
     }
 
+    /// `fontFamily=` — the build's FONT REGISTRY (assets/DSXFontRegistry.json, generated by
+    /// prepare_modules from every enabled module's `fonts` block), resolved to a Compose
+    /// `FontFamily`. Twin of Swift `DSXFontBook`.
+    ///
+    /// WHY THE REGISTRY. iOS needs each face's PostScript name; Android needs the asset path and
+    /// the weight/slant each file actually carries. Both are read out of the fonts at build time
+    /// and written to one file, so neither renderer guesses — guessing is how an app silently
+    /// renders the system face.
+    ///
+    /// The SELECTION law (which face answers a requested weight, when italic synthesises, how a
+    /// variable axis clamps) is the shared pure core :core `StackFonts`, pinned by
+    /// OpenSource/Conformance/fonts/matching.json. Nothing here reimplements it.
+    ///
+    /// ANDROID SEAMS (pinned, none silent):
+    ///  • Faces load from ASSETS (`Typeface.createFromAsset`), not `res/font`: Android resource
+    ///    names are lowercase-underscore only, so a res/font family means COPYING every binary
+    ///    under a mangled name, while the module's own file loads in place and leaves with the
+    ///    module (file-presence law).
+    ///  • Variable axes are `FontVariationSettings`, API 26+. Below that the face renders at its
+    ///    static instance and the divergence is logged ONCE per family — a per-frame log on a
+    ///    scrolling list is worse than the divergence it reports.
+    object StackFontBook {
+
+        data class Family(
+            val faces: List<StackFonts.Face>,
+            val variable: Boolean,
+            val axes: Map<String, Pair<Double, Double>>,
+            val defaults: Map<String, Double>,
+            val fallback: List<String>,
+        )
+
+        private const val REGISTRY_ASSET = "DSXFontRegistry.json"
+
+        @Volatile private var loaded = false
+        @Volatile private var families: Map<String, Family> = emptyMap()
+        private val typefaces = java.util.concurrent.ConcurrentHashMap<String, FontFamily>()
+        private val axisWarned = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+        val declaredNames: List<String> get() = families.keys.sorted()
+
+        fun family(name: String?): Family? = name?.let { families[it] }
+
+        /** True when the family ships a REAL italic face — the signal `styleText` uses to skip
+         *  Compose's synthetic slant so a declared italic is not obliqued on top of being one. */
+        fun hasItalicFace(name: String?): Boolean = family(name)?.faces?.any { it.italic } == true
+
+        /** The CSS numeric weight behind a `fontWeight=` word. A bare number passes through. */
+        fun cssWeight(s: String?): Int {
+            val n = s?.toIntOrNull()
+            if (n != null && n in 1..1000) return n
+            return when (s) {
+                "bold" -> 700
+                "semibold" -> 600
+                "medium" -> 500
+                "heavy" -> 800
+                else -> 400
+            }
+        }
+
+        /** Fail-open (Article 7): no registry asset ⇒ no families ⇒ every `fontFamily` resolves
+         *  null and the caller keeps the platform font, exactly the pre-facet behavior. */
+        fun load(context: Context) {
+            if (loaded) return
+            synchronized(this) {
+                if (loaded) return
+                families = runCatching {
+                    context.assets.open(REGISTRY_ASSET).use { parse(it.readBytes().toString(Charsets.UTF_8)) }
+                }.getOrDefault(emptyMap())
+                loaded = true
+            }
+        }
+
+        internal fun parse(text: String): Map<String, Family> {
+            val root = org.json.JSONObject(text).optJSONObject("families") ?: return emptyMap()
+            val out = LinkedHashMap<String, Family>()
+            for (name in root.keys()) {
+                val row = root.optJSONObject(name) ?: continue
+                val faceArray = row.optJSONArray("faces") ?: continue
+                val faces = ArrayList<StackFonts.Face>(faceArray.length())
+                for (i in 0 until faceArray.length()) {
+                    val face = faceArray.optJSONObject(i) ?: continue
+                    if (!face.has("weight")) continue
+                    faces.add(
+                        StackFonts.Face(
+                            weight = face.optInt("weight"),
+                            italic = face.optBoolean("italic", false),
+                            file = face.optString("file").takeIf { it.isNotEmpty() },
+                            postscriptName = face.optString("postscriptName").takeIf { it.isNotEmpty() },
+                        )
+                    )
+                }
+                if (faces.isEmpty()) continue
+                val axes = LinkedHashMap<String, Pair<Double, Double>>()
+                row.optJSONObject("axes")?.let { declared ->
+                    for (tag in declared.keys()) {
+                        val range = declared.optJSONArray(tag) ?: continue
+                        if (range.length() == 2) axes[tag] = range.optDouble(0) to range.optDouble(1)
+                    }
+                }
+                val defaults = LinkedHashMap<String, Double>()
+                row.optJSONObject("defaults")?.let { declared ->
+                    for (tag in declared.keys()) defaults[tag] = declared.optDouble(tag)
+                }
+                val fallback = ArrayList<String>()
+                row.optJSONArray("fallback")?.let { chain ->
+                    for (i in 0 until chain.length()) fallback.add(chain.optString(i))
+                }
+                out[name] = Family(
+                    faces = faces,
+                    variable = row.optBoolean("variable", false),
+                    axes = axes,
+                    defaults = defaults,
+                    fallback = fallback.ifEmpty { listOf("system") },
+                )
+            }
+            return out
+        }
+
+        /**
+         * Resolve a declared family to a Compose `FontFamily`. null ⇒ the caller keeps the
+         * platform font, which is the last rung of the declared fallback chain.
+         *
+         * One `FontFamily` per (family, axes) key, cached: `createFromAsset` reads and parses the
+         * file, and doing that inside composition would re-read the face on every recomposition.
+         */
+        fun resolve(context: Context, name: String, variation: String?): FontFamily? {
+            load(context)
+            val family = families[name] ?: return null
+            val requested = StackFonts.parseVariation(variation)
+            val axes = LinkedHashMap<String, Double>(family.defaults)
+            if (requested.isNotEmpty()) axes.putAll(StackFonts.resolveVariation(family.axes, requested).applied)
+            val key = "$name|" + axes.entries.sortedBy { it.key }.joinToString(",") { "${it.key} ${it.value}" }
+            typefaces[key]?.let { return it }
+
+            val settings = axes.entries.sortedBy { it.key }
+                .map { FontVariation.Setting(it.key, it.value.toFloat()) }
+            if (settings.isNotEmpty() && Build.VERSION.SDK_INT < Build.VERSION_CODES.O &&
+                axisWarned.add(name)
+            ) {
+                kernelLog("[dsx.fonts] '$name': variable axes need API 26+ (this device is API " +
+                          "${Build.VERSION.SDK_INT}) — rendering the static instance.")
+            }
+
+            val variationSettings = if (settings.isEmpty()) FontVariation.Settings()
+                                    else FontVariation.Settings(*settings.toTypedArray())
+            val fonts = family.faces.mapNotNull { face ->
+                val asset = face.file ?: return@mapNotNull null
+                runCatching {
+                    Font(
+                        path = asset,
+                        assetManager = context.assets,
+                        weight = FontWeight(face.weight),
+                        style = if (face.italic) FontStyle.Italic else FontStyle.Normal,
+                        variationSettings = variationSettings,
+                    )
+                }.getOrNull()
+            }
+            if (fonts.isEmpty()) return null
+            val resolved = FontFamily(fonts)
+            typefaces[key] = resolved
+            return resolved
+        }
+    }
+
     /// Text styling for `<text>`-family elements — the font slot of step 3 plus Swift's
     /// `styleText` extras (italic / underline / strikethrough / tracking / textAlign /
     /// lineSpacing are read from the same attribute names). lineLimit is layout-side and
@@ -439,6 +648,13 @@ object StackStyle {
             (attrs[k] ?: style[k])?.let { JSE.interpolate(it, store, item) }
         var t = TextStyle(color = color)
         val fs = value("fontSize")?.let { JSE.number(it) }
+        // A DECLARED family (a `fonts` block on some enabled module) beats the system design
+        // axis; `fontDesign` keeps its meaning on the system fallback, which is what
+        // `design(...)` still paints when the family does not resolve.
+        val declaredFamily = value("fontFamily")
+        val custom = declaredFamily?.let {
+            StackFontBook.resolve(LocalContext.current.applicationContext, it, value("fontVariation"))
+        }
         if (fs != null) {
             // Compose .sp is font-scale-aware natively. When an explicitly dynamic
             // font also declares a maximum, convert that rendered-size cap back to sp
@@ -449,9 +665,21 @@ object StackStyle {
             val cappedSp = cappedDynamicTypeSp(fs, cap, LocalDensity.current.fontScale)
             t = t.copy(fontSize = cappedSp.sp,
                        fontWeight = weight(value("fontWeight")),
-                       fontFamily = design(value("fontDesign")))
+                       fontFamily = custom ?: design(value("fontDesign")))
+        } else if (custom != null) {
+            // No `fontSize`: the family still applies, at the inherited (scale-aware) size —
+            // a custom family must never cost the accessibility text setting.
+            t = t.copy(fontWeight = weight(value("fontWeight")), fontFamily = custom)
         }
-        if (attrs["italic"] == "true") t = t.copy(fontStyle = FontStyle.Italic)
+        // OpenType features: Compose exposes them as the platform `fontFeatureSettings` string,
+        // which takes the same four-character tags the shared parser validates.
+        val features = StackFonts.parseFeatures(value("fontFeature"))
+        if (features.isNotEmpty()) t = t.copy(fontFeatureSettings = features.joinToString(", "))
+        // A declared family shipping a REAL italic face already selected it above; asking
+        // Compose to slant it again obliques an italic.
+        if (attrs["italic"] == "true" && !(custom != null && StackFontBook.hasItalicFace(declaredFamily))) {
+            t = t.copy(fontStyle = FontStyle.Italic)
+        }
         val decos = mutableListOf<TextDecoration>()
         if (attrs["underline"] == "true") decos.add(TextDecoration.Underline)
         if (attrs["strikethrough"] == "true") decos.add(TextDecoration.LineThrough)
@@ -530,31 +758,34 @@ object StackStyle {
         return JSE.number(s)?.toFloat()
     }
 
-    /// `gradient="c1|c2|…"` — the color stops, or null under 2 (the Swift `count >= 2` gate).
-    fun gradientColors(s: String?): List<Color>? {
-        if (s == null) return null
-        val cols = s.split("|").map { color(it) }
-        return if (cols.size >= 2) cols else null
-    }
-
-    /// `gradientDir` → the linear axis as gradient-local start/end offsets (Compose's
-    /// size-relative infinity idiom) — twin of Swift `gradientPoints(_:)`:
-    /// vertical (default) top→bottom, horizontal leading→trailing, diagonal topLeading→bottomTrailing.
-    fun gradientAxis(dir: String?): Pair<Offset, Offset> = when (dir) {
-        "horizontal" -> Offset.Zero to Offset(Float.POSITIVE_INFINITY, 0f)
-        "diagonal"   -> Offset.Zero to Offset.Infinite
-        else         -> Offset.Zero to Offset(0f, Float.POSITIVE_INFINITY)
-    }
-
-    /// `surface` material fallback — the pinned DIM TRANSLUCENT fills (see DEVIATIONS):
-    /// dark-first approximations of the iOS DARK materials (base #252525, alpha by
-    /// thickness — ultraThin 55%, thin 70%, regular 82%, thick 90%). Unknown tokens fall
-    /// to ultraThin, same as the Swift `material(_:)` default ("sheet" included).
-    fun material(name: String): Color = when (name) {
-        "thin"    -> Color(0xB3252525)
-        "regular" -> Color(0xD1252525)
-        "thick"   -> Color(0xE6252525)
-        else      -> Color(0x8C252525)   // glass / ultraThin / sheet
+    /// `surface` material — the Compose degradation of the iOS materials (see DEVIATIONS).
+    ///
+    /// Material 3 has no frosted material and no backdrop blur (`Modifier.blur` blurs an
+    /// element's OWN content, not what is behind it), so a token here is a translucent fill and
+    /// [SurfaceMaterials.alpha] carries what separates one token from another.
+    ///
+    /// What it must not be is a fill of the WRONG COLOUR: this used to be a pinned dark table
+    /// (base #252525) regardless of theme, so on a light app `surface="regular"` painted a dark
+    /// slab under the content. That is not degradation, it is a different design - and
+    /// system-defaults.md makes the platform the baseline, so the ladder is M3's own surface
+    /// containers, which is Material's answer to "a layered surface".
+    ///
+    /// [StackTheme.scheme] is null before any theme root has composed (plain-JVM tests,
+    /// pre-theme hosts). There the pinned dark base stands, byte-identical to the pre-theme
+    /// wave, for the same reason `color()` keeps its own iOS-dark fallback.
+    fun material(name: String): Color {
+        // Named `opacity`, not `alpha`: `androidx.compose.ui.draw.alpha` is imported here as a
+        // Modifier extension and a local of that name resolves to it at the call site below.
+        val opacity = SurfaceMaterials.alpha(name)
+        val scheme = StackTheme.scheme
+            ?: return Color(SurfaceMaterials.FALLBACK_BASE).copy(alpha = opacity)
+        val base = when (name) {
+            "thin" -> scheme.surfaceContainer
+            "regular" -> scheme.surfaceContainerHigh
+            "thick" -> scheme.surfaceContainerHighest
+            else -> scheme.surfaceContainerLow
+        }
+        return base.copy(alpha = opacity)
     }
 
     /// `ignoreSafeArea` / `fullBleed` edge tokens → the insets sides — twin of Swift

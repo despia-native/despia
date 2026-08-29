@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "_note": "THE FEATURE-FLAG PLANE — the pure fold every renderer shares. A flag is delivered three different ways (posthog-ios `PostHogFeatureFlagResult`, posthog-android `FeatureFlagResult`, and the v2 `/flags` HTTP envelope whose payload arrives JSON-ENCODED AS A STRING), and the three must agree on what the app then sees: which flag is ENABLED, what its VALUE is, what its PAYLOAD decodes to, and — the one the SDKs get wrong — the difference between a flag that evaluated false and a flag this project never defined. PostHog's own SDKs answer both with `false`, which is why a mis-typed flag key ships the control arm forever and nobody finds out. The plane resolves it with `known`. Consumers: ClosedSource/DSX/Modules/Core/PostHog `web/index.js` foldFlag (TS/JS lane, executed today) · `swift/PostHogBridge.swift` flagRow (compile-pending) · `kotlin/PostHogBridge.kt` flagRow. Runner note: the closed module facets are not reachable from the open web test suite, so this corpus is executed by the module's own harness; the Kotlin and Swift twins read the same rows.",
+
+  "_note_shape": "Each `fold` row is ONE flag as the three lanes receive it. `native` is the SDK result object (payload already decoded); `web` is the v2 `/flags` per-flag envelope (payload a JSON string). `expect` is what BOTH must produce.",
+
+  "fold": [
+    {
+      "name": "a boolean flag that is on",
+      "key": "new-checkout",
+      "native": { "key": "new-checkout", "enabled": true, "variant": null, "payload": null },
+      "web": { "key": "new-checkout", "enabled": true, "variant": null, "reason": { "code": "condition_match", "description": "Matched condition set 1" }, "metadata": { "id": 42, "version": 3, "payload": null } },
+      "expect": { "key": "new-checkout", "known": true, "enabled": true, "variant": null, "value": true, "payload": null }
+    },
+    {
+      "name": "a boolean flag that is off",
+      "key": "legacy-nav",
+      "native": { "key": "legacy-nav", "enabled": false, "variant": null, "payload": null },
+      "web": { "key": "legacy-nav", "enabled": false, "variant": null, "reason": { "code": "no_condition_match", "description": null }, "metadata": { "id": 43, "version": 1, "payload": null } },
+      "expect": { "key": "legacy-nav", "known": true, "enabled": false, "variant": null, "value": false, "payload": null }
+    },
+    {
+      "name": "a multivariate flag folds to its variant, and a variant is always enabled",
+      "_note": "The value fold is `variant ?? enabled`, so a served variant reads as the STRING, never as `true`. A renderer that returned true here would make every A/B test a boolean.",
+      "key": "hero-copy",
+      "native": { "key": "hero-copy", "enabled": true, "variant": "variant-b", "payload": null },
+      "web": { "key": "hero-copy", "enabled": true, "variant": "variant-b", "reason": null, "metadata": { "id": 44, "version": 7, "payload": null } },
+      "expect": { "key": "hero-copy", "known": true, "enabled": true, "variant": "variant-b", "value": "variant-b", "payload": null }
+    },
+    {
+      "name": "an object payload decodes on every lane",
+      "_note": "The web envelope carries the payload as a JSON STRING; the native SDKs hand it over decoded. The plane publishes the decoded value, so markup binding the payload never has to know which lane it is on.",
+      "key": "pricing-copy",
+      "native": { "key": "pricing-copy", "enabled": true, "variant": null, "payload": { "headline": "Ship faster", "seats": 5 } },
+      "web": { "key": "pricing-copy", "enabled": true, "variant": null, "reason": null, "metadata": { "id": 45, "version": 2, "payload": "{\"headline\":\"Ship faster\",\"seats\":5}" } },
+      "expect": { "key": "pricing-copy", "known": true, "enabled": true, "variant": null, "value": true, "payload": { "headline": "Ship faster", "seats": 5 } }
+    },
+    {
+      "name": "a scalar payload is a payload",
+      "_note": "PostHog payloads are arbitrary JSON. A lane that assumed an object would drop this one, which is why the action declares `payload` as `any` rather than `object`.",
+      "key": "max-uploads",
+      "native": { "key": "max-uploads", "enabled": true, "variant": null, "payload": 25 },
+      "web": { "key": "max-uploads", "enabled": true, "variant": null, "reason": null, "metadata": { "id": 46, "version": 1, "payload": "25" } },
+      "expect": { "key": "max-uploads", "known": true, "enabled": true, "variant": null, "value": true, "payload": 25 }
+    },
+    {
+      "name": "an array payload survives",
+      "key": "rollout-regions",
+      "native": { "key": "rollout-regions", "enabled": true, "variant": null, "payload": ["eu", "us"] },
+      "web": { "key": "rollout-regions", "enabled": true, "variant": null, "reason": null, "metadata": { "id": 47, "version": 1, "payload": "[\"eu\",\"us\"]" } },
+      "expect": { "key": "rollout-regions", "known": true, "enabled": true, "variant": null, "value": true, "payload": ["eu", "us"] }
+    },
+    {
+      "name": "a payload the server did not JSON-encode is still the author's value",
+      "_note": "Defensive, and deliberately not an error: a bare string that fails JSON.parse is passed through rather than dropped. Losing an author's payload because it was not quoted is worse than carrying a string.",
+      "key": "support-email",
+      "native": { "key": "support-email", "enabled": true, "variant": null, "payload": "help@example.com" },
+      "web": { "key": "support-email", "enabled": true, "variant": null, "reason": null, "metadata": { "id": 48, "version": 1, "payload": "help@example.com" } },
+      "expect": { "key": "support-email", "known": true, "enabled": true, "variant": null, "value": true, "payload": "help@example.com" }
+    },
+    {
+      "name": "a variant flag can carry a payload too",
+      "key": "checkout-experiment",
+      "native": { "key": "checkout-experiment", "enabled": true, "variant": "one-page", "payload": { "steps": 1 } },
+      "web": { "key": "checkout-experiment", "enabled": true, "variant": "one-page", "reason": null, "metadata": { "id": 49, "version": 4, "payload": "{\"steps\":1}", "has_experiment": true } },
+      "expect": { "key": "checkout-experiment", "known": true, "enabled": true, "variant": "one-page", "value": "one-page", "payload": { "steps": 1 } }
+    }
+  ],
+
+  "_note_absence": "The three states an unknown flag can be in, and why they are three and not one. `known:false` is a flag the evaluation DOES NOT CONTAIN — the project never defined it, or the key is a typo. `flags_pending` is the evaluation not having arrived yet, which clears itself. Only the first is terminal, and a lane that answers `enabled:false` for either is describing a measurement it never took (X2 typed-absence law).",
+
+  "absence": [
+    {
+      "name": "a key the evaluation does not contain is a typed absence",
+      "key": "never-shipped",
+      "loaded": true,
+      "table": ["new-checkout", "hero-copy"],
+      "expect": { "resolve": { "key": "never-shipped", "known": false, "enabled": false } }
+    },
+    {
+      "name": "a read before the first evaluation refuses, recoverably",
+      "key": "new-checkout",
+      "loaded": false,
+      "table": [],
+      "expect": { "error": "flags_pending", "recoverable": true }
+    },
+    {
+      "name": "an empty table that HAS loaded is a real answer, not a pending one",
+      "_note": "This is the row `flagsLoaded` exists for: a project with no flags and a project whose flags have not arrived both publish `{}`, and only one of them should make a screen wait.",
+      "key": "new-checkout",
+      "loaded": true,
+      "table": [],
+      "expect": { "resolve": { "key": "new-checkout", "known": false, "enabled": false } }
+    }
+  ],
+
+  "_note_exposure": "`$feature_flag_called` is the event experiments are computed from, so it is emitted on a READ and deduped per (flag, value, session) — an exposure re-counted on every re-render skews the experiment it measures. The native SDKs do this internally behind `sendFeatureFlagEvent`; the web lane does it by hand, which is why the dedupe key is pinned here.",
+
+  "exposure": [
+    { "name": "the first read of a flag reports", "key": "hero-copy", "value": "variant-b", "session": "s1", "seen": [], "expect": true },
+    { "name": "the same value in the same session does not report again", "key": "hero-copy", "value": "variant-b", "session": "s1", "seen": ["hero-copy:variant-b:s1"], "expect": false },
+    { "name": "a changed value reports again", "key": "hero-copy", "value": "variant-c", "session": "s1", "seen": ["hero-copy:variant-b:s1"], "expect": true },
+    { "name": "a new session reports again", "key": "hero-copy", "value": "variant-b", "session": "s2", "seen": ["hero-copy:variant-b:s1"], "expect": true },
+    { "name": "send_event false never reports", "key": "hero-copy", "value": "variant-b", "session": "s3", "seen": [], "sendEvent": false, "expect": false }
+  ]
+}

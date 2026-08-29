@@ -1,0 +1,17 @@
+<!-- The <tool> head row (proposals/webmcp.md): the agent interface. `action` is required
+     and `description` is required by the spec; `as` is optional and, when written, must
+     satisfy the WebMCP tool-name grammar. -->
+<stack>
+  <head>
+    <tool action="addTodo" description="Add a new item to the user's todo list." mutates="todos"/>
+    <tool as="search-products" action="search" description="Search the catalogue by text."/>
+    <tool description="A tool that names nothing."/>
+    <tool action="clearDone"/>
+    <tool as="clear done" action="clearDone" description="Remove every completed todo."/>
+    <variable as="todos">return []</variable>
+    <action as="addTodo" text="''">dsx.variable.todos.push({ text: text })</action>
+    <action as="search" query="''">return query</action>
+    <action as="clearDone">dsx.variable.todos = []</action>
+  </head>
+  <text value="{{ todos.length }}"/>
+</stack>

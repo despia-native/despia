@@ -1,7 +1,7 @@
 # Despia AI
 
 On-device inference for iOS, Android, macOS, Windows and Linux: completions,
-streaming, embeddings, speech, vision, and an agentic loop with tool calling.
+streaming, embeddings, speech-to-text, and an agentic loop with tool calling.
 Apache-2.0.
 
 ## Install
@@ -64,9 +64,45 @@ rather than copy (`ai_package_gate.rb` runs all of these in CI).
   measurement on the device, and a load below the floor is refused with a typed
   error rather than attempted and crashed.
 
-What it does NOT do yet, stated plainly: no engine source is vendored, so this
-release runs against MockEngine only. The pins are recorded in `vendor/VERSIONS`
-and the import is its own reviewable step.
+## What this build carries
+
+Four backends register at startup, and which of them a build carries is a
+link-time fact (`registerBuiltinBackends` in `mock/mock_backend.cpp`):
+
+- **`gguf`** (llama.cpp) - text completion with streaming, embeddings, GBNF
+  grammars and structured output, tool calling, tokenize, mmap.
+- **`whisper`** (whisper.cpp) - transcribe, streaming `listen` with partials,
+  VAD, language detection, timestamps.
+- **`g2p`** - text to phonemes from a `.dspg` pack. It links nothing and is
+  compiled in unconditionally.
+- **MockEngine** - one deterministic backend behind the same ABI, which is what
+  the fixtures run against.
+
+The engine sources are vendored under `vendor/` (ggml, llama.cpp,
+whisper.cpp), committed rather than fetched, each MIT and each pinned to a
+commit in `vendor/VERSIONS`. `docs/vendoring.md` is the import record, including
+the prune lists and the two patches.
+
+## What it does NOT do yet, stated plainly
+
+- **No vision.** llama.cpp's multimodal projector (`tools/mtmd`) is not
+  vendored and `LLAMA_BUILD_MTMD` is off, so no REAL backend here accepts an
+  image. Read this one carefully if you adapt to `despia_ai_capabilities()`:
+  MockEngine advertises the `image` modality, and the report is the union over
+  every registered backend, so `modalities` lists `image` on a build that cannot
+  infer from one. Check `engines` and the catalog entry, not `modalities` alone.
+- **No speech synthesis.** The speech backend transcribes and the g2p backend
+  produces phonemes; nothing here renders audio. The outbound tiers are
+  `docs/voices.md`, and the neural one is not carried.
+- **No GPU on the SPM lane.** Apple builds are CPU only, for the two mechanical
+  reasons `Package.swift` names in its own header. Metal and Accelerate are
+  absent rather than half-wired.
+- **The real backends are compiled and hand-run, not continuously gated.** The
+  conformance corpus (`node conformance/run.ts ai`) and the Kotlin/JVM lane both
+  drive the real C ABI with the MOCK backend, because a weights file is not in
+  this repository. `engine/test/model_smoke.c`, `stream_smoke.c` and
+  `governor_smoke.c` are the real-weights drivers: they are built so they cannot
+  rot, and they are run by hand against a downloaded model.
 
 ## Docs
 

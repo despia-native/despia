@@ -1,0 +1,290 @@
+{
+  "_note": "THE EVENT PAYLOADS — what `on:stateChange`, `on:event`, `on:load` and `on:error` actually deliver. THE LAW. (1) `on:stateChange` is `{machine, state}` and fires on a TRANSITION, not on an advance: a state that survives sixty frames is one emission, and returning to a previous state emits again. A machine advancing at 60/s that reported every frame would be a handler storm, and an author would debounce it in markup, badly. (2) `on:event` is `{name, properties}`. Properties keep booleans, finite numbers and strings; anything else is DROPPED and counted, because a bus payload is data and a nested handle is not portable. Keys are emitted in sorted order so three renderers agree. (3) A RIVE openUrl EVENT IS DATA, NEVER A NAVIGATION. The .riv file is an asset, and an asset that could open a URL by itself would be a hole an OTA-delivered animation walks through: the fold delivers `{url, target}` as properties and the component navigates nothing. The author decides, in their own handler. (4) An unnamed event is dropped entirely. (5) `on:load` carries the resolved selection plus the artboard's INTRINSIC size, which is what a caller needs to size a box around it. (6) `on:error` is `{code, message}` over a closed code set; an unknown code keeps the code and takes the generic message rather than vanishing. Functions: riveStateChanges · riveEventPayload · riveLoadPayload · riveErrorPayload on all three.",
+  "stateChanges": [
+    {
+      "name": "the first observed state is emitted",
+      "machine": "Cart",
+      "states": [
+        "Idle"
+      ],
+      "emitted": [
+        {
+          "machine": "Cart",
+          "state": "Idle"
+        }
+      ]
+    },
+    {
+      "name": "a repeated state is NOT re-emitted, however many advances it survives",
+      "machine": "Cart",
+      "states": [
+        "Idle",
+        "Idle",
+        "Idle"
+      ],
+      "emitted": [
+        {
+          "machine": "Cart",
+          "state": "Idle"
+        }
+      ]
+    },
+    {
+      "name": "every real transition is one emission",
+      "machine": "Cart",
+      "states": [
+        "Idle",
+        "Filling",
+        "Full"
+      ],
+      "emitted": [
+        {
+          "machine": "Cart",
+          "state": "Idle"
+        },
+        {
+          "machine": "Cart",
+          "state": "Filling"
+        },
+        {
+          "machine": "Cart",
+          "state": "Full"
+        }
+      ]
+    },
+    {
+      "name": "returning to a previous state emits again",
+      "machine": "Cart",
+      "states": [
+        "Idle",
+        "Full",
+        "Idle"
+      ],
+      "emitted": [
+        {
+          "machine": "Cart",
+          "state": "Idle"
+        },
+        {
+          "machine": "Cart",
+          "state": "Full"
+        },
+        {
+          "machine": "Cart",
+          "state": "Idle"
+        }
+      ]
+    },
+    {
+      "name": "a blank state name is not a state",
+      "machine": "Cart",
+      "states": [
+        "",
+        "  ",
+        "Idle"
+      ],
+      "emitted": [
+        {
+          "machine": "Cart",
+          "state": "Idle"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "a plain rive event carries its name and no properties",
+      "event": "CheckoutTapped",
+      "properties": {},
+      "result": {
+        "payload": {
+          "name": "CheckoutTapped",
+          "properties": {}
+        },
+        "dropped": 0
+      }
+    },
+    {
+      "name": "properties keep booleans, finite numbers and strings, in sorted order",
+      "event": "Scored",
+      "properties": {
+        "points": 12.5,
+        "perfect": true,
+        "label": "combo"
+      },
+      "result": {
+        "payload": {
+          "name": "Scored",
+          "properties": {
+            "label": "combo",
+            "perfect": true,
+            "points": 12.5
+          }
+        },
+        "dropped": 0
+      }
+    },
+    {
+      "name": "a nested object property is DROPPED and counted, never flattened",
+      "event": "Scored",
+      "properties": {
+        "points": 1,
+        "meta": {
+          "a": 1
+        }
+      },
+      "result": {
+        "payload": {
+          "name": "Scored",
+          "properties": {
+            "points": 1.0
+          }
+        },
+        "dropped": 1
+      }
+    },
+    {
+      "name": "an openUrl rive event is delivered as DATA; nothing navigates",
+      "event": "OpenDocs",
+      "properties": {
+        "url": "https://rive.app",
+        "target": "_blank"
+      },
+      "result": {
+        "payload": {
+          "name": "OpenDocs",
+          "properties": {
+            "target": "_blank",
+            "url": "https://rive.app"
+          }
+        },
+        "dropped": 0
+      }
+    },
+    {
+      "name": "an unnamed rive event is dropped entirely",
+      "event": "   ",
+      "properties": {
+        "a": 1
+      },
+      "result": {
+        "payload": null,
+        "dropped": 0
+      }
+    },
+    {
+      "name": "the event name is trimmed",
+      "event": " Tapped ",
+      "properties": {},
+      "result": {
+        "payload": {
+          "name": "Tapped",
+          "properties": {}
+        },
+        "dropped": 0
+      }
+    }
+  ],
+  "load": [
+    {
+      "name": "a machine load reports the machine and the intrinsic size",
+      "selection": {
+        "artboard": "Main",
+        "stateMachine": "Main",
+        "animation": null,
+        "mode": "machine",
+        "error": null
+      },
+      "size": [
+        400,
+        300
+      ],
+      "payload": {
+        "artboard": "Main",
+        "stateMachine": "Main",
+        "animation": null,
+        "width": 400.0,
+        "height": 300.0
+      }
+    },
+    {
+      "name": "an animation load reports the animation and a null machine",
+      "selection": {
+        "artboard": "Cart",
+        "stateMachine": null,
+        "animation": "bounce",
+        "mode": "animation",
+        "error": null
+      },
+      "size": [
+        128,
+        128
+      ],
+      "payload": {
+        "artboard": "Cart",
+        "stateMachine": null,
+        "animation": "bounce",
+        "width": 128.0,
+        "height": 128.0
+      }
+    }
+  ],
+  "errors": [
+    {
+      "name": "the not_found message",
+      "code": "not_found",
+      "payload": {
+        "code": "not_found",
+        "message": "the artboard, state machine or animation this <rive> names is not in the file"
+      }
+    },
+    {
+      "name": "the no_source message",
+      "code": "no_source",
+      "payload": {
+        "code": "no_source",
+        "message": "<rive> has no src"
+      }
+    },
+    {
+      "name": "the decode_failed message",
+      "code": "decode_failed",
+      "payload": {
+        "code": "decode_failed",
+        "message": "this .riv file could not be decoded"
+      }
+    },
+    {
+      "name": "the load_failed message",
+      "code": "load_failed",
+      "payload": {
+        "code": "load_failed",
+        "message": "the .riv file could not be loaded"
+      }
+    },
+    {
+      "name": "the unsupported_platform message",
+      "code": "unsupported_platform",
+      "payload": {
+        "code": "unsupported_platform",
+        "message": "this platform ships no Rive runtime"
+      }
+    },
+    {
+      "name": "an unknown code keeps the code and takes the generic message",
+      "code": "weird",
+      "payload": {
+        "code": "weird",
+        "message": "this <rive> could not be played"
+      }
+    },
+    {
+      "name": "a blank code IS load_failed",
+      "code": "  ",
+      "payload": {
+        "code": "load_failed",
+        "message": "the .riv file could not be loaded"
+      }
+    }
+  ]
+}

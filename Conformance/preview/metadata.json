@@ -1,0 +1,367 @@
+{
+  "_note": "Core/Preview (F17.1) — the platform-neutral corpus for rich link previews. Four decisions are pinned here because every hand-written OG scraper gets a different answer to each of them, and Despia has three renderers: (1) which URLs are fetchable at all, (2) how a reference found in a document resolves against the document's own URL, (3) which tag wins for each field, (4) the fetch budget. Read by kernel/test/linkpreview-conformance.test.ts (TS, reference), :core LinkPreviewConformanceTest (Kotlin) and the module facets' shared core. Expected values were authored by hand from RFC 3986 and the Open Graph protocol, never recorded from an implementation.",
+
+  "budget": {
+    "_note": "A cap only two of three renderers honour is not a cap. maxBytes is the FIRST-BYTES cap: the head is all a preview needs, and an unbounded read of an attacker-chosen URL is a memory-exhaustion primitive.",
+    "maxBytes": 262144,
+    "maxRedirects": 5,
+    "defaultTimeoutMs": 8000,
+    "minTimeoutMs": 1000,
+    "maxTimeoutMs": 30000
+  },
+
+  "timeout": [
+    { "name": "absent falls back to the default", "raw": null, "expect": 8000 },
+    { "name": "zero is not a timeout", "raw": 0, "expect": 8000 },
+    { "name": "negative is not a timeout", "raw": -400, "expect": 8000 },
+    { "name": "below the floor clamps up", "raw": 50, "expect": 1000 },
+    { "name": "inside the band is honoured", "raw": 4500, "expect": 4500 },
+    { "name": "a fractional millisecond rounds", "raw": 4500.6, "expect": 4501 },
+    { "name": "above the ceiling clamps down rather than refusing", "raw": 300000, "expect": 30000 },
+    { "name": "the ceiling itself is honoured", "raw": 30000, "expect": 30000 }
+  ],
+
+  "url": [
+    {
+      "name": "a bare host gets the root path",
+      "raw": "https://example.com",
+      "ok": true,
+      "value": { "url": "https://example.com/", "origin": "https://example.com", "host": "example.com", "scheme": "https", "path": "/" }
+    },
+    {
+      "name": "scheme and host fold to lowercase, the path does not",
+      "raw": "HTTPS://Example.COM/Blog/Post",
+      "ok": true,
+      "value": { "url": "https://example.com/Blog/Post", "origin": "https://example.com", "host": "example.com", "scheme": "https", "path": "/Blog/Post" }
+    },
+    {
+      "name": "the default port is dropped so two spellings of one origin agree",
+      "raw": "https://example.com:443/a",
+      "ok": true,
+      "value": { "url": "https://example.com/a", "origin": "https://example.com", "host": "example.com", "scheme": "https", "path": "/a" }
+    },
+    {
+      "name": "the http default port is dropped too",
+      "raw": "http://example.com:80/a",
+      "ok": true,
+      "value": { "url": "http://example.com/a", "origin": "http://example.com", "host": "example.com", "scheme": "http", "path": "/a" }
+    },
+    {
+      "name": "a non-default port stays part of the origin",
+      "raw": "http://example.com:8080/a",
+      "ok": true,
+      "value": { "url": "http://example.com:8080/a", "origin": "http://example.com:8080", "host": "example.com:8080", "scheme": "http", "path": "/a" }
+    },
+    {
+      "name": "query and fragment survive, the path is normalized",
+      "raw": "https://example.com/a/b/?x=1#y",
+      "ok": true,
+      "value": { "url": "https://example.com/a/b/?x=1#y", "origin": "https://example.com", "host": "example.com", "scheme": "https", "path": "/a/b/" }
+    },
+    {
+      "name": "dot segments are removed before the URL is ever shown",
+      "raw": "https://example.com/a/./b/../c",
+      "ok": true,
+      "value": { "url": "https://example.com/a/c", "origin": "https://example.com", "host": "example.com", "scheme": "https", "path": "/a/c" }
+    },
+    {
+      "name": "a leading query with no path gets the root path",
+      "raw": "https://example.com?q=1",
+      "ok": true,
+      "value": { "url": "https://example.com/?q=1", "origin": "https://example.com", "host": "example.com", "scheme": "https", "path": "/" }
+    },
+    {
+      "name": "surrounding whitespace is trimmed, not refused",
+      "raw": "   https://example.com/a   ",
+      "ok": true,
+      "value": { "url": "https://example.com/a", "origin": "https://example.com", "host": "example.com", "scheme": "https", "path": "/a" }
+    },
+    { "name": "empty is not a URL", "raw": "", "ok": false, "error": "invalid_url" },
+    { "name": "a bare host is not a URL — guessing the scheme is how a preview reaches an intranet", "raw": "example.com/a", "ok": false, "error": "invalid_url" },
+    { "name": "a single slash after the scheme is malformed", "raw": "https:/example.com", "ok": false, "error": "invalid_url" },
+    { "name": "no authority at all", "raw": "https://", "ok": false, "error": "invalid_url" },
+    { "name": "a non-numeric port is malformed", "raw": "https://example.com:https/a", "ok": false, "error": "invalid_url" },
+    { "name": "file: would make the scraper a local-file exfiltration gadget", "raw": "file:///etc/passwd", "ok": false, "error": "unsupported_scheme" },
+    { "name": "data: carries its own payload and is never fetched", "raw": "data:text/html,<title>x</title>", "ok": false, "error": "unsupported_scheme" },
+    { "name": "javascript: is refused before anything can interpret it", "raw": "javascript:alert(1)", "ok": false, "error": "unsupported_scheme" },
+    { "name": "a custom app scheme is not previewable", "raw": "myapp://open/thing", "ok": false, "error": "unsupported_scheme" },
+    { "name": "userinfo would be logged, cached and handed to a redirect target", "raw": "https://user:pass@example.com/a", "ok": false, "error": "credentials_in_url" },
+    { "name": "a bare username is still a credential", "raw": "https://user@example.com/a", "ok": false, "error": "credentials_in_url" }
+  ],
+
+  "reference": [
+    {
+      "_note": "Every case resolves against ONE base so the table reads as a single document's links.",
+      "name": "a sibling file resolves inside the document's directory",
+      "base": "https://example.com/blog/post.html",
+      "ref": "img.png",
+      "expect": "https://example.com/blog/img.png"
+    },
+    { "name": "an absolute path resolves against the origin", "base": "https://example.com/blog/post.html", "ref": "/img.png", "expect": "https://example.com/img.png" },
+    { "name": "a scheme-relative reference inherits the document's scheme", "base": "https://example.com/blog/post.html", "ref": "//cdn.example.com/a.png", "expect": "https://cdn.example.com/a.png" },
+    { "name": "a parent reference climbs one directory", "base": "https://example.com/blog/post.html", "ref": "../up.png", "expect": "https://example.com/up.png" },
+    { "name": "current-directory dots are removed", "base": "https://example.com/blog/post.html", "ref": "./a/./b.png", "expect": "https://example.com/blog/a/b.png" },
+    { "name": "climbing past the root stops at the root", "base": "https://example.com/blog/post.html", "ref": "../../../x.png", "expect": "https://example.com/x.png" },
+    { "name": "an absolute reference to another origin is kept", "base": "https://example.com/blog/post.html", "ref": "http://other.test/x.png", "expect": "http://other.test/x.png" },
+    { "name": "a query-only reference keeps the document path", "base": "https://example.com/blog/post.html", "ref": "?page=2", "expect": "https://example.com/blog/post.html?page=2" },
+    { "name": "a fragment-only reference keeps the document path", "base": "https://example.com/blog/post.html", "ref": "#section", "expect": "https://example.com/blog/post.html#section" },
+    { "name": "a relative reference keeps its own query", "base": "https://example.com/blog/post.html", "ref": "img.png?v=2", "expect": "https://example.com/blog/img.png?v=2" },
+    { "name": "an empty reference is absence, not the document", "base": "https://example.com/blog/post.html", "ref": "", "expect": "" },
+    { "name": "whitespace-only is absence", "base": "https://example.com/blog/post.html", "ref": "   ", "expect": "" },
+    { "name": "a data: image cannot be smuggled through the image slot", "base": "https://example.com/blog/post.html", "ref": "data:image/png;base64,AAAA", "expect": "" },
+    { "name": "a javascript: href cannot be smuggled through the favicon slot", "base": "https://example.com/blog/post.html", "ref": "javascript:alert(1)", "expect": "" },
+    { "name": "a directory base resolves relative refs inside itself", "base": "https://example.com/blog/", "ref": "img.png", "expect": "https://example.com/blog/img.png" },
+    { "name": "a root base resolves relative refs at the root", "base": "https://example.com/", "ref": "img.png", "expect": "https://example.com/img.png" }
+  ],
+
+  "entities": [
+    { "name": "the ampersand every publisher name trips over", "raw": "AT&amp;T", "expect": "AT&T" },
+    { "name": "a numeric reference", "raw": "Caf&#233;", "expect": "Café" },
+    { "name": "a hex reference", "raw": "&#x2764; you", "expect": "❤ you" },
+    { "name": "an unknown entity is left verbatim rather than dropped", "raw": "Tom &unknown; Jerry", "expect": "Tom &unknown; Jerry" },
+    { "name": "a bare ampersand is not an entity", "raw": "R&D", "expect": "R&D" },
+    { "name": "named punctuation", "raw": "Quote &ldquo;this&rdquo; &mdash; now", "expect": "Quote “this” — now" },
+    { "name": "an unterminated entity survives", "raw": "a &amp b", "expect": "a &amp b" },
+    { "name": "quotes decode inside an attribute value", "raw": "He said &quot;hi&quot;", "expect": "He said \"hi\"" }
+  ],
+
+  "collapse": [
+    { "name": "a title split across source lines becomes one line", "raw": "  My\n   Great\tTitle  ", "expect": "My Great Title" },
+    { "name": "a non-breaking space is whitespace for this purpose", "raw": "A\u00a0\u00a0B", "expect": "A B" },
+    { "name": "empty stays empty", "raw": "   ", "expect": "" }
+  ],
+
+  "siteFallback": [
+    { "name": "www is not a publisher name", "host": "www.example.com", "expect": "example.com" },
+    { "name": "a bare host is its own name", "host": "example.com", "expect": "example.com" },
+    { "name": "a port is not part of the name", "host": "example.com:8080", "expect": "example.com" },
+    { "name": "a deeper subdomain is kept — news.bbc.co.uk is not bbc.co.uk", "host": "news.example.com", "expect": "news.example.com" }
+  ],
+
+  "parse": [
+    {
+      "name": "a fully tagged page — Open Graph wins every field it declares",
+      "requestUrl": "https://example.com/blog/post.html",
+      "html": "<html><head><title>Document title</title><meta property=\"og:title\" content=\"Open Graph title\"><meta name=\"twitter:title\" content=\"Twitter title\"><meta property=\"og:description\" content=\"The OG description\"><meta name=\"description\" content=\"The plain description\"><meta property=\"og:image\" content=\"/hero.png\"><meta property=\"og:site_name\" content=\"Example Press\"><meta property=\"og:type\" content=\"article\"><link rel=\"canonical\" href=\"https://example.com/blog/post\"><link rel=\"icon\" href=\"/favicon-32.png\"></head><body>ignored</body></html>",
+      "expect": {
+        "title": "Open Graph title",
+        "description": "The OG description",
+        "image": "https://example.com/hero.png",
+        "siteName": "Example Press",
+        "favicon": "https://example.com/favicon-32.png",
+        "type": "article",
+        "canonical": "https://example.com/blog/post"
+      }
+    },
+    {
+      "name": "a bare page — every field falls back, nothing is null",
+      "requestUrl": "https://www.example.com/a/b",
+      "html": "<html><head></head><body>hello</body></html>",
+      "expect": {
+        "title": "",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://www.example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://www.example.com/a/b"
+      }
+    },
+    {
+      "name": "Twitter cards fill in where Open Graph is absent",
+      "requestUrl": "https://example.com/t",
+      "html": "<head><meta name=\"twitter:title\" content=\"Card title\"><meta name=\"twitter:description\" content=\"Card body\"><meta name=\"twitter:image\" content=\"https://cdn.example.com/card.jpg\"></head>",
+      "expect": {
+        "title": "Card title",
+        "description": "Card body",
+        "image": "https://cdn.example.com/card.jpg",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/t"
+      }
+    },
+    {
+      "name": "the document title is the last title fallback",
+      "requestUrl": "https://example.com/t",
+      "html": "<head>\n  <title>\n    Spread   over\n    lines\n  </title>\n</head>",
+      "expect": {
+        "title": "Spread over lines",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/t"
+      }
+    },
+    {
+      "name": "the first occurrence of a key wins — an injected second og:image cannot override the publisher",
+      "requestUrl": "https://example.com/p",
+      "html": "<head><meta property=\"og:image\" content=\"/real.png\"><meta property=\"og:image\" content=\"https://evil.test/fake.png\"></head>",
+      "expect": {
+        "title": "",
+        "description": "",
+        "image": "https://example.com/real.png",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/p"
+      }
+    },
+    {
+      "name": "entities decode inside every field",
+      "requestUrl": "https://example.com/p",
+      "html": "<head><meta property=\"og:title\" content=\"Ben &amp; Jerry&#39;s\"><meta property=\"og:description\" content=\"Caf&#233; life\"></head>",
+      "expect": {
+        "title": "Ben & Jerry's",
+        "description": "Café life",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/p"
+      }
+    },
+    {
+      "name": "single-quoted and unquoted attributes parse the same as double-quoted ones",
+      "requestUrl": "https://example.com/p",
+      "html": "<head><meta property='og:title' content='Single quoted'><meta property=og:type content=video></head>",
+      "expect": {
+        "title": "Single quoted",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "video",
+        "canonical": "https://example.com/p"
+      }
+    },
+    {
+      "name": "a comment holding a tag is not a tag",
+      "requestUrl": "https://example.com/p",
+      "html": "<head><!-- <meta property=\"og:title\" content=\"Commented out\"> --><meta property=\"og:title\" content=\"Real\"></head>",
+      "expect": {
+        "title": "Real",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/p"
+      }
+    },
+    {
+      "name": "a script body holding a tag-shaped string is not scanned",
+      "requestUrl": "https://example.com/p",
+      "html": "<head><script>var s = '<meta property=\"og:title\" content=\"From script\">';</script><meta property=\"og:title\" content=\"From markup\"></head>",
+      "expect": {
+        "title": "From markup",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/p"
+      }
+    },
+    {
+      "name": "the scan stops at </head> — body content never becomes a preview",
+      "requestUrl": "https://example.com/p",
+      "html": "<head><meta property=\"og:title\" content=\"Head\"></head><body><meta property=\"og:description\" content=\"Body injected\"></body>",
+      "expect": {
+        "title": "Head",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/p"
+      }
+    },
+    {
+      "name": "rel is a token list, so `shortcut icon` supplies the favicon",
+      "requestUrl": "https://example.com/p",
+      "html": "<head><link rel=\"shortcut icon\" href=\"favicon.png\"></head>",
+      "expect": {
+        "title": "",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.png",
+        "type": "website",
+        "canonical": "https://example.com/p"
+      }
+    },
+    {
+      "name": "og:url supplies the canonical when no link[rel=canonical] exists",
+      "requestUrl": "https://example.com/p?utm_source=x",
+      "html": "<head><meta property=\"og:url\" content=\"https://example.com/clean\"></head>",
+      "expect": {
+        "title": "",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/clean"
+      }
+    },
+    {
+      "name": "link[rel=canonical] outranks og:url",
+      "requestUrl": "https://example.com/p",
+      "html": "<head><link rel=\"canonical\" href=\"/from-link\"><meta property=\"og:url\" content=\"https://example.com/from-og\"></head>",
+      "expect": {
+        "title": "",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/from-link"
+      }
+    },
+    {
+      "name": "uppercase tag and attribute names parse — HTML is case-insensitive",
+      "requestUrl": "https://example.com/p",
+      "html": "<HEAD><META PROPERTY=\"OG:TITLE\" CONTENT=\"Shouty\"></HEAD>",
+      "expect": {
+        "title": "Shouty",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/p"
+      }
+    },
+    {
+      "name": "og:image:url fills in for a page that only declares the structured form",
+      "requestUrl": "https://example.com/p",
+      "html": "<head><meta property=\"og:image:url\" content=\"//cdn.example.com/x.jpg\"><meta property=\"og:image:width\" content=\"1200\"></head>",
+      "expect": {
+        "title": "",
+        "description": "",
+        "image": "https://cdn.example.com/x.jpg",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/p"
+      }
+    },
+    {
+      "name": "a truncated response still yields what it had — a 256 KB cut mid-tag is the normal case",
+      "requestUrl": "https://example.com/p",
+      "html": "<head><meta property=\"og:title\" content=\"Made it\"><meta property=\"og:desc",
+      "expect": {
+        "title": "Made it",
+        "description": "",
+        "image": "",
+        "siteName": "example.com",
+        "favicon": "https://example.com/favicon.ico",
+        "type": "website",
+        "canonical": "https://example.com/p"
+      }
+    }
+  ]
+}

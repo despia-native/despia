@@ -90,6 +90,8 @@ private fun M3StepperView(ctx: ComposeStackComponentContext) {
     val upper = maxOf(hi, lo + step)                              // the Swift range guard
     val value = JSE.number(ctl.boundValue(key)) ?: lo
     val label = ctx.str("label")
+    // disabled= / disabled-if= (W9): forces both halves beyond the clamp guard
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     val authored = ctl.interp("color")
     val colors = if (authored.isNullOrEmpty()) IconButtonDefaults.filledTonalIconButtonColors()
                  else IconButtonDefaults.filledTonalIconButtonColors(
@@ -107,13 +109,13 @@ private fun M3StepperView(ctx: ComposeStackComponentContext) {
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             FilledTonalIconButton(
                 onClick = { ctl.setBound(key, (value - step).coerceIn(lo, upper)) },  // on:change from the seam
-                enabled = value - step >= lo - 1e-9,
+                enabled = !disabled && value - step >= lo - 1e-9,
                 colors = colors,
             ) { StackIcon("minus", 20.0, LocalContentColor.current) }   // M3-path glyph size (out of parity spec)
             Box(Modifier.widthIn(min = 24.dp), contentAlignment = Alignment.Center) { Text(valueText) }
             FilledTonalIconButton(
                 onClick = { ctl.setBound(key, (value + step).coerceIn(lo, upper)) },
-                enabled = value + step <= upper + 1e-9,
+                enabled = !disabled && value + step <= upper + 1e-9,
                 colors = colors,
             ) { StackIcon("plus", 20.0, LocalContentColor.current) }   // M3-path glyph size (out of parity spec)
         }
@@ -132,6 +134,8 @@ private fun LegacyStepperView(ctx: ComposeStackComponentContext) {
     val upper = maxOf(hi, lo + step)                              // the Swift range guard
     val value = JSE.number(ctl.boundValue(key)) ?: lo
     val label = ctx.str("label")
+    // disabled= / disabled-if= (W9): forces both halves beyond the clamp guard
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     ctx.str("color", ElementDefaults.STEPPER_TINT)                // accepted like iOS .tint — see header
 
     Row(Modifier.elementModifier(ctx).then(Modifier.fillMaxWidth()),
@@ -147,7 +151,7 @@ private fun LegacyStepperView(ctx: ComposeStackComponentContext) {
             StepButton(
                 "−",
                 description = DSXStrings.localize("Decrease"),
-                enabled = value - step >= lo - 1e-9,
+                enabled = !disabled && value - step >= lo - 1e-9,
                 modifier = Modifier.weight(1f),
             ) {
                 ctl.setBound(key, (value - step).coerceIn(lo, upper))   // on:change from the write seam
@@ -157,7 +161,7 @@ private fun LegacyStepperView(ctx: ComposeStackComponentContext) {
             StepButton(
                 "+",
                 description = DSXStrings.localize("Increase"),
-                enabled = value + step <= upper + 1e-9,
+                enabled = !disabled && value + step <= upper + 1e-9,
                 modifier = Modifier.weight(1f),
             ) {
                 ctl.setBound(key, (value + step).coerceIn(lo, upper))

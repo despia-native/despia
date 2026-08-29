@@ -38,6 +38,7 @@ export type OverlayItem = Readonly<{
   args: Dict;
   disabled: boolean;
   separator: boolean;
+  shortcut: string;
   items: readonly OverlayItem[];
 }>;
 
@@ -127,12 +128,84 @@ export function normalizeOverlayItems(input: unknown): OverlayItem[] {
         args: (boundedArgument(row["args"] ?? {}, 0) as Dict | null) ?? {},
         disabled: truthy(row["disabled"] ?? false),
         separator: truthy(row["separator"] ?? false),
+        shortcut: boundedText(row["shortcut"] ?? "").trim(),
         items: level(row["items"], depth + 1),
       }));
     }
     return out;
   };
   return level(source, 0);
+}
+
+/** One primary-modifier convention per platform family, matching matchShortcut's
+ * `cmd` = meta-or-ctrl runtime behavior (Conformance/input/shortcut.json). */
+export function isApplePlatform(): boolean {
+  try {
+    const nav = navigator as { platform?: string; userAgent?: string };
+    return /mac|iphone|ipad|ipod/i.test(nav.platform ?? nav.userAgent ?? "");
+  } catch { return false; }
+}
+
+const SHORTCUT_MODIFIER_ORDER = ["ctrl", "alt", "shift", "cmd"] as const;
+const SHORTCUT_KEY_NAMES: Readonly<Record<string, { hint: string; appleHint?: string; aria: string }>> = {
+  enter: { hint: "Enter", appleHint: "↩", aria: "Enter" },
+  escape: { hint: "Esc", appleHint: "⎋", aria: "Escape" },
+  space: { hint: "Space", aria: "Space" },
+  tab: { hint: "Tab", appleHint: "⇥", aria: "Tab" },
+  backspace: { hint: "Backspace", appleHint: "⌫", aria: "Backspace" },
+  delete: { hint: "Del", appleHint: "⌦", aria: "Delete" },
+  arrowup: { hint: "↑", aria: "ArrowUp" },
+  arrowdown: { hint: "↓", aria: "ArrowDown" },
+  arrowleft: { hint: "←", aria: "ArrowLeft" },
+  arrowright: { hint: "→", aria: "ArrowRight" },
+};
+
+function shortcutParts(shortcut: string): { modifiers: string[]; key: string } | null {
+  const parts = shortcut.toLowerCase().split("+").map((part) => part.trim()).filter((part) => part.length > 0);
+  const key = parts.at(-1);
+  if (key === undefined || (SHORTCUT_MODIFIER_ORDER as readonly string[]).includes(key)) return null;
+  const declared = new Set(parts.slice(0, -1));
+  return { modifiers: SHORTCUT_MODIFIER_ORDER.filter((modifier) => declared.has(modifier)), key };
+}
+
+/** The visible right-aligned accelerator hint for a menu row, derived from the SAME
+ * `shortcut=` token grammar the mount-level accelerator matches: symbols on Apple
+ * platforms (⌃⌥⇧⌘S), `Ctrl+Alt+Shift+S` words elsewhere (`cmd` = the primary modifier). */
+export function formatShortcutHint(shortcut: string, apple: boolean): string {
+  const parts = shortcutParts(shortcut);
+  if (parts === null) return "";
+  const named = SHORTCUT_KEY_NAMES[parts.key];
+  const key = named !== undefined ? (apple ? named.appleHint ?? named.hint : named.hint)
+    : parts.key.length === 1 ? parts.key.toUpperCase()
+    : parts.key.charAt(0).toUpperCase() + parts.key.slice(1);
+  if (apple) {
+    const symbols: Readonly<Record<string, string>> = { ctrl: "⌃", alt: "⌥", shift: "⇧", cmd: "⌘" };
+    return parts.modifiers.map((modifier) => symbols[modifier]!).join("") + key;
+  }
+  const words: Readonly<Record<string, string>> = { ctrl: "Ctrl", alt: "Alt", shift: "Shift", cmd: "Ctrl" };
+  const rendered: string[] = [];
+  for (const modifier of parts.modifiers) {
+    const word = words[modifier]!;
+    if (!rendered.includes(word)) rendered.push(word);
+  }
+  return [...rendered, key].join("+");
+}
+
+/** The machine-readable `aria-keyshortcuts` value for the same declaration. */
+export function shortcutAriaValue(shortcut: string, apple: boolean): string {
+  const parts = shortcutParts(shortcut);
+  if (parts === null) return "";
+  const words: Readonly<Record<string, string>> = { ctrl: "Control", alt: "Alt", shift: "Shift", cmd: apple ? "Meta" : "Control" };
+  const rendered: string[] = [];
+  for (const modifier of parts.modifiers) {
+    const word = words[modifier]!;
+    if (!rendered.includes(word)) rendered.push(word);
+  }
+  const named = SHORTCUT_KEY_NAMES[parts.key];
+  const key = named !== undefined ? named.aria
+    : parts.key.length === 1 ? parts.key.toUpperCase()
+    : parts.key.charAt(0).toUpperCase() + parts.key.slice(1);
+  return [...rendered, key].join("+");
 }
 
 export function normalizeSheetDetents(input: unknown): SheetDetent[] {
@@ -293,7 +366,7 @@ function refreshBackgroundLock(): void {
   }
 }
 
-function activateLayer(layer: HTMLElement, modal: boolean): boolean {
+export function activateLayer(layer: HTMLElement, modal: boolean): boolean {
   if (activeLayers.some((entry) => entry.layer === layer)) return true;
   if (activeLayers.length >= OVERLAY_LIMITS.maxOpenDepth) {
     console.warn(`[dsx dom] refusing overlay depth above ${OVERLAY_LIMITS.maxOpenDepth}`);
@@ -305,7 +378,7 @@ function activateLayer(layer: HTMLElement, modal: boolean): boolean {
   return true;
 }
 
-function deactivateLayer(layer: HTMLElement): void {
+export function deactivateLayer(layer: HTMLElement): void {
   const index = activeLayers.findIndex((entry) => entry.layer === layer);
   if (index >= 0) activeLayers.splice(index, 1);
   layer.style.removeProperty("--dsx-overlay-level");
@@ -317,7 +390,7 @@ function deactivateLayer(layer: HTMLElement): void {
   refreshBackgroundLock();
 }
 
-function isTopLayer(layer: HTMLElement): boolean {
+export function isTopLayer(layer: HTMLElement): boolean {
   return activeLayers.at(-1)?.layer === layer;
 }
 
@@ -343,13 +416,13 @@ function focusables(panel: HTMLElement): HTMLElement[] {
   });
 }
 
-type LayerPortal = Readonly<{ mount(): void; unmount(): void }>;
+export type LayerPortal = Readonly<{ mount(): void; unmount(): void }>;
 
 /** Fixed overlays must escape a router frame's z-index stacking context: the system
  * route bar is a body-level sibling. A body portal keeps modal chrome above it while
  * a lightweight scope preserves the component owner/classes and computed DSX tokens
  * that ordinary sidecar CSS relies on. */
-function layerPortal(layer: HTMLElement, ctx: MountCtx): LayerPortal {
+export function layerPortal(layer: HTMLElement, ctx: MountCtx): LayerPortal {
   const home = layer.parentElement;
   if (home === null) throw new Error("overlay layer must have a host before binding");
   const scope = el("div", "dsx-overlay-portal-scope");
@@ -394,6 +467,10 @@ function layerPortal(layer: HTMLElement, ctx: MountCtx): LayerPortal {
       current = current.parentElement;
     }
   };
+  // A system scheme flip mutates no attribute, so the copied --dsx-* snapshot would
+  // otherwise stay stale on an OPEN portaled overlay (light drawer over a dark page).
+  const scheme = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
+  const onSchemeChange = (): void => { if (mounted) syncScope(); };
   return {
     mount() {
       if (mounted) { syncScope(); return; }
@@ -401,12 +478,14 @@ function layerPortal(layer: HTMLElement, ctx: MountCtx): LayerPortal {
       scope.appendChild(layer);
       document.body.appendChild(scope);
       observeScopeInputs();
+      scheme?.addEventListener("change", onSchemeChange);
       mounted = true;
     },
     unmount() {
       if (!mounted) return;
       observer?.disconnect();
       observer = null;
+      scheme?.removeEventListener("change", onSchemeChange);
       home.appendChild(layer);
       scope.remove();
       mounted = false;
@@ -438,6 +517,12 @@ function semanticTrigger(anchor: HTMLElement, panel: HTMLElement, popup: "dialog
 export type PresentationController = Readonly<{
   show(): void;
   dismiss(reason: string): void;
+  /** Programmatic close: emits the dismiss handler (like a bound present=false). */
+  close(): void;
+  /** Silent close for a PRESENTATION swap (e.g. Drawer modal -> standing on a media
+   * flip): releases the modal machinery without emitting dismiss or moving focus,
+   * because the surface is not logically closing. */
+  hide(): void;
   isOpen(): boolean;
 }>;
 
@@ -452,6 +537,9 @@ export function bindPresentation(
   panel: HTMLElement,
   options: {
     modal: boolean;
+    /** Default true: the controller owns the `present` binding. A factory that swaps
+     * presentations per media (Drawer) passes false and drives show/close itself. */
+    bindPresent?: boolean;
     initialFocus?: () => HTMLElement | null;
     restoreFocus?: () => HTMLElement | null;
     onOpen?: () => void;
@@ -462,6 +550,7 @@ export function bindPresentation(
   let open = false;
   let hadOpened = false;
   let pendingReason = "";
+  let silentClose = false;
   let restoreFocus: HTMLElement | null = null;
   let restoreTimer: ReturnType<typeof setTimeout> | null = null;
   let generation = 0;
@@ -553,8 +642,9 @@ export function bindPresentation(
     portal.unmount();
     const focusTarget = restoreFocus;
     restoreFocus = null;
-    if (hadOpened) api.handler("dismiss", { reason: pendingReason || reason });
+    if (hadOpened && !silentClose) api.handler("dismiss", { reason: pendingReason || reason });
     pendingReason = "";
+    if (silentClose) return;
     // WebKit may apply the clicked control's default focus after its handler has
     // synchronously closed the layer. Restore on the next task so the trigger wins
     // after that default action, while never stealing focus from a newer layer.
@@ -588,10 +678,20 @@ export function bindPresentation(
   layer.hidden = true;
   layer.inert = true;
   layer.setAttribute("aria-hidden", "true");
-  if (node.attrs["present"] !== undefined) {
+  if (options.bindPresent !== false && node.attrs["present"] !== undefined) {
     api.bindValue(node.attrs["present"], (value) => setOpen(truthy(value), "programmatic"));
   }
-  return { show: () => setOpen(true, "programmatic"), dismiss, isOpen: () => open };
+  return {
+    show: () => setOpen(true, "programmatic"),
+    dismiss,
+    close: () => setOpen(false, "programmatic"),
+    hide: () => {
+      if (!open) return;
+      silentClose = true;
+      try { setOpen(false, "presentation"); } finally { silentClose = false; }
+    },
+    isOpen: () => open,
+  };
 }
 
 function boundedChildren(node: XmlNode, slot?: string): readonly XmlNode[] {
@@ -732,6 +832,12 @@ export const sheet: ElementFactory = (node, ctx, api) => {
   heading.id = `dsx-sheet-title-${id}`;
   panel.setAttribute("aria-labelledby", heading.id);
   grabber.type = "button";
+  // The grabber is a real slider (discrete detent positions with a current value),
+  // and slider is the ARIA pattern that legitimizes its aria-value* state; a bare
+  // button carrying aria-valuenow is an axe-critical aria-allowed-attr violation.
+  // Click/ArrowUp/ArrowDown/Home/End behavior is unchanged.
+  grabber.setAttribute("role", "slider");
+  grabber.setAttribute("aria-orientation", "vertical");
   grabber.setAttribute("aria-label", "Resize sheet");
   close.type = "button";
   close.setAttribute("aria-label", "Close");
@@ -829,7 +935,7 @@ export const sheet: ElementFactory = (node, ctx, api) => {
 
 // ── floating presentations (popover/menu/context menu) ─────────────────────────────
 
-function positionFloating(
+export function positionFloating(
   anchor: HTMLElement,
   panel: HTMLElement,
   preference: FloatingPreference,
@@ -911,9 +1017,9 @@ export const popover: ElementFactory = (node, ctx, api) => {
   return host;
 };
 
-type MenuRender = { first: () => HTMLButtonElement | null };
+export type MenuRender = { first: () => HTMLButtonElement | null };
 
-function menuLevel(
+export function menuLevel(
   items: readonly OverlayItem[],
   controller: () => PresentationController,
   root: HTMLElement,
@@ -946,6 +1052,20 @@ function menuLevel(
     const label = el("span", "dsx-menu-item-label");
     label.textContent = item.title;
     button.appendChild(label);
+    // The right-aligned accelerator hint rides the SAME `shortcut=` token grammar the
+    // element-level accelerator matches (mount.ts matchShortcut). The visible glyphs
+    // are presentation (aria-hidden); AT reads the canonical aria-keyshortcuts value.
+    if (item.shortcut.length > 0 && item.items.length === 0) {
+      const apple = isApplePlatform();
+      const hintText = formatShortcutHint(item.shortcut, apple);
+      if (hintText.length > 0) {
+        const hint = el("span", "dsx-menu-item-shortcut");
+        hint.textContent = hintText;
+        hint.setAttribute("aria-hidden", "true");
+        button.appendChild(hint);
+        button.setAttribute("aria-keyshortcuts", shortcutAriaValue(item.shortcut, apple));
+      }
+    }
     row.appendChild(button);
     buttons.push(button);
 
@@ -1027,6 +1147,29 @@ function menuLevel(
   return { first: () => buttons.find((button) => !button.disabled) ?? null };
 }
 
+/** Escape WALKS UP one level (WAI-ARIA menu pattern): close only the deepest open
+ * submenu inside `scope` and return focus to its parent row, or report false so the
+ * caller closes the whole surface. Shared by menu, contextmenu and the MenuBar
+ * desktop flyouts. */
+export function closeDeepestSubmenu(scope: HTMLElement): boolean {
+  const open = [...scope.querySelectorAll<HTMLElement>(".dsx-submenu:not([hidden])")];
+  if (open.length === 0) return false;
+  const active = document.activeElement;
+  const containing = active instanceof Node ? open.filter((submenu) => submenu.contains(active)) : [];
+  let target = containing.at(-1) ?? open.at(-1)!;
+  for (;;) {
+    const child = target.querySelector<HTMLElement>(".dsx-submenu:not([hidden])");
+    if (child === null) break;
+    target = child;
+  }
+  target.hidden = true;
+  target.inert = true;
+  const parent = target.parentElement?.querySelector<HTMLElement>(":scope > .dsx-menu-item");
+  parent?.setAttribute("aria-expanded", "false");
+  parent?.focus({ preventScroll: true });
+  return true;
+}
+
 /** `<contextmenu>` opens on the platform's own long-press timing. UIKit's
  *  UILongPressGestureRecognizer (which UIContextMenuInteraction drives, and which
  *  ContextMenu.swift rides through SwiftUI's `.contextMenu`) fires at its default
@@ -1100,7 +1243,13 @@ function menuFactory(longPress: boolean): ElementFactory {
       trigger.focus({ preventScroll: true });
       api.handler("dismiss", { reason });
     };
-    controller = { show: () => open(), dismiss: close, isOpen: () => ownedOpen };
+    controller = {
+      show: () => open(),
+      dismiss: close,
+      close: () => close("programmatic"),
+      hide: () => close("programmatic"),
+      isOpen: () => ownedOpen,
+    };
 
     const outside = (event: PointerEvent): void => {
       const target = event.target as Node | null;
@@ -1109,8 +1258,10 @@ function menuFactory(longPress: boolean): ElementFactory {
     };
     const onKey = (event: KeyboardEvent): void => {
       if (!ownedOpen || !isTopLayer(layer)) return;
-      if (event.key === "Escape") { event.preventDefault(); close("escape"); }
-      else if (event.key === "Tab") close("tab");
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (!closeDeepestSubmenu(panel)) close("escape");
+      } else if (event.key === "Tab") close("tab");
     };
     const reposition = (): void => { if (ownedOpen) positionFloating(anchor, panel, "top", point); };
     document.addEventListener("pointerdown", outside, true);
@@ -1189,12 +1340,28 @@ export const OVERLAY_CONTROLS_CSS = `@layer dsx-elements {
   }
   .dsx-overlay-layer *, .dsx-floating-layer * { box-sizing: border-box; }
   .dsx-overlay-layer[hidden], .dsx-floating-layer[hidden] { display: none; }
-  .dsx-overlay-scrim { position: absolute; inset: 0; background: rgb(0 0 0 / .44); }
+  .dsx-overlay-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgb(0 0 0 / 0.32);
+    animation: dsx-overlay-fade var(--dsx-dur-base) linear both;
+  }
+  /* the blurred scrim (component-fidelity, wave 7): where backdrop filters exist the
+     dim drops to a low alpha and the page behind softens instead - both schemes read
+     the overlay as ABOVE the page rather than behind a gray pane */
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .dsx-overlay-scrim {
+      background: rgb(0 0 0 / 0.22);
+      -webkit-backdrop-filter: blur(8px) saturate(1.12);
+      backdrop-filter: blur(8px) saturate(1.12);
+    }
+  }
+  /* elevated overlay surfaces ride the 3-layer shadow-3: its contact line (light) /
+     inset inner highlight (dark) replaces the hard hairline border */
   .dsx-overlay-panel, .dsx-floating-panel {
     color: var(--dsx-label);
-    border: 1px solid color-mix(in srgb, var(--dsx-separator) 88%, transparent);
     background: color-mix(in srgb, var(--dsx-background) 94%, transparent);
-    box-shadow: 0 24px 70px rgb(0 0 0 / .24), 0 2px 8px rgb(0 0 0 / .12);
+    box-shadow: var(--dsx-shadow-3);
     -webkit-backdrop-filter: blur(24px) saturate(1.16);
     backdrop-filter: blur(24px) saturate(1.16);
   }
@@ -1206,39 +1373,69 @@ export const OVERLAY_CONTROLS_CSS = `@layer dsx-elements {
     width: min(calc(100vw - 32px), 26rem);
     max-height: min(80dvh, 42rem);
     overflow: auto;
-    border-radius: var(--dsx-radius-lg);
+    border-radius: var(--dsx-radius-card);
     transform: translate(-50%, -50%);
+    animation:
+      dsx-dialog-zoom var(--dsx-dur-base) var(--dsx-ease-spring) both,
+      dsx-overlay-fade var(--dsx-dur-base) linear both;
   }
   .dsx-confirm-panel {
     position: absolute;
     inset: auto max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
     max-height: min(82dvh, 44rem);
     overflow: auto;
-    border-radius: var(--dsx-radius-lg);
+    border-radius: var(--dsx-radius-card);
+    animation:
+      dsx-dialog-zoom var(--dsx-dur-base) var(--dsx-ease-spring) both,
+      dsx-overlay-fade var(--dsx-dur-base) linear both;
   }
-  .dsx-dialog-body { display: grid; gap: 6px; padding: 22px 20px 18px; text-align: center; }
+  .dsx-dialog-body {
+    display: grid;
+    gap: var(--dsx-space-1);
+    padding: var(--dsx-space-5) var(--dsx-space-5) var(--dsx-space-4);
+    text-align: center;
+  }
   .dsx-dialog-title, .dsx-dialog-message { margin: 0; overflow-wrap: anywhere; }
-  .dsx-dialog-title { font-size: 1.0625rem; line-height: 1.3; letter-spacing: -.015em; }
-  .dsx-dialog-message { color: var(--dsx-secondary-label); font-size: .875rem; line-height: 1.45; }
+  .dsx-dialog-title {
+    font-size: var(--dsx-type-title3-size);
+    font-weight: var(--dsx-type-title3-weight);
+    letter-spacing: var(--dsx-type-title3-tracking);
+    line-height: var(--dsx-type-headline-leading);
+  }
+  .dsx-dialog-message {
+    color: var(--dsx-secondary-label);
+    font-size: var(--dsx-type-footnote-size);
+    letter-spacing: var(--dsx-type-footnote-tracking);
+    line-height: var(--dsx-type-callout-leading);
+  }
   .dsx-dialog-title:empty, .dsx-dialog-message:empty { display: none; }
-  .dsx-dialog-actions { display: grid; border-top: 1px solid var(--dsx-separator); }
+  .dsx-dialog-actions { display: grid; border-top: var(--dsx-hairline) solid var(--dsx-separator); }
   .dsx-dialog-action {
     appearance: none;
-    min-height: 48px;
-    padding: 10px 16px;
+    min-height: var(--dsx-control-height-lg);
+    padding: var(--dsx-space-2) var(--dsx-space-4);
     border: 0;
-    border-top: 1px solid var(--dsx-separator);
+    border-top: var(--dsx-hairline) solid var(--dsx-separator);
     color: var(--dsx-accent);
     background: transparent;
     font: inherit;
-    font-weight: 560;
+    font-size: var(--dsx-type-body-size);
+    letter-spacing: var(--dsx-type-body-tracking);
+    font-weight: var(--dsx-type-label-weight);
     cursor: pointer;
+    transition: background-color var(--dsx-dur-fast) var(--dsx-ease);
   }
   .dsx-dialog-action:first-child { border-top: 0; }
   .dsx-dialog-action[data-dsx-role="destructive"] { color: var(--dsx-destructive); }
-  .dsx-dialog-action[data-dsx-role="cancel"] { font-weight: 700; }
-  .dsx-dialog-action:hover { background: var(--dsx-fill); }
-  .dsx-dialog-action:focus-visible { outline: 2px solid var(--dsx-accent); outline-offset: -3px; }
+  .dsx-dialog-action[data-dsx-role="cancel"] { font-weight: var(--dsx-type-headline-weight); }
+  .dsx-dialog-action:active:not(:disabled) { background: color-mix(in srgb, var(--dsx-fill) 94%, var(--dsx-label)); }
+  .dsx-dialog-action:disabled { opacity: .5; filter: saturate(.5); cursor: default; }
+  .dsx-dialog-action:focus-visible { outline: none; box-shadow: inset var(--dsx-focus-ring); }
+  .dsx-dialog-separator {
+    height: var(--dsx-space-2);
+    border-top: var(--dsx-hairline) solid var(--dsx-separator);
+    background: var(--dsx-grouped-background);
+  }
 
   .dsx-sheet-panel {
     position: absolute;
@@ -1248,9 +1445,10 @@ export const OVERLAY_CONTROLS_CSS = `@layer dsx-elements {
     width: 100%;
     max-height: calc(100dvh - env(safe-area-inset-top) - 8px);
     overflow: hidden;
-    border-radius: 22px 22px 0 0;
+    border-radius: var(--dsx-radius-sheet) var(--dsx-radius-sheet) 0 0;
     background: var(--dsx-sheet-background, var(--dsx-background));
-    transition: height 220ms cubic-bezier(.2,.8,.2,1), transform 220ms cubic-bezier(.2,.8,.2,1);
+    animation: dsx-sheet-up var(--dsx-dur-slow) var(--dsx-ease-spring-soft) both;
+    transition: height var(--dsx-dur-base) var(--dsx-ease);
   }
   .dsx-sheet-panel[data-dsx-background="system"] { background: color-mix(in srgb, var(--dsx-background) 94%, transparent); }
   .dsx-sheet-panel[data-dsx-detent="content"] { height: auto; max-height: 90dvh; }
@@ -1260,26 +1458,56 @@ export const OVERLAY_CONTROLS_CSS = `@layer dsx-elements {
     inset-inline: var(--dsx-sheet-inset, 14px);
     width: auto;
     bottom: max(var(--dsx-sheet-inset, 14px), env(safe-area-inset-bottom));
-    border-radius: 22px;
+    border-radius: var(--dsx-radius-sheet);
   }
-  .dsx-sheet-panel[data-dsx-mode="card"][data-dsx-detent="full"] { inset-inline: 0; bottom: 0; border-radius: 22px 22px 0 0; }
+  .dsx-sheet-panel[data-dsx-mode="card"][data-dsx-detent="full"] { inset-inline: 0; bottom: 0; border-radius: var(--dsx-radius-sheet) var(--dsx-radius-sheet) 0 0; }
   .dsx-sheet-panel[data-dsx-mode="cover"] { inset: 0; width: 100%; height: 100dvh; max-height: none; border-radius: 0; }
   .dsx-sheet-grabber {
     appearance: none;
+    position: relative;
     justify-self: center;
-    width: 52px;
+    width: 56px;
     height: 28px;
     padding: 0;
     border: 0;
+    border-radius: var(--dsx-radius-full);
     background: transparent;
     cursor: ns-resize;
   }
-  .dsx-sheet-grabber::after { content: ""; display: block; width: 34px; height: 4px; margin: auto; border-radius: 99px; background: var(--dsx-tertiary-label); }
-  .dsx-sheet-grabber:focus-visible { outline: 2px solid var(--dsx-accent); outline-offset: -2px; border-radius: 99px; }
-  .dsx-sheet-chrome { display: grid; grid-template-columns: minmax(72px,1fr) minmax(0,auto) minmax(72px,1fr); align-items: center; min-height: 48px; padding: 4px 12px; border-bottom: 1px solid var(--dsx-separator); }
+  .dsx-sheet-grabber::before { content: ""; position: absolute; inset: -8px 0; }
+  .dsx-sheet-grabber::after {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 5px;
+    margin: auto;
+    border-radius: var(--dsx-radius-full);
+    background: color-mix(in srgb, var(--dsx-tertiary-label) 62%, transparent);
+    transition: background-color var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-sheet-grabber:active::after { background: var(--dsx-tertiary-label); }
+  .dsx-sheet-grabber:focus-visible { outline: none; box-shadow: inset var(--dsx-focus-ring); }
+  .dsx-sheet-chrome {
+    display: grid;
+    grid-template-columns: minmax(72px, 1fr) minmax(0, auto) minmax(72px, 1fr);
+    align-items: center;
+    min-height: 48px;
+    padding: var(--dsx-space-1) var(--dsx-space-3);
+    border-bottom: var(--dsx-hairline) solid var(--dsx-separator);
+  }
   .dsx-sheet-chrome[hidden] { display: none; }
-  .dsx-sheet-title { grid-column: 2; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; line-height: 1.25; }
-  .dsx-sheet-chrome-side { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .dsx-sheet-title {
+    grid-column: 2;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--dsx-type-headline-size);
+    font-weight: var(--dsx-type-headline-weight);
+    letter-spacing: var(--dsx-type-headline-tracking);
+    line-height: var(--dsx-type-title3-leading);
+  }
+  .dsx-sheet-chrome-side { display: flex; align-items: center; gap: var(--dsx-space-2); min-width: 0; }
   .dsx-sheet-chrome-leading { justify-self: start; }
   .dsx-sheet-chrome-trailing { justify-self: end; }
   .dsx-sheet-close, .dsx-sheet-action {
@@ -1287,73 +1515,188 @@ export const OVERLAY_CONTROLS_CSS = `@layer dsx-elements {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: var(--dsx-space-1);
     min-width: 44px;
     min-height: 44px;
-    padding: 6px 9px;
+    padding: var(--dsx-space-1) var(--dsx-space-2);
     border: 0;
-    border-radius: 999px;
-    color: var(--dsx-accent);
+    border-radius: var(--dsx-radius-full);
+    color: var(--dsx-secondary-label);
     background: var(--dsx-fill);
     font: inherit;
-    font-weight: 600;
+    font-size: var(--dsx-type-callout-size);
+    font-weight: var(--dsx-type-headline-weight);
+    letter-spacing: var(--dsx-type-callout-tracking);
     cursor: pointer;
+    transition: background-color var(--dsx-dur-fast) var(--dsx-ease), transform var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-sheet-action { color: var(--dsx-accent); background: var(--dsx-accent-muted); }
+  .dsx-sheet-close:active:not(:disabled) { background: color-mix(in srgb, var(--dsx-fill) 91%, var(--dsx-label)); transform: scale(.97); }
+  .dsx-sheet-action:active:not(:disabled) { background: color-mix(in srgb, var(--dsx-accent) 22%, transparent); transform: scale(.97); }
+  .dsx-sheet-close:disabled, .dsx-sheet-action:disabled { opacity: .5; filter: saturate(.5); cursor: default; }
+  .dsx-sheet-close:focus-visible, .dsx-sheet-action:focus-visible {
+    outline: var(--dsx-focus-ring-width) solid var(--dsx-accent);
+    outline-offset: var(--dsx-focus-ring-offset);
+    z-index: 1;
   }
   .dsx-sheet-action:empty { display: none; }
-  .dsx-sheet-content { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 12px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  .dsx-sheet-content {
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: var(--dsx-space-3) max(var(--dsx-space-4), env(safe-area-inset-right)) max(var(--dsx-space-4), env(safe-area-inset-bottom)) max(var(--dsx-space-4), env(safe-area-inset-left));
+  }
 
   .dsx-popover-anchor, .dsx-menu-trigger { display: inline-flex; min-width: 0; }
   .dsx-floating-layer { inset: 0; pointer-events: none; }
-  .dsx-floating-panel { position: fixed; pointer-events: auto; }
-  .dsx-popover-panel { width: max-content; max-width: min(22rem, calc(100vw - 16px)); max-height: min(70dvh, 36rem); overflow: auto; padding: 14px; border-radius: var(--dsx-radius-lg); }
-  .dsx-menu-panel { width: min(17rem, calc(100vw - 16px)); max-height: min(72dvh, 40rem); overflow: auto; border-radius: var(--dsx-radius); }
-  .dsx-menu-level { position: relative; min-width: 14rem; padding: 5px; }
+  .dsx-floating-panel {
+    position: fixed;
+    pointer-events: auto;
+    animation:
+      dsx-float-zoom var(--dsx-dur-base) var(--dsx-ease-spring) both,
+      dsx-overlay-fade var(--dsx-dur-fast) linear both;
+  }
+  /* scale FROM THE ANCHOR: positionFloating stamps the resolved side, so the zoom
+     grows out of the edge that touches the anchor (visual sides, RTL-resolved). */
+  .dsx-floating-panel[data-dsx-placement="bottom"] { transform-origin: 50% 0; }
+  .dsx-floating-panel[data-dsx-placement="top"] { transform-origin: 50% 100%; }
+  .dsx-floating-panel[data-dsx-placement="right"] { transform-origin: 0 50%; }
+  .dsx-floating-panel[data-dsx-placement="left"] { transform-origin: 100% 50%; }
+  .dsx-tooltip {
+    position: fixed;
+    z-index: calc(var(--dsx-overlay-z-index, 10000) + 100);
+    max-width: min(18rem, calc(100vw - 16px));
+    padding: var(--dsx-space-1) var(--dsx-space-2);
+    border-radius: var(--dsx-radius-sm);
+    color: var(--dsx-background);
+    background: var(--dsx-label);
+    font-family: var(--dsx-font);
+    font-size: var(--dsx-type-caption-size);
+    font-weight: var(--dsx-type-label-weight);
+    letter-spacing: var(--dsx-type-caption-tracking);
+    line-height: var(--dsx-type-caption-leading);
+    overflow-wrap: anywhere;
+    pointer-events: none;
+    box-shadow: var(--dsx-shadow-2);
+    animation:
+      dsx-float-zoom var(--dsx-dur-base) var(--dsx-ease-spring) both,
+      dsx-overlay-fade var(--dsx-dur-fast) linear both;
+  }
+  .dsx-tooltip[hidden] { display: none; }
+  .dsx-popover-panel {
+    width: max-content;
+    max-width: min(22rem, calc(100vw - 16px));
+    max-height: min(70dvh, 36rem);
+    overflow: auto;
+    padding: var(--dsx-space-4);
+    border-radius: var(--dsx-radius-card);
+  }
+  .dsx-menu-panel { width: min(17rem, calc(100vw - 16px)); max-height: min(72dvh, 40rem); overflow: auto; border-radius: var(--dsx-radius-card); }
+  /* an OPEN submenu hangs outside its parent surface: the scroll container yields
+     while the flyout is open so the child panel is never clipped at the edge */
+  .dsx-menu-panel:has(.dsx-submenu:not([hidden])),
+  .dsx-submenu:has(.dsx-submenu:not([hidden])) { overflow: visible; }
+  .dsx-menu-level { position: relative; min-width: 14rem; padding: var(--dsx-space-1); }
   .dsx-menu-level[hidden] { display: none; }
   .dsx-menu-row { position: relative; }
   .dsx-menu-item {
     appearance: none;
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: var(--dsx-space-2);
     width: 100%;
-    min-height: 42px;
-    padding: 8px 10px;
+    min-height: 44px;
+    padding: var(--dsx-space-2) var(--dsx-space-3);
     border: 0;
-    border-radius: calc(var(--dsx-radius-sm) - 2px);
+    border-radius: calc(var(--dsx-radius-card) - var(--dsx-space-1));
     color: var(--dsx-label);
     background: transparent;
     text-align: start;
     font: inherit;
+    font-size: var(--dsx-type-body-size);
+    letter-spacing: var(--dsx-type-body-tracking);
     cursor: pointer;
+    transition: background-color var(--dsx-dur-fast) var(--dsx-ease);
   }
-  .dsx-menu-item:hover, .dsx-menu-item:focus-visible { outline: none; background: var(--dsx-fill); }
+  .dsx-menu-item:focus-visible { outline: none; box-shadow: none; background: var(--dsx-fill); }
+  .dsx-menu-item:active:not(:disabled) { background: color-mix(in srgb, var(--dsx-fill) 94%, var(--dsx-label)); }
   .dsx-menu-item[data-dsx-role="destructive"] { color: var(--dsx-destructive); }
-  .dsx-menu-item:disabled { opacity: .46; cursor: default; }
+  .dsx-menu-item:disabled { opacity: .5; filter: saturate(.5); cursor: default; }
   .dsx-menu-item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dsx-menu-item-arrow { color: var(--dsx-secondary-label); font-size: 1.25rem; line-height: 1; }
+  /* secondary (not tertiary) label: the hint is small text on the translucent menu
+     surface and must clear 4.5:1 in BOTH schemes (axe pinned the tertiary mix failing
+     dark). */
+  .dsx-menu-item-shortcut {
+    flex: none;
+    margin-inline-start: auto;
+    padding-inline-start: var(--dsx-space-3);
+    color: var(--dsx-secondary-label);
+    font-size: var(--dsx-type-footnote-size);
+    letter-spacing: var(--dsx-type-label-tracking);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .dsx-menu-item-arrow { color: var(--dsx-tertiary-label); font-size: var(--dsx-glyph-size); line-height: var(--dsx-type-leading-none); }
   [dir="rtl"] .dsx-menu-item-arrow { transform: scaleX(-1); }
-  .dsx-menu-separator { height: 1px; margin: 5px 7px; background: var(--dsx-separator); }
-  .dsx-submenu { position: absolute; z-index: 1; width: 15rem; max-height: min(65dvh, 36rem); overflow: auto; border: 1px solid var(--dsx-separator); border-radius: var(--dsx-radius); background: var(--dsx-background); box-shadow: 0 18px 48px rgb(0 0 0 / .22); }
+  .dsx-menu-separator { height: var(--dsx-hairline); margin: var(--dsx-space-1) var(--dsx-space-2); background: var(--dsx-separator); }
+  /* submenu flyouts ride the SAME motion standard as the panel that owns them:
+     shadow-3 elevation, fade + spring zoom growing out of the parent row's edge */
+  .dsx-submenu {
+    position: absolute;
+    z-index: 1;
+    width: 15rem;
+    max-height: min(65dvh, 36rem);
+    overflow: auto;
+    border-radius: var(--dsx-radius-card);
+    background: var(--dsx-background);
+    box-shadow: var(--dsx-shadow-3);
+    animation:
+      dsx-float-zoom var(--dsx-dur-base) var(--dsx-ease-spring) both,
+      dsx-overlay-fade var(--dsx-dur-fast) linear both;
+  }
+  .dsx-submenu[data-dsx-placement="right"] { transform-origin: 0 12px; }
+  .dsx-submenu[data-dsx-placement="left"] { transform-origin: 100% 12px; }
 
+  /* one shared fade (always linear: overshoot belongs to transform only); the zooms
+     ride the individual scale property so authored transforms keep composing. */
+  @keyframes dsx-overlay-fade { from { opacity: 0; } }
+  @keyframes dsx-dialog-zoom { from { scale: 0.96; } }
+  @keyframes dsx-float-zoom { from { scale: 0.95; } }
+  @keyframes dsx-sheet-up { from { translate: 0 100%; } }
+
+  @media (hover: hover) and (pointer: fine) {
+    .dsx-dialog-action:hover:not(:disabled) { background: var(--dsx-fill); }
+    .dsx-sheet-grabber:hover::after { background: var(--dsx-tertiary-label); }
+    .dsx-sheet-close:hover:not(:disabled) { background: color-mix(in srgb, var(--dsx-fill) 96%, var(--dsx-label)); }
+    .dsx-sheet-action:hover:not(:disabled) { background: color-mix(in srgb, var(--dsx-accent) 16%, transparent); }
+    .dsx-menu-item:hover:not(:disabled) { background: var(--dsx-fill); }
+  }
   @media (min-width: 48rem) {
     .dsx-confirm-panel { inset: 50% auto auto 50%; width: min(calc(100vw - 48px), 32rem); transform: translate(-50%, -50%); }
-    .dsx-sheet-panel:not([data-dsx-mode="cover"]) { inset-inline: 50% auto; width: min(calc(100vw - 48px), 44rem); transform: translateX(-50%); border-radius: 22px 22px 0 0; }
-    .dsx-sheet-panel[data-dsx-mode="card"] { bottom: max(18px, env(safe-area-inset-bottom)); border-radius: 22px; }
-    .dsx-sheet-panel[data-dsx-mode="card"][data-dsx-detent="full"] { inset-inline: 50% auto; width: min(calc(100vw - 48px), 44rem); bottom: 0; border-radius: 22px 22px 0 0; }
+    .dsx-sheet-panel:not([data-dsx-mode="cover"]) { inset-inline: 50% auto; width: min(calc(100vw - 48px), 44rem); transform: translateX(-50%); border-radius: var(--dsx-radius-sheet) var(--dsx-radius-sheet) 0 0; }
+    .dsx-sheet-panel[data-dsx-mode="card"] { bottom: max(18px, env(safe-area-inset-bottom)); border-radius: var(--dsx-radius-sheet); }
+    .dsx-sheet-panel[data-dsx-mode="card"][data-dsx-detent="full"] { inset-inline: 50% auto; width: min(calc(100vw - 48px), 44rem); bottom: 0; border-radius: var(--dsx-radius-sheet) var(--dsx-radius-sheet) 0 0; }
   }
   @media (min-width: 64rem) and (hover: hover) and (pointer: fine) {
-    .dsx-dialog-action { min-height: 42px; padding-block: 7px; }
-    .dsx-sheet-close, .dsx-sheet-action { min-width: 36px; min-height: 36px; }
+    .dsx-sheet-close, .dsx-sheet-action { min-width: var(--dsx-control-height-lg); min-height: var(--dsx-control-height-lg); }
     .dsx-sheet-panel[data-dsx-detent="half"] { height: min(60dvh, 42rem); }
-    .dsx-menu-item { min-height: 34px; padding-block: 5px; font-size: .875rem; }
+    .dsx-menu-item { min-height: var(--dsx-control-height); padding-block: var(--dsx-space-1); font-size: var(--dsx-type-callout-size); letter-spacing: var(--dsx-type-callout-tracking); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .dsx-sheet-panel { transition-duration: 0s; }
+    .dsx-overlay-scrim, .dsx-alert-panel, .dsx-confirm-panel, .dsx-sheet-panel, .dsx-floating-panel, .dsx-tooltip, .dsx-submenu { animation: none; }
+    .dsx-sheet-panel, .dsx-dialog-action, .dsx-sheet-grabber::after, .dsx-sheet-close, .dsx-sheet-action, .dsx-menu-item { transition: none; }
   }
   @media (forced-colors: active) {
     .dsx-overlay-scrim { background: rgb(0 0 0 / .6); }
-    .dsx-overlay-panel, .dsx-floating-panel, .dsx-submenu { border-color: CanvasText; background: Canvas; box-shadow: none; forced-color-adjust: auto; }
-    .dsx-dialog-action:focus-visible, .dsx-sheet-grabber:focus-visible, .dsx-menu-item:focus-visible { outline-color: Highlight; }
-    .dsx-menu-item:hover, .dsx-menu-item:focus-visible { color: HighlightText; background: Highlight; }
+    .dsx-overlay-panel, .dsx-floating-panel, .dsx-submenu { border: 1px solid CanvasText; background: Canvas; box-shadow: none; forced-color-adjust: auto; }
+    .dsx-tooltip { border: 1px solid CanvasText; color: CanvasText; background: Canvas; box-shadow: none; forced-color-adjust: auto; }
+    .dsx-dialog-action:focus-visible, .dsx-sheet-grabber:focus-visible, .dsx-sheet-close:focus-visible, .dsx-sheet-action:focus-visible {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+      box-shadow: none;
+    }
+    .dsx-sheet-grabber::after { background: CanvasText; }
+    .dsx-menu-item:hover, .dsx-menu-item:focus-visible { color: HighlightText; background: Highlight; box-shadow: none; }
   }
 }`;

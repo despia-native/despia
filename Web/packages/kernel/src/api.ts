@@ -61,9 +61,11 @@ export type ApiSpec = {
   ssr?: string;
   /** streaming defer (doc 02 "Streaming"): a `defer`red block is NOT awaited during the
    *  initial server render — the shell flushes first and the block keeps its client-fetch
-   *  path (loading branch on first paint, data on mount). True OUT-OF-ORDER STREAMING of
-   *  the deferred patch (flush a chunk + a store-patch script as it resolves) is the open
-   *  SSR seam; until it lands, `defer` = "client-fetched, never SSR-seeded". Web-SSR-only
+   *  path on a non-streaming render. OUT-OF-ORDER STREAMING has LANDED (stream.ts
+   *  renderPageStream, wired in live.ts): the shell flushes immediately with the deferred
+   *  subtrees showing their loading branches, the response stays open, the deferred blocks
+   *  run concurrently server-side, and each resolution flushes one `<script>` chunk pushing
+   *  `{as, seed}`. A block that already settled client-side ignores its chunk. Web-SSR-only
    *  like `ssr`: the natives are async by default, so no cross-platform corpus is required. */
   defer?: string;
   /** doc 11: edges the expressions don't show (a session side-effect, an ordering-only
@@ -107,6 +109,14 @@ export type ApiBlockOpts = {
    *  construction — every sibling mounts first, then `graph.start()` runs the runnable
    *  ones. Without one, the block is its own scope and starts immediately (unchanged). */
   graph?: ApiGraph;
+  /** THE EGRESS GATE (RunEnv.egress's twin at the block tier — studio-apps.md §8). The
+   *  fetchFunnel law says every interpreter fetch passes one funnel, and `<api>` blocks
+   *  quietly did not: they call the transport directly, so a host running bodies it did
+   *  not write (a mounted app) had a gated `fetch()` beside an ungated `<api>`. Unset
+   *  (every surface) = unchanged; set = a refused URL answers the same refused shape a
+   *  refused fetchFunnel call does (status -2, invalid_request) and never leaves the
+   *  process. Corpus: Conformance/studio-apps/scope.json (the api-egress case). */
+  egress?: (url: string) => boolean;
 };
 
 export type ApiHandle = {
@@ -1134,6 +1144,7 @@ export class ApiBlock implements ApiHandle {
   private readonly policy: CachePolicy;
   private readonly seed: ApiSeed | undefined;
   private readonly graph: ApiGraph | null;
+  private readonly egress: ((url: string) => boolean) | null;
   private disposeEffect: (() => void) | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private controller: AbortController | null = null;
@@ -1161,6 +1172,7 @@ export class ApiBlock implements ApiHandle {
     this.policy = parseCache(spec.cache);
     this.seed = opts.seed;
     this.graph = opts.graph ?? null;
+    this.egress = opts.egress ?? null;
     // seed the reserved paths — data null until first resolve (doc 05), OR the
     // SSR-resolved envelope when a hydration seed is supplied (doc 02). `status` +
     // `blockedBy` are doc 11's additions to the same reserved envelope.
@@ -1525,10 +1537,15 @@ export class ApiBlock implements ApiHandle {
       });
       this.emitEvent("message", { data: chunk });
     };
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      res = await doFetch(string(req["url"]), req, controller?.signal ?? null, deliverStreamMessage);
-      if (truthy(res["aborted"])) return null; // superseded — the newer request owns the store
-      if (truthy(res["ok"]) || (number(res["status"]) ?? 0) !== 0) break; // only network errors retry
+    if (this.egress !== null && !this.egress(string(req["url"]))) {
+      // the refused-egress answer, the fetchFunnel shape verbatim: it never left the process
+      res = { ok: false, status: -2, data: null, error: "invalid_request" };
+    } else {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        res = await doFetch(string(req["url"]), req, controller?.signal ?? null, deliverStreamMessage);
+        if (truthy(res["aborted"])) return null; // superseded — the newer request owns the store
+        if (truthy(res["ok"]) || (number(res["status"]) ?? 0) !== 0) break; // only network errors retry
+      }
     }
     if (gen !== this.generation) return null; // superseded while awaiting
     // networking.md N2: progress entries publish + fire BEFORE the terminal settle

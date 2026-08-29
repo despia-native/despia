@@ -24,6 +24,23 @@ import org.junit.Test
 
 class SelectionSystemTest {
 
+    @Test
+    fun declaredDisabledReadsTheStrictComponentBooleanNeverJseTruthy() {
+        // truthy("false") is true by the JSE string law, so the truthy read disabled a control
+        // the author explicitly ENABLED. The declared word now shares the iOS dsx.bool
+        // predicate (`s == "true" || Double(s) != 0`, web `declaredBool`); a bound
+        // {{ locked }} arrives "1"/"" so the empty string stays enabled. disabled-if keeps
+        // the truthy CONDITION read.
+        assertFalse(SelectionControl.isDisabled("false", null))
+        assertFalse(SelectionControl.isDisabled("0", null))
+        assertFalse(SelectionControl.isDisabled("", null))
+        assertFalse(SelectionControl.isDisabled(null, null))
+        assertTrue(SelectionControl.isDisabled("true", null))
+        assertTrue(SelectionControl.isDisabled("1", null))
+        assertTrue(SelectionControl.isDisabled(null, "1"))
+        assertFalse(SelectionControl.isDisabled(null, ""))
+    }
+
     // one representative per style family — the chain the legacy path applies (the
     // StackSystemControlsTest ejection list): any of these on a control must eject.
     private val styled = listOf("background", "surface", "gradient", "padding", "paddingH",

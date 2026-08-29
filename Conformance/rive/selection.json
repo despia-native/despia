@@ -1,0 +1,554 @@
+{
+  "_note": "ARTBOARD / STATE-MACHINE / ANIMATION SELECTION and its refusals. THE LAW. (1) With no attributes the fold takes the file's DEFAULT artboard (the flagged one, else the first) and that artboard's first state machine; with no machine it falls back to the first linear animation; with neither it is `idle`, which is legal — a static artboard is a drawing. (2) `stateMachine` and `animation` together is a CONFLICT, refused by name. A silent precedence rule is the bug an author never finds. (3) Every miss is `not_found` with a message naming what was asked for and where it was looked up: a missing artboard or machine must never render a blank box (plan §7). (4) A refusal is TOTAL — artboard, machine and animation all read null and the mode is `idle` — so a renderer can never half-mount a selection it was told to reject. (5) A blank attribute is an absent attribute; a name is otherwise exact, trimmed but never case-folded, because artboard names are authored strings. Function: riveSelection(manifest, attrs) on all three.",
+  "cases": [
+    {
+      "name": "no attributes take the DEFAULT artboard and its first machine",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Main",
+            "stateMachines": [
+              "Main"
+            ],
+            "animations": [
+              "intro"
+            ]
+          }
+        ]
+      },
+      "attrs": {},
+      "selection": {
+        "artboard": "Main",
+        "stateMachine": "Main",
+        "animation": null,
+        "mode": "machine",
+        "error": null
+      }
+    },
+    {
+      "name": "the default flag beats the first artboard",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {},
+      "selection": {
+        "artboard": "Empty",
+        "stateMachine": null,
+        "animation": "fade",
+        "mode": "animation",
+        "error": null
+      }
+    },
+    {
+      "name": "a named artboard wins over the default",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "artboard": "Cart"
+      },
+      "selection": {
+        "artboard": "Cart",
+        "stateMachine": "Cart",
+        "animation": null,
+        "mode": "machine",
+        "error": null
+      }
+    },
+    {
+      "name": "a named machine on a named artboard",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "artboard": "Cart",
+        "stateMachine": "Badge"
+      },
+      "selection": {
+        "artboard": "Cart",
+        "stateMachine": "Badge",
+        "animation": null,
+        "mode": "machine",
+        "error": null
+      }
+    },
+    {
+      "name": "a named animation plays linear instead of a machine",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "artboard": "Cart",
+        "animation": "bounce"
+      },
+      "selection": {
+        "artboard": "Cart",
+        "stateMachine": null,
+        "animation": "bounce",
+        "mode": "animation",
+        "error": null
+      }
+    },
+    {
+      "name": "an artboard with no machine falls back to its first animation",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "artboard": "Empty"
+      },
+      "selection": {
+        "artboard": "Empty",
+        "stateMachine": null,
+        "animation": "fade",
+        "mode": "animation",
+        "error": null
+      }
+    },
+    {
+      "name": "an artboard with neither is idle, and that is not an error",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "artboard": "Static"
+      },
+      "selection": {
+        "artboard": "Static",
+        "stateMachine": null,
+        "animation": null,
+        "mode": "idle",
+        "error": null
+      }
+    },
+    {
+      "name": "an unknown artboard is not_found",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "artboard": "Nope"
+      },
+      "selection": {
+        "artboard": null,
+        "stateMachine": null,
+        "animation": null,
+        "mode": "idle",
+        "error": {
+          "code": "not_found",
+          "message": "no artboard named 'Nope' in this .riv file"
+        }
+      }
+    },
+    {
+      "name": "an unknown machine is not_found",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "artboard": "Cart",
+        "stateMachine": "Nope"
+      },
+      "selection": {
+        "artboard": null,
+        "stateMachine": null,
+        "animation": null,
+        "mode": "idle",
+        "error": {
+          "code": "not_found",
+          "message": "no state machine named 'Nope' on artboard 'Cart'"
+        }
+      }
+    },
+    {
+      "name": "an unknown animation is not_found",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "artboard": "Cart",
+        "animation": "nope"
+      },
+      "selection": {
+        "artboard": null,
+        "stateMachine": null,
+        "animation": null,
+        "mode": "idle",
+        "error": {
+          "code": "not_found",
+          "message": "no animation named 'nope' on artboard 'Cart'"
+        }
+      }
+    },
+    {
+      "name": "machine AND animation together is a conflict, never a silent precedence",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "stateMachine": "Cart",
+        "animation": "idle"
+      },
+      "selection": {
+        "artboard": null,
+        "stateMachine": null,
+        "animation": null,
+        "mode": "idle",
+        "error": {
+          "code": "conflict",
+          "message": "<rive> takes stateMachine or animation, not both"
+        }
+      }
+    },
+    {
+      "name": "a blank attribute is an absent attribute",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "artboard": "   ",
+        "stateMachine": ""
+      },
+      "selection": {
+        "artboard": "Empty",
+        "stateMachine": null,
+        "animation": "fade",
+        "mode": "animation",
+        "error": null
+      }
+    },
+    {
+      "name": "a file with no artboard is not_found",
+      "manifest": {
+        "artboards": []
+      },
+      "attrs": {},
+      "selection": {
+        "artboard": null,
+        "stateMachine": null,
+        "animation": null,
+        "mode": "idle",
+        "error": {
+          "code": "not_found",
+          "message": "this .riv file declares no artboard"
+        }
+      }
+    },
+    {
+      "name": "whitespace around a name is trimmed, the name itself is exact",
+      "manifest": {
+        "artboards": [
+          {
+            "name": "Cart",
+            "stateMachines": [
+              "Cart",
+              "Badge"
+            ],
+            "animations": [
+              "idle",
+              "bounce"
+            ]
+          },
+          {
+            "name": "Empty",
+            "default": true,
+            "stateMachines": [],
+            "animations": [
+              "fade"
+            ]
+          },
+          {
+            "name": "Static",
+            "stateMachines": [],
+            "animations": []
+          }
+        ]
+      },
+      "attrs": {
+        "artboard": " Cart "
+      },
+      "selection": {
+        "artboard": "Cart",
+        "stateMachine": "Cart",
+        "animation": null,
+        "mode": "machine",
+        "error": null
+      }
+    }
+  ]
+}

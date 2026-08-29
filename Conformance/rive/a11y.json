@@ -1,0 +1,254 @@
+{
+  "_note": "ACCESSIBILITY as contract, the `<canvas>` verdict shape applied to an animation (canvas/a11y.json — same six fields, same three-surface fold). A Rive artboard is OPAQUE: there is no view tree, only a rendered scene, so the semantics are declared or they do not exist. THE LAW. (1) An animation that conveys meaning takes `a11yLabel` and is an `image`; a decorative one declares nothing and is HIDDEN, which is the right default for a flourish and the reason the error can afford to be an error where it applies. (2) A gesture handler (the same ten words `<canvas>` uses) with neither `a11yLabel` nor `a11yChildren` is a LINT ERROR, code `rive-a11y-label`, failing lint_dsx.rb --strict. (3) `on:stateChange` and `on:event` are REPORTING, not interaction — an animation that tells the app what it did is not a control, and tripping on those would make every instrumented animation an error and teach authors to silence the rule. (4) THE ONE DIVERGENCE FROM CANVAS, and it is Rive's alone: a state machine can carry its OWN pointer listeners inside the .riv file. That makes the component interactive at RUNTIME, so the verdict says so (`interactive`, and a `group` role rather than a hidden node), but it emits NO lint — the linter reads markup, and markup cannot see inside an asset. Two verdicts, one fold, and the difference is stated rather than fudged. (5) `a11yChildren` declares a semantic overlay, exactly as on canvas: the animation becomes a group and each child is a real accessibility element. Function: riveA11y(attrs, a11yChildren, listeners) on all three.",
+  "cases": [
+    {
+      "name": "a decorative animation with no label and no handlers is HIDDEN",
+      "attrs": {},
+      "listeners": false,
+      "verdict": {
+        "interactive": false,
+        "label": null,
+        "children": [],
+        "role": "none",
+        "hidden": true,
+        "lint": null
+      }
+    },
+    {
+      "name": "a state machine driven by app state is still decorative by default",
+      "attrs": {
+        "stateMachine": "Cart",
+        "inputs": "{{ { itemCount: cart.count } }}"
+      },
+      "listeners": false,
+      "verdict": {
+        "interactive": false,
+        "label": null,
+        "children": [],
+        "role": "none",
+        "hidden": true,
+        "lint": null
+      }
+    },
+    {
+      "name": "on:stateChange is reporting, not interaction",
+      "attrs": {
+        "on:stateChange": "log()"
+      },
+      "listeners": false,
+      "verdict": {
+        "interactive": false,
+        "label": null,
+        "children": [],
+        "role": "none",
+        "hidden": true,
+        "lint": null
+      }
+    },
+    {
+      "name": "on:event is reporting, not interaction",
+      "attrs": {
+        "on:event": "handle()"
+      },
+      "listeners": false,
+      "verdict": {
+        "interactive": false,
+        "label": null,
+        "children": [],
+        "role": "none",
+        "hidden": true,
+        "lint": null
+      }
+    },
+    {
+      "name": "a labelled animation is an image",
+      "attrs": {
+        "a11yLabel": "Cart filling"
+      },
+      "listeners": false,
+      "verdict": {
+        "interactive": false,
+        "label": "Cart filling",
+        "children": [],
+        "role": "image",
+        "hidden": false,
+        "lint": null
+      }
+    },
+    {
+      "name": "a blank label is not a label",
+      "attrs": {
+        "a11yLabel": "   "
+      },
+      "listeners": false,
+      "verdict": {
+        "interactive": false,
+        "label": null,
+        "children": [],
+        "role": "none",
+        "hidden": true,
+        "lint": null
+      }
+    },
+    {
+      "name": "a tap handler with no label is the LINT ERROR",
+      "attrs": {
+        "on:tap": "poke()"
+      },
+      "listeners": false,
+      "verdict": {
+        "interactive": true,
+        "label": null,
+        "children": [],
+        "role": "group",
+        "hidden": false,
+        "lint": {
+          "code": "rive-a11y-label",
+          "level": "error",
+          "message": "<rive> with a gesture handler needs a11yLabel — an animation is opaque to assistive tech"
+        }
+      }
+    },
+    {
+      "name": "a drag handler with no label is the LINT ERROR",
+      "attrs": {
+        "on:drag": "steer(dsx.this)"
+      },
+      "listeners": false,
+      "verdict": {
+        "interactive": true,
+        "label": null,
+        "children": [],
+        "role": "group",
+        "hidden": false,
+        "lint": {
+          "code": "rive-a11y-label",
+          "level": "error",
+          "message": "<rive> with a gesture handler needs a11yLabel — an animation is opaque to assistive tech"
+        }
+      }
+    },
+    {
+      "name": "a tap handler with a label is a button",
+      "attrs": {
+        "on:tap": "poke()",
+        "a11yLabel": "Play"
+      },
+      "listeners": false,
+      "verdict": {
+        "interactive": true,
+        "label": "Play",
+        "children": [],
+        "role": "button",
+        "hidden": false,
+        "lint": null
+      }
+    },
+    {
+      "name": "an empty handler value is not a handler",
+      "attrs": {
+        "on:tap": "   "
+      },
+      "listeners": false,
+      "verdict": {
+        "interactive": false,
+        "label": null,
+        "children": [],
+        "role": "none",
+        "hidden": true,
+        "lint": null
+      }
+    },
+    {
+      "name": "a declared overlay makes the animation a GROUP",
+      "attrs": {},
+      "listeners": false,
+      "verdict": {
+        "interactive": false,
+        "label": null,
+        "children": [
+          {
+            "role": "image",
+            "label": "Step 1",
+            "value": "done"
+          },
+          {
+            "role": "image",
+            "label": "Step 2",
+            "value": null
+          }
+        ],
+        "role": "group",
+        "hidden": false,
+        "lint": null
+      },
+      "a11yChildren": [
+        {
+          "role": "image",
+          "label": "Step 1",
+          "value": "done"
+        },
+        {
+          "role": "image",
+          "label": "Step 2"
+        }
+      ]
+    },
+    {
+      "name": "an overlay satisfies the rule without a label",
+      "attrs": {
+        "on:tap": "poke()"
+      },
+      "listeners": false,
+      "verdict": {
+        "interactive": true,
+        "label": null,
+        "children": [
+          {
+            "role": "button",
+            "label": "Skip",
+            "value": null
+          }
+        ],
+        "role": "group",
+        "hidden": false,
+        "lint": null
+      },
+      "a11yChildren": [
+        {
+          "role": "button",
+          "label": "Skip",
+          "value": null
+        }
+      ]
+    },
+    {
+      "name": "POINTER LISTENERS make it interactive at RUNTIME, but markup cannot see them",
+      "attrs": {},
+      "listeners": true,
+      "verdict": {
+        "interactive": true,
+        "label": null,
+        "children": [],
+        "role": "group",
+        "hidden": false,
+        "lint": null
+      }
+    },
+    {
+      "name": "a labelled listener machine is a button",
+      "attrs": {
+        "a11yLabel": "Rate this"
+      },
+      "listeners": true,
+      "verdict": {
+        "interactive": true,
+        "label": "Rate this",
+        "children": [],
+        "role": "button",
+        "hidden": false,
+        "lint": null
+      }
+    }
+  ]
+}

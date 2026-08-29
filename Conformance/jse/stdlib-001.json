@@ -248,6 +248,36 @@
       "expected": true
     },
     {
+      "name": "global-is-finite",
+      "scope": {},
+      "expression": "isFinite(3)",
+      "expected": true
+    },
+    {
+      "name": "global-is-finite-nan",
+      "scope": {},
+      "expression": "isFinite(Number('x'))",
+      "expected": false
+    },
+    {
+      "name": "global-is-finite-string-coerces",
+      "scope": {},
+      "expression": "isFinite('12')",
+      "expected": true
+    },
+    {
+      "name": "global-is-finite-absent",
+      "scope": {},
+      "expression": "isFinite(null)",
+      "expected": false
+    },
+    {
+      "name": "global-is-nan-twin",
+      "scope": {},
+      "expression": "isNaN(3) == false && isFinite(3) == true",
+      "expected": true
+    },
+    {
       "name": "string-from-char-code",
       "scope": {},
       "expression": "String.fromCharCode(72, 105)",

@@ -1,0 +1,18 @@
+<stack>
+  <head>
+    <attribute as="title"/>
+    <override as="radius" type="length" default="12" min="0" max="48"/>
+    <override as="surface" type="enum" options="raised cut" default="raised"/>
+    <override as="tint" type="colour" default="accent"/>
+    <override as="web"/>
+    <override as="mood" type="enum"/>
+    <override as="pad" type="number" default="lots"/>
+    <override as="edge" type="length" default="{{ dsx.variable.title }}"/>
+    <override as="depth" type="number" min="deep"/>
+    <override/>
+    <expects variable="seeded"/>
+    <override as="late" type="text" default="x"/>
+  </head>
+  <stack override:radius="6" override:radius:ios="4"/>
+  <text value="{{ dsx.override.radius }} {{ dsx.override.surface }} {{ dsx.override.tint }} {{ dsx.override.web }} {{ dsx.override.mood }} {{ dsx.override.pad }} {{ dsx.override.edge }} {{ dsx.override.depth }} {{ dsx.override.late }}"/>
+</stack>

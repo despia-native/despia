@@ -1,0 +1,22 @@
+<!-- Row — one selectable line: a glyph, a name, a trailing fact, and the chevron when the
+     row leads somewhere. Selection is the accent WASH plus a hairline ring and never a
+     filled slab, because a filled accent is the same picture as a primary button. -->
+<pressable class="sk-row {{ dsx.attribute.selected == 'true' ? 'sk-row-on' : '' }}" grow="width"
+           a11yLabel="{{ dsx.attribute.name }}" a11yGroup="true" on:tap="dsx.event('pick', {})">
+  <head>
+    <attribute as="name"/>
+    <attribute as="meta" default=""/>
+    <attribute as="icon" default=""/>
+    <attribute as="selected" default="false"/>
+    <attribute as="leads" default=""/>
+    <event as="pick"/>
+  </head>
+  <hstack grow="width" style="align-items: center; gap: 0.5rem; min-width: 0">
+    <image icon="{{ dsx.attribute.icon }}" iconSize="14" a11yLabel="" class="sk-row-glyph"
+           visible-if="dsx.attribute.icon != ''"/>
+    <text value="{{ dsx.attribute.name }}" class="sk-row-name" lineLimit="1" grow="width"/>
+    <text value="{{ dsx.attribute.meta }}" class="sk-row-meta" visible-if="dsx.attribute.meta != ''"/>
+    <image icon="chevron.right" iconSize="10" a11yLabel="" class="sk-row-go"
+           visible-if="dsx.attribute.leads != ''"/>
+  </hstack>
+</pressable>

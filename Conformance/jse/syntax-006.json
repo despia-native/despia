@@ -1,0 +1,94 @@
+{
+  "_note": "JSE syntax wave 6 — XML OPERATOR ENTITIES in code position (wave-7 F4, the watch-before-mount \"0\" write). Code bodies arrive RAW from every markup reader (code tags lift 1:1), so `&amp;` / `&lt;` / `&gt;` written with attribute muscle memory used to lex as bitwise ops over an `amp`/`lt`/`gt` identifier and silently evaluate to 0. Pins: the three OPERATOR entities decode to their characters in the shared source preprocessor (before comments/ASI), composing into `&&`, `<`, `>`, `<=`, `>=`, `<<` and plain bitwise `&`; string and template literals are NEVER decoded (the author's characters are the program's characters); a bare `&` stays literal and identifiers named `amp` are untouched. `&quot;`/`&apos;` deliberately do NOT decode — they would move literal boundaries.",
+  "cases": [
+    {
+      "name": "amp-amp-is-logical-and",
+      "scope": {
+        "a": true,
+        "b": "yes"
+      },
+      "expression": "a &amp;&amp; b",
+      "expected": "yes"
+    },
+    {
+      "name": "lt-is-less-than",
+      "scope": {},
+      "expression": "1 &lt; 2",
+      "expected": true
+    },
+    {
+      "name": "gt-is-greater-than",
+      "scope": {},
+      "expression": "3 &gt; 2",
+      "expected": true
+    },
+    {
+      "name": "lt-eq-composes",
+      "scope": {},
+      "expression": "2 &lt;= 2",
+      "expected": true
+    },
+    {
+      "name": "gt-eq-composes",
+      "scope": {},
+      "expression": "3 &gt;= 4",
+      "expected": false
+    },
+    {
+      "name": "shift-left-composes",
+      "scope": {},
+      "expression": "2 &lt;&lt; 3",
+      "expected": 16
+    },
+    {
+      "name": "single-amp-is-bitwise-and",
+      "scope": {},
+      "expression": "6 &amp; 3",
+      "expected": 2
+    },
+    {
+      "name": "ternary-after-entities",
+      "scope": {
+        "a": true,
+        "b": true
+      },
+      "expression": "a &amp;&amp; b ? 1 : 2",
+      "expected": 1
+    },
+    {
+      "name": "entity-chain-boolean-result",
+      "scope": {
+        "settings": null
+      },
+      "expression": "settings &amp;&amp; settings.dark ? true : false",
+      "expected": false
+    },
+    {
+      "name": "string-literal-never-decodes",
+      "scope": {},
+      "expression": "'Tom &amp; Jerry'",
+      "expected": "Tom &amp; Jerry"
+    },
+    {
+      "name": "string-literal-length-untouched",
+      "scope": {},
+      "expression": "'a &amp;&amp; b'.length",
+      "expected": 14
+    },
+    {
+      "name": "template-literal-never-decodes",
+      "scope": {},
+      "expression": "`a &amp; b`",
+      "expected": "a &amp; b"
+    },
+    {
+      "name": "identifier-amp-untouched",
+      "scope": {
+        "amp": "id",
+        "x": true
+      },
+      "expression": "x &amp;&amp; amp",
+      "expected": "id"
+    }
+  ]
+}

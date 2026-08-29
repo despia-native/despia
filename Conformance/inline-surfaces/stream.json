@@ -1,0 +1,2319 @@
+{
+  "version": 1,
+  "_note": "V02 - Core/Stream inline call surfaces (architecture/proposals/inline-native-surfaces.md), judged against the SAME law stripe.json pins: the module owns the session and the overlay face (dsx.module.stream.open, the vendor's full-screen call UI) and the component face (<stream.CallView/> and friends) are two views onto ONE state machine. Two call models that disagree is a participant who left the call on one face and is still publishing on the other, so a second join attempt while one is in flight is refused `busy` and every outcome reaches both faces including one that unmounted mid-join. gate[] is the LIVE SURFACE LADDER: a call tile needs camera and microphone before it can render anything, and a permission nobody has asked for yet renders the ASK, never the refusal. roster[] is the tile ORDER: deterministic on three renderers, because a grid that re-sorts under a finger is the complaint every call app gets first, and the local participant sinks below the person talking.",
+  "sessionRef": {
+    "_note": "The security boundary for <stream.CallView/> session=. A Stream call is entered with a USER TOKEN, which is a JWT, and the corpus pins what happens when one is pasted into markup: it is REFUSED. Note WHICH refusal - `unknown_reference`, not `literal_secret`, because the credential families the shared detector knows are Stripe's. The allowlist is what refuses it, which is exactly why the rule is an allowlist and not a denylist of key prefixes.",
+    "kinds": [
+      "implicit",
+      "module-context",
+      "store-var",
+      "global",
+      "config",
+      "attribute",
+      "scope"
+    ],
+    "refusals": [
+      "missing_reference",
+      "literal_secret",
+      "literal_value",
+      "compound_template",
+      "unknown_reference"
+    ],
+    "families": [
+      "jwt"
+    ],
+    "cases": [
+      {
+        "name": "omitted binds the module's current call",
+        "value": null,
+        "expect": {
+          "kind": "implicit",
+          "path": ""
+        }
+      },
+      {
+        "name": "the canonical module-context reference",
+        "value": "dsx.module.stream.context.session",
+        "expect": {
+          "kind": "module-context",
+          "path": "dsx.module.stream.context.session"
+        }
+      },
+      {
+        "name": "the .state. plane is the same plane",
+        "value": "dsx.module.stream.state.session",
+        "expect": {
+          "kind": "module-context",
+          "path": "dsx.module.stream.context.session"
+        }
+      },
+      {
+        "name": "a store variable holding the call handle",
+        "value": "{{ dsx.variable.call }}",
+        "expect": {
+          "kind": "store-var",
+          "path": "dsx.variable.call"
+        }
+      },
+      {
+        "name": "a row field, for a call tile in a list",
+        "value": "item.callId",
+        "expect": {
+          "kind": "scope",
+          "path": "item.callId"
+        }
+      },
+      {
+        "name": "an empty attribute is an author mistake, not a choice",
+        "value": "",
+        "expect": {
+          "error": "missing_reference"
+        }
+      },
+      {
+        "name": "a Stream user TOKEN is refused - it parses as a path with an unpermitted root",
+        "value": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiYW5hIn0.Yk3sig",
+        "expect": {
+          "error": "unknown_reference"
+        }
+      },
+      {
+        "name": "a full-length Stream user token is NAMED as a jwt, not merely refused",
+        "_note": "The row above uses a truncated signature, so it lands on unknown_reference: a segment under 8 characters is not a JWT, and guessing would let any dotted string be reported as a leaked credential. A real token has three segments of real length, and naming the family is what turns the message from \"that is not a reference\" into \"you pasted a token\".",
+        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYW5hIiwiZXhwIjo5OTk5fQ.Yk3sIgNaTuRe",
+        "expect": {
+          "error": "literal_secret",
+          "family": "jwt"
+        }
+      },
+      {
+        "name": "a bare call id is refused as hard as a token",
+        "value": "call_42",
+        "expect": {
+          "error": "unknown_reference"
+        }
+      },
+      {
+        "name": "an api key with punctuation is refused as a literal",
+        "value": "mmhfdzb5evj2/secret",
+        "expect": {
+          "error": "literal_value"
+        }
+      },
+      {
+        "name": "text around the reference is refused",
+        "value": "call {{ dsx.variable.call }} now",
+        "expect": {
+          "error": "compound_template"
+        }
+      }
+    ]
+  },
+  "machine": {
+    "_note": "One call, two views. `start` is the JOIN attempt, `complete` is connected, `fail` is a join that did not land and leaves the call re-joinable (NOT terminal - a network blip must not strand a user on a dead screen), `cancel` while joining backs out of the attempt and keeps the call, and `cancel` with nothing in flight LEAVES the call, which is terminal.",
+    "views": [
+      "overlay",
+      "inline"
+    ],
+    "states": [
+      "idle",
+      "ready",
+      "confirming",
+      "succeeded",
+      "failed",
+      "canceled"
+    ],
+    "refusals": [
+      "already_open",
+      "not_ready",
+      "busy",
+      "settled",
+      "not_confirming",
+      "detached_view"
+    ],
+    "cases": [
+      {
+        "name": "the inline tile alone: open, attach, join",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "opened by the action face, joined inline - ONE call, both faces told",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "start",
+            "view": "overlay"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "overlay"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "overlay"
+          }
+        ]
+      },
+      {
+        "name": "THE DOUBLE-JOIN GUARD: the other face cannot start a second join",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "overlay"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "error": "busy",
+            "state": "confirming"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "a failed join is retryable: the call is still there",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "fail",
+            "code": "join_failed"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "failed",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "failed",
+            "by": "inline",
+            "code": "join_failed"
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "the tile unmounts mid-join and is STILL told the outcome",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "detach",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "confirming",
+            "notify": [],
+            "attempts": 1
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "detaching a tile never ends the call",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "detach",
+            "view": "inline"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "start",
+            "view": "overlay"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay"
+            ],
+            "attempts": 1,
+            "by": "overlay"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "overlay"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "overlay"
+          }
+        ]
+      },
+      {
+        "name": "backing out of a join keeps the call joinable",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "cancel"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "ready",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "canceled",
+            "by": "inline"
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "leaving is terminal, and a second leave is refused",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "cancel"
+          },
+          {
+            "op": "cancel"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "canceled",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 0,
+            "outcome": "canceled"
+          },
+          {
+            "error": "settled",
+            "state": "canceled"
+          }
+        ]
+      },
+      {
+        "name": "a tile that never attached cannot join",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "error": "detached_view",
+            "state": "ready"
+          }
+        ]
+      },
+      {
+        "name": "joining before the module has a call is not_ready",
+        "steps": [
+          {
+            "op": "start",
+            "view": "inline"
+          }
+        ],
+        "expect": [
+          {
+            "error": "not_ready",
+            "state": "idle"
+          }
+        ]
+      },
+      {
+        "name": "CLOSING MID-JOIN TAKES TWO CANCELS: back out of the attempt, then leave the call. The first cancel returns confirming->ready, which is NOT terminal - a module that stops there leaves the vendor call running off screen, billing (S1 BUG-1).",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "cancel"
+          },
+          {
+            "op": "cancel"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "ready",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "canceled",
+            "by": "inline"
+          },
+          {
+            "state": "canceled",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "canceled"
+          }
+        ]
+      },
+      {
+        "name": "CLOSING A CONNECTED CALL: the machine is already terminal and REFUSES the cancel. That refusal is bookkeeping about the ATTEMPT, never a reason to keep a WebRTC session alive - the module leaves the vendor call first and reads this refusal as `already over`.",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          },
+          {
+            "op": "cancel"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          },
+          {
+            "error": "settled",
+            "state": "succeeded"
+          }
+        ]
+      },
+      {
+        "name": "a failed join closes in ONE cancel: `failed` is not settled, so the session leaves directly",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "fail",
+            "code": "call_failed"
+          },
+          {
+            "op": "cancel"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "failed",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "failed",
+            "by": "inline",
+            "code": "call_failed"
+          },
+          {
+            "state": "canceled",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "canceled"
+          }
+        ]
+      },
+      {
+        "name": "NOTHING BUT A SETTLE OR A CANCEL LEAVES CONFIRMING. Attaching and detaching a second face while a join is in flight moves nothing, which is why `settle` has to be invoked from a real connection transition and cannot be left to a component lifecycle (S1 BUG-1's other half).",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "detach",
+            "view": "overlay"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "confirming",
+            "notify": [],
+            "attempts": 1
+          },
+          {
+            "state": "confirming",
+            "notify": [],
+            "attempts": 1
+          },
+          {
+            "error": "busy",
+            "state": "confirming"
+          }
+        ]
+      },
+      {
+        "name": "the overlay face joined and the INLINE face closes: ONE call, ONE leave, and both faces are told",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "overlay"
+          },
+          {
+            "op": "cancel"
+          },
+          {
+            "op": "cancel"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "overlay"
+          },
+          {
+            "state": "ready",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "canceled",
+            "by": "overlay"
+          },
+          {
+            "state": "canceled",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "canceled"
+          }
+        ]
+      }
+    ]
+  },
+  "gate": {
+    "_note": "The live-surface ladder every camera or microphone component descends before it renders. ORDER IS THE LAW: capability first, because a device with no camera must not be asked for camera permission and an unlinked SDK cannot answer a permission word. Then the permission, where `prompt` and `unknown` both render the ASK: a surface that fails closed on a not-yet-asked permission never gets asked.",
+    "renders": [
+      "surface",
+      "request",
+      "fallback"
+    ],
+    "codes": [
+      "",
+      "unsupported_platform",
+      "permission_required",
+      "permission_denied",
+      "permission_restricted"
+    ],
+    "cases": [
+      {
+        "name": "camera granted renders the live surface",
+        "input": {
+          "capability": "present",
+          "permission": "granted",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "surface",
+          "code": "",
+          "message": "",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "not yet asked renders the ASK, never the refusal",
+        "input": {
+          "capability": "present",
+          "permission": "prompt",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "request",
+          "code": "permission_required",
+          "message": "Camera access has not been granted yet.",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "an unknown answer is an ask, not a denial",
+        "input": {
+          "capability": "present",
+          "permission": "unknown",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "request",
+          "code": "permission_required",
+          "message": "Camera access has not been granted yet.",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "denied renders the fallback and points at Settings",
+        "input": {
+          "capability": "present",
+          "permission": "denied",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "fallback",
+          "code": "permission_denied",
+          "message": "Camera access was denied. Enable it in Settings to continue.",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "restricted by policy is not recoverable",
+        "input": {
+          "capability": "present",
+          "permission": "restricted",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "fallback",
+          "code": "permission_restricted",
+          "message": "Camera access is restricted on this device.",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "no camera on this device is typed absence",
+        "input": {
+          "capability": "absent",
+          "permission": "granted",
+          "subject": "Camera"
+        },
+        "expect": {
+          "render": "fallback",
+          "code": "unsupported_platform",
+          "message": "Camera is not available on this device.",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "an absent SDK outranks a granted permission",
+        "input": {
+          "capability": "absent",
+          "permission": "granted",
+          "subject": "Video calling"
+        },
+        "expect": {
+          "render": "fallback",
+          "code": "unsupported_platform",
+          "message": "Video calling is not available on this device.",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "the microphone ladder is the same ladder",
+        "input": {
+          "capability": "present",
+          "permission": "denied",
+          "subject": "Microphone"
+        },
+        "expect": {
+          "render": "fallback",
+          "code": "permission_denied",
+          "message": "Microphone access was denied. Enable it in Settings to continue.",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "no subject falls back to a generic one",
+        "input": {
+          "capability": "present",
+          "permission": "denied",
+          "subject": ""
+        },
+        "expect": {
+          "render": "fallback",
+          "code": "permission_denied",
+          "message": "This surface access was denied. Enable it in Settings to continue.",
+          "recoverable": true
+        }
+      }
+    ]
+  },
+  "roster": {
+    "_note": "Tile order for a call grid. Tiers, most important first: pinned, screen share, dominant speaker, other remotes, then LOCAL last - a user looking at their own face instead of the person talking is the first thing anyone reports. Ties break on join time and then on id, so the same roster is the same grid on three renderers and an unrelated re-render does not shuffle tiles under a finger. columns[] is hardcoded on all three renderers on purpose.",
+    "tiers": [
+      "pinned",
+      "screenShare",
+      "dominant",
+      "remote",
+      "local"
+    ],
+    "cases": [
+      {
+        "name": "a one-to-one call: the local tile sinks below the remote one",
+        "input": {
+          "participants": [
+            {
+              "id": "me",
+              "local": true,
+              "joinedAt": 1
+            },
+            {
+              "id": "ana",
+              "joinedAt": 2
+            }
+          ],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "ana",
+            "me"
+          ],
+          "visible": [
+            "ana",
+            "me"
+          ],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 2,
+          "rows": 1
+        }
+      },
+      {
+        "name": "the dominant speaker rises above the other remotes",
+        "input": {
+          "participants": [
+            {
+              "id": "me",
+              "local": true,
+              "joinedAt": 1
+            },
+            {
+              "id": "ana",
+              "joinedAt": 2
+            },
+            {
+              "id": "bo",
+              "joinedAt": 3,
+              "dominant": true
+            }
+          ],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "bo",
+            "ana",
+            "me"
+          ],
+          "visible": [
+            "bo",
+            "ana",
+            "me"
+          ],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 2,
+          "rows": 2
+        }
+      },
+      {
+        "name": "a screen share outranks the dominant speaker",
+        "input": {
+          "participants": [
+            {
+              "id": "ana",
+              "joinedAt": 2,
+              "dominant": true
+            },
+            {
+              "id": "bo",
+              "joinedAt": 3,
+              "screenShare": true
+            },
+            {
+              "id": "me",
+              "local": true,
+              "joinedAt": 1
+            }
+          ],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "bo",
+            "ana",
+            "me"
+          ],
+          "visible": [
+            "bo",
+            "ana",
+            "me"
+          ],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 2,
+          "rows": 2
+        }
+      },
+      {
+        "name": "a pin outranks everything, including a screen share",
+        "input": {
+          "participants": [
+            {
+              "id": "ana",
+              "joinedAt": 2,
+              "pinned": true
+            },
+            {
+              "id": "bo",
+              "joinedAt": 3,
+              "screenShare": true
+            },
+            {
+              "id": "me",
+              "local": true,
+              "joinedAt": 1
+            }
+          ],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "ana",
+            "bo",
+            "me"
+          ],
+          "visible": [
+            "ana",
+            "bo",
+            "me"
+          ],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 2,
+          "rows": 2
+        }
+      },
+      {
+        "name": "a pinned LOCAL tile is promoted out of the local tier",
+        "input": {
+          "participants": [
+            {
+              "id": "me",
+              "local": true,
+              "pinned": true,
+              "joinedAt": 9
+            },
+            {
+              "id": "ana",
+              "joinedAt": 2
+            }
+          ],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "me",
+            "ana"
+          ],
+          "visible": [
+            "me",
+            "ana"
+          ],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 2,
+          "rows": 1
+        }
+      },
+      {
+        "name": "ties break on join time, then on id, so the grid never shuffles",
+        "input": {
+          "participants": [
+            {
+              "id": "cy",
+              "joinedAt": 5
+            },
+            {
+              "id": "ana",
+              "joinedAt": 5
+            },
+            {
+              "id": "bo",
+              "joinedAt": 4
+            }
+          ],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "bo",
+            "ana",
+            "cy"
+          ],
+          "visible": [
+            "bo",
+            "ana",
+            "cy"
+          ],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 2,
+          "rows": 2
+        }
+      },
+      {
+        "name": "max caps the visible tiles and counts the overflow",
+        "input": {
+          "participants": [
+            {
+              "id": "a",
+              "joinedAt": 1
+            },
+            {
+              "id": "b",
+              "joinedAt": 2
+            },
+            {
+              "id": "c",
+              "joinedAt": 3
+            },
+            {
+              "id": "d",
+              "joinedAt": 4
+            },
+            {
+              "id": "e",
+              "joinedAt": 5
+            }
+          ],
+          "max": 3,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
+          ],
+          "visible": [
+            "a",
+            "b",
+            "c"
+          ],
+          "overflow": 2,
+          "spotlight": "",
+          "columns": 2,
+          "rows": 2
+        }
+      },
+      {
+        "name": "a spotlight layout names the first tile and still lists the rest",
+        "input": {
+          "participants": [
+            {
+              "id": "ana",
+              "joinedAt": 2,
+              "dominant": true
+            },
+            {
+              "id": "bo",
+              "joinedAt": 3
+            },
+            {
+              "id": "me",
+              "local": true,
+              "joinedAt": 1
+            }
+          ],
+          "max": 0,
+          "layout": "spotlight"
+        },
+        "expect": {
+          "order": [
+            "ana",
+            "bo",
+            "me"
+          ],
+          "visible": [
+            "ana",
+            "bo",
+            "me"
+          ],
+          "overflow": 0,
+          "spotlight": "ana",
+          "columns": 2,
+          "rows": 2
+        }
+      },
+      {
+        "name": "an empty roster is a zero grid, never a one-column one",
+        "input": {
+          "participants": [],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [],
+          "visible": [],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 0,
+          "rows": 0
+        }
+      },
+      {
+        "name": "a participant with no id is not a tile",
+        "input": {
+          "participants": [
+            {
+              "id": ""
+            },
+            {
+              "id": "ana",
+              "joinedAt": 1
+            }
+          ],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "ana"
+          ],
+          "visible": [
+            "ana"
+          ],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 1,
+          "rows": 1
+        }
+      },
+      {
+        "name": "four tiles are two columns and two rows",
+        "input": {
+          "participants": [
+            {
+              "id": "a",
+              "joinedAt": 1
+            },
+            {
+              "id": "b",
+              "joinedAt": 2
+            },
+            {
+              "id": "c",
+              "joinedAt": 3
+            },
+            {
+              "id": "d",
+              "joinedAt": 4
+            }
+          ],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "visible": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 2,
+          "rows": 2
+        }
+      },
+      {
+        "name": "five tiles are three columns and two rows",
+        "input": {
+          "participants": [
+            {
+              "id": "a",
+              "joinedAt": 1
+            },
+            {
+              "id": "b",
+              "joinedAt": 2
+            },
+            {
+              "id": "c",
+              "joinedAt": 3
+            },
+            {
+              "id": "d",
+              "joinedAt": 4
+            },
+            {
+              "id": "e",
+              "joinedAt": 5
+            }
+          ],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
+          ],
+          "visible": [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
+          ],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 3,
+          "rows": 2
+        }
+      },
+      {
+        "name": "ten tiles are four columns and three rows",
+        "input": {
+          "participants": [
+            {
+              "id": "a",
+              "joinedAt": 0
+            },
+            {
+              "id": "b",
+              "joinedAt": 1
+            },
+            {
+              "id": "c",
+              "joinedAt": 2
+            },
+            {
+              "id": "d",
+              "joinedAt": 3
+            },
+            {
+              "id": "e",
+              "joinedAt": 4
+            },
+            {
+              "id": "f",
+              "joinedAt": 5
+            },
+            {
+              "id": "g",
+              "joinedAt": 6
+            },
+            {
+              "id": "h",
+              "joinedAt": 7
+            },
+            {
+              "id": "i",
+              "joinedAt": 8
+            },
+            {
+              "id": "j",
+              "joinedAt": 9
+            }
+          ],
+          "max": 0,
+          "layout": ""
+        },
+        "expect": {
+          "order": [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            "h",
+            "i",
+            "j"
+          ],
+          "visible": [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            "h",
+            "i",
+            "j"
+          ],
+          "overflow": 0,
+          "spotlight": "",
+          "columns": 4,
+          "rows": 3
+        }
+      }
+    ]
+  },
+  "retain": {
+    "_note": "Keyed identity for an expensive vendor view (the SceneBind law). A call tile holds a live WebRTC track: tearing it down on an unrelated re-render drops video for a second and costs a renegotiation, so identity is declared and never positional-by-accident.",
+    "keys": [
+      {
+        "name": "an explicit key wins outright",
+        "input": {
+          "tag": "stream.ParticipantTile",
+          "key": "ana",
+          "session": "dsx.module.stream.context.session",
+          "index": 2
+        },
+        "expect": "stream.ParticipantTile#ana"
+      },
+      {
+        "name": "no key derives from tag, session reference and position",
+        "input": {
+          "tag": "stream.CallView",
+          "session": "dsx.module.stream.context.session",
+          "index": 0
+        },
+        "expect": "stream.CallView@dsx.module.stream.context.session[0]"
+      },
+      {
+        "name": "the implicit session still derives a stable key",
+        "input": {
+          "tag": "stream.CallControls",
+          "index": 0
+        },
+        "expect": "stream.CallControls@[0]"
+      }
+    ]
+  },
+  "connection": {
+    "_note": "THE CONNECTION FOLD. `dsx.module.stream.context.connection` is one six-word vocabulary (offline / connecting / connected / reconnecting / migrating / failed) that a `reconnecting` banner is markup against, and `settle` is what escapes the session machine's `confirming` - so this fold is simultaneously the reactive var and the ONLY thing allowed to invoke `settle`. S1 assumed both native SDKs already spoke one `RealtimeConnection` vocabulary. THEY DO NOT: stream-video-android-core has `RealtimeConnection` (PreJoin/InProgress/Joined/Connected/Reconnecting/Migrating/Failed/ReconnectingFailed/Disconnected), @stream-io/video-client has a `CallingState` enum (unknown/idle/ringing/joining/joined/left/reconnecting/migrating/reconnecting-failed/offline), and stream-video-swift has NEITHER - it has `CallingState` (idle/lobby/incoming/outgoing/joining/inCall/reconnecting) plus a separate `ReconnectionStatus` (connected/reconnecting/migrating/disconnected) that the module folds in first. There IS a translation table, so it is pinned here rather than trusted. Note the collision the lane key exists for: the word `joined` means CONNECTED on web and still-connecting on Android (the SDK's own comment: `joined, participant state is available, video isn't ready yet`). An unknown word on any lane is offline with NO settle: a fold that cannot read the SDK must never invent a connected call.",
+    "states": [
+      "offline",
+      "connecting",
+      "connected",
+      "reconnecting",
+      "migrating",
+      "failed"
+    ],
+    "settles": [
+      "none",
+      "complete",
+      "fail"
+    ],
+    "lanes": [
+      "web",
+      "android",
+      "ios"
+    ],
+    "cases": [
+      {
+        "name": "web: an unknown call state is offline and settles nothing",
+        "lane": "web",
+        "raw": "unknown",
+        "expect": {
+          "connection": "offline",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "web: idle",
+        "lane": "web",
+        "raw": "idle",
+        "expect": {
+          "connection": "offline",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "web: ringing is still connecting",
+        "lane": "web",
+        "raw": "ringing",
+        "expect": {
+          "connection": "connecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "web: joining",
+        "lane": "web",
+        "raw": "joining",
+        "expect": {
+          "connection": "connecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "web: JOINED is the web SDK's connected, and it is what settles the join",
+        "lane": "web",
+        "raw": "joined",
+        "expect": {
+          "connection": "connected",
+          "settle": "complete"
+        }
+      },
+      {
+        "name": "web: left - a join in flight that ends in a leave did not land",
+        "lane": "web",
+        "raw": "left",
+        "expect": {
+          "connection": "offline",
+          "settle": "fail"
+        }
+      },
+      {
+        "name": "web: reconnecting is NOT a failure, and settles nothing",
+        "lane": "web",
+        "raw": "reconnecting",
+        "expect": {
+          "connection": "reconnecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "web: migrating between SFU nodes",
+        "lane": "web",
+        "raw": "migrating",
+        "expect": {
+          "connection": "migrating",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "web: reconnecting-failed is terminal for the attempt",
+        "lane": "web",
+        "raw": "reconnecting-failed",
+        "expect": {
+          "connection": "failed",
+          "settle": "fail"
+        }
+      },
+      {
+        "name": "web: offline",
+        "lane": "web",
+        "raw": "offline",
+        "expect": {
+          "connection": "offline",
+          "settle": "fail"
+        }
+      },
+      {
+        "name": "android: PreJoin - before call.join is called",
+        "lane": "android",
+        "raw": "prejoin",
+        "expect": {
+          "connection": "offline",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "android: InProgress - the join is in flight",
+        "lane": "android",
+        "raw": "inprogress",
+        "expect": {
+          "connection": "connecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "android: JOINED IS NOT CONNECTED HERE - the SDK's own comment says participant state is available but video is not, so the join has not landed",
+        "lane": "android",
+        "raw": "joined",
+        "expect": {
+          "connection": "connecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "android: Connected - peer connections are ready, and this is the settle",
+        "lane": "android",
+        "raw": "connected",
+        "expect": {
+          "connection": "connected",
+          "settle": "complete"
+        }
+      },
+      {
+        "name": "android: Reconnecting",
+        "lane": "android",
+        "raw": "reconnecting",
+        "expect": {
+          "connection": "reconnecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "android: Migrating",
+        "lane": "android",
+        "raw": "migrating",
+        "expect": {
+          "connection": "migrating",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "android: Failed - permanent failure",
+        "lane": "android",
+        "raw": "failed",
+        "expect": {
+          "connection": "failed",
+          "settle": "fail"
+        }
+      },
+      {
+        "name": "android: ReconnectingFailed - all retry attempts exhausted",
+        "lane": "android",
+        "raw": "reconnectingfailed",
+        "expect": {
+          "connection": "failed",
+          "settle": "fail"
+        }
+      },
+      {
+        "name": "android: Disconnected - a normal disconnect by the app",
+        "lane": "android",
+        "raw": "disconnected",
+        "expect": {
+          "connection": "offline",
+          "settle": "fail"
+        }
+      },
+      {
+        "name": "ios: .idle",
+        "lane": "ios",
+        "raw": "idle",
+        "expect": {
+          "connection": "offline",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "ios: .lobby - the pre-join screen is already a connecting call",
+        "lane": "ios",
+        "raw": "lobby",
+        "expect": {
+          "connection": "connecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "ios: .incoming",
+        "lane": "ios",
+        "raw": "incoming",
+        "expect": {
+          "connection": "connecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "ios: .outgoing",
+        "lane": "ios",
+        "raw": "outgoing",
+        "expect": {
+          "connection": "connecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "ios: .joining",
+        "lane": "ios",
+        "raw": "joining",
+        "expect": {
+          "connection": "connecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "ios: .inCall with ReconnectionStatus .connected is the settle",
+        "lane": "ios",
+        "raw": "incall",
+        "expect": {
+          "connection": "connected",
+          "settle": "complete"
+        }
+      },
+      {
+        "name": "ios: .reconnecting, or .inCall folded with ReconnectionStatus .reconnecting",
+        "lane": "ios",
+        "raw": "reconnecting",
+        "expect": {
+          "connection": "reconnecting",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "ios: .inCall folded with ReconnectionStatus .migrating - the ONLY place iOS says this word",
+        "lane": "ios",
+        "raw": "migrating",
+        "expect": {
+          "connection": "migrating",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "ios: .inCall folded with ReconnectionStatus .disconnected",
+        "lane": "ios",
+        "raw": "disconnected",
+        "expect": {
+          "connection": "offline",
+          "settle": "fail"
+        }
+      },
+      {
+        "name": "ios: call.state.disconnectionError is set",
+        "lane": "ios",
+        "raw": "failed",
+        "expect": {
+          "connection": "failed",
+          "settle": "fail"
+        }
+      },
+      {
+        "name": "an SDK word this build has never heard of is offline with NO settle, on every lane",
+        "lane": "web",
+        "raw": "teleported",
+        "expect": {
+          "connection": "offline",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "an SDK word this build has never heard of is offline with NO settle, on every lane",
+        "lane": "android",
+        "raw": "teleported",
+        "expect": {
+          "connection": "offline",
+          "settle": "none"
+        }
+      },
+      {
+        "name": "an SDK word this build has never heard of is offline with NO settle, on every lane",
+        "lane": "ios",
+        "raw": "teleported",
+        "expect": {
+          "connection": "offline",
+          "settle": "none"
+        }
+      }
+    ]
+  },
+  "renderer": {
+    "_note": "THE TILE FOLD - what <stream.ParticipantTile/> publishes and WHICH track it binds. V02 shipped the tile's chrome over an empty `StreamInlineHandles.renderer` seam and published `video:false` on every platform; this section is that seam's contract, so the three renderers cannot disagree about which track a tile is holding. It deliberately pins the DECISION and not the platform plumbing (VideoRendererView.handleViewRendering on iOS, StreamVideoTextureViewRenderer + Call.initRenderer on Android, call.bindVideoElement on web), exactly as net/status.json pins the classification and not NWPathMonitor. THE KEYED-RETAIN LAW'S COMPANION: `track` is what the retain key must be re-bound against, because a tile that keeps its live renderer across a reorder while its participant changed underneath is a tile showing the wrong person's face. A shared screen is NEVER mirrored and a remote participant is never mirrored, whatever mirror= says: mirroring is a fact about your own camera.",
+    "tracks": [
+      "video",
+      "screenShare",
+      "none"
+    ],
+    "codes": [
+      "",
+      "no_track",
+      "no_participant"
+    ],
+    "cases": [
+      {
+        "name": "a tile bound to a remote participant's video track",
+        "input": {
+          "participant": {
+            "id": "ana",
+            "name": "Ana",
+            "local": false,
+            "speaking": false,
+            "audio": true,
+            "video": true,
+            "screenShare": false
+          },
+          "hasVideoTrack": true,
+          "hasScreenShareTrack": false,
+          "mirror": true
+        },
+        "expect": {
+          "name": "Ana",
+          "speaking": false,
+          "audio": true,
+          "video": true,
+          "screenShare": false,
+          "track": "video",
+          "mirror": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "a participant with no name falls back to the session id, which is what a tile can always draw",
+        "input": {
+          "participant": {
+            "id": "s_7c1",
+            "name": "",
+            "local": false,
+            "speaking": false,
+            "audio": true,
+            "video": true,
+            "screenShare": false
+          },
+          "hasVideoTrack": true,
+          "hasScreenShareTrack": false,
+          "mirror": true
+        },
+        "expect": {
+          "name": "s_7c1",
+          "speaking": false,
+          "audio": true,
+          "video": true,
+          "screenShare": false,
+          "track": "video",
+          "mirror": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "A TILE WITH NO TRACK: real chrome, no pixels, and the typed absence says which - never a black rectangle",
+        "input": {
+          "participant": {
+            "id": "ana",
+            "name": "Ana",
+            "local": false,
+            "speaking": false,
+            "audio": true,
+            "video": false,
+            "screenShare": false
+          },
+          "hasVideoTrack": false,
+          "hasScreenShareTrack": false,
+          "mirror": true
+        },
+        "expect": {
+          "name": "Ana",
+          "speaking": false,
+          "audio": true,
+          "video": false,
+          "screenShare": false,
+          "track": "none",
+          "mirror": false,
+          "code": "no_track"
+        }
+      },
+      {
+        "name": "the participant says video is on but no track has arrived yet - still no_track, because pixels are the claim",
+        "input": {
+          "participant": {
+            "id": "ana",
+            "name": "Ana",
+            "local": false,
+            "speaking": false,
+            "audio": true,
+            "video": true,
+            "screenShare": false
+          },
+          "hasVideoTrack": false,
+          "hasScreenShareTrack": false,
+          "mirror": true
+        },
+        "expect": {
+          "name": "Ana",
+          "speaking": false,
+          "audio": true,
+          "video": false,
+          "screenShare": false,
+          "track": "none",
+          "mirror": false,
+          "code": "no_track"
+        }
+      },
+      {
+        "name": "A SCREEN SHARE WINS over the camera track, and a shared screen is NEVER mirrored",
+        "input": {
+          "participant": {
+            "id": "ana",
+            "name": "Ana",
+            "local": false,
+            "speaking": false,
+            "audio": true,
+            "video": true,
+            "screenShare": true
+          },
+          "hasVideoTrack": true,
+          "hasScreenShareTrack": true,
+          "mirror": true
+        },
+        "expect": {
+          "name": "Ana",
+          "speaking": false,
+          "audio": true,
+          "video": true,
+          "screenShare": true,
+          "track": "screenShare",
+          "mirror": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "screenShare is announced but its track has not arrived: fall back to the camera track rather than showing nothing",
+        "input": {
+          "participant": {
+            "id": "ana",
+            "name": "Ana",
+            "local": false,
+            "speaking": false,
+            "audio": true,
+            "video": true,
+            "screenShare": true
+          },
+          "hasVideoTrack": true,
+          "hasScreenShareTrack": false,
+          "mirror": true
+        },
+        "expect": {
+          "name": "Ana",
+          "speaking": false,
+          "audio": true,
+          "video": true,
+          "screenShare": false,
+          "track": "video",
+          "mirror": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "THE LOCAL PARTICIPANT'S OWN PREVIEW IS MIRRORED, which is what every video app does and what a user expects of their own face",
+        "input": {
+          "participant": {
+            "id": "me",
+            "name": "You",
+            "local": true,
+            "speaking": false,
+            "audio": true,
+            "video": true,
+            "screenShare": false
+          },
+          "hasVideoTrack": true,
+          "hasScreenShareTrack": false,
+          "mirror": true
+        },
+        "expect": {
+          "name": "You",
+          "speaking": false,
+          "audio": true,
+          "video": true,
+          "screenShare": false,
+          "track": "video",
+          "mirror": true,
+          "code": ""
+        }
+      },
+      {
+        "name": "mirror=false turns the local preview around",
+        "input": {
+          "participant": {
+            "id": "me",
+            "name": "You",
+            "local": true,
+            "speaking": false,
+            "audio": true,
+            "video": true,
+            "screenShare": false
+          },
+          "hasVideoTrack": true,
+          "hasScreenShareTrack": false,
+          "mirror": false
+        },
+        "expect": {
+          "name": "You",
+          "speaking": false,
+          "audio": true,
+          "video": true,
+          "screenShare": false,
+          "track": "video",
+          "mirror": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "the LOCAL participant sharing their screen is not mirrored either",
+        "input": {
+          "participant": {
+            "id": "me",
+            "name": "You",
+            "local": true,
+            "speaking": false,
+            "audio": true,
+            "video": true,
+            "screenShare": true
+          },
+          "hasVideoTrack": true,
+          "hasScreenShareTrack": true,
+          "mirror": true
+        },
+        "expect": {
+          "name": "You",
+          "speaking": false,
+          "audio": true,
+          "video": true,
+          "screenShare": true,
+          "track": "screenShare",
+          "mirror": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "a muted speaker still reports speaking: audio and speaking are two facts, and a tile draws both",
+        "input": {
+          "participant": {
+            "id": "ana",
+            "name": "Ana",
+            "local": false,
+            "speaking": true,
+            "audio": false,
+            "video": true,
+            "screenShare": false
+          },
+          "hasVideoTrack": true,
+          "hasScreenShareTrack": false,
+          "mirror": true
+        },
+        "expect": {
+          "name": "Ana",
+          "speaking": true,
+          "audio": false,
+          "video": true,
+          "screenShare": false,
+          "track": "video",
+          "mirror": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "NO PARTICIPANT AT ALL: the tile publishes nothing and says no_participant - the local-preview spelling before anyone has joined",
+        "input": {
+          "participant": null,
+          "hasVideoTrack": false,
+          "hasScreenShareTrack": false,
+          "mirror": true
+        },
+        "expect": {
+          "name": "",
+          "speaking": false,
+          "audio": false,
+          "video": false,
+          "screenShare": false,
+          "track": "none",
+          "mirror": false,
+          "code": "no_participant"
+        }
+      },
+      {
+        "name": "a participant is named but has no tracks and no audio: every published fact is false and the code is no_track",
+        "input": {
+          "participant": {
+            "id": "ana",
+            "name": "Ana",
+            "local": false,
+            "speaking": false,
+            "audio": false,
+            "video": false,
+            "screenShare": false
+          },
+          "hasVideoTrack": false,
+          "hasScreenShareTrack": false,
+          "mirror": false
+        },
+        "expect": {
+          "name": "Ana",
+          "speaking": false,
+          "audio": false,
+          "video": false,
+          "screenShare": false,
+          "track": "none",
+          "mirror": false,
+          "code": "no_track"
+        }
+      }
+    ]
+  }
+}

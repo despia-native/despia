@@ -7,6 +7,9 @@ dsx build          # compile a project into a deployable static site
 dsx dev            # build, serve, watch, reload
 dsx lint --strict  # static validation of DSX markup + JSE bodies
 dsx doctor         # check a project for the mistakes that make a build fail later
+dsx edit           # the visual editor, served locally against this project
+dsx ota build      # over-the-air content: build, publish, roll back
+dsx export all     # a real Xcode + Android Studio project from your own modules
 ```
 
 Inside this repository, run it without installing anything:
@@ -26,8 +29,10 @@ text, and the whole implementation of `doctor`. `cli.ts` reads it at startup and
 from it, so a command cannot exist in `--help` and not in the parser, or accept a flag the
 help never mentions.
 
-`build`, `dev` and `lint` declare `handler=` and keep their TypeScript; `doctor` declares
-`action=` and is DSX all the way down. Full design: `cli-authoring.md`.
+`build`, `dev`, `lint`, `edit`, `ota` and `export` declare `handler=` and keep their
+TypeScript; `doctor` declares `action=` and is DSX all the way down. Full design:
+`cli-authoring.md`. The export path (a complete native project from your own module folder,
+kernel vendored, nothing withheld) is documented in the framework guide `native-export.md`.
 
 ## Build your own
 

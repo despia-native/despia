@@ -1,4 +1,4 @@
-# Component props vs state — attributes vs variables
+# Component props vs state: attributes vs variables
 
 > Audience: component + module authors. The one rule that keeps a component reusable:
 > **a component's EXTERNAL inputs are *attributes* (props); its INTERNAL mutable data is

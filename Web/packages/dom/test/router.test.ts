@@ -113,6 +113,11 @@ test("echoKey is stable, order-insensitive over seeds, and separates verb/compon
   assert.notEqual(echoKey("push", "Cart", "", { sku: "gold" }), echoKey("push", "Cart", "", {}));
   // attrs participate too (both seeds, native 1:1)
   assert.notEqual(echoKey("push", "Cart", "", {}, { size: "L" }), echoKey("push", "Cart", "", {}));
+  // the style plane participates too: two presents identical but for their overrides both land
+  assert.notEqual(
+    echoKey("push", "Cart", "", {}, {}, { tint: "red" }),
+    echoKey("push", "Cart", "", {}, {}, { tint: "green" }),
+  );
   // verb + component + present mode all separate the identity
   assert.notEqual(echoKey("push", "Cart", ""), echoKey("present:sheet", "Cart", ""));
   assert.notEqual(echoKey("present:sheet", "Paywall", ""), echoKey("present:cover", "Paywall", ""));

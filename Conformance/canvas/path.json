@@ -1,0 +1,781 @@
+{
+ "_note": "The SVG PATH-DATA mini-language (`d`) \u2192 the NORMALIZED absolute segment list. THE LAW: every command folds to M / L / C / Q / Z in ABSOLUTE user coordinates \u2014 H and V become L, S and T resolve their reflected control point (the reflection of the previous cubic/quadratic control about the current point; the CURRENT POINT itself when the previous command was not of that family), and an elliptical arc becomes 1..4 cubics through the F.6.5 endpoint\u2192centre conversion, split at ceil(|\u0394\u03b8| / 90\u00b0) with k = 4/3\u00b7tan(\u03b4/4). The F.6.6 corrections are part of the law: rx = |rx|, ry = |ry|; identical endpoints emit NOTHING; a zero radius degenerates to a line; radii too small are scaled by sqrt(\u039b). Numbers follow the SVG number grammar \u2014 exponents, no-space negatives, decimal runs ('.5.5' is two numbers) \u2014 and the two arc FLAGS are single characters, so 'a5 5 0 0110 0' is fa=0 fs=1 x=10 y=0. Implicit repeats: a repeated argument set after M is L (after m, l); every other command repeats itself. ARTICLE 7: a malformed token STOPS the parse, keeps every segment already produced, and emits exactly ONE diagnostic \u2014 never a crash, never a partial number. `bbox` is the TIGHT bounding box (curve extrema solved analytically, never control-point hull) and is EXACT on every renderer \u2014 the geometry half of the determinism split (pixels are toleranced, geometry is not). Expected values come from an independent scratch implementation, never from a kernel under test.",
+ "cases": [
+  {
+   "name": "absolute M L Z triangle",
+   "d": "M0 0 L10 0 L5 8 Z",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "L",
+     10.0,
+     0.0
+    ],
+    [
+     "L",
+     5.0,
+     8.0
+    ],
+    [
+     "Z"
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    10.0,
+    8.0
+   ]
+  },
+  {
+   "name": "relative m l z triangle",
+   "d": "m1 1 l10 0 l-5 8 z",
+   "segments": [
+    [
+     "M",
+     1.0,
+     1.0
+    ],
+    [
+     "L",
+     11.0,
+     1.0
+    ],
+    [
+     "L",
+     6.0,
+     9.0
+    ],
+    [
+     "Z"
+    ]
+   ],
+   "bbox": [
+    1.0,
+    1.0,
+    11.0,
+    9.0
+   ]
+  },
+  {
+   "name": "implicit repeat after M is L",
+   "d": "M0 0 10 0 10 10",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "L",
+     10.0,
+     0.0
+    ],
+    [
+     "L",
+     10.0,
+     10.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    10.0,
+    10.0
+   ]
+  },
+  {
+   "name": "implicit repeat after m is l",
+   "d": "m2 2 3 0 0 3",
+   "segments": [
+    [
+     "M",
+     2.0,
+     2.0
+    ],
+    [
+     "L",
+     5.0,
+     2.0
+    ],
+    [
+     "L",
+     5.0,
+     5.0
+    ]
+   ],
+   "bbox": [
+    2.0,
+    2.0,
+    5.0,
+    5.0
+   ]
+  },
+  {
+   "name": "H and V, absolute",
+   "d": "M0 0 H10 V10 H0 Z",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "L",
+     10.0,
+     0.0
+    ],
+    [
+     "L",
+     10.0,
+     10.0
+    ],
+    [
+     "L",
+     0.0,
+     10.0
+    ],
+    [
+     "Z"
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    10.0,
+    10.0
+   ]
+  },
+  {
+   "name": "h and v, relative",
+   "d": "M5 5 h5 v5 h-5 z",
+   "segments": [
+    [
+     "M",
+     5.0,
+     5.0
+    ],
+    [
+     "L",
+     10.0,
+     5.0
+    ],
+    [
+     "L",
+     10.0,
+     10.0
+    ],
+    [
+     "L",
+     5.0,
+     10.0
+    ],
+    [
+     "Z"
+    ]
+   ],
+   "bbox": [
+    5.0,
+    5.0,
+    10.0,
+    10.0
+   ]
+  },
+  {
+   "name": "C then S reflects the previous control",
+   "d": "M0 0 C0 5 5 5 5 0 S10 -5 10 0",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "C",
+     0.0,
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     0.0
+    ],
+    [
+     "C",
+     5.0,
+     -5.0,
+     10.0,
+     -5.0,
+     10.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    -3.75,
+    10.0,
+    3.75
+   ]
+  },
+  {
+   "name": "S with no preceding cubic reflects the current point",
+   "d": "M0 0 S5 5 10 0",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "C",
+     0.0,
+     0.0,
+     5.0,
+     5.0,
+     10.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    10.0,
+    2.222222
+   ]
+  },
+  {
+   "name": "Q then T reflects the previous control",
+   "d": "M0 0 Q5 5 10 0 T20 0",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "Q",
+     5.0,
+     5.0,
+     10.0,
+     0.0
+    ],
+    [
+     "Q",
+     15.0,
+     -5.0,
+     20.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    -2.5,
+    20.0,
+    2.5
+   ]
+  },
+  {
+   "name": "T with no preceding quadratic reflects the current point",
+   "d": "M0 0 T10 0",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "Q",
+     0.0,
+     0.0,
+     10.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    10.0,
+    0.0
+   ]
+  },
+  {
+   "name": "no-space negative numbers",
+   "d": "M0 0L-5-5L-10 0Z",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "L",
+     -5.0,
+     -5.0
+    ],
+    [
+     "L",
+     -10.0,
+     0.0
+    ],
+    [
+     "Z"
+    ]
+   ],
+   "bbox": [
+    -10.0,
+    -5.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "exponent numbers",
+   "d": "M1e2 1E-2 L2e1 3",
+   "segments": [
+    [
+     "M",
+     100.0,
+     0.01
+    ],
+    [
+     "L",
+     20.0,
+     3.0
+    ]
+   ],
+   "bbox": [
+    20.0,
+    0.01,
+    100.0,
+    3.0
+   ]
+  },
+  {
+   "name": "decimal runs without separators",
+   "d": "M.5.5.5.5",
+   "segments": [
+    [
+     "M",
+     0.5,
+     0.5
+    ],
+    [
+     "L",
+     0.5,
+     0.5
+    ]
+   ],
+   "bbox": [
+    0.5,
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "name": "arc \u2014 a quarter turn, sweep 1",
+   "d": "M0 0 A10 10 0 0 1 10 10",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "C",
+     5.522847,
+     0.0,
+     10.0,
+     4.477153,
+     10.0,
+     10.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    10.0,
+    10.0
+   ]
+  },
+  {
+   "name": "arc \u2014 the large-arc flag",
+   "d": "M0 0 A10 10 0 1 1 10 10",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "C",
+     0.0,
+     -5.522847,
+     4.477153,
+     -10.0,
+     10.0,
+     -10.0
+    ],
+    [
+     "C",
+     15.522847,
+     -10.0,
+     20.0,
+     -5.522847,
+     20.0,
+     0.0
+    ],
+    [
+     "C",
+     20.0,
+     5.522847,
+     15.522847,
+     10.0,
+     10.0,
+     10.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    -10.0,
+    20.0,
+    10.0
+   ]
+  },
+  {
+   "name": "arc \u2014 sweep 0 goes the other way",
+   "d": "M0 0 A10 10 0 0 0 10 10",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "C",
+     0.0,
+     5.522847,
+     4.477153,
+     10.0,
+     10.0,
+     10.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    10.0,
+    10.0
+   ]
+  },
+  {
+   "name": "arc \u2014 a rotated ellipse",
+   "d": "M0 0 A20 10 45 0 1 20 10",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "C",
+     5.202744,
+     -1.298498,
+     13.597296,
+     2.898778,
+     20.0,
+     10.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    -0.234562,
+    20.0,
+    10.0
+   ]
+  },
+  {
+   "name": "arc \u2014 radii too small are scaled up (F.6.6)",
+   "d": "M0 0 A1 1 0 0 1 10 0",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "C",
+     0.0,
+     -2.761424,
+     2.238576,
+     -5.0,
+     5.0,
+     -5.0
+    ],
+    [
+     "C",
+     7.761424,
+     -5.0,
+     10.0,
+     -2.761424,
+     10.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    -5.0,
+    10.0,
+    0.0
+   ]
+  },
+  {
+   "name": "arc \u2014 a zero radius degenerates to a line",
+   "d": "M0 0 A0 10 0 0 1 10 10",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "L",
+     10.0,
+     10.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    10.0,
+    10.0
+   ]
+  },
+  {
+   "name": "arc \u2014 identical endpoints emit nothing",
+   "d": "M5 5 A10 10 0 1 1 5 5 L10 10",
+   "segments": [
+    [
+     "M",
+     5.0,
+     5.0
+    ],
+    [
+     "L",
+     10.0,
+     10.0
+    ]
+   ],
+   "bbox": [
+    5.0,
+    5.0,
+    10.0,
+    10.0
+   ]
+  },
+  {
+   "name": "arc \u2014 flags packed against the coordinates",
+   "d": "M0 0 a5 5 0 0110 0",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "C",
+     0.0,
+     -2.761424,
+     2.238576,
+     -5.0,
+     5.0,
+     -5.0
+    ],
+    [
+     "C",
+     7.761424,
+     -5.0,
+     10.0,
+     -2.761424,
+     10.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    -5.0,
+    10.0,
+    0.0
+   ]
+  },
+  {
+   "name": "closepath then a relative command resumes at the subpath start",
+   "d": "M10 10 h10 z l5 5",
+   "segments": [
+    [
+     "M",
+     10.0,
+     10.0
+    ],
+    [
+     "L",
+     20.0,
+     10.0
+    ],
+    [
+     "Z"
+    ],
+    [
+     "M",
+     10.0,
+     10.0
+    ],
+    [
+     "L",
+     15.0,
+     15.0
+    ]
+   ],
+   "bbox": [
+    10.0,
+    10.0,
+    20.0,
+    15.0
+   ]
+  },
+  {
+   "name": "two subpaths",
+   "d": "M0 0 L10 0 M20 0 L30 0",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "L",
+     10.0,
+     0.0
+    ],
+    [
+     "M",
+     20.0,
+     0.0
+    ],
+    [
+     "L",
+     30.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    30.0,
+    0.0
+   ]
+  },
+  {
+   "name": "a truncated command keeps what parsed",
+   "d": "M0 0 L10",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "diagnostics": 1
+  },
+  {
+   "name": "an unknown command letter stops the parse",
+   "d": "M0 0 X10 10 L5 5",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "diagnostics": 1
+  },
+  {
+   "name": "leading garbage yields nothing",
+   "d": "wat",
+   "segments": [],
+   "bbox": null,
+   "diagnostics": 1
+  },
+  {
+   "name": "an empty d is empty, not an error",
+   "d": "",
+   "segments": [],
+   "bbox": null
+  },
+  {
+   "name": "a cubic bounding box uses the real extrema",
+   "d": "M0 0 C0 10 10 10 10 0",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "C",
+     0.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    10.0,
+    7.5
+   ]
+  },
+  {
+   "name": "a quadratic bounding box uses the real extremum",
+   "d": "M0 0 Q5 10 10 0",
+   "segments": [
+    [
+     "M",
+     0.0,
+     0.0
+    ],
+    [
+     "Q",
+     5.0,
+     10.0,
+     10.0,
+     0.0
+    ]
+   ],
+   "bbox": [
+    0.0,
+    0.0,
+    10.0,
+    5.0
+   ]
+  }
+ ]
+}

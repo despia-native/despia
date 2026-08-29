@@ -28,6 +28,12 @@
   },
   "platforms": {
    "ar": ["ios"]
+  },
+  "_note_platformActions": "The ACTION-level narrowing (X2 \u00a74): a manifest may narrow ONE action away from a platform its module otherwise runs on, and the rung for it sits AHEAD of unknown_action - the module IS registered here, so every other reading would call the narrowed action a caller bug. Keyed '<chain>.<action>' and PRE-FILTERED exactly like `platforms` above: a row is present only when the current OS is absent from the action's list, which is what lets the ladder stay a pure function of facts. Populated at runtime from the generated platform-support table (bus.ts setPlatformSupport / ModuleRegistry.unsupportedPlatforms).",
+  "platformActions": {
+   "loc.narrowed": ["ios", "android"],
+   "quarantined.narrowed": ["ios"],
+   "unbuilt.verb": ["ios"]
   }
  },
  "cases": [
@@ -135,6 +141,31 @@
     "facet": "app",
     "call": "ar/scan",
     "expect": { "rung": "unavailable", "code": "unsupported_platform" } },
+
+  { "name": "a NARROWED action outranks unknown_action - the module is here, the action never can be",
+    "facet": "app", "local": { "loc": ["locate"] },
+    "call": "loc/narrowed",
+    "expect": { "rung": "unavailable", "code": "unsupported_platform" } },
+
+  { "name": "...and a narrowed action the build DID register still answers locally: rung one is first",
+    "facet": "app", "local": { "loc": ["locate", "narrowed"] },
+    "call": "loc/narrowed",
+    "expect": { "rung": "local" } },
+
+  { "name": "a narrowed action outranks not_loaded when nothing of the module is here",
+    "facet": "app",
+    "call": "unbuilt/verb",
+    "expect": { "rung": "unavailable", "code": "unsupported_platform" } },
+
+  { "name": "a narrowed action outranks excluded - it could never have answered here either way",
+    "facet": "app",
+    "call": "quarantined/narrowed",
+    "expect": { "rung": "unavailable", "code": "unsupported_platform" } },
+
+  { "name": "the CONTRAST: an un-narrowed action on the same registered module is a caller bug",
+    "facet": "app", "local": { "loc": ["locate"] },
+    "call": "loc/track",
+    "expect": { "rung": "unavailable", "code": "unknown_action" } },
 
   { "name": "a registered module with an unknown action is a CALLER bug, never absence",
     "facet": "app", "local": { "loc": ["locate"] },

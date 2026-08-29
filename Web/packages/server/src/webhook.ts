@@ -363,3 +363,70 @@ export function webhookResponse(outcome: WebhookOutcome): Response {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
+
+//
+//  THE DECLARATION → HANDLER BINDING (backend-authoring.md: `<webhook>`).
+//
+//  Everything above is the mechanism; this is the only part an author touches, and they touch it
+//  by declaring a row rather than by calling any of it. `prepare_server.rb` turns each
+//  `<webhook>` into one generated handler built here, so the receiver an app ships is the
+//  receiver this file's tests cover — there is no per-app copy to get subtly wrong.
+//
+//  SECRETS TRAVEL BY ENV NAME, NEVER BY VALUE. The declaration carries the NAMES of the
+//  variables holding the signing secrets, and they are read from `ctx.env` at dispatch. A
+//  generated artifact is committed and mirrored, so a secret resolved at emit time would be a
+//  secret in git; and the rotation list has to be re-readable per request anyway, because
+//  rotating means changing the env and expecting the next delivery to honour it.
+//
+
+/** One `<webhook>` row, as the emitter writes it into `webhooks.generated.ts`. */
+export interface WebhookDeclaration {
+  /** the source name — namespaces the idempotency key, so two senders cannot collide */
+  name: string;
+  /** the queue a verified delivery is enqueued onto; a `<worker>` must drain it */
+  queue: string;
+  /**
+   * Env variable NAMES holding the signing secrets, most-current first. More than one is the
+   * rotation window: both verify, so the sender can be switched over without dropping a
+   * delivery. An unset variable is skipped rather than treated as the empty secret, and a
+   * declaration whose variables are all unset refuses every delivery with 404 (`not_configured`)
+   * rather than accepting unsigned ones.
+   */
+  secretEnv: readonly string[];
+  signatureHeader?: string;
+  timestampHeader?: string;
+  idField?: string;
+  toleranceMs?: number;
+}
+
+/**
+ * Build the host handler for one declared webhook source.
+ *
+ * Returns a `Response` rather than a value, which is the documented way a handler produces the
+ * whole answer: a bad signature is 401, an oversized body is 413, and neither is a 200 carrying
+ * a sad value. A `QueueError` from the enqueue is deliberately allowed to THROW — the delivery
+ * was good and we failed to store it, so the host's 500 is what makes the sender retry. Any 2xx
+ * here would tell it the event was accepted and cancel the retry that would have saved it.
+ */
+export function webhookReceiver(
+  declaration: WebhookDeclaration,
+  options: WebhookVerifyOptions & { maxBodyBytes?: number } = {},
+): (args: Record<string, unknown>, ctx: { env: (key: string) => string | undefined; request: Request }) => Promise<Response> {
+  return async (_args, ctx) => {
+    const secrets: string[] = [];
+    for (const key of declaration.secretEnv) {
+      const value = ctx.env(key);
+      if (typeof value === "string" && value !== "") secrets.push(value);
+    }
+    const source: WebhookSource = {
+      name: declaration.name,
+      secrets,
+      queue: declaration.queue,
+      signatureHeader: declaration.signatureHeader,
+      timestampHeader: declaration.timestampHeader,
+      idField: declaration.idField,
+      toleranceMs: declaration.toleranceMs,
+    };
+    return webhookResponse(await receiveWebhook(source, ctx.request, options));
+  };
+}

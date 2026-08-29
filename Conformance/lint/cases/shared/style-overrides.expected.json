@@ -1,0 +1,52 @@
+[
+  {
+    "line": 6,
+    "level": "error",
+    "rule": "override-type"
+  },
+  {
+    "line": 7,
+    "level": "error",
+    "rule": "override-reserved-name"
+  },
+  {
+    "line": 8,
+    "level": "error",
+    "rule": "override-options"
+  },
+  {
+    "line": 9,
+    "level": "error",
+    "rule": "override-default"
+  },
+  {
+    "line": 10,
+    "level": "error",
+    "rule": "override-default-bound"
+  },
+  {
+    "line": 11,
+    "level": "error",
+    "rule": "override-min-max"
+  },
+  {
+    "line": 12,
+    "level": "error",
+    "rule": "missing-as"
+  },
+  {
+    "line": 14,
+    "level": "warning",
+    "rule": "head-order"
+  },
+  {
+    "line": 16,
+    "level": "warning",
+    "rule": "override-on-element"
+  },
+  {
+    "line": 16,
+    "level": "warning",
+    "rule": "override-on-element"
+  }
+]

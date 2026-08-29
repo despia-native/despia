@@ -1,0 +1,197 @@
+{
+ "_note": "The system-defaults TYPE corpus (design-system.md Part 1 'Type ramp'). RATIFIED, NOT INVENTED. Every web value below is the value already shipping in packages/dom/src/theme.ts on the day this file landed, read out of the sheet rather than chosen here. This file exists because the values had no cross-runtime home: design-system.md Part 1 specified the axis in 2026-08-17, the web column shipped, and the native columns were never written down, so the law lived in a CSS comment. See runtime-pressure.md R22. THE LAW: a role names a JOB in the reading hierarchy, never a size. Native columns are the platform's own text style, so an app inherits Dynamic Type and its accessibility sizes on the Apple targets and the Material 3 type scale on the Compose targets - the OS owns the metrics and they self-update. Only web carries literals, because the web has no system ramp to inherit. FOUR AXES PER ROLE, not one: size, weight, tracking AND leading. Leading is the half that was missing until 2026-08-25, and its absence is why the shipped sheet carried nine hand-typed line-heights. WEIGHT IS RENDERABLE: only 400, 500, 600 and 700 appear, because 560 and 650 are variable-font axis values that snap on the static faces most Windows and Linux users have, collapsing the hierarchy exactly where the web renderer matters most. Medium (500) IS a real static face, which is the whole reason the label role below could be ratified. Regular (400) is the default body weight; semibold is for titles, and semibold-everything is the loudest cheapness tell a skin can have. Every renderer consumes THIS file (the api-blocks.json shape): the web drift gate is OpenSource/Web/packages/dom/test/theme.test.ts, and the element layer is held to the vocabulary by packages/dom/test/design-system-gate.test.ts, which fails a literal on this axis inside @layer dsx-elements. A vocabulary change here without a spec change is drift - the gates pin the word list. THREE ROLES RATIFIED 2026-08-25, each because the element layer was already improvising a value the nine roles could not express and the design-system gate had nothing to offer it (the gate's burn-down named every site). label: the CONTROL label - Material labelLarge is 500 and the audit asked for control labels at 'regular or medium', so nine hand-written `font-weight: 500` sites were the RAMP being wrong, not the sites; its tracking OPENS (+0.01em) because the ramp tightens as type grows and the small label band is where it has to open again. caption2: the MICRO label under caption - Apple caption2 and Material labelSmall are both 11px, and four sites (a tab label, a tab badge, a menu-bar label, a scene overlay) went under the 12px floor on their own. reading: LONG-FORM body - prose is not UI text, it reads at the reader's own root size (1rem) and a looser rhythm (1.7), which is why the markdown plane never once used --dsx-type-body-*. Its native columns repeat body's on purpose: the JOB differs, the platform's text style for long-form does not. Two families ratified alongside these stay OUT of this file because they have no native twin at all: the fluid size clamps (--dsx-type-*-size-fluid) interpolate against a viewport, and Dynamic Type and the Material scale already resize from the OS; and the glyph scale (--dsx-glyph-*), which sizes a text glyph used as an icon and so is not on the reading ramp at all.",
+ "tokens": {
+  "display": {
+   "ios": "largeTitle",
+   "watchos": "largeTitle",
+   "macos": "largeTitle",
+   "android": "displaySmall",
+   "wear": "displaySmall",
+   "windows": "displaySmall",
+   "linux": "displaySmall",
+   "web": {
+    "css": "--dsx-type-display",
+    "size": "2.125rem",
+    "weight": "700",
+    "tracking": "-0.022em",
+    "leading": "1.1"
+   }
+  },
+  "title1": {
+   "ios": "title1",
+   "watchos": "title1",
+   "macos": "title1",
+   "android": "headlineMedium",
+   "wear": "headlineMedium",
+   "windows": "headlineMedium",
+   "linux": "headlineMedium",
+   "web": {
+    "css": "--dsx-type-title1",
+    "size": "1.625rem",
+    "weight": "700",
+    "tracking": "-0.02em",
+    "leading": "1.15"
+   }
+  },
+  "title2": {
+   "ios": "title2",
+   "watchos": "title2",
+   "macos": "title2",
+   "android": "headlineSmall",
+   "wear": "headlineSmall",
+   "windows": "headlineSmall",
+   "linux": "headlineSmall",
+   "web": {
+    "css": "--dsx-type-title2",
+    "size": "1.3125rem",
+    "weight": "600",
+    "tracking": "-0.017em",
+    "leading": "1.2"
+   }
+  },
+  "title3": {
+   "ios": "title3",
+   "watchos": "title3",
+   "macos": "title3",
+   "android": "titleLarge",
+   "wear": "titleLarge",
+   "windows": "titleLarge",
+   "linux": "titleLarge",
+   "web": {
+    "css": "--dsx-type-title3",
+    "size": "1.0625rem",
+    "weight": "600",
+    "tracking": "-0.013em",
+    "leading": "1.25"
+   }
+  },
+  "headline": {
+   "ios": "headline",
+   "watchos": "headline",
+   "macos": "headline",
+   "android": "titleMedium",
+   "wear": "titleMedium",
+   "windows": "titleMedium",
+   "linux": "titleMedium",
+   "web": {
+    "css": "--dsx-type-headline",
+    "size": "0.9375rem",
+    "weight": "600",
+    "tracking": "-0.01em",
+    "leading": "1.3"
+   }
+  },
+  "body": {
+   "ios": "body",
+   "watchos": "body",
+   "macos": "body",
+   "android": "bodyLarge",
+   "wear": "bodyLarge",
+   "windows": "bodyLarge",
+   "linux": "bodyLarge",
+   "web": {
+    "css": "--dsx-type-body",
+    "size": "0.9375rem",
+    "weight": "400",
+    "tracking": "-0.009em",
+    "leading": "1.5"
+   }
+  },
+  "reading": {
+   "ios": "body",
+   "watchos": "body",
+   "macos": "body",
+   "android": "bodyLarge",
+   "wear": "bodyLarge",
+   "windows": "bodyLarge",
+   "linux": "bodyLarge",
+   "web": {
+    "css": "--dsx-type-reading",
+    "size": "1rem",
+    "weight": "400",
+    "tracking": "-0.009em",
+    "leading": "1.7"
+   }
+  },
+  "callout": {
+   "ios": "callout",
+   "watchos": "callout",
+   "macos": "callout",
+   "android": "bodyMedium",
+   "wear": "bodyMedium",
+   "windows": "bodyMedium",
+   "linux": "bodyMedium",
+   "web": {
+    "css": "--dsx-type-callout",
+    "size": "0.875rem",
+    "weight": "400",
+    "tracking": "-0.006em",
+    "leading": "1.45"
+   }
+  },
+  "footnote": {
+   "ios": "footnote",
+   "watchos": "footnote",
+   "macos": "footnote",
+   "android": "bodySmall",
+   "wear": "bodySmall",
+   "windows": "bodySmall",
+   "linux": "bodySmall",
+   "web": {
+    "css": "--dsx-type-footnote",
+    "size": "0.8125rem",
+    "weight": "400",
+    "tracking": "-0.004em",
+    "leading": "1.4"
+   }
+  },
+  "label": {
+   "ios": "subheadline",
+   "watchos": "subheadline",
+   "macos": "subheadline",
+   "android": "labelLarge",
+   "wear": "labelLarge",
+   "windows": "labelLarge",
+   "linux": "labelLarge",
+   "web": {
+    "css": "--dsx-type-label",
+    "size": "0.8125rem",
+    "weight": "500",
+    "tracking": "0.01em",
+    "leading": "1.35"
+   }
+  },
+  "caption": {
+   "ios": "caption1",
+   "watchos": "caption1",
+   "macos": "caption1",
+   "android": "labelSmall",
+   "wear": "labelSmall",
+   "windows": "labelSmall",
+   "linux": "labelSmall",
+   "web": {
+    "css": "--dsx-type-caption",
+    "size": "0.75rem",
+    "weight": "400",
+    "tracking": "0em",
+    "leading": "1.35"
+   }
+  },
+  "caption2": {
+   "ios": "caption2",
+   "watchos": "caption2",
+   "macos": "caption2",
+   "android": "labelSmall",
+   "wear": "labelSmall",
+   "windows": "labelSmall",
+   "linux": "labelSmall",
+   "web": {
+    "css": "--dsx-type-caption2",
+    "size": "0.6875rem",
+    "weight": "400",
+    "tracking": "0.01em",
+    "leading": "1.35"
+   }
+  }
+ }
+}

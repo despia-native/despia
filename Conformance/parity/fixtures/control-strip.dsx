@@ -1,0 +1,69 @@
+<scroll style="background: groupedBackground">
+<head>
+  <!--
+    Parity fixture: the CONTROL STRIP. The interactive floor at rest, grouped the
+    settings way: toggle on and off (the 51x31 switch form factor is a wave-4
+    number), slider mid-track, stepper, segmented with a selection, progress at a
+    fixed fraction, spinner, a filled text field, and the button set (default,
+    prominent full-width, destructive-voice text). Every control is measured in its
+    REST state; pressed/dragged states belong to the motion corpus.
+  -->
+  <variable as="wifi">return true</variable>
+  <variable as="bluetooth">return false</variable>
+  <variable as="brightness">return 0.4</variable>
+  <variable as="copies">return 2</variable>
+  <variable as="plan">return 'Monthly'</variable>
+</head>
+<stack style="gap: 1.5rem; padding: 2rem 1.5rem 3rem; max-width: 26rem; align-self: center; width: 100%">
+
+  <text value="Controls" style="font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; padding-top: 2rem"/>
+
+  <stack style="gap: 0.75rem">
+    <text value="SWITCHES" style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: tertiary"/>
+    <stack style="border-radius: 14px; background: secondaryGroupedBackground; padding: 0.25rem 1rem">
+      <hstack style="align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-bottom: 1px solid separator">
+        <text value="Wi-Fi"/>
+        <spacer/>
+        <toggle bind="dsx.variable.wifi"/>
+      </hstack>
+      <hstack style="align-items: center; gap: 0.75rem; padding: 0.625rem 0">
+        <text value="Bluetooth"/>
+        <spacer/>
+        <toggle bind="dsx.variable.bluetooth"/>
+      </hstack>
+    </stack>
+  </stack>
+
+  <stack style="gap: 0.75rem">
+    <text value="RANGES" style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: tertiary"/>
+    <stack style="border-radius: 14px; background: secondaryGroupedBackground; padding: 0.875rem 1rem; gap: 0.875rem">
+      <slider bind="dsx.variable.brightness"/>
+      <hstack style="align-items: center; gap: 0.75rem">
+        <text value="Copies"/>
+        <spacer/>
+        <stepper bind="dsx.variable.copies" min="1" max="9"/>
+      </hstack>
+      <segmented bind="dsx.variable.plan" options="Weekly,Monthly,Yearly"/>
+    </stack>
+  </stack>
+
+  <stack style="gap: 0.75rem">
+    <text value="PROGRESS" style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: tertiary"/>
+    <stack style="border-radius: 14px; background: secondaryGroupedBackground; padding: 0.875rem 1rem; gap: 0.875rem">
+      <progress value="0.6"/>
+      <hstack style="align-items: center; gap: 0.75rem">
+        <spinner/>
+        <text value="Syncing notes" style="color: secondary; font-size: 0.9375rem"/>
+      </hstack>
+    </stack>
+  </stack>
+
+  <stack style="gap: 0.75rem">
+    <text value="FIELDS AND BUTTONS" style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: tertiary"/>
+    <textfield value="Field Notes" placeholder="Workspace name"/>
+    <button label="Continue" variant="prominent"/>
+    <button label="Not now" variant="bordered"/>
+    <button label="Delete workspace" role="destructive"/>
+  </stack>
+</stack>
+</scroll>

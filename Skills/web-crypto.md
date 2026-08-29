@@ -1,4 +1,4 @@
-# Web Crypto in JSE — the standard API, 1:1, no JS engine
+# Web Crypto in JSE: the standard API, 1:1, no JS engine
 
 > DSX markup gets the real [Web Crypto API](https://developer.mozilla.org/docs/Web/API/SubtleCrypto):
 > `crypto.subtle.*`, `crypto.getRandomValues`, `crypto.randomUUID` — verbatim syntax, every

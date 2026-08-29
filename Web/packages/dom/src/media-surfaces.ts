@@ -11,6 +11,7 @@
 import { number, string, truthy, type Dict } from "@despia/kernel";
 import type { XmlNode } from "@despia/compiler/xml";
 import { ELEMENTS, type ElementApi, type ElementFactory } from "./elements.ts";
+import { admitSrc } from "./src-gate.ts";
 import type { MountCtx } from "./mount.ts";
 import { bindPresentation } from "./overlay-controls.ts";
 
@@ -234,6 +235,16 @@ function browserMediaError(element: MediaElement): string {
   return mediaErrorMessage(element.error?.code);
 }
 
+/** session= (audio, default playback) / audio= (video, default ambient) — the NATIVE
+ *  AVAudioSession category pair, enum(playback|ambient); an unknown value degrades to
+ *  the kind's fixture default (AudioElement.swift:64 / Video.swift:82). */
+export function normalizeAudioSessionCategory(value: string, kind: MediaKind): "playback" | "ambient" {
+  const category = value.trim().toLowerCase();
+  if (category === "ambient") return "ambient";
+  if (category === "playback") return "playback";
+  return kind === "audio" ? "playback" : "ambient";
+}
+
 function mediaFactory(kind: MediaKind): ElementFactory {
   return (node, ctx, api) => {
     const media = document.createElement(kind) as MediaElement;
@@ -279,6 +290,7 @@ function mediaFactory(kind: MediaKind): ElementFactory {
     let nowTitle = "";
     let nowArtist = "";
     let remoteSkip = kind === "audio" ? 15 : 5;
+    let sessionCategory: "playback" | "ambient" = kind === "audio" ? "playback" : "ambient";
     let previewUrl = "";
     let previewGeneration = 0;
     let lastPreviewSecond = -1;
@@ -525,7 +537,7 @@ function mediaFactory(kind: MediaKind): ElementFactory {
         decoder.onloadeddata = () => seekPreviewFrame(decoder, previewGeneration);
         decoder.onseeked = () => drawPreviewFrame(decoder, previewGeneration);
         decoder.onerror = () => failPreview(previewGeneration);
-        decoder.src = source;
+        decoder.src = admitSrc(decoder, source);
         try { decoder.load(); } catch { failPreview(generation); }
         return;
       }
@@ -562,8 +574,18 @@ function mediaFactory(kind: MediaKind): ElementFactory {
     listen("waiting", () => publishBuffering(true));
     listen("stalled", () => publishBuffering(true));
     listen("canplay", playable);
+    // The W3C Audio Session API (WebKit) is PAGE-scoped, not per-element: the category
+    // is applied while THIS element plays — the same last-writer discipline the shared
+    // Media Session ownership uses — and feature-absence degrades to standard playback.
+    const applyAudioSessionCategory = (): void => {
+      const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+      if (session === undefined) return;
+      try { session.type = sessionCategory; } catch { /* category unsupported by this engine */ }
+    };
+
     listen("playing", () => {
       playable();
+      applyAudioSessionCategory();
       if (hasPausedBinding) setBound(api, node.attrs["paused"], false);
       if (nowPlaying) installMediaSession(media, nowTitle, nowArtist, remoteSkip, api);
     });
@@ -622,7 +644,7 @@ function mediaFactory(kind: MediaKind): ElementFactory {
         if (hasAuthoredSource) reportError(`invalid ${kind} URL`);
         return;
       }
-      media.src = next;
+      media.src = admitSrc(media, next);
       media.load();
       scheduleLoadTimeout();
     });
@@ -707,6 +729,11 @@ function mediaFactory(kind: MediaKind): ElementFactory {
         if ("disablePictureInPicture" in video) video.disablePictureInPicture = !allowPip;
       });
     }
+    api.bindText(node.attrs[kind === "audio" ? "session" : "audio"] ?? "", (value) => {
+      sessionCategory = normalizeAudioSessionCategory(value, kind);
+      media.setAttribute("data-dsx-session", sessionCategory);
+      if (!media.paused) applyAudioSessionCategory();
+    });
     api.bindText(node.attrs["nowPlaying"] ?? "false", (value) => {
       nowPlaying = enabled(value, false);
       if (!nowPlaying) releaseMediaSessionOwnership(media);
@@ -1011,6 +1038,17 @@ export function sanitizeSvgSource(value: string): string | null {
   return null;
 }
 
+/** A NATIVE app-bundle resource name (SVG.swift loadBundle) — trimmed, non-empty and not
+ *  inline markup. A browser has no app bundle, so the key is REPORTED on the element
+ *  (data-dsx-unresolved, the image precedent), never silently swallowed. */
+export function svgBundleKey(asset: string, src: string): "asset" | "src" | null {
+  const bare = (value: string): boolean => {
+    const trimmed = value.trim();
+    return trimmed.length > 0 && !trimmed.includes("<");
+  };
+  return bare(asset) ? "asset" : bare(src) ? "src" : null;
+}
+
 export const svg: ElementFactory = (node, _ctx, api) => {
   const root = document.createElement("span");
   root.className = "dsx-svg";
@@ -1032,6 +1070,9 @@ export const svg: ElementFactory = (node, _ctx, api) => {
       ?? (d.length > 0 ? svgFromPath(d, viewBox, fill) : null);
     root.replaceChildren();
     root.setAttribute("data-dsx-valid", String(candidate !== null));
+    const unresolved = candidate === null ? svgBundleKey(asset, src) : null;
+    if (unresolved === null) root.removeAttribute("data-dsx-unresolved");
+    else root.setAttribute("data-dsx-unresolved", unresolved);
     if (candidate !== null) {
       const template = document.createElement("template");
       template.innerHTML = candidate;
@@ -1241,7 +1282,7 @@ export const lightbox: ElementFactory = (node, ctx, api) => {
     image.hidden = current === undefined;
     empty.hidden = current !== undefined;
     if (current === undefined || !presented) image.removeAttribute("src");
-    else if (image.getAttribute("src") !== current.src) image.src = current.src;
+    else if (image.getAttribute("src") !== current.src) image.src = admitSrc(image, current.src);
     image.alt = current === undefined ? "" : `Photo ${index + 1} of ${images.length}`;
     counter.textContent = images.length === 0 ? "0 / 0" : `${index + 1} / ${images.length}`;
     counter.setAttribute("aria-label", images.length === 0 ? "No photos" : `Photo ${index + 1} of ${images.length}`);
@@ -1458,7 +1499,7 @@ export const MEDIA_LIGHTBOX_CSS = `@layer dsx-elements {
     border: 0;
     background: rgb(0 0 0 / .94);
     opacity: var(--dsx-lightbox-scrim-opacity, 1);
-    transition: opacity 180ms ease-out;
+    transition: opacity var(--dsx-dur-base) ease-out;
     cursor: default;
   }
   .dsx-lightbox-panel {
@@ -1472,7 +1513,7 @@ export const MEDIA_LIGHTBOX_CSS = `@layer dsx-elements {
     min-block-size: 0;
     outline: none;
     transform: translate3d(0, var(--dsx-lightbox-drag-y, 0), 0);
-    transition: transform 180ms ease-out;
+    transition: transform var(--dsx-dur-base) ease-out;
   }
   .dsx-lightbox-panel[data-dsx-dragging="true"],
   .dsx-lightbox-layer[data-dsx-dragging="true"] .dsx-lightbox-scrim { transition: none; }
@@ -1518,15 +1559,15 @@ export const MEDIA_LIGHTBOX_CSS = `@layer dsx-elements {
     color: inherit;
     background: rgb(255 255 255 / .12);
     font: inherit;
-    font-size: 1.75rem;
-    line-height: 1;
+    font-size: var(--dsx-glyph-size-xl);
+    line-height: var(--dsx-type-leading-none);
     cursor: pointer;
   }
   .dsx-lightbox-previous:disabled, .dsx-lightbox-next:disabled { opacity: .28; cursor: default; }
-  .dsx-lightbox-counter { min-inline-size: 0; text-align: center; font-size: .875rem; font-variant-numeric: tabular-nums; }
+  .dsx-lightbox-counter { min-inline-size: 0; text-align: center; font-size: var(--dsx-type-callout-size); font-variant-numeric: tabular-nums; }
   .dsx-lightbox-previous:focus-visible, .dsx-lightbox-next:focus-visible, .dsx-lightbox-close:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
+    outline: var(--dsx-focus-ring-width, 2px) solid currentColor;
+    outline-offset: var(--dsx-focus-ring-offset, 2px);
   }
   [dir="rtl"] .dsx-lightbox-previous, [dir="rtl"] .dsx-lightbox-next { transform: scaleX(-1); }
   @media (min-width: 48rem) and (hover: hover) and (pointer: fine) {
@@ -1538,7 +1579,7 @@ export const MEDIA_LIGHTBOX_CSS = `@layer dsx-elements {
       min-block-size: 0;
       padding: 6px;
       border: 1px solid rgb(255 255 255 / .18);
-      border-radius: 999px;
+      border-radius: var(--dsx-radius-full);
     }
     .dsx-lightbox-previous, .dsx-lightbox-next, .dsx-lightbox-close { inline-size: 38px; block-size: 38px; }
     .dsx-lightbox-counter { min-inline-size: 64px; padding-inline: 8px; }

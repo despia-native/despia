@@ -98,6 +98,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import despia.engine.JSE
@@ -134,7 +138,7 @@ object SystemControl {
     // accessibility. `class`/`css-owner` are safe BARE (their styling, if any, was folded
     // into plain keys by resolvedAttrs and ejects as those keys — the SystemButton rule).
     private val SAFE_BASE = setOf(
-        "id", "key", "class", "css-owner",
+        "id", "key", "class", "css-owner", "disabled", "disabled-if", "density",
         "visible-if", "keep", "enter", "anim", "animDuration", "transition",
         "a11yGroup", "a11yLabel", "a11yHint", "a11yValue", "a11yTrait", "a11yHidden",
     )
@@ -220,16 +224,45 @@ internal fun systemSwitchColors(): SwitchColors {
     )
 }
 
+/// The real M3 `Switch` behind a ONE-FRAME checked mirror — the shared mount every DSX
+/// switch rides (`<toggle>`'s M3 path + `<field type="toggle">`, Forms.kt) so the motion
+/// contract can't drift between them.
+///
+/// WHY THE MIRROR (the dead-switch root cause, owner-reported 2026-08-20; reproduced
+/// against the real component in :desktop DesktopSwitchAnimationUiTest): material3's
+/// SwitchImpl moves its thumb with `animateTo(offset, if (isPressed) SnapSpec else spec)`.
+/// On a physical tap the store round-trip's recomposition can land while the press
+/// interaction is STILL active (`PressInteraction.Release` is collected by the thumb
+/// node's own coroutine, racing the write→publish→recompose hop), and a checked-change
+/// measure under `isPressed` takes SnapSpec — the thumb JUMPS, reading as a dead switch.
+/// Handing the component the new `checked` one frame late guarantees the change-measure
+/// runs after the release has been collected, i.e. always on the ANIMATED branch. The
+/// press affordances (thumb grow, ripple) are untouched — the interaction source still
+/// belongs to the component; the 16ms visual deferral is imperceptible.
+@Composable
+internal fun SystemSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?,
+                          modifier: Modifier = Modifier, enabled: Boolean = true) {
+    var shown by remember { mutableStateOf(checked) }
+    LaunchedEffect(checked) { shown = checked }
+    Switch(checked = shown,
+           onCheckedChange = onCheckedChange,
+           modifier = modifier,
+           enabled = enabled,
+           colors = systemSwitchColors())
+}
+
 /// toggle/switch — the real M3 `Switch` over the same bind seam as the legacy capsule.
 @Composable
 internal fun M3ToggleView(a: Map<String, String>, modifier: Modifier, ctl: BoundControl) {
     val m = modifier
     val bindKey = a["bind"]
     val on = bindKey?.let { JSE.truthy(ctl.boundValue(it)) } ?: false
-    Switch(checked = on,
-           onCheckedChange = { if (bindKey != null) ctl.setBound(bindKey, it) },   // on:change rides the seam
-           modifier = m,
-           colors = systemSwitchColors())
+    // disabled= / disabled-if= (W9): the M3 component's own enabled seam carries it
+    val disabled = despia.engine.render.elements.SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
+    SystemSwitch(checked = on,
+                 onCheckedChange = { if (bindKey != null) ctl.setBound(bindKey, it) },   // on:change rides the seam
+                 modifier = m,
+                 enabled = !disabled)
 }
 
 /// slider — the real M3 `Slider`; bind/min/max wiring identical to the legacy track
@@ -246,9 +279,12 @@ internal fun M3SliderView(a: Map<String, String>, modifier: Modifier, ctl: Bound
     val hi = maxOf(max, lo + 0.0001)
     val value = (bindKey?.let { JSE.number(ctl.boundValue(it)) } ?: lo).coerceIn(lo, hi)
     val cs = StackTheme.scheme ?: MaterialTheme.colorScheme
+    // disabled= / disabled-if= (W9): the M3 component's own enabled seam carries it
+    val disabled = despia.engine.render.elements.SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     Slider(value = value.toFloat(),
            onValueChange = { if (bindKey != null) ctl.setBound(bindKey, it.toDouble()) },
            modifier = m,
+           enabled = !disabled,
            valueRange = lo.toFloat()..hi.toFloat(),
            colors = SliderDefaults.colors(
                thumbColor = cs.primary,

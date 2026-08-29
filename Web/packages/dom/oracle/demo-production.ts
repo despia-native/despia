@@ -221,7 +221,7 @@ const badgeModule: Record<string, string | null> = {
   "Data & integrations": "writevalue",
   "Store & paywall": "store",
   "Charts & maps": null,
-  "3D · AR · Godot": "scene3d",
+  "3D · AR": "scene3d",
   "Bus round-trip": null,
   "Errors & logs": null,
   "Web surface": null,
@@ -479,8 +479,8 @@ async function designQualityAudit(page: Page): Promise<void> {
       const rect = node.getBoundingClientRect();
       return rect.height < 40
         && !node.classList.contains("dsx-slider")
-        // The visual switch itself intentionally preserves the platform's compact
-        // 51x31 geometry; it is normally embedded in a full-width tappable row.
+        // The visual switch itself is the web capsule polyfill (63x28 comfortable);
+        // it is normally embedded in a full-width tappable row.
         && !node.classList.contains("dsx-toggle")
         && node.getAttribute("role") !== "switch"
         && node.getAttribute("role") !== "radio";

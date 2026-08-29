@@ -59,6 +59,8 @@ object CSSBridge {
             when (prop) {
                 "padding", "padding-top", "padding-right", "padding-bottom", "padding-left" ->
                     {} // padding family: resolved after the loop into ONE key per edge
+                "margin", "margin-top", "margin-right", "margin-bottom", "margin-left" ->
+                    {} // margin family: resolved after the loop into ONE key per edge
                 "padding-inline-start" -> pts(v)?.let { a["paddingLeading"] = it }
                 "padding-inline-end" -> pts(v)?.let { a["paddingTrailing"] = it }
 
@@ -92,7 +94,16 @@ object CSSBridge {
 
                 "flex-direction" -> a["flexDirection"] = v
                 "flex-wrap" -> a["flexWrap"] = v
+                "flex", "flex-grow" -> {
+                    // `flex: <grow> [<shrink>] [<basis>]` — v1 consumes the GROW factor
+                    // (the dashboard header's `flex: 1`); shrink/basis ride the Taffy phase.
+                    val grow = v.split(" ").firstOrNull { it.isNotEmpty() }
+                    if (grow != null && grow != "none") {
+                        grow.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }?.let { a["flexGrow"] = fmt(it) }
+                    }
+                }
                 "align-items" -> a["alignItems"] = v
+                "align-self" -> a["alignSelf"] = v
                 "display" -> a["display"] = v
 
                 "font-size" -> {
@@ -101,10 +112,29 @@ object CSSBridge {
                     ownFontSize?.let { a["fontSize"] = fmt(it) }
                 }
                 "font-weight" -> a["fontWeight"] = weightName(v)
+                // THE CARET IS NOT THE TEXT. Every runtime drew the insertion point in the
+                // text's own colour, which is right until an author wants the text invisible
+                // and the caret visible - a code surface that lays a highlighted view under a
+                // transparent input, and the one shape a syntax editor has to take.
+                "caret-color" -> a["caretColor"] = v
                 "letter-spacing" ->
                     // The text styler reads `tracking`.
                     pts(v)?.let { a["tracking"] = it }
                 "z-index" -> a["zIndex"] = v
+
+                // The `animation` shorthand rides through as an ATTRIBUTE rather than being
+                // resolved here: the bridge is a pure value fold and an animation is a frame
+                // loop. The renderer's motion driver reads it, looks the `@keyframes` table up
+                // by name, and samples MotionCore per frame (runtime-pressure R28).
+                "animation" -> a["animation"] = v
+                "animation-name" -> a["animationName"] = v
+                "animation-duration" -> a["animationDuration"] = v
+                "animation-delay" -> a["animationDelay"] = v
+                "animation-timing-function" -> a["animationEasing"] = v
+                "animation-iteration-count" -> a["animationIterations"] = v
+                "animation-direction" -> a["animationDirection"] = v
+                "animation-fill-mode" -> a["animationFill"] = v
+                "animation-play-state" -> a["animationPlayState"] = v
 
                 // Liquid Glass family — the CSS spelling of the surface attributes, so a
                 // class can add/remove the whole glass treatment (tint + bouncy press).
@@ -164,6 +194,38 @@ object CSSBridge {
                 }
             }
         }
+
+        // Margin family — same shorthand grammar as padding, but margins may be
+        // NEGATIVE (the list-row bleed pattern) and `auto` has no length: an auto
+        // member leaves its edge unmapped (align-self carries centering instead).
+        val marginEdge = HashMap<String, Double>()
+        decls["margin"]?.let { m ->
+            val parts = m.split(" ").filter { it.isNotEmpty() }
+            val vals = parts.map { part ->
+                if (part == "auto") null else CSSValue.points(part, emBase = emBase, metrics = metrics)
+            }
+            if (vals.isNotEmpty() && vals.size == parts.size) {
+                fun put(key: String, v: Double?) { if (v != null) marginEdge[key] = v }
+                when (vals.size) {
+                    1 -> { put("top", vals[0]); put("right", vals[0]); put("bottom", vals[0]); put("left", vals[0]) }
+                    2 -> { put("top", vals[0]); put("bottom", vals[0]); put("right", vals[1]); put("left", vals[1]) }
+                    3 -> { put("top", vals[0]); put("right", vals[1]); put("left", vals[1]); put("bottom", vals[2]) }
+                    else -> { put("top", vals[0]); put("right", vals[1]); put("bottom", vals[2]); put("left", vals[3]) }
+                }
+            }
+        }
+        for ((prop, key) in listOf("margin-top" to "top", "margin-right" to "right",
+                                   "margin-bottom" to "bottom", "margin-left" to "left")) {
+            decls[prop]?.let { v ->
+                if (cssTrim(v) != "auto") {
+                    CSSValue.points(v, emBase = emBase, metrics = metrics)?.let { marginEdge[key] = it }
+                }
+            }
+        }
+        marginEdge["top"]?.let { a["marginTop"] = fmt(it) }
+        marginEdge["right"]?.let { a["marginRight"] = fmt(it) }
+        marginEdge["bottom"]?.let { a["marginBottom"] = fmt(it) }
+        marginEdge["left"]?.let { a["marginLeft"] = fmt(it) }
 
         // Background family — deterministic alias precedence (both names write
         // ONE output key): the specific longhand beats the shorthand. CSS

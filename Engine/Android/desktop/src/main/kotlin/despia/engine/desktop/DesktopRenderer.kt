@@ -24,11 +24,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +41,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
+import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.Checkbox
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Divider
@@ -65,9 +69,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -107,18 +113,25 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.DialogWindow
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import despia.engine.DSX
 import despia.engine.AdaptiveShell
+import despia.engine.StackDesktopInput
 import despia.engine.JSE
 import despia.engine.JSERunner
+import despia.engine.LayoutSemantics
 import despia.engine.NSNull
 import despia.engine.OnHandler
+import despia.engine.OverrideDecl
 import despia.engine.Platform
 import despia.engine.PlatformAttrs
 import despia.engine.SlotContent
+import despia.engine.StyleOverrides
 import despia.engine.StackFormula
+import despia.engine.StackFonts
 import despia.engine.StackNode
 import despia.engine.StackStore
 import despia.engine.getPath
@@ -154,7 +167,7 @@ object DesktopElements {
  * Package renderers are checked dynamically because they register during boot. */
 internal val desktopRendererOwnedTags: Set<String> = linkedSetOf(
     "head", "api", "event", "expects", "action", "variable", "var", "let", "formula",
-    "script", "functions", "style", "attribute", "component", "watch",
+    "script", "functions", "style", "attribute", "override", "component", "watch",
     "html", "body", "page", "screen", "view", "template", "section", "group",
     "scaffold", "stack", "vstack", "card", "form", "hstack", "toolbar", "flow",
     "zstack", "overlay", "scroll", "refreshable", "refresh", "divider", "spacer",
@@ -165,9 +178,19 @@ internal val desktopRendererOwnedTags: Set<String> = linkedSetOf(
     "picker", "combobox", "segmented", "segmentedButton", "stepper", "tabs", "tabview",
     "list", "grid", "sheet", "cover", "alert", "confirmDialog", "node", "dynamic",
     "audio", "video", "image", "svg", "qrcode", "map", "chart", "lottie",
-    "scene",
+    "scene", "canvas",
     "slot",
 ) + desktopExtendedNativeTags
+
+/** The container tags whose `align`/`align-items` word aligns their CHILDREN (the
+ * DsxFlex crossAlign / Box contentAlignment consumer), so the style onion must never
+ * read it as a self-anchor for the grown box. */
+internal val desktopFlexContainerTags: Set<String> = setOf(
+    "html", "body", "page", "screen", "view", "template", "section", "group",
+    "scaffold", "stack", "vstack", "card", "form", "hstack", "toolbar", "flow",
+    "zstack", "overlay", "scroll", "refreshable", "refresh", "pressable", "row",
+    "list", "grid",
+)
 
 /// The renderer's full tag vocabulary: the literals above plus whatever the capability table
 /// declares. Deliberately a FUNCTION, not `desktopRendererOwnedTags + DesktopCapabilities.tags`
@@ -210,6 +233,16 @@ private data class DesktopFocusLink(
 private val LocalDesktopFocusPlan = compositionLocalOf<Map<StackNode, DesktopFocusLink>> { emptyMap() }
 private val LocalDesktopShortcutRegistry = compositionLocalOf<DesktopShortcutRegistry?> { null }
 private val LocalDesktopInteractionsEnabled = compositionLocalOf { true }
+
+/** `passthrough="true"` — the subtree is decorative and the pointer falls through it. Distinct
+ *  from LocalDesktopInteractionsEnabled on purpose: `disabled` renders a control in its DISABLED
+ *  treatment, while passthrough renders normally and simply is not a target. The twin of iOS
+ *  `.allowsHitTesting(false)` and of `:render`'s LocalDsxPassthrough; consumed by
+ *  desktopUniversalModifier, which withholds the arms rather than adding an occluding one. */
+internal val LocalDesktopPassthrough = compositionLocalOf { false }
+/** Inside a structurally mounted but hidden pane (DesktopHiddenPane): the parity
+ * capture reports the web's display:none convention (all-zero rects). */
+private val LocalDesktopHiddenPane = compositionLocalOf { false }
 internal val LocalDesktopThemePin = compositionLocalOf<String?> { null }
 /** The nearest `container="true"` ancestor's live dimensions.  JSE exposes this
  * through `dsx.element.width/height`; keeping it composition-local makes nested
@@ -225,6 +258,15 @@ private data class DesktopSlotContext(
     val interactionsEnabled: Boolean,
     val parent: DesktopSlotContext?,
 )
+
+/** The twin of `DSXFoundationInputPolicy.textAreaLineCount` (Swift) and `textAreaLineCount`
+ *  (TypeScript): a bounded positive integer, where a missing or unreadable value falls back
+ *  and a reversed pair normalizes at the call site by min/max rather than trapping. */
+internal fun textAreaLineCount(value: String?, fallback: Int): Int {
+    val parsed = value?.trim()?.toDoubleOrNull() ?: return fallback
+    if (parsed.isNaN() || parsed.isInfinite()) return fallback
+    return parsed.toInt().coerceIn(1, 64)
+}
 
 private val LocalDesktopSlot = compositionLocalOf<DesktopSlotContext?> { null }
 private val naturallyFocusableTags = setOf(
@@ -294,7 +336,12 @@ fun DesktopSurface(root: StackNode, store: StackStore = remember { StackStore() 
                 .focusable()
                 .background(MaterialTheme.colors.background),
         ) {
-            DesktopNode(root, store, runner, null, components)
+            // The frame law (theme.ts `.dsx-frame > * { flex: 1 1 auto }` + the frame's
+            // own stretch): the root element fills the window on both axes, so a hug
+            // root cannot collapse the whole document to its content size.
+            Box(Modifier.fillMaxSize(), propagateMinConstraints = true) {
+                DesktopNode(root, store, runner, null, components)
+            }
         }
     }
 }
@@ -333,7 +380,7 @@ private fun DesktopShortcutRegistration(
 /** Admit one DSX document into a store and return its authored component table.
  * Remote native DSX screens deliberately reuse this exact path so their variables,
  * actions, styles, attributes, and components do not become a second renderer dialect. */
-internal fun prepareDesktopDocument(root: StackNode, store: StackStore): Map<String, StackNode> {
+internal fun prepareDesktopDocument(root: StackNode, store: StackStore, item: Map<String, Any?>? = null): Map<String, StackNode> {
     val components = desktopDeclaredComponents(root)
     val pending = java.util.ArrayDeque<StackNode>()
     pending.addLast(root)
@@ -350,7 +397,7 @@ internal fun prepareDesktopDocument(root: StackNode, store: StackStore): Map<Str
                 JSE.registerFunctions(node.text ?: "", store)
                 if (attrs["computed"] == "true") store.computed[name] = node.text ?: ""
                 else if (!store.initials.containsKey(name)) {
-                    val value = JSE.evalBlock(node.text ?: attrs["value"] ?: "", store, null) ?: ""
+                    val value = JSE.evalBlock(node.text ?: attrs["value"] ?: "", store, item) ?: ""
                     store.initials[name] = value
                     if (store.getPath(name) == null) store.setPath(name, value)
                 }
@@ -363,8 +410,21 @@ internal fun prepareDesktopDocument(root: StackNode, store: StackStore): Map<Str
             "attribute" -> attrs["as"]?.takeIf { it.isNotBlank() }?.let { name ->
                 attrs["default"]?.let { value -> store.attrDefaults.putIfAbsent(name, value) }
             }
+            // <override as=/> — the style contract's declaration (Conformance/overrides):
+            // register the typed knob so dsx.override.<name> resolves through the shared core.
+            "override" -> attrs["as"]?.takeIf { it.isNotBlank() }?.let { name ->
+                if (!store.overrideDecls.containsKey(name)) {
+                    store.overrideDecls[name] = OverrideDecl(
+                        name = name, type = attrs["type"], default = attrs["default"],
+                        options = attrs["options"], min = attrs["min"], max = attrs["max"],
+                    )
+                }
+            }
             "component" -> Unit
         }
+        // A component TEMPLATE's head registers per instance (the instance-store law),
+        // never into the document store - only the document's own tree is walked.
+        if (node.tag == "component" && node !== root) continue
         for (index in node.children.indices.reversed()) pending.addLast(node.children[index])
     }
     return components
@@ -390,8 +450,29 @@ internal fun desktopDeclaredComponents(root: StackNode): Map<String, StackNode> 
     return components
 }
 
-internal fun desktopComponentAttributes(attrs: Map<String, String>): Map<String, Any?> =
-    attrs.filterKeys { key -> key != "tag" && key != "id" && !key.startsWith("on:") && !key.startsWith("from:") }
+internal fun desktopComponentAttributes(
+    attrs: Map<String, String>,
+    doorOverrides: Map<*, *>? = null,
+): Map<String, Any?> {
+    val out = LinkedHashMap<String, Any?>()
+    val overrides = LinkedHashMap<String, Any?>()
+    for ((key, value) in attrs) {
+        if (key == "tag" || key == "id" || key.startsWith("on:") || key.startsWith("from:")) continue
+        // The style-override split (corpus Conformance/overrides): `override:<name>`
+        // leaves the props plane and rides the item scope's __overrides dict.
+        val override = StyleOverrides.overrideAttrName(key)
+        if (override != null) overrides[override] = value else out[key] = value
+    }
+    // The VERB door (the outer store's dsx.override dict, seeded by dsx.component.push/
+    // present/update): folds under the tag spellings — the read chain's item-beats-store
+    // law. Only verb-seeded surface stores carry the var.
+    doorOverrides?.forEach { (k, v) ->
+        val name = k as? String ?: return@forEach
+        if (!overrides.containsKey(name)) overrides[name] = v
+    }
+    if (overrides.isNotEmpty()) out["__overrides"] = overrides
+    return out
+}
 
 @Composable
 internal fun DesktopNode(
@@ -428,7 +509,14 @@ internal fun DesktopNode(
     // completed. A node initially hidden never flashes into composition.
     if (!visible && !keepAlive && (!exitMotion || !mountedForExit)) return
     if (!visible) attrs = attrs + mapOf("disabled" to "true", "a11yHidden" to "true")
-    val declaredDisabled = attrs["disabled"] == "true" || expressionBoolean(attrs["disabled-if"], store, item)
+    // The strict component-boolean predicate the other renderers share (iOS dsx.bool, web
+    // declaredBool, phone Kotlin SelectionControl.declaredBool): `"true"` or any non-zero
+    // number - a bound {{ locked }} arrives "1"/"" on the interpolated lanes.
+    val declaredDisabled = declaredControlBool(attrs["disabled"]) || expressionBoolean(attrs["disabled-if"], store, item)
+    // Read BEFORE the provider below, and OR-ed with this element's own attribute: the modifier
+    // chain is built here, outside the provider it installs, so an element carrying
+    // `passthrough="true"` itself must see it without waiting for its own subtree scope.
+    val passthrough = LocalDesktopPassthrough.current || attrs["passthrough"] == "true"
     val interactionsEnabled = LocalDesktopInteractionsEnabled.current && visible && !declaredDisabled
     val disabled = !interactionsEnabled
     val themePin = attrs["theme"]?.takeIf { it == "light" || it == "dark" } ?: inheritedTheme
@@ -438,7 +526,7 @@ internal fun DesktopNode(
     val componentTemplate = components[node.tag]
 
     var modifier = desktopVisibilityModifier(
-        desktopStyleModifier(Modifier, attrs),
+        desktopStyleModifier(Modifier, attrs, flexContainer = node.tag in desktopFlexContainerTags),
         node,
         attrs,
         visible,
@@ -490,7 +578,7 @@ internal fun DesktopNode(
         modifier = focusEnvelope.then(modifier)
     }
     if (disabled) modifier = Modifier.semantics { disabled() }.then(modifier)
-    modifier = desktopUniversalModifier(modifier, node, attrs, store, runner, item, disabled)
+    modifier = desktopUniversalModifier(modifier, node, attrs, store, runner, item, disabled, passthrough)
 
     val hoverStart = attrs["on:hoverStart"]
     val hoverEnd = attrs["on:hoverEnd"]
@@ -507,10 +595,59 @@ internal fun DesktopNode(
             .then(modifier)
         DisposableEffect(hover) { onDispose { hover.dispose() } }
     }
+    val compactViewport = desktopCssEnvironment().windowWidth < LayoutSemantics.COMPACT_BELOW
+    // The parity-capture seam (DesktopParityCapture.kt): armed only by the capture
+    // harness, one @Volatile null read per element otherwise. Outermost, so the reported
+    // bounds are the element's full styled box. A pressable row's skin radius
+    // (`.dsx-pressable` border-radius: --dsx-radius-control, 8 fine / 10 coarse) rounds
+    // only its own paint - CSS clips nothing without overflow - so it joins the
+    // REPORTED attrs here rather than the style onion, whose radius path also clips
+    // children (which would cut the authored negative-margin bleed pattern).
+    DesktopParityCapture.session?.let { session ->
+        if (session.capturesNode(node)) {
+            val reported =
+                if ((node.tag == "pressable" || node.tag == "row") && attrs["radius"] == null) {
+                    attrs + ("radius" to if (compactViewport) "10" else "8")
+                } else attrs
+            modifier = desktopParityCaptureModifier(
+                session, node, reported,
+                hidden = LocalDesktopHiddenPane.current,
+            ).then(modifier)
+        }
+    }
+    // The element's flex facts for a DsxFlex parent (LayoutSemantics — the corpus-gated
+    // decisions; inert parent data under any other container). progress/slider carry the
+    // skin's own `align-self: stretch` / width:100% resting law; progress contributes its
+    // `.dsx-progress` min-width (8rem) to a hugging column's settled content size. The
+    // stack laws (fields/rows always, buttons/forms/vertical stacks on compact) ride
+    // defaultSelfStretch against the live window width.
+    modifier = Modifier.dsxFlexChild(
+        DsxFlexChildData(
+            selfAlign = LayoutSemantics.selfAlignment(attrs),
+            fillsWidthIfStretched = LayoutSemantics.childFillsCross(true, attrs, "width"),
+            fillsHeightIfStretched = LayoutSemantics.childFillsCross(true, attrs, "height"),
+            elementStretchWidth = node.tag in flexSelfStretchTags,
+            minCrossDp = if (node.tag == "progress" || node.tag == "capsuleProgress") 128f else 0f,
+            lawStretchWidth = LayoutSemantics.defaultSelfStretch(node.tag, attrs, compactViewport),
+            stretchWhenOnlyChild = node.tag == "scroll" || node.tag == "refreshable" || node.tag == "refresh",
+            growWidth = attrs["grow"] == "width" || attrs["grow"] == "true" || attrs["grow"] == "both",
+            growHeight = attrs["grow"] == "height" || attrs["grow"] == "true" || attrs["grow"] == "both",
+            spacerAutoWidth = node.tag == "spacer" && attrs["width"] == null,
+            spacerAutoHeight = node.tag == "spacer" && attrs["height"] == null,
+            flexGrow = number(attrs["flexGrow"], 0f).coerceAtLeast(0f),
+            sizedWidth = boundedNumberOrNull(attrs["width"], 0f, MAX_DESKTOP_LAYOUT_DP) != null,
+            sizedHeight = boundedNumberOrNull(attrs["height"], 0f, MAX_DESKTOP_LAYOUT_DP) != null,
+            marginLeftDp = number(attrs["marginLeft"], 0f),
+            marginTopDp = number(attrs["marginTop"], 0f),
+            marginRightDp = number(attrs["marginRight"], 0f),
+            marginBottomDp = number(attrs["marginBottom"], 0f),
+        ),
+    ).then(modifier)
     val context = DesktopElementContext(node, attrs, store, runner, item, components)
 
     CompositionLocalProvider(
         LocalDesktopInteractionsEnabled provides interactionsEnabled,
+        LocalDesktopPassthrough provides passthrough,
         LocalDesktopContainerElement provides if (isContainer) containerElement else inheritedElement,
         LocalDesktopThemePin provides themePin,
     ) {
@@ -525,9 +662,18 @@ internal fun DesktopNode(
         // the same FocusRequester to every list/component instance.
         Box(modifier) {
             if (runner.depth < MAX_DESKTOP_COMPONENT_DEPTH) {
-                val childRunner = remember(node, runner, store) {
+                val componentAttributes = desktopComponentAttributes(attrs, store.vars["dsx.override"] as? Map<*, *>)
+                // THE INSTANCE STORE (composition law; the web renderer is the reference):
+                // a component instance OWNS its state - its head declarations register in
+                // a store born with the instance, so two instances hold independent state.
+                // Attributes ride the item scope, handlers keep the consumer's runner, and
+                // slot content renders in the consumer's scope and store.
+                val instanceStore = remember(node) {
+                    StackStore().also { prepareDesktopDocument(componentTemplate, it, componentAttributes) }
+                }
+                val childRunner = remember(node, runner, instanceStore) {
                     JSERunner(
-                        store = store,
+                        store = instanceStore,
                         webView = runner.webView,
                         scope = runner.scope,
                         onHandlers = HashMap(runner.onHandlers),
@@ -536,7 +682,6 @@ internal fun DesktopNode(
                         depth = runner.depth + 1,
                     )
                 }
-                val componentAttributes = desktopComponentAttributes(attrs)
                 val handlers = HashMap(runner.onHandlers)
                 attrs.forEach { (key, action) ->
                     if (key.startsWith("on:") && action.isNotBlank()) {
@@ -562,7 +707,7 @@ internal fun DesktopNode(
                     LocalDesktopFocusPlan provides componentFocusPlan,
                     LocalDesktopSlot provides desktopSlot,
                 ) {
-                    DesktopNode(componentTemplate, store, childRunner, componentAttributes, components)
+                    DesktopNode(componentTemplate, instanceStore, childRunner, componentAttributes, components)
                 }
             }
         }
@@ -577,7 +722,7 @@ internal fun DesktopNode(
             item,
         )
         "event", "expects", "action", "variable", "var", "let", "formula",
-        "script", "functions", "style", "component" -> Unit
+        "script", "functions", "style", "override", "component" -> Unit
         "attribute" -> DesktopAttribute(attrs, store, runner, item)
         "watch" -> DesktopWatch(attrs, store, runner, item)
 
@@ -587,44 +732,91 @@ internal fun DesktopNode(
         "scaffold" -> DesktopScaffold(context, modifier)
 
         "stack", "vstack", "card" -> {
-            val spacing = dimension(attrs["spacing"] ?: attrs["gap"], if (node.tag == "stack") 0f else 8f).dp
+            val spacing = dimension(attrs["spacing"] ?: attrs["gap"], if (node.tag == "stack") 0f else 8f)
             val row = attrs["flexDirection"]?.startsWith("row") == true
-            if (row) Row(modifier, horizontalArrangement = Arrangement.spacedBy(spacing), verticalAlignment = verticalAlignment(attrs["align"] ?: attrs["alignItems"])) {
-                rowChildren(node, store, runner, item, components)
-            } else Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing), horizontalAlignment = horizontalAlignment(attrs["align"] ?: attrs["alignItems"])) {
-                columnChildren(node, store, runner, item, components)
-            }
+            DsxFlex(
+                modifier,
+                horizontal = row,
+                spacingDp = spacing,
+                // The skin's stack keeps `align-items: start` even as a row; only the
+                // dedicated hstack centers (theme.ts `.dsx-hstack`).
+                crossAlign = flexCrossAlign(attrs["align"] ?: attrs["alignItems"], "start"),
+                crossStretch = LayoutSemantics.crossStretch(attrs),
+            ) { children(node, store, runner, item, components) }
         }
 
         "form" -> DesktopForm(context, modifier, disabled)
 
-        "hstack", "toolbar", "flow" -> Row(
+        // A BOUND `<flow>` repeats its template per row (runtime-pressure R29); an unbound one
+        // lays out its authored children. Either way it is the same wrapping flex box, which is
+        // what keeps the repeater from being a second element.
+        "flow" -> DesktopFlow(context, modifier)
+
+        "hstack", "toolbar" -> DsxFlex(
             modifier,
-            horizontalArrangement = Arrangement.spacedBy(dimension(attrs["spacing"], 8f).dp),
-            verticalAlignment = verticalAlignment(attrs["align"] ?: attrs["alignItems"]),
-        ) { rowChildren(node, store, runner, item, components) }
+            horizontal = true,
+            spacingDp = dimension(attrs["spacing"], 8f),
+            crossAlign = flexCrossAlign(attrs["align"] ?: attrs["alignItems"], "center"),
+            crossStretch = LayoutSemantics.crossStretch(attrs),
+        ) { children(node, store, runner, item, components) }
 
         "zstack", "overlay" -> Box(modifier, contentAlignment = boxAlignment(attrs["align"])) {
             children(node, store, runner, item, components)
         }
 
-        "scroll", "refreshable", "refresh" -> Column(
-            modifier.verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(dimension(attrs["spacing"], 0f).dp),
-            horizontalAlignment = horizontalAlignment(attrs["align"] ?: attrs["alignItems"]),
-        ) { columnChildren(node, store, runner, item, components) }
+        // `.dsx-scroll` is `flex: 1 1 auto` inside the frame and declares no align-items,
+        // so it fills its slot and its children STRETCH by flex's own default (the one
+        // container where stretch is the resting state — theme.ts + globals.ts).
+        // The window-derived ceiling is the LazyColumn recipe above: verticalScroll
+        // rejects an infinite max-height, and a scroll authored inside another scrolling
+        // surface (the FX sheet's content cell) is measured with exactly that.
+        // `axis="horizontal"` is the RAIL form (the FX node rail, preset chip rows): a
+        // flex ROW panning on the main axis, height wrapped to its content.
+        "scroll", "refreshable", "refresh" -> if (attrs["axis"] == "horizontal") DsxFlex(
+            modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontal = true,
+            spacingDp = dimension(attrs["spacing"], 0f),
+            crossAlign = flexCrossAlign(attrs["align"] ?: attrs["alignItems"], "start"),
+            crossStretch = LayoutSemantics.crossStretch(attrs, defaultStretch = true),
+        ) { children(node, store, runner, item, components) } else DsxFlex(
+            Modifier
+                .heightIn(
+                    max = desktopCollectionViewportDp(
+                        windowHeightPx = LocalWindowInfo.current.containerSize.height,
+                        density = LocalDensity.current.density,
+                    ).dp,
+                )
+                .then(modifier)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            horizontal = false,
+            spacingDp = dimension(attrs["spacing"], 0f),
+            crossAlign = flexCrossAlign(attrs["align"] ?: attrs["alignItems"], "start"),
+            crossStretch = LayoutSemantics.crossStretch(attrs, defaultStretch = true),
+        ) { children(node, store, runner, item, components) }
 
         "divider" -> Divider(modifier, color = color(attrs["color"] ?: "outline"), thickness = dimension(attrs["height"], 1f).dp)
-        "spacer" -> Spacer(modifier.size(dimension(attrs["width"], 8f).dp, dimension(attrs["height"], 8f).dp))
+        // Explicit sizes arrive through the style modifier; a bare axis is `flex: 1 1 0`
+        // (absorb-or-zero, the DsxFlex parent data attached above).
+        "spacer" -> Spacer(modifier)
 
         "text", "label", "heading", "title", "subtitle", "paragraph", "code" -> renderText(node, attrs, modifier, store, item)
 
         "button", "glassButton", "transport" -> DesktopButton(context, modifier, disabled)
 
-        "pressable", "row" -> Box(
-            modifier.clickable(enabled = !disabled) {
+        // `.dsx-pressable` is a flex COLUMN with `align-items: stretch` (theme.ts), so a
+        // row's content spans the row — the chevron reaches the trailing edge.
+        "pressable", "row" -> DsxFlex(
+            // `pressable`/`row` is a non-control element, so its arm is withheld under a
+            // passthrough ancestor like every other universal arm (iOS allowsHitTesting(false)).
+            if (passthrough) modifier
+            else modifier.clickable(enabled = !disabled) {
                 attrs["on:tap"]?.let { desktopRunEvent(node, "tap", it, attrs, store, runner, item) }
             },
+            horizontal = false,
+            spacingDp = 0f,
+            crossAlign = "start",
+            crossStretch = true,
         ) { children(node, store, runner, item, components) }
 
         "textfield", "input", "textarea" -> {
@@ -636,9 +828,47 @@ internal fun DesktopNode(
                     if (bind.isNotEmpty()) store.writeBound(bind, next)
                     attrs["on:change"]?.let { runner.run(it, item, mapOf("value" to next)) }
                 },
-                modifier = modifier.then(if (node.tag == "textarea") Modifier.heightIn(min = 112.dp) else Modifier),
+                modifier = modifier
+                    // `on:submit` on the MULTILINE tag. A desktop keyboard is the case this
+                    // grammar exists for, and the singleLine branch below already routes
+                    // Return through the IME Done action, so only `textarea` needs it.
+                    // `ignore`/`newline` both mean "not mine": returning false leaves the key
+                    // to the field, which is what keeps Return inserting a line break.
+                    .then(
+                        if (node.tag != "textarea" || attrs["on:submit"] == null) Modifier
+                        else Modifier.onPreviewKeyEvent { event ->
+                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                            val action = StackDesktopInput.multilineReturn(
+                                key = if (event.key == Key.Enter || event.key == Key.NumPadEnter) "enter" else "",
+                                shift = event.isShiftPressed,
+                                meta = event.isMetaPressed,
+                                ctrl = event.isCtrlPressed,
+                                alt = event.isAltPressed,
+                                submitOnEnter = attrs["submitOnEnter"] == "true",
+                                hasSubmit = true,
+                            )
+                            if (action != "submit") return@onPreviewKeyEvent false
+                            attrs["on:submit"]?.let { runner.run(it, item) }
+                            true
+                        },
+                    ),
                 enabled = !disabled,
                 singleLine = node.tag != "textarea",
+                // GROWTH IS THE AUTHOR'S NUMBERS, not a fixed floor. This was
+                // `heightIn(min = 112.dp)` - three lines by coincidence - which ignored
+                // minLines and maxLines outright: a one-line field still reserved three lines
+                // of empty well and a capped field grew without end. Compose grows the box
+                // with its RENDERED lines between these bounds, which is what iOS's
+                // lineLimit(min...max) does and what the web twin now measures.
+                // a reversed pair normalizes by min/max, exactly as the Swift twin's
+                // lineLimit(min(a,b)...max(a,b)) and the web's Math.min/Math.max do -
+                // Compose would otherwise throw on minLines > maxLines
+                minLines = if (node.tag == "textarea") {
+                    minOf(textAreaLineCount(attrs["minLines"], 3), textAreaLineCount(attrs["maxLines"], 8))
+                } else 1,
+                maxLines = if (node.tag == "textarea") {
+                    maxOf(textAreaLineCount(attrs["minLines"], 3), textAreaLineCount(attrs["maxLines"], 8))
+                } else 1,
                 label = attrs["label"]?.let { { Text(it) } },
                 placeholder = attrs["placeholder"]?.let { { Text(it) } },
                 visualTransformation = if (attrs["secure"] == "true") PasswordVisualTransformation() else VisualTransformation.None,
@@ -727,9 +957,12 @@ internal fun DesktopNode(
             )
         }
 
+        // Width comes from the flex parent data (`align-self: stretch` + the 8rem
+        // minimum, the skin's `.dsx-progress` law) — a forced fill here inflated
+        // hugging containers to the window width (the W17 1150px breach class).
         "progress", "capsuleProgress" -> LinearProgressIndicator(
             progress = (attrs["bind"]?.let { boundNumber(it, store, item) } ?: number(attrs["value"], 0f)).coerceIn(0f, 1f),
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier,
             color = color(attrs["color"] ?: "accent"),
         )
         "spinner", "activity" -> CircularProgressIndicator(modifier.size(dimension(attrs["size"], 28f).dp), color = color(attrs["color"] ?: "accent"))
@@ -766,6 +999,14 @@ internal fun DesktopNode(
         // media surface above (Scene3D/Scene360 stay capability-dispatched rows).
         "scene" -> DesktopSceneElement(context, modifier)
 
+        // `<canvas>` (U04) and with it `<ink>`. Same reasoning as `<scene>` directly above:
+        // this build ships a REAL renderer over the shared :core kernel (CanvasCore/InkCore,
+        // corpus OpenSource/Conformance/canvas/), so the tag is binary-owned rather than a
+        // `DesktopCapabilities` row answering with a failure surface. It left that table when
+        // the renderer landed - a capability row is for a runtime this build does not bundle,
+        // never for one nobody had written yet.
+        "canvas" -> DesktopCanvasElement(context, modifier)
+
         // CAPABILITY DISPATCH, not name dispatch (root-plan.md rule 18). A tag the capability
         // table claims renders through whatever implementation this build bound for the
         // capability it requires — and when the build bundles none, through the first-party
@@ -788,7 +1029,7 @@ internal fun DesktopNode(
                     LocalDesktopSlot provides slot.parent,
                 ) {
                     slot.children.filter { child -> child.attrs["slot"] == name }.forEach { child ->
-                        DesktopNode(child, store, slot.runner, slot.item, components)
+                        DesktopNode(child, slot.runner.store, slot.runner, slot.item, components)
                     }
                 }
             }
@@ -944,30 +1185,53 @@ private fun renderText(node: StackNode, attrs: Map<String, String>, modifier: Mo
         if (attrs["underline"] == "true") add(TextDecoration.Underline)
         if (attrs["strikethrough"] == "true") add(TextDecoration.LineThrough)
     }.let { if (it.isEmpty()) null else TextDecoration.combine(it) }
-    val fontSize = desktopFontSize(attrs)
+    // The web text law (theme.ts `.dsx-text`): body size is the type-body token
+    // (0.9375rem = 15px) and line-height is 1.5x the size at every size. Compose's
+    // platform default (a tighter per-font leading) accumulated a y drift down every
+    // text column of the W17 capture; authored lineSpacing still wins.
+    val declaredSize = desktopFontSize(attrs)
+    val fontSize = if (declaredSize == androidx.compose.ui.unit.TextUnit.Unspecified) {
+        DESKTOP_TEXT_BODY_SP.sp
+    } else declaredSize
     val lineSpacing = boundedNumberOrNull(attrs["lineSpacing"], -1_000f, 1_000f)
-    val lineHeight = if (lineSpacing != null && fontSize != androidx.compose.ui.unit.TextUnit.Unspecified) {
+    val lineHeight = if (lineSpacing != null) {
         (fontSize.value + lineSpacing).coerceAtLeast(0.5f).sp
-    } else androidx.compose.ui.unit.TextUnit.Unspecified
+    } else (fontSize.value * DESKTOP_TEXT_LINE_RATIO).sp
+    // A DECLARED family (a `fonts` block on some enabled module) beats the system design axis,
+    // exactly as it does on the other three renderers; `fontDesign` keeps its meaning on the
+    // system fallback, which is what the `when` below still paints when nothing resolves.
+    val declaredFamily = attrs["fontFamily"]
+    val customFamily = declaredFamily?.let { DesktopFontBook.resolve(it, attrs["fontVariation"]) }
+    // OpenType features: Skia takes the same four-character tags the shared parser validates.
+    val features = StackFonts.parseFeatures(attrs["fontFeature"])
     Text(
         text = when (attrs["textCase"]) { "upper" -> displayed.uppercase(); "lower" -> displayed.lowercase(); else -> displayed },
         modifier = modifier,
         color = color(attrs["color"] ?: "label"),
         fontSize = fontSize,
         fontWeight = fontWeight(attrs["fontWeight"]),
-        fontStyle = if (attrs["italic"] == "true") FontStyle.Italic else FontStyle.Normal,
-        fontFamily = when (attrs["fontDesign"]) {
+        // A declared family shipping a REAL italic face already selected it; asking for a slant
+        // on top of that obliques an italic.
+        fontStyle = if (attrs["italic"] == "true" &&
+            !(customFamily != null && DesktopFontBook.hasItalicFace(declaredFamily))
+        ) FontStyle.Italic else FontStyle.Normal,
+        fontFamily = customFamily ?: when (attrs["fontDesign"]) {
             "monospaced", "mono" -> FontFamily.Monospace
             "serif" -> FontFamily.Serif
             "rounded" -> FontFamily.SansSerif
             else -> FontFamily.Default
         },
+        style = if (features.isEmpty()) LocalTextStyle.current
+                else LocalTextStyle.current.copy(fontFeatureSettings = features.joinToString(", ")),
         textDecoration = decoration,
         textAlign = when (attrs["textAlign"]) { "center" -> TextAlign.Center; "trailing", "right" -> TextAlign.End; else -> TextAlign.Start },
         maxLines = attrs["lineLimit"]?.toIntOrNull()?.coerceIn(1, 100_000) ?: Int.MAX_VALUE,
         lineHeight = lineHeight,
-        letterSpacing = boundedNumberOrNull(attrs["tracking"], -1_000f, 1_000f)?.sp
-            ?: androidx.compose.ui.unit.TextUnit.Unspecified,
+        // The web text law: `letter-spacing: normal` unless authored. Unspecified would
+        // INHERIT the ambient Material typography's tracking (body1 0.5sp; a button
+        // label's 1.25sp), which widened every text run of the W17/W18 captures by a
+        // per-character constant the web never applies.
+        letterSpacing = boundedNumberOrNull(attrs["tracking"], -1_000f, 1_000f)?.sp ?: 0.sp,
     )
 }
 
@@ -1014,24 +1278,101 @@ private fun DesktopStepper(context: DesktopElementContext, modifier: Modifier, d
     }
 }
 
+/** The web tabs contract's desktop numbers (structural-controls.ts): the wide face
+ * engages at `TABS_WIDE_MEDIA` (69rem) with a `--dsx-tabs-rail` (15rem) leading rail;
+ * below it the bottom dock band is 3.25rem tall. */
+internal const val DESKTOP_TABS_WIDE_AT_DP = 1104f
+internal const val DESKTOP_TABS_RAIL_DP = 240f
+internal const val DESKTOP_TABS_DOCK_DP = 52f
+
+/** A structurally mounted but hidden pane (tabs' unselected panes, split's collapsed
+ * columns). The web keeps these in the DOM at zero size (`[hidden]` panels measure
+ * 0x0), so the native plane mounts them the same way: composed, inert, zero-boxed —
+ * the parity capture then reports the same node set on both sides, and pane state
+ * (scroll positions, field text) survives a tab switch exactly as it does on web. */
+@Composable
+internal fun DesktopHiddenPane(content: @Composable () -> Unit) {
+    CompositionLocalProvider(
+        LocalDesktopInteractionsEnabled provides false,
+        LocalDesktopHiddenPane provides true,
+    ) {
+        Box(Modifier.requiredSize(0.dp).clipToBounds()) { content() }
+    }
+}
+
 @Composable
 private fun DesktopTabs(context: DesktopElementContext, modifier: Modifier) {
+    // Head/declaration children are never panes (LayoutSemantics.paneChildren — the
+    // flex-semantics corpus row): counting `<head>` made pane 0 an empty declaration
+    // and collapsed the whole shell (W17 defect D6). Declarations still enter
+    // composition so `<api>`/`<watch>` lifecycles run.
+    val panes = remember(context.node) { LayoutSemantics.paneChildren(context.node.children) }
+    context.node.children.forEach { child ->
+        if (child.tag in LayoutSemantics.declarationTags) {
+            DesktopNode(child, context.store, context.runner, context.item, context.components)
+        }
+    }
+    if (panes.isEmpty()) return
     val bind = context.attributes["value"].orEmpty()
     val bound = if (bind.isEmpty()) 0 else boundNumber(bind, context.store, context.item).roundToInt()
     var local by remember { mutableStateOf(bound) }
-    val selected = (if (bind.isEmpty()) local else bound).coerceIn(0, (context.node.children.size - 1).coerceAtLeast(0))
-    Column(modifier) {
-        if (context.node.children.isNotEmpty()) {
-            TabRow(selectedTabIndex = selected) {
-                context.node.children.forEachIndexed { index, child ->
-                    Tab(selected = selected == index, onClick = {
-                        local = index
-                        if (bind.isNotEmpty()) context.store.writeBound(bind, index.toDouble())
-                        context.attributes["on:change"]?.let { context.run(it, mapOf("value" to index)) }
-                    }, text = { Text(child.attrs["tabTitle"] ?: "Tab ${index + 1}") })
-                }
+    val selected = (if (bind.isEmpty()) local else bound).coerceIn(0, panes.size - 1)
+    fun choose(index: Int) {
+        local = index
+        if (bind.isNotEmpty()) context.store.writeBound(bind, index.toDouble())
+        context.attributes["on:change"]?.let { context.run(it, mapOf("value" to index)) }
+    }
+    val density = LocalDensity.current
+    val wide = with(density) { LocalWindowInfo.current.containerSize.width.toDp().value } >= DESKTOP_TABS_WIDE_AT_DP
+    if (wide) Row(modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxHeight().width(DESKTOP_TABS_RAIL_DP.dp)
+                .background(MaterialTheme.colors.surface)
+                .padding(10.dp),
+        ) {
+            panes.forEachIndexed { index, pane ->
+                val active = selected == index
+                Text(
+                    pane.attrs["tabTitle"] ?: "Tab ${index + 1}",
+                    Modifier.fillMaxWidth()
+                        .clickable { choose(index) }
+                        .background(
+                            if (active) MaterialTheme.colors.primary.copy(alpha = 0.10f) else Color.Transparent,
+                            RoundedCornerShape(8.dp),
+                        )
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    color = if (active) MaterialTheme.colors.primary else MaterialTheme.colors.onSurface,
+                )
             }
-            DesktopNode(context.node.children[selected], context.store, context.runner, context.item, context.components)
+        }
+        Box(Modifier.weight(1f).fillMaxHeight()) {
+            DesktopNode(panes[selected], context.store, context.runner, context.item, context.components)
+        }
+        DesktopHiddenTabPanes(panes, selected, context)
+    } else Column(modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            DesktopNode(panes[selected], context.store, context.runner, context.item, context.components)
+        }
+        TabRow(selectedTabIndex = selected, modifier = Modifier.height(DESKTOP_TABS_DOCK_DP.dp)) {
+            panes.forEachIndexed { index, pane ->
+                Tab(
+                    selected = selected == index,
+                    onClick = { choose(index) },
+                    text = { Text(pane.attrs["tabTitle"] ?: "Tab ${index + 1}") },
+                )
+            }
+        }
+        DesktopHiddenTabPanes(panes, selected, context)
+    }
+}
+
+@Composable
+private fun DesktopHiddenTabPanes(panes: List<StackNode>, selected: Int, context: DesktopElementContext) {
+    panes.forEachIndexed { index, pane ->
+        if (index != selected) {
+            DesktopHiddenPane {
+                DesktopNode(pane, context.store, context.runner, context.item, context.components)
+            }
         }
     }
 }
@@ -1056,6 +1397,19 @@ private fun DesktopCollection(context: DesktopElementContext, modifier: Modifier
     val columns = context.attributes["columns"]?.toIntOrNull()?.coerceIn(1, 12) ?: 3
     val scroll = context.attributes["scroll"] != "false"
     val chunks = if (grid) rows.chunked(columns) else emptyList()
+    // `.dsx-list` is a flex column with NO align-items — flex's own default, so rows
+    // stretch to the list's settled width and the list hugs the widest row (the web
+    // contract; DsxFlex implements it). Short lists render eagerly on that geometry;
+    // only a long bound list virtualizes (LazyColumn cannot hug-to-widest — a named
+    // divergence of the virtualized path, sized by its viewport instead).
+    if (!grid && rows.size <= MAX_DESKTOP_EAGER_ROWS) {
+        DsxFlex(modifier, horizontal = false, spacingDp = spacing.value, crossAlign = "start", crossStretch = true) {
+            rows.forEach { row ->
+                template?.let { DesktopNode(it, context.store, context.runner, row, context.components) }
+            }
+        }
+        return
+    }
     val scrollingModifier = Modifier
         .heightIn(
             max = desktopCollectionViewportDp(
@@ -1089,6 +1443,10 @@ private fun DesktopCollection(context: DesktopElementContext, modifier: Modifier
         }
     }
 }
+
+/** Eager (CSS-faithful) list rendering bound: at or below it a list lays out on the
+ * real flex geometry; above it the virtualized LazyColumn takes over. */
+internal const val MAX_DESKTOP_EAGER_ROWS = 64
 
 internal const val DEFAULT_DESKTOP_COLLECTION_VIEWPORT_DP = 720f
 internal const val MAX_DESKTOP_COLLECTION_VIEWPORT_DP = 4_096f
@@ -1126,60 +1484,182 @@ private fun DesktopModal(context: DesktopElementContext) {
             dismissButton = if (context.node.tag == "confirmDialog") ({ Button(onClick = ::dismiss) { Text(attrs["cancel"] ?: "Cancel") } }) else null,
         )
     } else {
-        DialogWindow(onCloseRequest = ::dismiss, title = attrs["title"] ?: "DSX") {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { context.Children() }
+        DesktopSheet(context, ::dismiss)
+    }
+}
+
+/** The presented `<sheet>`/`<cover>` surface, IN-SCENE (an overlay layer over the app
+ * surface, the web overlay portal's twin) rather than a separate OS window: the
+ * presentation contract the parity fixture pins is scrim + bottom detent panel over
+ * the base screen (overlay-controls.ts `.dsx-sheet-panel` and its media steps), and a
+ * detached window can express none of it. Panel geometry mirrors the web skin:
+ * full-width below the 48rem step, centered `min(100vw - 48, 44rem)` above it; the
+ * half detent is 50dvh, raised to `min(60dvh, 42rem)` on the desktop-density plane;
+ * grabber band 28, chrome min 48 (53 with coarse 44px controls), content padded
+ * 12/16 with children stretched (the content cell's grid default). */
+@Composable
+private fun DesktopSheet(context: DesktopElementContext, dismiss: () -> Unit) {
+    val attrs = context.attributes
+    val cover = context.node.tag == "cover"
+    val detent = attrs["detents"]?.split(",")?.firstOrNull()?.trim()?.takeIf(String::isNotEmpty) ?: "half"
+    Popup(alignment = Alignment.TopStart, onDismissRequest = dismiss, properties = PopupProperties(focusable = true)) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val vw = maxWidth
+            val vh = maxHeight
+            val compact = vw.value < LayoutSemantics.COMPACT_BELOW
+            Box(
+                Modifier.fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.32f))
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = dismiss),
+            )
+            val panelWidth = if (cover || compact) vw else minOf(vw - 48.dp, 704.dp)
+            val panelHeight: Dp? = when {
+                cover -> vh
+                detent == "full" -> vh - 8.dp
+                detent == "half" -> if (vw.value >= 1024f) minOf(vh * 0.6f, 672.dp) else vh * 0.5f
+                else -> null // content detent: wrap, capped below
+            }
+            val shape = if (cover) RectangleShape else RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+            var panel = Modifier.align(Alignment.BottomCenter).width(panelWidth)
+            panel = if (panelHeight != null) panel.height(panelHeight) else panel.heightIn(max = vh * 0.9f)
+            DesktopParityCapture.session?.let { session ->
+                if (session.capturesNode(context.node)) {
+                    // The panel IS the sheet node's box; the skin radius joins the
+                    // resolved attrs so the capture reports what the shape paints.
+                    panel = panel.then(
+                        desktopParityCaptureModifier(session, context.node, attrs + ("radius" to if (cover) "0" else "20")),
+                    )
+                }
+            }
+            Column(panel.background(color(attrs["background"] ?: "background"), shape)) {
+                val chromeMin = if (compact) 53.dp else 48.dp
+                val controlMin = if (compact) 44.dp else 36.dp
+                if (!cover) {
+                    Box(Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(36.dp, 5.dp).background(color("tertiary").copy(alpha = 0.62f), RoundedCornerShape(999.dp)))
+                    }
+                }
+                Box(Modifier.fillMaxWidth().heightIn(min = chromeMin)) {
+                    Row(
+                        Modifier.fillMaxWidth().align(Alignment.Center).padding(horizontal = 12.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            Modifier.size(controlMin)
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = dismiss)
+                                .semantics { role = Role.Button; contentDescription = "Close" },
+                            contentAlignment = Alignment.Center,
+                        ) { Text("✕", color = color("secondary"), fontSize = 15.sp) }
+                        Text(
+                            attrs["title"].orEmpty(),
+                            Modifier.weight(1f),
+                            color = color("label"),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                        )
+                        Box(Modifier.sizeIn(minWidth = controlMin, minHeight = controlMin), contentAlignment = Alignment.Center) {
+                            attrs["action"]?.let { label ->
+                                Text(
+                                    label,
+                                    Modifier.clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ) { attrs["on:action"]?.let { context.run(it) } },
+                                    color = color("accent"),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                    Divider(Modifier.align(Alignment.BottomStart), color = color("separator"), thickness = 1.dp)
+                }
+                DsxFlex(
+                    Modifier.fillMaxWidth().weight(1f, fill = panelHeight != null)
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 16.dp),
+                    horizontal = false,
+                    spacingDp = 0f,
+                    crossAlign = "start",
+                    crossStretch = true,
+                ) { context.Children() }
+            }
         }
     }
 }
 
 @Composable
-internal fun color(raw: String, themeOverride: String? = null): Color {
-    val value = raw.trim()
+internal fun color(raw: String, themeOverride: String? = null): Color =
+    resolveColor(raw, themeOverride ?: LocalDesktopThemePin.current, MaterialTheme.colors)
+
+/**
+ * A colour resolver captured OUT of composition, for the one caller that cannot be in it: a
+ * `DrawScope` lambda. `<canvas>` discovers its tokens while building the display list, which
+ * happens inside the draw with the surface size in hand, so it takes this closure rather than
+ * calling [color] per op. One vocabulary either way - both spellings end in [resolveColor].
+ */
+@Composable
+internal fun rememberColorResolver(themeOverride: String? = null): (String) -> Color {
     val pin = themeOverride ?: LocalDesktopThemePin.current
+    val colors = MaterialTheme.colors
+    return remember(pin, colors) { { raw: String -> resolveColor(raw, pin, colors) } }
+}
+
+/**
+ * The token vocabulary itself: pure, so a draw scope and a composable can share it. Splitting
+ * it out of [color] changed no word and no value - the body below is verbatim what [color]
+ * was, with the two composition reads lifted into parameters.
+ */
+internal fun resolveColor(
+    raw: String, pin: String?, materialColors: androidx.compose.material.Colors,
+): Color {
+    val value = raw.trim()
     when (value.lowercase()) {
-        "accent", "tint" -> return MaterialTheme.colors.primary
-        "onaccent", "on-accent" -> return MaterialTheme.colors.onPrimary
+        "accent", "tint" -> return materialColors.primary
+        "onaccent", "on-accent" -> return materialColors.onPrimary
         "label", "primary", "text" -> return when (pin) {
             "light" -> Color.Black
             "dark" -> Color.White
-            else -> MaterialTheme.colors.onBackground
+            else -> materialColors.onBackground
         }
         "secondary", "secondarylabel" -> return when (pin) {
             "light" -> Color.Black.copy(alpha = 0.60f)
             "dark" -> Color.White.copy(alpha = 0.60f)
-            else -> MaterialTheme.colors.secondary
+            else -> materialColors.secondary
         }
         "tertiary", "tertiarylabel" -> return when (pin) {
             "light" -> Color.Black.copy(alpha = 0.38f)
             "dark" -> Color.White.copy(alpha = 0.38f)
-            else -> MaterialTheme.colors.onBackground.copy(alpha = 0.55f)
+            else -> materialColors.onBackground.copy(alpha = 0.55f)
         }
         "background", "systembackground", "groupedbackground" -> return when (pin) {
             "light" -> Color.White
             "dark" -> Color.Black
-            else -> MaterialTheme.colors.background
+            else -> materialColors.background
         }
         "secondarybackground", "secondarygroupedbackground" -> return when (pin) {
             "light" -> Color(0xFFF2F2F7)
             "dark" -> Color(0xFF1C1C1E)
-            else -> MaterialTheme.colors.surface
+            else -> materialColors.surface
         }
         "tertiarybackground" -> return when (pin) {
             "light" -> Color(0xFFFFFFFF)
             "dark" -> Color(0xFF2C2C2E)
-            else -> MaterialTheme.colors.surface
+            else -> materialColors.surface
         }
         "surface", "fill", "fillfaint" -> return when (pin) {
             "light" -> Color(0xFFE5E5EA)
             "dark" -> Color(0xFF2C2C2E)
-            else -> MaterialTheme.colors.surface
+            else -> materialColors.surface
         }
         "outline", "separator" -> return when (pin) {
             "light" -> Color.Black.copy(alpha = 0.18f)
             "dark" -> Color.White.copy(alpha = 0.18f)
-            else -> MaterialTheme.colors.onSurface.copy(alpha = 0.18f)
+            else -> materialColors.onSurface.copy(alpha = 0.18f)
         }
-        "danger", "error", "red" -> return MaterialTheme.colors.error
+        "danger", "error", "red" -> return materialColors.error
         "white" -> return Color.White
         "black" -> return Color.Black
         "clear", "transparent" -> return Color.Transparent
@@ -1190,7 +1670,7 @@ internal fun color(raw: String, themeOverride: String? = null): Color {
         if (parsed != null) return when (hex.length) {
             6 -> Color(0xFF000000L or parsed)
             8 -> Color(parsed)
-            else -> MaterialTheme.colors.onBackground
+            else -> materialColors.onBackground
         }
     }
     val rgba = Regex("rgba?\\(([^)]+)\\)", RegexOption.IGNORE_CASE).matchEntire(value)
@@ -1204,13 +1684,20 @@ internal fun color(raw: String, themeOverride: String? = null): Color {
             if (r != null && g != null && b != null) return Color(r, g, b, a)
         }
     }
-    return MaterialTheme.colors.onBackground
+    return materialColors.onBackground
 }
 
 private fun isVisible(attrs: Map<String, String>, store: StackStore, item: Map<String, Any?>?): Boolean {
     if (attrs["hidden"] == "true" || attrs["css-hidden"] == "true") return false
     val expression = attrs["visible-if"] ?: attrs["visible"] ?: return true
     return expressionBoolean(expression, store, item)
+}
+
+private fun declaredControlBool(value: String?): Boolean {
+    val v = value?.trim() ?: return false
+    if (v == "true") return true
+    val n = v.toDoubleOrNull() ?: return false
+    return n != 0.0
 }
 
 private fun expressionBoolean(raw: String?, store: StackStore, item: Map<String, Any?>?): Boolean {
@@ -1262,16 +1749,23 @@ private fun fontWeight(raw: String?): FontWeight = when (raw) {
     else -> FontWeight.Normal
 }
 
-private fun horizontalAlignment(raw: String?): Alignment.Horizontal = when (raw) {
-    "center" -> Alignment.CenterHorizontally
-    "trailing", "end", "flex-end" -> Alignment.End
-    else -> Alignment.Start
-}
+/** The elements whose resting cross-axis law is the skin's own `align-self: stretch` /
+ * width:100% (theme.ts `.dsx-progress`, `.dsx-slider`): they stretch to the settled
+ * content width of a hugging container instead of forcing it wider. */
+private val flexSelfStretchTags = setOf("progress", "capsuleProgress", "slider", "rangeSlider")
 
-private fun verticalAlignment(raw: String?): Alignment.Vertical = when (raw) {
-    "top", "start", "flex-start" -> Alignment.Top
-    "bottom", "end", "flex-end" -> Alignment.Bottom
-    else -> Alignment.CenterVertically
+/** The web text law (theme.ts `.dsx-text`): `--dsx-type-body-size` 0.9375rem and a
+ * 1.5 line-height at every size. */
+internal const val DESKTOP_TEXT_BODY_SP = 15f
+internal const val DESKTOP_TEXT_LINE_RATIO = 1.5f
+
+/** Container align-items word → the DsxFlex placement word. `stretch` is carried by
+ * crossStretch, so placement falls back to the container default. */
+private fun flexCrossAlign(raw: String?, default: String): String = when (raw) {
+    "center" -> "center"
+    "trailing", "end", "flex-end", "bottom" -> "end"
+    "leading", "start", "flex-start", "top" -> "start"
+    else -> default
 }
 
 private fun boxAlignment(raw: String?): Alignment = when (raw) {
@@ -1324,18 +1818,3 @@ private fun children(node: StackNode, store: StackStore, runner: JSERunner, item
     node.children.forEach { DesktopNode(it, store, runner, item, components) }
 }
 
-@Composable
-private fun ColumnScope.columnChildren(node: StackNode, store: StackStore, runner: JSERunner, item: Map<String, Any?>?, components: Map<String, StackNode>) {
-    node.children.forEach { child ->
-        if (child.tag == "spacer" && child.attrs["height"] == null) Spacer(Modifier.weight(1f))
-        else DesktopNode(child, store, runner, item, components)
-    }
-}
-
-@Composable
-private fun RowScope.rowChildren(node: StackNode, store: StackStore, runner: JSERunner, item: Map<String, Any?>?, components: Map<String, StackNode>) {
-    node.children.forEach { child ->
-        if (child.tag == "spacer" && child.attrs["width"] == null) Spacer(Modifier.weight(1f))
-        else DesktopNode(child, store, runner, item, components)
-    }
-}

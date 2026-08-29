@@ -629,7 +629,7 @@ for contract reasons (`contract_diff` MAJOR retirement) — the two never derive
 
 ### P·b Mirrors — one `mirror.json` per package
 
-Model: `OpenSource/CanvasEditor/mirror.json` (its `_note` is the schema doc). Per package:
+Model: `OpenSource/Engine/mirror.json` (its `_note` is the schema doc). Per package:
 
 - `repo`: `despia-native/despia-ai` · `despia-local` · `despia-mcp` (final naming = program D11).
 - `include`: README, LICENSE, NOTICE, CHANGELOG, CONTRIBUTING, VERSION, Package.swift, llms.txt,

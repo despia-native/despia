@@ -1,0 +1,786 @@
+{
+  "version": 1,
+  "_note": "The SHOT GUARD SET (platform/10-screenshot-execution.md §4). Three refusals, three detectors, because they are three different failures. G-empty is the one that matters most and is the least obvious: a screen can render PERFECTLY - correct chrome, real typography, nothing thrown - and still be a store rejection because its list is empty and it says 'No data found'. Only a zero-row rule catches that, and `allowEmpty` NAMES ITS ELEMENTS rather than blanketing the shot, because a clean-inbox screen has one legitimately empty list beside a nav that must still be full. Expected values authored by hand. Runner: TS packages/kernel/test/shot-conformance.test.ts.",
+  "_settleDefault": {
+    "fontsReady": true,
+    "imagesDecoded": true,
+    "domStable": true,
+    "actionsIdle": true,
+    "transportIdle": true,
+    "restless": []
+  },
+  "cases": [
+    {
+      "name": "a clean frame publishes",
+      "report": {
+        "apis": [
+          {
+            "as": "orders",
+            "status": "ready",
+            "loading": false,
+            "refreshing": false,
+            "blockedBy": [],
+            "error": null
+          }
+        ],
+        "collections": [
+          {
+            "ref": "list",
+            "tag": "list",
+            "rows": 3
+          }
+        ],
+        "seamMisses": []
+      },
+      "expect": []
+    },
+    {
+      "name": "THE NO-DATA-FOUND SCREENSHOT: a bound collection rendered zero rows",
+      "report": {
+        "apis": [],
+        "collections": [
+          {
+            "ref": "orders",
+            "tag": "list",
+            "rows": 0
+          }
+        ],
+        "seamMisses": []
+      },
+      "expect": [
+        {
+          "guard": "G-empty",
+          "subject": "orders"
+        }
+      ]
+    },
+    {
+      "name": "allowEmpty names the one list that is allowed to be empty",
+      "allowEmpty": [
+        "inbox"
+      ],
+      "report": {
+        "apis": [],
+        "collections": [
+          {
+            "ref": "inbox",
+            "tag": "list",
+            "rows": 0
+          }
+        ],
+        "seamMisses": []
+      },
+      "expect": []
+    },
+    {
+      "name": "allowEmpty does NOT blind the guard to a second empty list",
+      "allowEmpty": [
+        "inbox"
+      ],
+      "report": {
+        "apis": [],
+        "collections": [
+          {
+            "ref": "inbox",
+            "tag": "list",
+            "rows": 0
+          },
+          {
+            "ref": "nav",
+            "tag": "grid",
+            "rows": 0
+          }
+        ],
+        "seamMisses": []
+      },
+      "expect": [
+        {
+          "guard": "G-empty",
+          "subject": "nav"
+        }
+      ]
+    },
+    {
+      "name": "allowEmpty true allows the whole shot",
+      "allowEmpty": true,
+      "report": {
+        "apis": [],
+        "collections": [
+          {
+            "ref": "inbox",
+            "tag": "list",
+            "rows": 0
+          },
+          {
+            "ref": "nav",
+            "tag": "grid",
+            "rows": 0
+          }
+        ],
+        "seamMisses": []
+      },
+      "expect": []
+    },
+    {
+      "name": "an api that settled with an error is refused",
+      "report": {
+        "apis": [
+          {
+            "as": "orders",
+            "status": "error",
+            "loading": false,
+            "refreshing": false,
+            "blockedBy": [],
+            "error": {
+              "status": 500
+            }
+          }
+        ],
+        "collections": [],
+        "seamMisses": []
+      },
+      "expect": [
+        {
+          "guard": "G-empty",
+          "subject": "orders"
+        }
+      ]
+    },
+    {
+      "name": "a block still gated on an upstream that never produced a value is refused",
+      "report": {
+        "apis": [
+          {
+            "as": "invoice",
+            "status": "waiting",
+            "loading": false,
+            "refreshing": false,
+            "blockedBy": [
+              "orders"
+            ],
+            "error": null
+          }
+        ],
+        "collections": [],
+        "seamMisses": []
+      },
+      "expect": [
+        {
+          "guard": "G-empty",
+          "subject": "invoice"
+        }
+      ]
+    },
+    {
+      "name": "a request the armed response plane did not recognise is refused, naming the url",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [
+          "GET /api/unknown"
+        ]
+      },
+      "expect": [
+        {
+          "guard": "G-empty",
+          "subject": "GET /api/unknown"
+        }
+      ]
+    },
+    {
+      "name": "a block still loading at capture is UNSETTLED, not empty",
+      "report": {
+        "apis": [
+          {
+            "as": "orders",
+            "status": "ready",
+            "loading": true,
+            "refreshing": false,
+            "blockedBy": [],
+            "error": null
+          }
+        ],
+        "collections": [],
+        "seamMisses": []
+      },
+      "expect": [
+        {
+          "guard": "G-unsettled",
+          "subject": "orders"
+        }
+      ]
+    },
+    {
+      "name": "fonts not ready is a refusal, because the capture would carry the fallback face",
+      "settle": {
+        "fontsReady": false,
+        "imagesDecoded": true,
+        "domStable": true,
+        "actionsIdle": true,
+        "transportIdle": true,
+        "restless": []
+      },
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": []
+      },
+      "expect": [
+        {
+          "guard": "G-unsettled",
+          "subject": "fonts"
+        }
+      ]
+    },
+    {
+      "name": "an undecoded image is a refusal, because it is a blank box in the PNG",
+      "settle": {
+        "fontsReady": true,
+        "imagesDecoded": false,
+        "domStable": true,
+        "actionsIdle": true,
+        "transportIdle": true,
+        "restless": []
+      },
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": []
+      },
+      "expect": [
+        {
+          "guard": "G-unsettled",
+          "subject": "images"
+        }
+      ]
+    },
+    {
+      "name": "an unstable DOM is a refusal",
+      "settle": {
+        "fontsReady": true,
+        "imagesDecoded": true,
+        "domStable": false,
+        "actionsIdle": true,
+        "transportIdle": true,
+        "restless": []
+      },
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": []
+      },
+      "expect": [
+        {
+          "guard": "G-unsettled",
+          "subject": "dom"
+        }
+      ]
+    },
+    {
+      "name": "a queued action is a refusal - a page-load action had not finished filling the screen",
+      "settle": {
+        "fontsReady": true,
+        "imagesDecoded": true,
+        "domStable": true,
+        "actionsIdle": false,
+        "transportIdle": true,
+        "restless": []
+      },
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": []
+      },
+      "expect": [
+        {
+          "guard": "G-unsettled",
+          "subject": "actions"
+        }
+      ]
+    },
+    {
+      "name": "a surface that could not be frozen is NAMED, never timed out anonymously",
+      "settle": {
+        "fontsReady": true,
+        "imagesDecoded": true,
+        "domStable": true,
+        "actionsIdle": true,
+        "transportIdle": true,
+        "restless": [
+          "video.hero"
+        ]
+      },
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": []
+      },
+      "expect": [
+        {
+          "guard": "G-unsettled",
+          "subject": "video.hero"
+        }
+      ]
+    },
+    {
+      "name": "G-BLANK: a slide with no text and no image is a rectangle of background colour, and every other guard passes it",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 0,
+          "images": 0
+        }
+      },
+      "expect": [
+        {
+          "guard": "G-blank",
+          "subject": "slide"
+        }
+      ]
+    },
+    {
+      "name": "a full-bleed image slide with no caption is legitimate",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 0,
+          "images": 1
+        }
+      },
+      "expect": []
+    },
+    {
+      "name": "a text-only slide is legitimate",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 42,
+          "images": 0
+        }
+      },
+      "expect": []
+    },
+    {
+      "name": "cover: a decoration on readable app UI without a declaration is refused",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": {
+            "x": 50,
+            "y": 300,
+            "w": 340,
+            "h": 740
+          },
+          "crop": {
+            "x": 0,
+            "y": 280,
+            "w": 440,
+            "h": 560
+          },
+          "veil": {
+            "x": 0,
+            "y": 610,
+            "w": 440,
+            "h": 230
+          },
+          "decor": [
+            {
+              "label": "chip:2",
+              "rect": {
+                "x": 80,
+                "y": 320,
+                "w": 180,
+                "h": 44
+              }
+            }
+          ]
+        }
+      },
+      "expect": [
+        {
+          "guard": "G-cover",
+          "subject": "chip:2"
+        }
+      ]
+    },
+    {
+      "name": "cover: the same box with over declared is the composition, not an accident",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": {
+            "x": 50,
+            "y": 300,
+            "w": 340,
+            "h": 740
+          },
+          "crop": {
+            "x": 0,
+            "y": 280,
+            "w": 440,
+            "h": 560
+          },
+          "veil": {
+            "x": 0,
+            "y": 610,
+            "w": 440,
+            "h": 230
+          },
+          "decor": [
+            {
+              "label": "chip:2",
+              "rect": {
+                "x": 80,
+                "y": 320,
+                "w": 180,
+                "h": 44
+              },
+              "over": "screen"
+            }
+          ]
+        }
+      },
+      "expect": []
+    },
+    {
+      "name": "cover: a decoration in the dissolve zone sits on design ground, not on UI",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": {
+            "x": 50,
+            "y": 300,
+            "w": 340,
+            "h": 740
+          },
+          "crop": {
+            "x": 0,
+            "y": 280,
+            "w": 440,
+            "h": 560
+          },
+          "veil": {
+            "x": 0,
+            "y": 610,
+            "w": 440,
+            "h": 230
+          },
+          "decor": [
+            {
+              "label": "panel:4",
+              "rect": {
+                "x": 30,
+                "y": 700,
+                "w": 380,
+                "h": 90
+              }
+            }
+          ]
+        }
+      },
+      "expect": []
+    },
+    {
+      "name": "cover: a decoration over the cropped-away part of the screen covers nothing",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": {
+            "x": 50,
+            "y": 300,
+            "w": 340,
+            "h": 1200
+          },
+          "crop": {
+            "x": 0,
+            "y": 280,
+            "w": 440,
+            "h": 560
+          },
+          "veil": null,
+          "decor": [
+            {
+              "label": "badge:1",
+              "rect": {
+                "x": 80,
+                "y": 900,
+                "w": 160,
+                "h": 60
+              }
+            }
+          ]
+        }
+      },
+      "expect": []
+    },
+    {
+      "name": "cover: a 6px kiss is rounding, not a cover",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": {
+            "x": 50,
+            "y": 300,
+            "w": 340,
+            "h": 740
+          },
+          "crop": {
+            "x": 0,
+            "y": 280,
+            "w": 440,
+            "h": 560
+          },
+          "veil": {
+            "x": 0,
+            "y": 610,
+            "w": 440,
+            "h": 230
+          },
+          "decor": [
+            {
+              "label": "laurel:1",
+              "rect": {
+                "x": 0,
+                "y": 250,
+                "w": 56,
+                "h": 56
+              }
+            }
+          ]
+        }
+      },
+      "expect": []
+    },
+    {
+      "name": "cover: a document with no screen landmark has no containment to enforce",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": null,
+          "decor": [
+            {
+              "label": "chip:1",
+              "rect": {
+                "x": 10,
+                "y": 10,
+                "w": 100,
+                "h": 40
+              }
+            }
+          ]
+        }
+      },
+      "expect": []
+    },
+    {
+      "name": "safe: a device glued to the card edge has no breathing room",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": null,
+          "card": {
+            "x": 66,
+            "y": 66,
+            "w": 1188,
+            "h": 2736
+          },
+          "device": {
+            "x": 66,
+            "y": 600,
+            "w": 1188,
+            "h": 2000
+          },
+          "decor": []
+        }
+      },
+      "expect": [
+        {
+          "guard": "G-safe",
+          "subject": "device"
+        },
+        {
+          "guard": "G-safe",
+          "subject": "device"
+        }
+      ]
+    },
+    {
+      "name": "safe: a device on the inset line is lawful, and its bottom may run into the dissolve",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": null,
+          "card": {
+            "x": 66,
+            "y": 66,
+            "w": 1188,
+            "h": 2736
+          },
+          "device": {
+            "x": 82,
+            "y": 600,
+            "w": 1156,
+            "h": 2400
+          },
+          "decor": []
+        }
+      },
+      "expect": []
+    },
+    {
+      "name": "safe: a decoration crowding the edge is refused unless its row declares bleed",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": null,
+          "card": {
+            "x": 66,
+            "y": 66,
+            "w": 1188,
+            "h": 2736
+          },
+          "device": null,
+          "decor": [
+            {
+              "label": "chip:1",
+              "rect": {
+                "x": 70,
+                "y": 400,
+                "w": 200,
+                "h": 60
+              }
+            }
+          ]
+        }
+      },
+      "expect": [
+        {
+          "guard": "G-safe",
+          "subject": "chip:1"
+        }
+      ]
+    },
+    {
+      "name": "safe: the same decoration with bleed declared runs off the card on purpose",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": null,
+          "card": {
+            "x": 66,
+            "y": 66,
+            "w": 1188,
+            "h": 2736
+          },
+          "device": null,
+          "decor": [
+            {
+              "label": "chip:1",
+              "rect": {
+                "x": 70,
+                "y": 400,
+                "w": 200,
+                "h": 60
+              },
+              "bleed": true
+            }
+          ]
+        }
+      },
+      "expect": []
+    },
+    {
+      "name": "safe: no card landmark, no safe area to enforce",
+      "report": {
+        "apis": [],
+        "collections": [],
+        "seamMisses": [],
+        "ink": {
+          "text": 40,
+          "images": 2
+        },
+        "scene": {
+          "screen": null,
+          "decor": [
+            {
+              "label": "chip:1",
+              "rect": {
+                "x": 0,
+                "y": 0,
+                "w": 40,
+                "h": 40
+              }
+            }
+          ]
+        }
+      },
+      "expect": []
+    }
+  ]
+}

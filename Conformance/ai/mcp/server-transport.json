@@ -1,0 +1,85 @@
+{
+ "_note": "The MCP SERVER-TRANSPORT corpus (v0-live-plan W3): the streamable-HTTP face of the server node, pinned as request → expectation pairs any fetch-shaped /mcp handler must answer identically. Runs on node (packages/server/test/mcp-face.test.ts) and under REAL workerd (packages/server/test/workers/ — the server-workers lane); the Kotlin/Swift device routers serve the LOOPBACK face and share the result shaping through Conformance/mcp-apps/server.json instead, so this file pins only what is transport. THE LAWS ENCODED HERE: (1) STATELESS — initialize mints no session id and GET (the push channel) answers 405, because a session-free server has nothing to push. (2) PROTOCOL failures are JSON-RPC errors (parse -32700, shape -32600, unknown method -32601, unknown tool -32602); TOOL failures are RESULTS with isError, because the model is the audience that can act on those. (3) A handler exception NEVER reaches the wire — the isError text carries a correlation id, the detail goes to the server-side sink (host.ts's rule, unchanged). (4) `auth: required` on a tool row is the SAME boundary as on a route row, enforced at the HTTP layer with 401 — never an isError a model might route around. (5) Batching was removed in protocol 2025-06-18 and is refused, not half-supported. Cases whose `identity` is an object run only where the runner can hand a resolved identity to the face directly (the node leg); every other case also runs through the full bootloader under workerd.",
+ "tools": [
+  { "name": "echo", "chain": "fixture", "action": "echo", "description": "Echo the arguments back.", "inputs": ["message", "count"] },
+  { "name": "explode", "chain": "fixture", "action": "explode", "description": "Always fails internally." },
+  { "name": "wipe", "chain": "fixture", "action": "wipe", "description": "Delete everything.", "mutates": "true", "auth": "required" }
+ ],
+ "actions": {
+  "echo": { "returns": "arguments" },
+  "explode": { "throws": "kaboom-secret-detail" },
+  "wipe": { "returns": { "wiped": true } }
+ },
+ "cases": [
+  {
+   "name": "initialize answers the protocol revision, capabilities and serverInfo — and no session id",
+   "request": { "body": { "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": { "name": "corpus", "version": "0" } } } },
+   "expect": { "status": 200, "body": { "jsonrpc": "2.0", "id": 1, "result": { "protocolVersion": "2025-06-18", "capabilities": { "tools": { "listChanged": false } } } }, "headerAbsent": ["mcp-session-id"] }
+  },
+  {
+   "name": "notifications/initialized is accepted with 202 and no body",
+   "request": { "body": { "jsonrpc": "2.0", "method": "notifications/initialized" } },
+   "expect": { "status": 202 }
+  },
+  {
+   "name": "ping answers an empty result",
+   "request": { "body": { "jsonrpc": "2.0", "id": 7, "method": "ping" } },
+   "expect": { "status": 200, "body": { "id": 7, "result": {} } }
+  },
+  {
+   "name": "tools/list serves the declared rows — schema from inputs, destructive hint from mutates",
+   "request": { "body": { "jsonrpc": "2.0", "id": 2, "method": "tools/list" } },
+   "expect": { "status": 200, "body": { "id": 2, "result": { "tools": [
+    { "name": "echo", "description": "Echo the arguments back.", "inputSchema": { "type": "object", "properties": { "message": {}, "count": {} } } },
+    { "name": "explode", "description": "Always fails internally.", "inputSchema": { "type": "object", "properties": {} } },
+    { "name": "wipe", "description": "Delete everything.", "inputSchema": { "type": "object", "properties": {} }, "annotations": { "destructiveHint": true } }
+   ] } } }
+  },
+  {
+   "name": "tools/call dispatches the action and shapes the result with text + structuredContent",
+   "request": { "body": { "jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": { "name": "echo", "arguments": { "message": "hi", "count": 2 } } } },
+   "expect": { "status": 200, "body": { "id": 3, "result": { "content": [ { "type": "text", "text": "count: 2\nmessage: hi" } ], "structuredContent": { "message": "hi", "count": 2 } } } }
+  },
+  {
+   "name": "an unknown tool is a protocol error, -32602",
+   "request": { "body": { "jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": { "name": "ghost" } } },
+   "expect": { "status": 200, "body": { "id": 4, "error": { "code": -32602 } } }
+  },
+  {
+   "name": "a handler exception is an isError RESULT carrying a correlation id — never the exception text",
+   "request": { "body": { "jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": { "name": "explode" } } },
+   "expect": { "status": 200, "body": { "id": 5, "result": { "isError": true } }, "bodyContains": ["internal error (correlation "], "bodyNotContains": ["kaboom-secret-detail"] }
+  },
+  {
+   "name": "an auth-required tool refuses an anonymous caller at the HTTP layer",
+   "request": { "body": { "jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": { "name": "wipe" } } },
+   "expect": { "status": 401, "body": { "reason": "unauthenticated" } }
+  },
+  {
+   "name": "an auth-required tool serves a resolved identity",
+   "identity": { "sub": "user-1", "role": "authenticated" },
+   "request": { "body": { "jsonrpc": "2.0", "id": 8, "method": "tools/call", "params": { "name": "wipe" } } },
+   "expect": { "status": 200, "body": { "id": 8, "result": { "structuredContent": { "wiped": true } } } }
+  },
+  {
+   "name": "GET is 405 — a stateless server has no push channel",
+   "request": { "method": "GET" },
+   "expect": { "status": 405, "header": { "allow": "POST" } }
+  },
+  {
+   "name": "a non-JSON body is -32700",
+   "request": { "rawBody": "{not json" },
+   "expect": { "status": 200, "body": { "error": { "code": -32700 } } }
+  },
+  {
+   "name": "a batch array is refused — batching left the protocol in 2025-06-18",
+   "request": { "body": [ { "jsonrpc": "2.0", "id": 1, "method": "ping" } ] },
+   "expect": { "status": 200, "body": { "error": { "code": -32600 } } }
+  },
+  {
+   "name": "an unknown method is -32601",
+   "request": { "body": { "jsonrpc": "2.0", "id": 9, "method": "resources/list" } },
+   "expect": { "status": 200, "body": { "error": { "code": -32601 } } }
+  }
+ ]
+}

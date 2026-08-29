@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "_note": "density= — the universal subtree density knob (component-library.md W9 item 5): `density=\"comfortable|compact\"` on ANY element pins the control-metric plane (paddings/heights/gaps derive from density-scoped tokens) for that element and everything under it. resolve[] pins the attribute fold: the vocabulary is exactly `comfortable | compact`, exact lowercase after trim; anything else (unknown word, wrong case, empty, whitespace-only, absent) resolves to NO pin — the element stays transparent to its ancestors' density. effective[] pins the subtree law: `chain` is the authored raw density attributes from the ROOT to the ELEMENT (null = not authored); the NEAREST ancestor whose fold resolves wins — an invalid nearer value never masks an outer pin — and with no pin anywhere the PLATFORM default applies: compact on a desktop fine-pointer surface (`finePointer` — each adapter owns its own detection: web keys the density token tables' media condition, native desktops are fine-pointer by identity), comfortable everywhere else. On web the CSS custom-property cascade IS this fold (mount stamps data-dsx-density only for a resolved pin; the token tables in theme.ts do the rest); the native kernels run effective() directly and present through their existing size systems.",
+  "resolve": [
+    { "name": "comfortable resolves", "density": "comfortable", "expect": "comfortable" },
+    { "name": "compact resolves", "density": "compact", "expect": "compact" },
+    { "name": "whitespace is trimmed", "density": "  compact  ", "expect": "compact" },
+    { "name": "vocabulary is exact lowercase", "density": "Compact", "expect": null },
+    { "name": "uppercase never resolves", "density": "COMFORTABLE", "expect": null },
+    { "name": "an unknown word is no pin", "density": "cozy", "expect": null },
+    { "name": "a word list is no pin", "density": "compact comfortable", "expect": null },
+    { "name": "empty is no pin", "density": "", "expect": null },
+    { "name": "whitespace-only is no pin", "density": "   ", "expect": null },
+    { "name": "absent is no pin", "expect": null }
+  ],
+  "effective": [
+    { "name": "no pins on touch defaults comfortable", "chain": [], "finePointer": false, "expect": "comfortable" },
+    { "name": "no pins on a desktop fine pointer defaults compact", "chain": [], "finePointer": true, "expect": "compact" },
+    { "name": "a compact pin beats the touch default", "chain": ["compact"], "finePointer": false, "expect": "compact" },
+    { "name": "a comfortable pin beats the desktop default", "chain": ["comfortable"], "finePointer": true, "expect": "comfortable" },
+    { "name": "the nearest pin wins over an outer pin", "chain": ["compact", "comfortable"], "finePointer": true, "expect": "comfortable" },
+    { "name": "the nearest pin wins regardless of pointer", "chain": ["comfortable", "compact"], "finePointer": false, "expect": "compact" },
+    { "name": "a pin inherits through unpinned descendants", "chain": ["compact", null], "finePointer": false, "expect": "compact" },
+    { "name": "a mid-chain pin reaches a deep element", "chain": [null, "compact", null, null], "finePointer": true, "expect": "compact" },
+    { "name": "an invalid nearer value never masks an outer pin", "chain": ["compact", "Comfortable"], "finePointer": false, "expect": "compact" },
+    { "name": "an invalid pin alone leaves the platform default", "chain": ["cozy"], "finePointer": true, "expect": "compact" },
+    { "name": "pins trim in composition", "chain": ["comfortable", "  compact "], "finePointer": false, "expect": "compact" },
+    { "name": "an unauthored chain is the platform default", "chain": [null], "finePointer": false, "expect": "comfortable" }
+  ]
+}

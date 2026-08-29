@@ -7,15 +7,34 @@
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/src/index.d.ts", "import": "./dist/src/index.js", "default": "./dist/src/index.js" }
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
-  "engines": { "node": ">=22.18" },
-  "repository": { "type": "git", "url": "git+https://github.com/despia-native/despia.git", "directory": "Web/packages/vite-plugin" },
-  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/vite-plugin",
-  "bugs": { "url": "https://github.com/despia-native/despia/issues" },
-  "publishConfig": { "access": "public", "provenance": true },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/despia-native/despia.git",
+    "directory": "Web/packages/vite-plugin"
+  },
+  "homepage": "https://github.com/despia-native/despia/tree/main/Web/packages/vite-plugin",
+  "bugs": {
+    "url": "https://github.com/despia-native/despia/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "dependencies": {
     "@despia/compiler": "0.0.1"
   },
@@ -23,7 +42,9 @@
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0"
   },
   "peerDependenciesMeta": {
-    "vite": { "optional": true }
+    "vite": {
+      "optional": true
+    }
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",

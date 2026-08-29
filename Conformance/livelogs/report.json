@@ -1,0 +1,269 @@
+{
+  "version": 1,
+  "_note": "The .dsxreport envelope - proposals/live-logs.md 3.6. Canonical bytes are EXACTLY JSON with keys sorted by code point, no whitespace, minimal escaping (\\\" \\\\ \\b \\f \\n \\r \\t, other controls as \\u00xx), unicode raw, SAFE integers only - |n| <= 2^53-1 (a non-integer or unsafe number is refused). The receipt hash is sha256 over the canonical bytes of the envelope WITHOUT its receipt key; the sealed text is the canonical bytes WITH it. The verifier's verdicts are the support macro: not_report (the AI-fabricated paste dies here), modified (edited after export), genuine (hash verifies); assertion reports whether a receipt.integrity attestation rides the seal - verifying THAT is the relay/platform's job (Apple/Google trust anchors), never this core's. Twins: TS packages/kernel/src/livelogs.ts - Kotlin :core LiveLogs.kt - Swift Engine/iOS/LiveLogs.swift.",
+  "sha256": [
+    {
+      "input": "",
+      "expect": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "input": "abc",
+      "expect": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    },
+    {
+      "input": "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+      "expect": "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
+    },
+    {
+      "input": "The quick brown fox jumps over the lazy dog",
+      "expect": "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592"
+    },
+    {
+      "input": "despia ⚡️ live logs éèê 你好",
+      "expect": "b91f6371d518fdba8c24a9e9d0ad379933ddee3e705084d671fa7a47ab619523"
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expect": "c2a908d98f5df987ade41b5fce213067efbcc21ef2240212a41e54b5e7c28ae5"
+    }
+  ],
+  "canonical": [
+    {
+      "name": "keys sort by code point",
+      "value": {
+        "b": 1,
+        "a": 2,
+        "Z": 3
+      },
+      "expect": "{\"Z\":3,\"a\":2,\"b\":1}"
+    },
+    {
+      "name": "no whitespace anywhere",
+      "value": {
+        "list": [
+          1,
+          2,
+          {
+            "k": "v"
+          }
+        ]
+      },
+      "expect": "{\"list\":[1,2,{\"k\":\"v\"}]}"
+    },
+    {
+      "name": "the mandatory escapes",
+      "value": {
+        "s": "quote \" backslash \\ newline \n tab \t"
+      },
+      "expect": "{\"s\":\"quote \\\" backslash \\\\ newline \\n tab \\t\"}"
+    },
+    {
+      "name": "other control characters as u00xx",
+      "value": {
+        "s": "bell \u0007 unit \u001f"
+      },
+      "expect": "{\"s\":\"bell \\u0007 unit \\u001f\"}"
+    },
+    {
+      "name": "unicode stays raw",
+      "value": {
+        "s": "café ⚡️ 你好"
+      },
+      "expect": "{\"s\":\"café ⚡️ 你好\"}"
+    },
+    {
+      "name": "booleans and null",
+      "value": {
+        "t": true,
+        "f": false,
+        "n": null
+      },
+      "expect": "{\"f\":false,\"n\":null,\"t\":true}"
+    },
+    {
+      "name": "nesting sorts at every depth",
+      "value": {
+        "outer": {
+          "b": [
+            {
+              "z": 1,
+              "a": 2
+            }
+          ],
+          "a": 0
+        }
+      },
+      "expect": "{\"outer\":{\"a\":0,\"b\":[{\"a\":2,\"z\":1}]}}"
+    },
+    {
+      "name": "empty containers",
+      "value": {
+        "o": {},
+        "l": []
+      },
+      "expect": "{\"l\":[],\"o\":{}}"
+    },
+    {
+      "name": "integers only - a large count survives exactly",
+      "value": {
+        "at": 1756280010000
+      },
+      "expect": "{\"at\":1756280010000}"
+    },
+    {
+      "name": "the slash is not escaped",
+      "value": {
+        "path": "/dsx/routes.json"
+      },
+      "expect": "{\"path\":\"/dsx/routes.json\"}"
+    }
+  ],
+  "canonicalRejects": [
+    {
+      "name": "a non-integer number has no canonical form",
+      "value": {
+        "rate": 0.5
+      }
+    },
+    {
+      "name": "an integer past 2^53-1 has no canonical form - the three runtimes would spell it three ways",
+      "value": {
+        "x": 1e+21
+      }
+    }
+  ],
+  "seal": [
+    {
+      "name": "the reference report seals to the pinned hash and text",
+      "body": {
+        "v": 1,
+        "kind": "dsxreport",
+        "app": {
+          "name": "Fittest",
+          "version": "2.1.0",
+          "build": 260,
+          "bundle": "com.acme.fittest",
+          "channel": "testflight",
+          "host": "app.fittest.example"
+        },
+        "device": {
+          "model": "iPhone17,2",
+          "os": "ios",
+          "osVersion": "26.5",
+          "locale": "en_US"
+        },
+        "capturedAt": 1756280010000,
+        "totals": {
+          "logs": 2,
+          "errors": 1,
+          "kernel": 1
+        },
+        "rows": [
+          {
+            "kind": "log",
+            "scheme": "app",
+            "level": "log",
+            "message": "checkout ready",
+            "at": 1756280000000
+          },
+          {
+            "kind": "log",
+            "scheme": "page",
+            "level": "log",
+            "message": "auth Bearer [token]",
+            "at": 1756280001000
+          },
+          {
+            "kind": "error",
+            "scheme": "dom",
+            "code": "eval_failed",
+            "recoverable": false,
+            "origin": "call",
+            "at": 1756280004000
+          },
+          {
+            "kind": "kernel",
+            "message": "09:02:49.333 [dsx.log] app: booted",
+            "at": 1756280006000
+          }
+        ]
+      },
+      "hash": "2225b7dba8cb756beb92e5ce8d792f533bb3ae837e9773d76eab0f5c377bfc6e",
+      "text": "{\"app\":{\"build\":260,\"bundle\":\"com.acme.fittest\",\"channel\":\"testflight\",\"host\":\"app.fittest.example\",\"name\":\"Fittest\",\"version\":\"2.1.0\"},\"capturedAt\":1756280010000,\"device\":{\"locale\":\"en_US\",\"model\":\"iPhone17,2\",\"os\":\"ios\",\"osVersion\":\"26.5\"},\"kind\":\"dsxreport\",\"receipt\":{\"alg\":\"sha256\",\"hash\":\"2225b7dba8cb756beb92e5ce8d792f533bb3ae837e9773d76eab0f5c377bfc6e\"},\"rows\":[{\"at\":1756280000000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"checkout ready\",\"scheme\":\"app\"},{\"at\":1756280001000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"auth Bearer [token]\",\"scheme\":\"page\"},{\"at\":1756280004000,\"code\":\"eval_failed\",\"kind\":\"error\",\"origin\":\"call\",\"recoverable\":false,\"scheme\":\"dom\"},{\"at\":1756280006000,\"kind\":\"kernel\",\"message\":\"09:02:49.333 [dsx.log] app: booted\"}],\"totals\":{\"errors\":1,\"kernel\":1,\"logs\":2},\"v\":1}"
+    }
+  ],
+  "verdict": [
+    {
+      "name": "the AI-fabricated paste is not a report",
+      "text": "{\"capturedAt\":\"2026-08-27T09:03:33.001Z\",\"context\":{\"workout_lifecycle_v2\":{\"state\":\"active\"}},\"events\":[{\"kind\":\"v2_binding_ok\"}],\"platform\":{\"isDespia\":true,\"userAgent\":\"despia-iphone\"},\"sessionId\":\"ca0fbd90-b537-40e6-9c19-544bb5eee408\"}",
+      "expect": {
+        "verdict": "not_report",
+        "assertion": false
+      }
+    },
+    {
+      "name": "prose is not a report",
+      "text": "here are my logs: everything broke",
+      "expect": {
+        "verdict": "not_report",
+        "assertion": false
+      }
+    },
+    {
+      "name": "a v2 envelope from the future is not judged",
+      "text": "{\"kind\":\"dsxreport\",\"receipt\":{\"alg\":\"sha256\",\"hash\":\"00\"},\"v\":2}",
+      "expect": {
+        "verdict": "not_report",
+        "assertion": false
+      }
+    },
+    {
+      "name": "an edited report is modified",
+      "text": "{\"app\":{\"build\":260,\"bundle\":\"com.acme.fittest\",\"channel\":\"testflight\",\"host\":\"app.fittest.example\",\"name\":\"Fittest\",\"version\":\"2.1.0\"},\"capturedAt\":1756280010000,\"device\":{\"locale\":\"en_US\",\"model\":\"iPhone17,2\",\"os\":\"ios\",\"osVersion\":\"26.5\"},\"kind\":\"dsxreport\",\"receipt\":{\"alg\":\"sha256\",\"hash\":\"2225b7dba8cb756beb92e5ce8d792f533bb3ae837e9773d76eab0f5c377bfc6e\"},\"rows\":[{\"at\":1756280000000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"checkout was ready\",\"scheme\":\"app\"},{\"at\":1756280001000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"auth Bearer [token]\",\"scheme\":\"page\"},{\"at\":1756280004000,\"code\":\"eval_failed\",\"kind\":\"error\",\"origin\":\"call\",\"recoverable\":false,\"scheme\":\"dom\"},{\"at\":1756280006000,\"kind\":\"kernel\",\"message\":\"09:02:49.333 [dsx.log] app: booted\"}],\"totals\":{\"errors\":1,\"kernel\":1,\"logs\":2},\"v\":1}",
+      "expect": {
+        "verdict": "modified",
+        "assertion": false
+      }
+    },
+    {
+      "name": "a reordered but untouched report is still genuine - canonicalization absorbs formatting",
+      "text": "{\n  \"v\": 1,\n  \"kind\": \"dsxreport\",\n  \"app\": {\n    \"name\": \"Fittest\",\n    \"version\": \"2.1.0\",\n    \"build\": 260,\n    \"bundle\": \"com.acme.fittest\",\n    \"channel\": \"testflight\",\n    \"host\": \"app.fittest.example\"\n  },\n  \"device\": {\n    \"model\": \"iPhone17,2\",\n    \"os\": \"ios\",\n    \"osVersion\": \"26.5\",\n    \"locale\": \"en_US\"\n  },\n  \"capturedAt\": 1756280010000,\n  \"totals\": {\n    \"logs\": 2,\n    \"errors\": 1,\n    \"kernel\": 1\n  },\n  \"rows\": [\n    {\n      \"kind\": \"log\",\n      \"scheme\": \"app\",\n      \"level\": \"log\",\n      \"message\": \"checkout ready\",\n      \"at\": 1756280000000\n    },\n    {\n      \"kind\": \"log\",\n      \"scheme\": \"page\",\n      \"level\": \"log\",\n      \"message\": \"auth Bearer [token]\",\n      \"at\": 1756280001000\n    },\n    {\n      \"kind\": \"error\",\n      \"scheme\": \"dom\",\n      \"code\": \"eval_failed\",\n      \"recoverable\": false,\n      \"origin\": \"call\",\n      \"at\": 1756280004000\n    },\n    {\n      \"kind\": \"kernel\",\n      \"message\": \"09:02:49.333 [dsx.log] app: booted\",\n      \"at\": 1756280006000\n    }\n  ],\n  \"receipt\": {\n    \"alg\": \"sha256\",\n    \"hash\": \"2225b7dba8cb756beb92e5ce8d792f533bb3ae837e9773d76eab0f5c377bfc6e\"\n  }\n}",
+      "expect": {
+        "verdict": "genuine",
+        "assertion": false
+      }
+    },
+    {
+      "name": "the sealed report verifies",
+      "text": "{\"app\":{\"build\":260,\"bundle\":\"com.acme.fittest\",\"channel\":\"testflight\",\"host\":\"app.fittest.example\",\"name\":\"Fittest\",\"version\":\"2.1.0\"},\"capturedAt\":1756280010000,\"device\":{\"locale\":\"en_US\",\"model\":\"iPhone17,2\",\"os\":\"ios\",\"osVersion\":\"26.5\"},\"kind\":\"dsxreport\",\"receipt\":{\"alg\":\"sha256\",\"hash\":\"2225b7dba8cb756beb92e5ce8d792f533bb3ae837e9773d76eab0f5c377bfc6e\"},\"rows\":[{\"at\":1756280000000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"checkout ready\",\"scheme\":\"app\"},{\"at\":1756280001000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"auth Bearer [token]\",\"scheme\":\"page\"},{\"at\":1756280004000,\"code\":\"eval_failed\",\"kind\":\"error\",\"origin\":\"call\",\"recoverable\":false,\"scheme\":\"dom\"},{\"at\":1756280006000,\"kind\":\"kernel\",\"message\":\"09:02:49.333 [dsx.log] app: booted\"}],\"totals\":{\"errors\":1,\"kernel\":1,\"logs\":2},\"v\":1}",
+      "expect": {
+        "verdict": "genuine",
+        "assertion": false
+      }
+    },
+    {
+      "name": "an attested seal reports its assertion",
+      "text": "{\"app\":{\"build\":260,\"bundle\":\"com.acme.fittest\",\"channel\":\"testflight\",\"host\":\"app.fittest.example\",\"name\":\"Fittest\",\"version\":\"2.1.0\"},\"capturedAt\":1756280010000,\"device\":{\"locale\":\"en_US\",\"model\":\"iPhone17,2\",\"os\":\"ios\",\"osVersion\":\"26.5\"},\"kind\":\"dsxreport\",\"receipt\":{\"alg\":\"sha256\",\"hash\":\"2225b7dba8cb756beb92e5ce8d792f533bb3ae837e9773d76eab0f5c377bfc6e\",\"integrity\":{\"challenge\":\"2225b7dba8cb756beb92e5ce8d792f533bb3ae837e9773d76eab0f5c377bfc6e\",\"format\":\"apple-assertion\",\"keyRef\":\"ka_1\",\"provider\":\"appattest\",\"token\":\"b2tfYXNzZXJ0aW9u\"}},\"rows\":[{\"at\":1756280000000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"checkout ready\",\"scheme\":\"app\"},{\"at\":1756280001000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"auth Bearer [token]\",\"scheme\":\"page\"},{\"at\":1756280004000,\"code\":\"eval_failed\",\"kind\":\"error\",\"origin\":\"call\",\"recoverable\":false,\"scheme\":\"dom\"},{\"at\":1756280006000,\"kind\":\"kernel\",\"message\":\"09:02:49.333 [dsx.log] app: booted\"}],\"totals\":{\"errors\":1,\"kernel\":1,\"logs\":2},\"v\":1}",
+      "expect": {
+        "verdict": "genuine",
+        "assertion": true
+      }
+    },
+    {
+      "name": "a stripped receipt is not a report",
+      "text": "{\"app\":{\"build\":260,\"bundle\":\"com.acme.fittest\",\"channel\":\"testflight\",\"host\":\"app.fittest.example\",\"name\":\"Fittest\",\"version\":\"2.1.0\"},\"capturedAt\":1756280010000,\"device\":{\"locale\":\"en_US\",\"model\":\"iPhone17,2\",\"os\":\"ios\",\"osVersion\":\"26.5\"},\"kind\":\"dsxreport\",\"rows\":[{\"at\":1756280000000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"checkout ready\",\"scheme\":\"app\"},{\"at\":1756280001000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"auth Bearer [token]\",\"scheme\":\"page\"},{\"at\":1756280004000,\"code\":\"eval_failed\",\"kind\":\"error\",\"origin\":\"call\",\"recoverable\":false,\"scheme\":\"dom\"},{\"at\":1756280006000,\"kind\":\"kernel\",\"message\":\"09:02:49.333 [dsx.log] app: booted\"}],\"totals\":{\"errors\":1,\"kernel\":1,\"logs\":2},\"v\":1}",
+      "expect": {
+        "verdict": "not_report",
+        "assertion": false
+      }
+    },
+    {
+      "name": "a float smuggled into a sealed report reads as modified - no conforming writer emits one",
+      "text": "{\"app\":{\"build\":260,\"bundle\":\"com.acme.fittest\",\"channel\":\"testflight\",\"host\":\"app.fittest.example\",\"name\":\"Fittest\",\"version\":\"2.1.0\"},\"capturedAt\":1756280010000,\"device\":{\"locale\":\"en_US\",\"model\":\"iPhone17,2\",\"os\":\"ios\",\"osVersion\":\"26.5\"},\"kind\":\"dsxreport\",\"receipt\":{\"alg\":\"sha256\",\"hash\":\"2225b7dba8cb756beb92e5ce8d792f533bb3ae837e9773d76eab0f5c377bfc6e\"},\"rows\":[{\"at\":1756280000000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"checkout ready\",\"scheme\":\"app\"},{\"at\":1756280001000,\"kind\":\"log\",\"level\":\"log\",\"message\":\"auth Bearer [token]\",\"scheme\":\"page\"},{\"at\":1756280004000,\"code\":\"eval_failed\",\"kind\":\"error\",\"origin\":\"call\",\"recoverable\":false,\"scheme\":\"dom\"},{\"at\":1756280006000,\"kind\":\"kernel\",\"message\":\"09:02:49.333 [dsx.log] app: booted\"}],\"totals\":{\"errors\":1,\"kernel\":1,\"logs\":2},\"v\":1,\"rate\":0.5}",
+      "expect": {
+        "verdict": "modified",
+        "assertion": false
+      }
+    }
+  ]
+}

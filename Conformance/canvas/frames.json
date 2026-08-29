@@ -1,0 +1,372 @@
+{
+ "_note": "`on:frame` as data: the display-link contract folded from raw platform ticks and lifecycle events. An always-running frame callback is a BATTERY BUG, so the law is enforced by fixture, not by intent. (1) The loop is installed ONLY while an `on:frame` handler is bound AND the canvas is mounted AND it is on screen \u2014 the corpus counts `installs`/`uninstalls`, so a renderer that installs a display link for an unbound canvas fails here. (2) Ticks arriving while the loop is not installed are DROPPED, never queued. (3) The emitted payload is { time, delta, frame }: `delta` is seconds since the previous EMITTED tick and is 0 on the first tick after every install; `time` is accumulated delta, so it EXCLUDES offscreen intervals (an author animating from `time` must not see a jump after backgrounding); `frame` counts emissions and never resets while mounted. (4) The 60/s budget: a tick arriving less than 1000/60 ms after the last EMITTED tick is coalesced away \u2014 the same constant the scene kernel uses, deliberately shared.",
+ "cases": [
+  {
+   "name": "unbound: the loop is never installed",
+   "bound": false,
+   "events": [
+    {
+     "type": "mount"
+    },
+    {
+     "type": "tick",
+     "at": 0
+    },
+    {
+     "type": "tick",
+     "at": 16.7
+    },
+    {
+     "type": "tick",
+     "at": 33.4
+    }
+   ],
+   "emitted": [],
+   "installs": 0,
+   "uninstalls": 0,
+   "installed": false
+  },
+  {
+   "name": "bound and mounted: the first tick emits delta 0",
+   "bound": true,
+   "events": [
+    {
+     "type": "mount"
+    },
+    {
+     "type": "tick",
+     "at": 0
+    },
+    {
+     "type": "tick",
+     "at": 16.7
+    },
+    {
+     "type": "tick",
+     "at": 33.4
+    },
+    {
+     "type": "tick",
+     "at": 50.1
+    }
+   ],
+   "emitted": [
+    {
+     "time": 0.0,
+     "delta": 0.0,
+     "frame": 0
+    },
+    {
+     "time": 0.0167,
+     "delta": 0.0167,
+     "frame": 1
+    },
+    {
+     "time": 0.0334,
+     "delta": 0.0167,
+     "frame": 2
+    },
+    {
+     "time": 0.0501,
+     "delta": 0.0167,
+     "frame": 3
+    }
+   ],
+   "installs": 1,
+   "uninstalls": 0,
+   "installed": true
+  },
+  {
+   "name": "ticks faster than 60/s are coalesced",
+   "bound": true,
+   "events": [
+    {
+     "type": "mount"
+    },
+    {
+     "type": "tick",
+     "at": 0
+    },
+    {
+     "type": "tick",
+     "at": 5
+    },
+    {
+     "type": "tick",
+     "at": 10
+    },
+    {
+     "type": "tick",
+     "at": 16.7
+    },
+    {
+     "type": "tick",
+     "at": 20
+    },
+    {
+     "type": "tick",
+     "at": 33.4
+    }
+   ],
+   "emitted": [
+    {
+     "time": 0.0,
+     "delta": 0.0,
+     "frame": 0
+    },
+    {
+     "time": 0.0167,
+     "delta": 0.0167,
+     "frame": 1
+    },
+    {
+     "time": 0.0334,
+     "delta": 0.0167,
+     "frame": 2
+    }
+   ],
+   "installs": 1,
+   "uninstalls": 0,
+   "installed": true
+  },
+  {
+   "name": "offscreen uninstalls the loop and drops its ticks",
+   "bound": true,
+   "events": [
+    {
+     "type": "mount"
+    },
+    {
+     "type": "tick",
+     "at": 0
+    },
+    {
+     "type": "tick",
+     "at": 16.7
+    },
+    {
+     "type": "visible",
+     "value": false
+    },
+    {
+     "type": "tick",
+     "at": 33.4
+    },
+    {
+     "type": "tick",
+     "at": 50.1
+    },
+    {
+     "type": "tick",
+     "at": 66.8
+    },
+    {
+     "type": "visible",
+     "value": true
+    },
+    {
+     "type": "tick",
+     "at": 83.5
+    },
+    {
+     "type": "tick",
+     "at": 100.2
+    }
+   ],
+   "emitted": [
+    {
+     "time": 0.0,
+     "delta": 0.0,
+     "frame": 0
+    },
+    {
+     "time": 0.0167,
+     "delta": 0.0167,
+     "frame": 1
+    },
+    {
+     "time": 0.0167,
+     "delta": 0.0,
+     "frame": 2
+    },
+    {
+     "time": 0.0334,
+     "delta": 0.0167,
+     "frame": 3
+    }
+   ],
+   "installs": 2,
+   "uninstalls": 1,
+   "installed": true
+  },
+  {
+   "name": "elapsed time EXCLUDES the offscreen interval",
+   "bound": true,
+   "events": [
+    {
+     "type": "mount"
+    },
+    {
+     "type": "tick",
+     "at": 0
+    },
+    {
+     "type": "tick",
+     "at": 16.7
+    },
+    {
+     "type": "visible",
+     "value": false
+    },
+    {
+     "type": "tick",
+     "at": 1000
+    },
+    {
+     "type": "tick",
+     "at": 2000
+    },
+    {
+     "type": "visible",
+     "value": true
+    },
+    {
+     "type": "tick",
+     "at": 3000
+    },
+    {
+     "type": "tick",
+     "at": 3016.7
+    }
+   ],
+   "emitted": [
+    {
+     "time": 0.0,
+     "delta": 0.0,
+     "frame": 0
+    },
+    {
+     "time": 0.0167,
+     "delta": 0.0167,
+     "frame": 1
+    },
+    {
+     "time": 0.0167,
+     "delta": 0.0,
+     "frame": 2
+    },
+    {
+     "time": 0.0334,
+     "delta": 0.0167,
+     "frame": 3
+    }
+   ],
+   "installs": 2,
+   "uninstalls": 1,
+   "installed": true
+  },
+  {
+   "name": "unmount uninstalls, remount reinstalls",
+   "bound": true,
+   "events": [
+    {
+     "type": "mount"
+    },
+    {
+     "type": "tick",
+     "at": 0
+    },
+    {
+     "type": "tick",
+     "at": 16.7
+    },
+    {
+     "type": "unmount"
+    },
+    {
+     "type": "tick",
+     "at": 33.4
+    },
+    {
+     "type": "mount"
+    },
+    {
+     "type": "tick",
+     "at": 50.1
+    },
+    {
+     "type": "tick",
+     "at": 66.8
+    }
+   ],
+   "emitted": [
+    {
+     "time": 0.0,
+     "delta": 0.0,
+     "frame": 0
+    },
+    {
+     "time": 0.0167,
+     "delta": 0.0167,
+     "frame": 1
+    },
+    {
+     "time": 0.0167,
+     "delta": 0.0,
+     "frame": 2
+    },
+    {
+     "time": 0.0334,
+     "delta": 0.0167,
+     "frame": 3
+    }
+   ],
+   "installs": 2,
+   "uninstalls": 1,
+   "installed": true
+  },
+  {
+   "name": "mounting before binding installs nothing until bound",
+   "bound": false,
+   "events": [
+    {
+     "type": "mount"
+    },
+    {
+     "type": "tick",
+     "at": 0
+    },
+    {
+     "type": "tick",
+     "at": 16.7
+    },
+    {
+     "type": "tick",
+     "at": 33.4
+    }
+   ],
+   "emitted": [],
+   "installs": 0,
+   "uninstalls": 0,
+   "installed": false
+  },
+  {
+   "name": "a canvas that never mounts never installs",
+   "bound": true,
+   "events": [
+    {
+     "type": "tick",
+     "at": 0
+    },
+    {
+     "type": "tick",
+     "at": 16.7
+    }
+   ],
+   "emitted": [],
+   "installs": 0,
+   "uninstalls": 0,
+   "installed": false
+  }
+ ]
+}

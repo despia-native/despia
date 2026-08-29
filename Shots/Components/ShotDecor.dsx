@@ -1,0 +1,37 @@
+<stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 3">
+  <head>
+    <!-- THE DECORATION LAYER, AND THE REASON IT IS DATA.
+         Everything a slide carries besides the screen and the headline - a logo, a mascot, a
+         rating badge, a feature chip, a callout ring over a UI detail - is one row of a JSON
+         array. An agent composing a screenshot set therefore writes DATA into the shot
+         profile; it never authors markup. That is the difference between "the AI can use the
+         tool" and "the AI can use the tool only if it writes DSX correctly every time".
+
+         Each row: {kind, x, y, ...}. `x`/`y` are percentages of the slide, so a decoration
+         means the same thing at every device size.
+
+         WHY EIGHT FIXED SLOTS AND NOT A <list>. A bound list was the obvious shape and it does
+         not work here: `.dsx-list > *` resolves its rows to `position: relative`, so every
+         absolutely-placed decoration collapsed into flex flow and stacked down the left edge.
+         Measured, in a probe: computed `position: relative`, `top: 0px` on every row, against
+         a control pair outside a list that placed exactly. Eight is also the honest ceiling -
+         a slide carrying more than eight decorations is not a screenshot, it is a collage.
+
+         WHAT THIS DELIBERATELY WILL NOT DRAW, and it matters more than what it will: there is
+         no store-award badge. "Editors' Choice" is a real Google Play award with its own
+         branding, and "Top Rated" reads as one; both stores' metadata policies ban implying an
+         editorial endorsement you do not have, and it is a trademark problem besides. A badge
+         here carries a claim the customer can substantiate - their real rating, their real
+         install count, a feature actually in the build, a press quote actually received. -->
+    <attribute as="items" sample="[]"/>
+  </head>
+
+  <ShotDecorItem visible-if="dsx.attribute.items.length > 0" item="{{ dsx.attribute.items[0] }}"/>
+  <ShotDecorItem visible-if="dsx.attribute.items.length > 1" item="{{ dsx.attribute.items[1] }}"/>
+  <ShotDecorItem visible-if="dsx.attribute.items.length > 2" item="{{ dsx.attribute.items[2] }}"/>
+  <ShotDecorItem visible-if="dsx.attribute.items.length > 3" item="{{ dsx.attribute.items[3] }}"/>
+  <ShotDecorItem visible-if="dsx.attribute.items.length > 4" item="{{ dsx.attribute.items[4] }}"/>
+  <ShotDecorItem visible-if="dsx.attribute.items.length > 5" item="{{ dsx.attribute.items[5] }}"/>
+  <ShotDecorItem visible-if="dsx.attribute.items.length > 6" item="{{ dsx.attribute.items[6] }}"/>
+  <ShotDecorItem visible-if="dsx.attribute.items.length > 7" item="{{ dsx.attribute.items[7] }}"/>
+</stack>

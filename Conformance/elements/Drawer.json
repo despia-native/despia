@@ -38,22 +38,22 @@
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:38"
     },
     "cornerRadius": {
-      "value": 24,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:42"
+      "value": 20,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:67 (the `sheet` shape rung, defaults/shape.json)"
     },
     "dismissThreshold": {
       "value": 120,
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:48"
-    },
-    "handleOpacity": {
-      "value": 0.25,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:33"
     }
   },
   "colors": {
     "panel": {
-      "token": "#1C1C1C",
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift:41 (Color(white"
+      "token": "secondaryBackground",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift (the elevated-surface slot; was the pinned Color(white: 0.11) — W12 red sweep)"
+    },
+    "handle": {
+      "token": "fill",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift (the semantic grabber slot; was white 25% — W12 red sweep)"
     }
   },
   "notes": ""

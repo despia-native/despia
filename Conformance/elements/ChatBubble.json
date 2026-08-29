@@ -36,8 +36,8 @@
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:59"
     },
     "radius": {
-      "value": 18,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:70-74"
+      "value": 20,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/ChatBubble.swift:69-74 (the `sheet` shape rung, defaults/shape.json)"
     },
     "tailRadius": {
       "value": 4,

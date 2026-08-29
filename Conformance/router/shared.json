@@ -1,0 +1,1725 @@
+{
+  "version": 1,
+  "_note": "U03 shared element transitions (parity/U03-shared-transitions.md) \u2014 the PURE CORE all three renderers run: the MATCHING algorithm (which `shared` ids pair across the outgoing and incoming frames), the INTERPOLATION SCHEDULE (given a progress 0..1, the frame, corner radius, opacity and content mode at that instant), and the INTERRUPTION/REVERSAL state machine. Everything platform-shaped stays outside: iOS runs it under UIViewControllerAnimatedTransitioning with a snapshot layer, Android under a shared LookaheadScope, web through the View Transitions API with a WAAPI FLIP fallback. An unmatched id is NEVER an error \u2014 it takes the ordinary frame transition. The single acceptance test is interruption: a back-swipe that starts mid-push must reverse from where the transition actually is, not snap.  Authoring: `shared` (the match id, unique within a frame), `sharedAnim` (inherits the frame's anim), `sharedMode` (move | crossfade | clip), `sharedOrder` (z-order among several pairs).",
+  "modes": [
+    "move",
+    "crossfade",
+    "clip"
+  ],
+  "a11y": {
+    "focus": "destination",
+    "at": "start",
+    "_note": "accessibility focus moves to the destination frame at transition START, not end, so a VoiceOver user is never narrating a moving snapshot."
+  },
+  "handoffStart": 0.6666666666666666,
+  "_handoffNote": "`move` keeps the source snapshot for the whole flight and fades the destination in over the final third \u2014 the hand-off point, pinned so the three renderers agree on when the real view takes over.",
+  "tolerance": 1e-06,
+  "match": [
+    {
+      "name": "one pair animates frame, radius, content mode and opacity",
+      "_pins": "the base case: a thumbnail grows into the photo. Every interpolated property is carried by the pair, and nothing else in either frame is touched.",
+      "source": [
+        {
+          "id": "cover-3",
+          "frame": {
+            "x": 12,
+            "y": 240,
+            "width": 80,
+            "height": 80
+          },
+          "radius": 8,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "destination": [
+        {
+          "id": "cover-3",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 300
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fit"
+        }
+      ],
+      "expect": {
+        "pairs": [
+          {
+            "id": "cover-3",
+            "order": 0,
+            "mode": "move",
+            "anim": null,
+            "deferred": false,
+            "from": {
+              "x": 12.0,
+              "y": 240.0,
+              "width": 80.0,
+              "height": 80.0,
+              "radius": 8.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 390.0,
+              "height": 300.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fit"
+            }
+          }
+        ],
+        "unmatchedSource": [],
+        "unmatchedDestination": [],
+        "duplicates": []
+      }
+    },
+    {
+      "name": "an unmatched id takes the normal transition, never an error",
+      "_pins": "a list where only some rows carry a shared id is a legitimate design: the id present on one side only is reported as unmatched and pairs stays empty. No error, no flash.",
+      "source": [
+        {
+          "id": "cover-3",
+          "frame": {
+            "x": 12,
+            "y": 240,
+            "width": 80,
+            "height": 80
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        },
+        {
+          "id": "title-3",
+          "frame": {
+            "x": 100,
+            "y": 240,
+            "width": 200,
+            "height": 20
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "destination": [
+        {
+          "id": "hero",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 300
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "expect": {
+        "pairs": [],
+        "unmatchedSource": [
+          "cover-3",
+          "title-3"
+        ],
+        "unmatchedDestination": [
+          "hero"
+        ],
+        "duplicates": []
+      }
+    },
+    {
+      "name": "three pairs, sharedOrder before document order",
+      "_pins": "z-order among several shared elements in one transition is sharedOrder ascending, ties broken by DESTINATION document order (the frame you are looking at).",
+      "source": [
+        {
+          "id": "a",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 10,
+            "height": 10
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill",
+          "order": 2
+        },
+        {
+          "id": "b",
+          "frame": {
+            "x": 0,
+            "y": 20,
+            "width": 10,
+            "height": 10
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        },
+        {
+          "id": "c",
+          "frame": {
+            "x": 0,
+            "y": 40,
+            "width": 10,
+            "height": 10
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill",
+          "order": 1
+        }
+      ],
+      "destination": [
+        {
+          "id": "b",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 100
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        },
+        {
+          "id": "a",
+          "frame": {
+            "x": 0,
+            "y": 100,
+            "width": 100,
+            "height": 100
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        },
+        {
+          "id": "c",
+          "frame": {
+            "x": 0,
+            "y": 200,
+            "width": 100,
+            "height": 100
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "expect": {
+        "pairs": [
+          {
+            "id": "b",
+            "order": 0,
+            "mode": "move",
+            "anim": null,
+            "deferred": false,
+            "from": {
+              "x": 0.0,
+              "y": 20.0,
+              "width": 10.0,
+              "height": 10.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 100.0,
+              "height": 100.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          },
+          {
+            "id": "c",
+            "order": 1,
+            "mode": "move",
+            "anim": null,
+            "deferred": false,
+            "from": {
+              "x": 0.0,
+              "y": 40.0,
+              "width": 10.0,
+              "height": 10.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 0.0,
+              "y": 200.0,
+              "width": 100.0,
+              "height": 100.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          },
+          {
+            "id": "a",
+            "order": 2,
+            "mode": "move",
+            "anim": null,
+            "deferred": false,
+            "from": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 10.0,
+              "height": 10.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 0.0,
+              "y": 100.0,
+              "width": 100.0,
+              "height": 100.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          }
+        ],
+        "unmatchedSource": [],
+        "unmatchedDestination": [],
+        "duplicates": []
+      }
+    },
+    {
+      "name": "an unrealised destination cross-fades from the SOURCE geometry, never to a zero rect",
+      "_pins": "the case every naive implementation gets wrong: a virtualised list or a still-loading image has no destination frame yet, so the destination geometry IS the source geometry and the mode is forced to crossfade. Animating to a zero rect looks like the image collapsing into nothing.",
+      "source": [
+        {
+          "id": "cover-9",
+          "frame": {
+            "x": 12,
+            "y": 240,
+            "width": 80,
+            "height": 80
+          },
+          "radius": 12,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "destination": [
+        {
+          "id": "cover-9",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill",
+          "laid": false
+        }
+      ],
+      "expect": {
+        "pairs": [
+          {
+            "id": "cover-9",
+            "order": 0,
+            "mode": "crossfade",
+            "anim": null,
+            "deferred": true,
+            "from": {
+              "x": 12.0,
+              "y": 240.0,
+              "width": 80.0,
+              "height": 80.0,
+              "radius": 12.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 12.0,
+              "y": 240.0,
+              "width": 80.0,
+              "height": 80.0,
+              "radius": 12.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          }
+        ],
+        "unmatchedSource": [],
+        "unmatchedDestination": [],
+        "duplicates": []
+      }
+    },
+    {
+      "name": "a destination measured at zero counts as unrealised",
+      "_pins": "laid=false is the explicit signal, but a realised-looking node with a zero width or height is the same situation and must not produce a zero rect either.",
+      "source": [
+        {
+          "id": "cover-9",
+          "frame": {
+            "x": 12,
+            "y": 240,
+            "width": 80,
+            "height": 80
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "destination": [
+        {
+          "id": "cover-9",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 0
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "expect": {
+        "pairs": [
+          {
+            "id": "cover-9",
+            "order": 0,
+            "mode": "crossfade",
+            "anim": null,
+            "deferred": true,
+            "from": {
+              "x": 12.0,
+              "y": 240.0,
+              "width": 80.0,
+              "height": 80.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 12.0,
+              "y": 240.0,
+              "width": 80.0,
+              "height": 80.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          }
+        ],
+        "unmatchedSource": [],
+        "unmatchedDestination": [],
+        "duplicates": []
+      }
+    },
+    {
+      "name": "reduced motion downgrades move to crossfade, with no opt-out",
+      "_pins": "an honest degradation, not a disable: the pair still matches and still carries the geometry, but the motion the user asked not to see is gone.",
+      "source": [
+        {
+          "id": "cover-3",
+          "frame": {
+            "x": 12,
+            "y": 240,
+            "width": 80,
+            "height": 80
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill",
+          "mode": "move"
+        }
+      ],
+      "destination": [
+        {
+          "id": "cover-3",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 300
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill",
+          "mode": "move"
+        }
+      ],
+      "reducedMotion": true,
+      "expect": {
+        "pairs": [
+          {
+            "id": "cover-3",
+            "order": 0,
+            "mode": "crossfade",
+            "anim": null,
+            "deferred": false,
+            "from": {
+              "x": 12.0,
+              "y": 240.0,
+              "width": 80.0,
+              "height": 80.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 390.0,
+              "height": 300.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          }
+        ],
+        "unmatchedSource": [],
+        "unmatchedDestination": [],
+        "duplicates": []
+      }
+    },
+    {
+      "name": "present behaves exactly like push, sheet detent included",
+      "_pins": "the matching core is presentation-agnostic: `presentation` is carried for the caller and changes nothing about which ids pair or how they interpolate.",
+      "presentation": "sheet:half",
+      "source": [
+        {
+          "id": "cover-3",
+          "frame": {
+            "x": 12,
+            "y": 240,
+            "width": 80,
+            "height": 80
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "destination": [
+        {
+          "id": "cover-3",
+          "frame": {
+            "x": 24,
+            "y": 60,
+            "width": 342,
+            "height": 240
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "expect": {
+        "pairs": [
+          {
+            "id": "cover-3",
+            "order": 0,
+            "mode": "move",
+            "anim": null,
+            "deferred": false,
+            "from": {
+              "x": 12.0,
+              "y": 240.0,
+              "width": 80.0,
+              "height": 80.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 24.0,
+              "y": 60.0,
+              "width": 342.0,
+              "height": 240.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          }
+        ],
+        "unmatchedSource": [],
+        "unmatchedDestination": [],
+        "duplicates": []
+      }
+    },
+    {
+      "name": "a duplicate id in one frame resolves to the FIRST in document order",
+      "_pins": "a duplicate is a lint error at author time, but a runtime must still be deterministic or the ambiguity resolves differently per platform. First occurrence wins; the id is reported so the linter and the diagnostics agree.",
+      "source": [
+        {
+          "id": "dup",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 10,
+            "height": 10
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        },
+        {
+          "id": "dup",
+          "frame": {
+            "x": 0,
+            "y": 50,
+            "width": 20,
+            "height": 20
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        },
+        {
+          "id": "solo",
+          "frame": {
+            "x": 0,
+            "y": 100,
+            "width": 10,
+            "height": 10
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "destination": [
+        {
+          "id": "dup",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 100
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        },
+        {
+          "id": "solo",
+          "frame": {
+            "x": 0,
+            "y": 200,
+            "width": 100,
+            "height": 100
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        }
+      ],
+      "expect": {
+        "pairs": [
+          {
+            "id": "dup",
+            "order": 0,
+            "mode": "move",
+            "anim": null,
+            "deferred": false,
+            "from": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 10.0,
+              "height": 10.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 100.0,
+              "height": 100.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          },
+          {
+            "id": "solo",
+            "order": 0,
+            "mode": "move",
+            "anim": null,
+            "deferred": false,
+            "from": {
+              "x": 0.0,
+              "y": 100.0,
+              "width": 10.0,
+              "height": 10.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 0.0,
+              "y": 200.0,
+              "width": 100.0,
+              "height": 100.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          }
+        ],
+        "unmatchedSource": [],
+        "unmatchedDestination": [],
+        "duplicates": [
+          "dup"
+        ]
+      }
+    },
+    {
+      "name": "the destination declares; the source is the fallback; the frame anim is the floor",
+      "_pins": "one rule for sharedMode, sharedAnim and sharedOrder: the arriving screen decides, the outgoing screen fills the gap, and the frame's own anim is the last resort.",
+      "source": [
+        {
+          "id": "a",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 10,
+            "height": 10
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill",
+          "mode": "clip",
+          "anim": "ease",
+          "order": 5
+        },
+        {
+          "id": "b",
+          "frame": {
+            "x": 0,
+            "y": 20,
+            "width": 10,
+            "height": 10
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill",
+          "mode": "crossfade"
+        }
+      ],
+      "destination": [
+        {
+          "id": "a",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 100
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill"
+        },
+        {
+          "id": "b",
+          "frame": {
+            "x": 0,
+            "y": 100,
+            "width": 100,
+            "height": 100
+          },
+          "radius": 0,
+          "opacity": 1,
+          "contentMode": "fill",
+          "mode": "move",
+          "anim": "spring",
+          "order": 1
+        }
+      ],
+      "frameAnim": "spring",
+      "expect": {
+        "pairs": [
+          {
+            "id": "b",
+            "order": 1,
+            "mode": "move",
+            "anim": "spring",
+            "deferred": false,
+            "from": {
+              "x": 0.0,
+              "y": 20.0,
+              "width": 10.0,
+              "height": 10.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 0.0,
+              "y": 100.0,
+              "width": 100.0,
+              "height": 100.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          },
+          {
+            "id": "a",
+            "order": 5,
+            "mode": "clip",
+            "anim": "ease",
+            "deferred": false,
+            "from": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 10.0,
+              "height": 10.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            },
+            "to": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 100.0,
+              "height": 100.0,
+              "radius": 0.0,
+              "opacity": 1.0,
+              "contentMode": "fill"
+            }
+          }
+        ],
+        "unmatchedSource": [],
+        "unmatchedDestination": [],
+        "duplicates": []
+      }
+    }
+  ],
+  "interpolate": [
+    {
+      "name": "move interpolates geometry and hands off to the destination in the final third",
+      "_pins": "the iOS Photos motion: one snapshot flies the whole way, the destination fades in only at the end. Out-of-range progress clamps rather than overshooting.",
+      "pair": {
+        "id": "cover",
+        "order": 0,
+        "mode": "move",
+        "anim": null,
+        "deferred": false,
+        "from": {
+          "x": 12.0,
+          "y": 240.0,
+          "width": 80.0,
+          "height": 80.0,
+          "radius": 8.0,
+          "opacity": 1.0,
+          "contentMode": "fill"
+        },
+        "to": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 390.0,
+          "height": 300.0,
+          "radius": 24.0,
+          "opacity": 1.0,
+          "contentMode": "fit"
+        }
+      },
+      "samples": [
+        {
+          "progress": -0.5,
+          "expect": {
+            "x": 12.0,
+            "y": 240.0,
+            "width": 80.0,
+            "height": 80.0,
+            "radius": 8.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 0.0,
+            "contentMode": "fill",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 0.0,
+          "expect": {
+            "x": 12.0,
+            "y": 240.0,
+            "width": 80.0,
+            "height": 80.0,
+            "radius": 8.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 0.0,
+            "contentMode": "fill",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 0.25,
+          "expect": {
+            "x": 9.0,
+            "y": 180.0,
+            "width": 157.5,
+            "height": 135.0,
+            "radius": 12.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 0.0,
+            "contentMode": "fill",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 0.5,
+          "expect": {
+            "x": 6.0,
+            "y": 120.0,
+            "width": 235.0,
+            "height": 190.0,
+            "radius": 16.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 0.0,
+            "contentMode": "fit",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 0.6666666666666666,
+          "expect": {
+            "x": 4.0,
+            "y": 80.0,
+            "width": 286.666667,
+            "height": 226.666667,
+            "radius": 18.666667,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 0.0,
+            "contentMode": "fit",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 0.75,
+          "expect": {
+            "x": 3.0,
+            "y": 60.0,
+            "width": 312.5,
+            "height": 245.0,
+            "radius": 20.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 0.25,
+            "contentMode": "fit",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 1.0,
+          "expect": {
+            "x": 0.0,
+            "y": 0.0,
+            "width": 390.0,
+            "height": 300.0,
+            "radius": 24.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 1.0,
+            "contentMode": "fit",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 1.5,
+          "expect": {
+            "x": 0.0,
+            "y": 0.0,
+            "width": 390.0,
+            "height": 300.0,
+            "radius": 24.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 1.0,
+            "contentMode": "fit",
+            "scaleContent": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "crossfade dissolves the two snapshots across the whole flight",
+      "_pins": "the mode reduced motion downgrades to, and the mode a deferred destination forces.",
+      "pair": {
+        "id": "cover",
+        "order": 0,
+        "mode": "crossfade",
+        "anim": null,
+        "deferred": false,
+        "from": {
+          "x": 12.0,
+          "y": 240.0,
+          "width": 80.0,
+          "height": 80.0,
+          "radius": 8.0,
+          "opacity": 1.0,
+          "contentMode": "fill"
+        },
+        "to": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 390.0,
+          "height": 300.0,
+          "radius": 24.0,
+          "opacity": 0.5,
+          "contentMode": "fit"
+        }
+      },
+      "samples": [
+        {
+          "progress": -0.5,
+          "expect": {
+            "x": 12.0,
+            "y": 240.0,
+            "width": 80.0,
+            "height": 80.0,
+            "radius": 8.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 0.0,
+            "contentMode": "fill",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 0.0,
+          "expect": {
+            "x": 12.0,
+            "y": 240.0,
+            "width": 80.0,
+            "height": 80.0,
+            "radius": 8.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 0.0,
+            "contentMode": "fill",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 0.25,
+          "expect": {
+            "x": 9.0,
+            "y": 180.0,
+            "width": 157.5,
+            "height": 135.0,
+            "radius": 12.0,
+            "alpha": 0.875,
+            "sourceOpacity": 0.75,
+            "destinationOpacity": 0.25,
+            "contentMode": "fill",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 0.5,
+          "expect": {
+            "x": 6.0,
+            "y": 120.0,
+            "width": 235.0,
+            "height": 190.0,
+            "radius": 16.0,
+            "alpha": 0.75,
+            "sourceOpacity": 0.5,
+            "destinationOpacity": 0.5,
+            "contentMode": "fit",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 0.6666666666666666,
+          "expect": {
+            "x": 4.0,
+            "y": 80.0,
+            "width": 286.666667,
+            "height": 226.666667,
+            "radius": 18.666667,
+            "alpha": 0.666667,
+            "sourceOpacity": 0.333333,
+            "destinationOpacity": 0.666667,
+            "contentMode": "fit",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 0.75,
+          "expect": {
+            "x": 3.0,
+            "y": 60.0,
+            "width": 312.5,
+            "height": 245.0,
+            "radius": 20.0,
+            "alpha": 0.625,
+            "sourceOpacity": 0.25,
+            "destinationOpacity": 0.75,
+            "contentMode": "fit",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 1.0,
+          "expect": {
+            "x": 0.0,
+            "y": 0.0,
+            "width": 390.0,
+            "height": 300.0,
+            "radius": 24.0,
+            "alpha": 0.5,
+            "sourceOpacity": 0.0,
+            "destinationOpacity": 1.0,
+            "contentMode": "fit",
+            "scaleContent": true
+          }
+        },
+        {
+          "progress": 1.5,
+          "expect": {
+            "x": 0.0,
+            "y": 0.0,
+            "width": 390.0,
+            "height": 300.0,
+            "radius": 24.0,
+            "alpha": 0.5,
+            "sourceOpacity": 0.0,
+            "destinationOpacity": 1.0,
+            "contentMode": "fit",
+            "scaleContent": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "clip moves the frame without scaling the content",
+      "_pins": "for text that changes size: scaling the glyphs distorts them, so the frame animates and the content is clipped to it.",
+      "pair": {
+        "id": "title",
+        "order": 0,
+        "mode": "clip",
+        "anim": null,
+        "deferred": false,
+        "from": {
+          "x": 16.0,
+          "y": 300.0,
+          "width": 200.0,
+          "height": 20.0,
+          "radius": 0.0,
+          "opacity": 1.0,
+          "contentMode": "fit"
+        },
+        "to": {
+          "x": 24.0,
+          "y": 80.0,
+          "width": 320.0,
+          "height": 44.0,
+          "radius": 0.0,
+          "opacity": 1.0,
+          "contentMode": "fit"
+        }
+      },
+      "samples": [
+        {
+          "progress": -0.5,
+          "expect": {
+            "x": 16.0,
+            "y": 300.0,
+            "width": 200.0,
+            "height": 20.0,
+            "radius": 0.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 0.0,
+            "contentMode": "fit",
+            "scaleContent": false
+          }
+        },
+        {
+          "progress": 0.0,
+          "expect": {
+            "x": 16.0,
+            "y": 300.0,
+            "width": 200.0,
+            "height": 20.0,
+            "radius": 0.0,
+            "alpha": 1.0,
+            "sourceOpacity": 1.0,
+            "destinationOpacity": 0.0,
+            "contentMode": "fit",
+            "scaleContent": false
+          }
+        },
+        {
+          "progress": 0.25,
+          "expect": {
+            "x": 18.0,
+            "y": 245.0,
+            "width": 230.0,
+            "height": 26.0,
+            "radius": 0.0,
+            "alpha": 1.0,
+            "sourceOpacity": 0.75,
+            "destinationOpacity": 0.25,
+            "contentMode": "fit",
+            "scaleContent": false
+          }
+        },
+        {
+          "progress": 0.5,
+          "expect": {
+            "x": 20.0,
+            "y": 190.0,
+            "width": 260.0,
+            "height": 32.0,
+            "radius": 0.0,
+            "alpha": 1.0,
+            "sourceOpacity": 0.5,
+            "destinationOpacity": 0.5,
+            "contentMode": "fit",
+            "scaleContent": false
+          }
+        },
+        {
+          "progress": 0.6666666666666666,
+          "expect": {
+            "x": 21.333333,
+            "y": 153.333333,
+            "width": 280.0,
+            "height": 36.0,
+            "radius": 0.0,
+            "alpha": 1.0,
+            "sourceOpacity": 0.333333,
+            "destinationOpacity": 0.666667,
+            "contentMode": "fit",
+            "scaleContent": false
+          }
+        },
+        {
+          "progress": 0.75,
+          "expect": {
+            "x": 22.0,
+            "y": 135.0,
+            "width": 290.0,
+            "height": 38.0,
+            "radius": 0.0,
+            "alpha": 1.0,
+            "sourceOpacity": 0.25,
+            "destinationOpacity": 0.75,
+            "contentMode": "fit",
+            "scaleContent": false
+          }
+        },
+        {
+          "progress": 1.0,
+          "expect": {
+            "x": 24.0,
+            "y": 80.0,
+            "width": 320.0,
+            "height": 44.0,
+            "radius": 0.0,
+            "alpha": 1.0,
+            "sourceOpacity": 0.0,
+            "destinationOpacity": 1.0,
+            "contentMode": "fit",
+            "scaleContent": false
+          }
+        },
+        {
+          "progress": 1.5,
+          "expect": {
+            "x": 24.0,
+            "y": 80.0,
+            "width": 320.0,
+            "height": 44.0,
+            "radius": 0.0,
+            "alpha": 1.0,
+            "sourceOpacity": 0.0,
+            "destinationOpacity": 1.0,
+            "contentMode": "fit",
+            "scaleContent": false
+          }
+        }
+      ]
+    }
+  ],
+  "_maxStepNote": "the largest single-step |delta progress| the GESTURE window is allowed: from the interrupt that hands the transition to the finger through the release that gives it back. A snapping implementation jumps the whole remaining distance the instant the gesture starts; a reversing one never moves further than the finger did.",
+  "machine": [
+    {
+      "name": "an uninterrupted push runs to the destination",
+      "_pins": "the baseline the interruption cases are measured against.",
+      "steps": [
+        {
+          "event": {
+            "begin": "forward"
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.0,
+            "target": 1.0,
+            "remaining": 1.0,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "tick": 0.4
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.4,
+            "target": 1.0,
+            "remaining": 0.6,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "tick": 0.9
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.9,
+            "target": 1.0,
+            "remaining": 0.1,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "settle": true
+          },
+          "expect": {
+            "state": "settled",
+            "direction": "forward",
+            "progress": 1.0,
+            "target": 1.0,
+            "remaining": 0.0,
+            "outcome": "completed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "an interactive back-swipe at 40% of an in-flight push REVERSES, it does not snap",
+      "_pins": "THE acceptance test. The interruption adopts the transition at 0.4 \u2014 it does not restart at 1.0 and it does not jump to 0.0 \u2014 the finger drives it down, the release commits, and the settle finishes the 0.1 that is left. maxStep is what proves it: a snapping implementation moves 0.6 in one step.",
+      "steps": [
+        {
+          "event": {
+            "begin": "forward"
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.0,
+            "target": 1.0,
+            "remaining": 1.0,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "tick": 0.4
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.4,
+            "target": 1.0,
+            "remaining": 0.6,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "interrupt": 0.4
+          },
+          "expect": {
+            "state": "interactive",
+            "direction": "reverse",
+            "progress": 0.4,
+            "target": 0.0,
+            "remaining": 0.4,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "drag": 0.25
+          },
+          "expect": {
+            "state": "interactive",
+            "direction": "reverse",
+            "progress": 0.25,
+            "target": 0.0,
+            "remaining": 0.25,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "drag": 0.1
+          },
+          "expect": {
+            "state": "interactive",
+            "direction": "reverse",
+            "progress": 0.1,
+            "target": 0.0,
+            "remaining": 0.1,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "release": "commit"
+          },
+          "expect": {
+            "state": "running",
+            "direction": "reverse",
+            "progress": 0.1,
+            "target": 0.0,
+            "remaining": 0.1,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "settle": true
+          },
+          "expect": {
+            "state": "settled",
+            "direction": "reverse",
+            "progress": 0.0,
+            "target": 0.0,
+            "remaining": 0.0,
+            "outcome": "reversed"
+          }
+        }
+      ],
+      "maxStep": 0.15
+    },
+    {
+      "name": "an interruption that is released as a cancel resumes forward from where the finger left it",
+      "_pins": "cancelling the back-swipe must not replay the push from zero either.",
+      "steps": [
+        {
+          "event": {
+            "begin": "forward"
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.0,
+            "target": 1.0,
+            "remaining": 1.0,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "tick": 0.4
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.4,
+            "target": 1.0,
+            "remaining": 0.6,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "interrupt": 0.4
+          },
+          "expect": {
+            "state": "interactive",
+            "direction": "reverse",
+            "progress": 0.4,
+            "target": 0.0,
+            "remaining": 0.4,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "drag": 0.55
+          },
+          "expect": {
+            "state": "interactive",
+            "direction": "reverse",
+            "progress": 0.55,
+            "target": 0.0,
+            "remaining": 0.55,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "release": "cancel"
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.55,
+            "target": 1.0,
+            "remaining": 0.45,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "settle": true
+          },
+          "expect": {
+            "state": "settled",
+            "direction": "forward",
+            "progress": 1.0,
+            "target": 1.0,
+            "remaining": 0.0,
+            "outcome": "completed"
+          }
+        }
+      ],
+      "maxStep": 0.15
+    },
+    {
+      "name": "a pop begins at the destination and settles at the source",
+      "_pins": "the reverse direction is the same machine, entered at progress 1.",
+      "steps": [
+        {
+          "event": {
+            "begin": "reverse"
+          },
+          "expect": {
+            "state": "running",
+            "direction": "reverse",
+            "progress": 1.0,
+            "target": 0.0,
+            "remaining": 1.0,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "tick": 0.5
+          },
+          "expect": {
+            "state": "running",
+            "direction": "reverse",
+            "progress": 0.5,
+            "target": 0.0,
+            "remaining": 0.5,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "settle": true
+          },
+          "expect": {
+            "state": "settled",
+            "direction": "reverse",
+            "progress": 0.0,
+            "target": 0.0,
+            "remaining": 0.0,
+            "outcome": "reversed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "an interruption after the transition settled is ignored",
+      "_pins": "a gesture that lands after the animation finished must not resurrect a dead transition.",
+      "steps": [
+        {
+          "event": {
+            "begin": "forward"
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.0,
+            "target": 1.0,
+            "remaining": 1.0,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "tick": 1.0
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 1.0,
+            "target": 1.0,
+            "remaining": 0.0,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "settle": true
+          },
+          "expect": {
+            "state": "settled",
+            "direction": "forward",
+            "progress": 1.0,
+            "target": 1.0,
+            "remaining": 0.0,
+            "outcome": "completed"
+          }
+        },
+        {
+          "event": {
+            "interrupt": 0.4
+          },
+          "expect": {
+            "state": "settled",
+            "direction": "forward",
+            "progress": 1.0,
+            "target": 1.0,
+            "remaining": 0.0,
+            "outcome": "completed"
+          }
+        }
+      ],
+      "maxStep": 0.0
+    },
+    {
+      "name": "a second interruption re-adopts at the newer progress",
+      "_pins": "two back-swipes in a row are one continuous drive, not two transitions.",
+      "steps": [
+        {
+          "event": {
+            "begin": "forward"
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.0,
+            "target": 1.0,
+            "remaining": 1.0,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "tick": 0.8
+          },
+          "expect": {
+            "state": "running",
+            "direction": "forward",
+            "progress": 0.8,
+            "target": 1.0,
+            "remaining": 0.2,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "interrupt": 0.8
+          },
+          "expect": {
+            "state": "interactive",
+            "direction": "reverse",
+            "progress": 0.8,
+            "target": 0.0,
+            "remaining": 0.8,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "drag": 0.6
+          },
+          "expect": {
+            "state": "interactive",
+            "direction": "reverse",
+            "progress": 0.6,
+            "target": 0.0,
+            "remaining": 0.6,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "interrupt": 0.6
+          },
+          "expect": {
+            "state": "interactive",
+            "direction": "reverse",
+            "progress": 0.6,
+            "target": 0.0,
+            "remaining": 0.6,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "drag": 0.3
+          },
+          "expect": {
+            "state": "interactive",
+            "direction": "reverse",
+            "progress": 0.3,
+            "target": 0.0,
+            "remaining": 0.3,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "release": "commit"
+          },
+          "expect": {
+            "state": "running",
+            "direction": "reverse",
+            "progress": 0.3,
+            "target": 0.0,
+            "remaining": 0.3,
+            "outcome": null
+          }
+        },
+        {
+          "event": {
+            "settle": true
+          },
+          "expect": {
+            "state": "settled",
+            "direction": "reverse",
+            "progress": 0.0,
+            "target": 0.0,
+            "remaining": 0.0,
+            "outcome": "reversed"
+          }
+        }
+      ],
+      "maxStep": 0.3
+    }
+  ]
+}

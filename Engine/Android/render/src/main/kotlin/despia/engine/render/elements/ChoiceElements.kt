@@ -50,6 +50,8 @@
 
 package despia.engine.render.elements
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -81,6 +83,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -122,19 +125,21 @@ private fun M3CheckboxView(ctx: ComposeStackComponentContext) {
     val key = ctx.attrs["bind"] ?: ""
     val current = JSE.truthy(ctl.boundValue(key))                 // reactive read → re-renders on flip
     val label = ctx.str("label")
+    // disabled= / disabled-if= (W9): the M3 component's own enabled seam carries it
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     val authored = ctl.interp("color")
     val colors = if (authored.isNullOrEmpty()) CheckboxDefaults.colors()
                  else CheckboxDefaults.colors(checkedColor = StackStyle.color(authored))
     Row(
         Modifier.elementModifier(ctx).then(
             if (key.isEmpty()) Modifier
-            else Modifier.toggleable(value = current, role = Role.Checkbox,
+            else Modifier.toggleable(value = current, enabled = !disabled, role = Role.Checkbox,
                                      onValueChange = { ctl.setBound(key, it) }),  // on:change from the write seam
         ),
         horizontalArrangement = Arrangement.spacedBy(ElementDefaults.CHECKBOX_SPACING.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = current, onCheckedChange = null, colors = colors)  // row owns the click
+        Checkbox(checked = current, onCheckedChange = null, enabled = !disabled, colors = colors)  // row owns the click
         if (label.isNotEmpty()) Text(label)
     }
 }
@@ -191,6 +196,8 @@ private fun M3RadioGroupView(ctx: ComposeStackComponentContext) {
     val key = ctx.attrs["bind"] ?: ""
     val opts = ctx.resolveOptions()
     val selected = JSE.string(ctl.boundValue(key))
+    // disabled= / disabled-if= (W9): the M3 component's own enabled seam carries it
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     val authored = ctl.interp("color")
     val colors = if (authored.isNullOrEmpty()) RadioButtonDefaults.colors()
                  else RadioButtonDefaults.colors(selectedColor = StackStyle.color(authored))
@@ -202,13 +209,13 @@ private fun M3RadioGroupView(ctx: ComposeStackComponentContext) {
             Row(
                 Modifier.fillMaxWidth().then(
                     if (key.isEmpty()) Modifier
-                    else Modifier.selectable(selected = isOn, role = Role.RadioButton,
+                    else Modifier.selectable(selected = isOn, enabled = !disabled, role = Role.RadioButton,
                                              onClick = { ctl.setBound(key, id) }),  // on:change from the write seam
                 ),
                 horizontalArrangement = Arrangement.spacedBy(ElementDefaults.RADIO_MARK_SPACING.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(selected = isOn, onClick = null, colors = colors)  // row owns the click
+                RadioButton(selected = isOn, onClick = null, enabled = !disabled, colors = colors)  // row owns the click
                 if (label.isNotEmpty()) Text(label)
             }
         }
@@ -279,6 +286,8 @@ private fun M3SegmentedButtonView(ctx: ComposeStackComponentContext) {
     val ids = ElementMath.csv(ctx.str("options"))
     val icons = ctx.str("icons").split(",").map { it.trim() }         // parallel — may carry blanks
     val selected = ElementMath.csv(JSE.string(ctl.boundValue(key))).toSet()
+    // disabled= / disabled-if= (W9): the M3 component's own enabled seam carries it
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     val colors = m3SegmentedButtonColors(ctl.interp("color"))         // authored color rides as the active tint
     val toggle = { id: String ->
         if (key.isNotEmpty())
@@ -292,6 +301,7 @@ private fun M3SegmentedButtonView(ctx: ComposeStackComponentContext) {
                 SegmentedButton(
                     checked = id in selected,
                     onCheckedChange = { toggle(id) },
+                    enabled = !disabled,
                     shape = SegmentedButtonDefaults.itemShape(index = i, count = ids.size),
                     colors = colors,
                     icon = { SegmentIcon(icons.getOrNull(i), id in selected) },
@@ -304,6 +314,7 @@ private fun M3SegmentedButtonView(ctx: ComposeStackComponentContext) {
                 SegmentedButton(
                     selected = id in selected,
                     onClick = { toggle(id) },
+                    enabled = !disabled,
                     shape = SegmentedButtonDefaults.itemShape(index = i, count = ids.size),
                     colors = colors,
                     icon = { SegmentIcon(icons.getOrNull(i), id in selected) },
@@ -338,6 +349,13 @@ private fun SegmentIcon(icon: String?, active: Boolean) {
 
 // MARK: - segmentedButton (legacy — the byte-identical custom row, ElementSpec-pinned)
 
+/// The control-state crossfade — the iOS twin's `.easeInOut(duration: 0.15)` MotionGate
+/// convention (SegmentedButton.swift selection, OTP.swift active box; the real `.segmented`
+/// picker's platter animates too). Shared by the segmented arms (this row +
+/// PlainPickerElements' pill) and the OTP boxes so the motion cannot drift — the
+/// animated-system-control rule (system-defaults.md 2026-08-20).
+internal const val CONTROL_SELECTION_MOTION_MS = 150
+
 @Composable
 private fun LegacySegmentedButtonView(ctx: ComposeStackComponentContext) {
     val ctl = ctx.control()
@@ -347,6 +365,8 @@ private fun LegacySegmentedButtonView(ctx: ComposeStackComponentContext) {
     val ids = ElementMath.csv(ctx.str("options"))
     val icons = ctx.str("icons").split(",").map { it.trim() }     // parallel — may carry blanks
     val selected = ElementMath.csv(JSE.string(ctl.boundValue(key))).toSet()
+    // disabled= / disabled-if= (W9): the segments' activation seams gate
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     val separator = StackStyle.color(ElementDefaults.SEG_BORDER_COLOR)
 
     Row(
@@ -360,22 +380,25 @@ private fun LegacySegmentedButtonView(ctx: ComposeStackComponentContext) {
             val isOn = id in selected
             if (i > 0) Box(Modifier.width(1.dp).fillMaxHeight().background(separator))
             val choose = {
-                ctl.setBound(key, ElementMath.segmentedToggle(
+                if (!disabled) ctl.setBound(key, ElementMath.segmentedToggle(
                     JSE.string(ctl.boundValue(key)), id, ids, multiple))
             }
+            // The active fill crossfades — the iOS twin's MotionGate 0.15 (SEG_SELECTION_MOTION_MS).
+            val fill by animateColorAsState(if (isOn) tint else Color.Transparent,
+                                            tween(CONTROL_SELECTION_MOTION_MS), label = "dsx-seg-fill")
             var segmentModifier = Modifier.weight(1f)
-                .background(if (isOn) tint else Color.Transparent)
+                .background(fill)
             segmentModifier = if (multiple) {
                 segmentModifier.dsxAccessibleToggle(
                     value = isOn,
-                    enabled = key.isNotEmpty(),
+                    enabled = key.isNotEmpty() && !disabled,
                     role = Role.Checkbox,
                     onToggle = { choose() },
                 )
             } else {
                 segmentModifier.dsxAccessibleSelectable(
                     selected = isOn,
-                    enabled = key.isNotEmpty(),
+                    enabled = key.isNotEmpty() && !disabled,
                     role = Role.RadioButton,
                     onSelect = choose,
                 )

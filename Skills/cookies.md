@@ -1,4 +1,4 @@
-# Cookies — `dsx.cookie`
+# Cookies: `dsx.cookie`
 
 > Audience: app authors. One cookie jar shared across the **web layer**, **native HTTP**, and
 > **DSX markup** — as close to JavaScript's `document.cookie` as the platform allows, but typed

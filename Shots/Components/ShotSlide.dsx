@@ -1,0 +1,44 @@
+<stack style="position: relative; width: 100%; height: 100%; overflow: hidden;
+              background: {{ dsx.attribute.ground }}">
+  <head>
+    <!-- THE SLIDE IS FULL BLEED. A store screenshot is uploaded at the device's exact pixel
+         size and displayed edge to edge in the gallery, so every pixel spent on a gutter is a
+         pixel of the product not shown - and a rounded card floating on a neutral ground reads
+         as a PICTURE OF a screenshot rather than a screenshot. Apple's own guidance is that a
+         screenshot shows the app; a framed mockup inside a framed slide is two frames the
+         reviewer did not ask for. Every other template in this package was already full bleed;
+         this one was the exception, and it is not any more.
+
+         THE CARD SURVIVES AS A STRUCTURE, at zero. `shot-card` is the landmark the capture
+         guards measure the safe area and the cover rule against (G-safe, G-cover), so it is
+         still the one clip boundary and still the box a percentage resolves against - it just
+         fills the slide. An author who wants the inset-card look sets `inset` and `radius`,
+         and the gutter shadow comes back with them.
+
+         THEME IS SET FOR THE STRIP, not per slide: ground, card, ink and accent travel from
+         the shot profile's defaults, so eight slides are consistent because they share values
+         rather than because someone remembered to. That consistency is most of what "designed"
+         means when a reviewer sees the set at thumbnail size. -->
+    <attribute as="ground" default="'#e9eaf2'"/>
+    <attribute as="card" default="'#ffffff'"/>
+    <attribute as="inset" default="'0px'"/>
+    <attribute as="radius" default="'0px'"/>
+
+    <!-- The card shadow is the GUTTER's shadow: with no gutter it has nowhere to fall and
+         paints a dark hairline along all four edges of the image instead. -->
+    <variable as="cardShadow" computed="true">
+      const inset = String(dsx.attribute.inset).trim()
+      if (inset == '' || inset == '0' || inset == '0px') { return 'none' }
+      return '0 1px 2px rgba(16,18,28,0.06), 0 18px 44px -18px rgba(16,18,28,0.22)'
+    </variable>
+  </head>
+
+  <stack id="shot-card"
+         style="position: absolute; top: {{ dsx.attribute.inset }}; left: {{ dsx.attribute.inset }};
+                right: {{ dsx.attribute.inset }}; bottom: {{ dsx.attribute.inset }};
+                border-radius: {{ dsx.attribute.radius }}; overflow: hidden;
+                background: {{ dsx.attribute.card }};
+                box-shadow: {{ cardShadow }}">
+    <slot/>
+  </stack>
+</stack>

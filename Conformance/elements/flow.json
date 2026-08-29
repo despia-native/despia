@@ -1,9 +1,7 @@
 {
   "_schema": "despia-element-parity-v1",
   "tag": "flow",
-  "aliases": [
-
-  ],
+  "aliases": [],
   "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Flow/swift/Flow.swift",
   "attributes": {
     "spacing": {
@@ -15,6 +13,16 @@
       "type": "number",
       "default": 8,
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Flow/swift/Flow.swift:26"
+    },
+    "bind": {
+      "type": "expression",
+      "default": null,
+      "_src": "runtime-pressure R29: the wrap layout was the one layout with no repeater. A bound flow repeats its single child template per row; an unbound one lays out its authored children."
+    },
+    "key": {
+      "type": "string",
+      "default": "id",
+      "_src": "the shared keying law (`index` keys positionally; a row missing the field falls back to its position) - the same fold list/grid/pager use."
     }
   },
   "geometry": {
@@ -27,7 +35,6 @@
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Flow/swift/Flow.swift:26"
     }
   },
-  "colors": {
-  },
-  "notes": "Greedy flow-wrap: pack left-to-right at ideal sizes, break on overflow (FlowLayout, Flow.swift:43-90)."
+  "colors": {},
+  "notes": "Greedy flow-wrap: pack left-to-right at ideal sizes, break on overflow (FlowLayout, Flow.swift:43-90). REPEATER (2026-08-26): `<flow bind= key=>` drives the wrap from data. The packer never learns a repeater exists, because the rows ARE the subviews - which is why bind cost no layout change on any renderer."
 }

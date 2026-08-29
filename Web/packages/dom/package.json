@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "license": "Apache-2.0",
   "type": "module",
-  "description": "DSX web renderer \u2014 element library, binding engine, css-owner scoping, frame router. The ONLY package that touches the DOM (constitution: WebKit-only-in-Dom, inverted).",
+  "description": "DSX web renderer - element library, binding engine, css-owner scoping, frame router. The ONLY package that touches the DOM (constitution: WebKit-only-in-Dom, inverted).",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -88,6 +88,11 @@
       "import": "./dist/element-motion.js",
       "default": "./dist/element-motion.js"
     },
+    "./prose": {
+      "types": "./dist/prose.d.ts",
+      "import": "./dist/prose.js",
+      "default": "./dist/prose.js"
+    },
     "./mcp-app": {
       "types": "./dist/mcp-app.d.ts",
       "import": "./dist/mcp-app.js",
@@ -109,7 +114,7 @@
     "url": "git+https://github.com/despia-native/despia.git",
     "directory": "Web/packages/dom"
   },
-  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/dom",
+  "homepage": "https://github.com/despia-native/despia/tree/main/Web/packages/dom",
   "bugs": {
     "url": "https://github.com/despia-native/despia/issues"
   },

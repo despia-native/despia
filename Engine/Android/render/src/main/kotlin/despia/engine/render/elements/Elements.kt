@@ -49,6 +49,7 @@ import despia.engine.render.BoundControl
 import despia.engine.render.ComposeStackComponentContext
 import despia.engine.render.StackStyle
 import despia.engine.render.decorate
+import despia.engine.render.registerCanvasElement
 
 // MARK: - registration (the StackElements.register() sibling — see header)
 
@@ -71,6 +72,7 @@ object InputElements {
             registerSvgElements()           // svg
             registerQrElements()            // qrcode
             registerSceneElements()         // scene (dsx-scene.md P2 — the shared software rasterizer)
+            registerCanvasElement()         // canvas (parity/U04 — the 2-D drawing surface)
             registerListElements()          // list (privileged — adds horizontal rail + marquee)
             registered = true
         }

@@ -1,0 +1,1069 @@
+{
+  "version": 1,
+  "_note": "MARK GEOMETRY - datum to coordinate, exactly. Three renderers draw pixels three ways, so the corpus asserts the MAPPING and lets the painting differ. The degenerate cases are the point: a pie of a single slice must report itself FULL so a renderer draws a circle instead of a 360-degree arc path that collapses to nothing (the bug every SVG pie ships once), a pie whose values sum to zero is EMPTY rather than a division by zero, a candle whose open equals its close is FLAT and still gets a minimum body so the doji is visible, and the last heatmap bin owns its own upper edge instead of spilling into a phantom bin+1. Bubble radius interpolates AREA, not radius, because the eye reads area.",
+  "tolerance": 1e-09,
+  "pie": [
+    {
+      "name": "quarter quarter half",
+      "values": [
+        1.0,
+        1.0,
+        2.0
+      ],
+      "outerRadius": 100.0,
+      "innerRadius": 0.0,
+      "startAngle": -90.0,
+      "padAngle": 0.0,
+      "clockwise": true,
+      "expect": {
+        "total": 4.0,
+        "empty": false,
+        "innerRadius": 0.0,
+        "outerRadius": 100.0,
+        "slices": [
+          {
+            "index": 0,
+            "value": 1.0,
+            "fraction": 0.25,
+            "startAngle": -90.0,
+            "endAngle": 0.0,
+            "sweep": 90.0,
+            "centroidX": 35.35533905932738,
+            "centroidY": -35.35533905932737,
+            "full": false
+          },
+          {
+            "index": 1,
+            "value": 1.0,
+            "fraction": 0.25,
+            "startAngle": 0.0,
+            "endAngle": 90.0,
+            "sweep": 90.0,
+            "centroidX": 35.35533905932738,
+            "centroidY": 35.35533905932737,
+            "full": false
+          },
+          {
+            "index": 2,
+            "value": 2.0,
+            "fraction": 0.5,
+            "startAngle": 90.0,
+            "endAngle": 270.0,
+            "sweep": 180.0,
+            "centroidX": -50.0,
+            "centroidY": 6.123233995736766e-15,
+            "full": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "a single slice is a full circle, flagged",
+      "values": [
+        7.0
+      ],
+      "outerRadius": 100.0,
+      "innerRadius": 0.0,
+      "startAngle": -90.0,
+      "padAngle": 0.0,
+      "clockwise": true,
+      "expect": {
+        "total": 7.0,
+        "empty": false,
+        "innerRadius": 0.0,
+        "outerRadius": 100.0,
+        "slices": [
+          {
+            "index": 0,
+            "value": 7.0,
+            "fraction": 1.0,
+            "startAngle": -90.0,
+            "endAngle": 270.0,
+            "sweep": 360.0,
+            "centroidX": 3.061616997868383e-15,
+            "centroidY": 50.0,
+            "full": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "a zero total is empty, never a divide by zero",
+      "values": [
+        0.0,
+        0.0
+      ],
+      "outerRadius": 100.0,
+      "innerRadius": 0.0,
+      "startAngle": -90.0,
+      "padAngle": 0.0,
+      "clockwise": true,
+      "expect": {
+        "total": 0.0,
+        "empty": true,
+        "innerRadius": 0.0,
+        "outerRadius": 100.0,
+        "slices": []
+      }
+    },
+    {
+      "name": "negative values are skipped, not folded",
+      "values": [
+        3.0,
+        -2.0,
+        1.0
+      ],
+      "outerRadius": 100.0,
+      "innerRadius": 0.0,
+      "startAngle": -90.0,
+      "padAngle": 0.0,
+      "clockwise": true,
+      "expect": {
+        "total": 4.0,
+        "empty": false,
+        "innerRadius": 0.0,
+        "outerRadius": 100.0,
+        "slices": [
+          {
+            "index": 0,
+            "value": 3.0,
+            "fraction": 0.75,
+            "startAngle": -90.0,
+            "endAngle": 180.0,
+            "sweep": 270.0,
+            "centroidX": 35.35533905932738,
+            "centroidY": 35.35533905932737,
+            "full": false
+          },
+          {
+            "index": 2,
+            "value": 1.0,
+            "fraction": 0.25,
+            "startAngle": 180.0,
+            "endAngle": 270.0,
+            "sweep": 90.0,
+            "centroidX": -35.355339059327385,
+            "centroidY": -35.35533905932737,
+            "full": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "a donut reports its inner radius as a fraction of the outer",
+      "values": [
+        1.0,
+        3.0
+      ],
+      "outerRadius": 100.0,
+      "innerRadius": 0.6,
+      "startAngle": -90.0,
+      "padAngle": 0.0,
+      "clockwise": true,
+      "expect": {
+        "total": 4.0,
+        "empty": false,
+        "innerRadius": 60.0,
+        "outerRadius": 100.0,
+        "slices": [
+          {
+            "index": 0,
+            "value": 1.0,
+            "fraction": 0.25,
+            "startAngle": -90.0,
+            "endAngle": 0.0,
+            "sweep": 90.0,
+            "centroidX": 56.568542494923804,
+            "centroidY": -56.5685424949238,
+            "full": false
+          },
+          {
+            "index": 1,
+            "value": 3.0,
+            "fraction": 0.75,
+            "startAngle": 0.0,
+            "endAngle": 270.0,
+            "sweep": 270.0,
+            "centroidX": -56.5685424949238,
+            "centroidY": 56.568542494923804,
+            "full": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "an absolute inner radius above one is taken verbatim",
+      "values": [
+        1.0,
+        1.0
+      ],
+      "outerRadius": 100.0,
+      "innerRadius": 40.0,
+      "startAngle": -90.0,
+      "padAngle": 0.0,
+      "clockwise": true,
+      "expect": {
+        "total": 2.0,
+        "empty": false,
+        "innerRadius": 40.0,
+        "outerRadius": 100.0,
+        "slices": [
+          {
+            "index": 0,
+            "value": 1.0,
+            "fraction": 0.5,
+            "startAngle": -90.0,
+            "endAngle": 90.0,
+            "sweep": 180.0,
+            "centroidX": 70.0,
+            "centroidY": 0.0,
+            "full": false
+          },
+          {
+            "index": 1,
+            "value": 1.0,
+            "fraction": 0.5,
+            "startAngle": 90.0,
+            "endAngle": 270.0,
+            "sweep": 180.0,
+            "centroidX": -70.0,
+            "centroidY": 8.572527594031473e-15,
+            "full": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "a pad angle eats from every slice",
+      "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "outerRadius": 100.0,
+      "innerRadius": 0.0,
+      "startAngle": -90.0,
+      "padAngle": 2.0,
+      "clockwise": true,
+      "expect": {
+        "total": 4.0,
+        "empty": false,
+        "innerRadius": 0.0,
+        "outerRadius": 100.0,
+        "slices": [
+          {
+            "index": 0,
+            "value": 1.0,
+            "fraction": 0.25,
+            "startAngle": -90.0,
+            "endAngle": -2.0,
+            "sweep": 88.0,
+            "centroidX": 34.732918522949866,
+            "centroidY": -35.966990016932556,
+            "full": false
+          },
+          {
+            "index": 1,
+            "value": 1.0,
+            "fraction": 0.25,
+            "startAngle": 0.0,
+            "endAngle": 88.0,
+            "sweep": 88.0,
+            "centroidX": 35.96699001693256,
+            "centroidY": 34.73291852294986,
+            "full": false
+          },
+          {
+            "index": 2,
+            "value": 1.0,
+            "fraction": 0.25,
+            "startAngle": 90.0,
+            "endAngle": 178.0,
+            "sweep": 88.0,
+            "centroidX": -34.73291852294985,
+            "centroidY": 35.96699001693257,
+            "full": false
+          },
+          {
+            "index": 3,
+            "value": 1.0,
+            "fraction": 0.25,
+            "startAngle": 180.0,
+            "endAngle": 268.0,
+            "sweep": 88.0,
+            "centroidX": -35.966990016932556,
+            "centroidY": -34.732918522949866,
+            "full": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "counter-clockwise sweeps the other way",
+      "values": [
+        1.0,
+        3.0
+      ],
+      "outerRadius": 100.0,
+      "innerRadius": 0.0,
+      "startAngle": -90.0,
+      "padAngle": 0.0,
+      "clockwise": false,
+      "expect": {
+        "total": 4.0,
+        "empty": false,
+        "innerRadius": 0.0,
+        "outerRadius": 100.0,
+        "slices": [
+          {
+            "index": 0,
+            "value": 1.0,
+            "fraction": 0.25,
+            "startAngle": -90.0,
+            "endAngle": -180.0,
+            "sweep": 90.0,
+            "centroidX": -35.35533905932737,
+            "centroidY": -35.35533905932738,
+            "full": false
+          },
+          {
+            "index": 1,
+            "value": 3.0,
+            "fraction": 0.75,
+            "startAngle": -180.0,
+            "endAngle": -450.0,
+            "sweep": 270.0,
+            "centroidX": 35.35533905932737,
+            "centroidY": 35.355339059327385,
+            "full": false
+          }
+        ]
+      }
+    }
+  ],
+  "bubble": [
+    {
+      "name": "the floor",
+      "v": 0.0,
+      "min": 0.0,
+      "max": 100.0,
+      "rMin": 4.0,
+      "rMax": 20.0,
+      "expect": 4.0
+    },
+    {
+      "name": "a quarter of the value is not a quarter of the radius",
+      "v": 25.0,
+      "min": 0.0,
+      "max": 100.0,
+      "rMin": 4.0,
+      "rMax": 20.0,
+      "expect": 10.583005244258363
+    },
+    {
+      "name": "half",
+      "v": 50.0,
+      "min": 0.0,
+      "max": 100.0,
+      "rMin": 4.0,
+      "rMax": 20.0,
+      "expect": 14.422205101855956
+    },
+    {
+      "name": "the ceiling",
+      "v": 100.0,
+      "min": 0.0,
+      "max": 100.0,
+      "rMin": 4.0,
+      "rMax": 20.0,
+      "expect": 20.0
+    },
+    {
+      "name": "above the domain clamps",
+      "v": 400.0,
+      "min": 0.0,
+      "max": 100.0,
+      "rMin": 4.0,
+      "rMax": 20.0,
+      "expect": 20.0
+    },
+    {
+      "name": "an all-equal series takes the midpoint, not the floor",
+      "v": 5.0,
+      "min": 5.0,
+      "max": 5.0,
+      "rMin": 4.0,
+      "rMax": 20.0,
+      "expect": 12.0
+    }
+  ],
+  "radar": [
+    {
+      "name": "three axes start at twelve o'clock",
+      "values": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "max": 1.0,
+      "radius": 100.0,
+      "center": [
+        0.0,
+        0.0
+      ],
+      "expect": [
+        {
+          "index": 0,
+          "fraction": 1.0,
+          "angle": -90.0,
+          "x": 6.123233995736766e-15,
+          "y": -100.0
+        },
+        {
+          "index": 1,
+          "fraction": 1.0,
+          "angle": 30.0,
+          "x": 86.60254037844388,
+          "y": 49.99999999999999
+        },
+        {
+          "index": 2,
+          "fraction": 1.0,
+          "angle": 150.0,
+          "x": -86.60254037844388,
+          "y": 49.99999999999999
+        }
+      ]
+    },
+    {
+      "name": "four axes with mixed values",
+      "values": [
+        10.0,
+        5.0,
+        0.0,
+        2.5
+      ],
+      "max": 10.0,
+      "radius": 80.0,
+      "center": [
+        0.0,
+        0.0
+      ],
+      "expect": [
+        {
+          "index": 0,
+          "fraction": 1.0,
+          "angle": -90.0,
+          "x": 4.898587196589413e-15,
+          "y": -80.0
+        },
+        {
+          "index": 1,
+          "fraction": 0.5,
+          "angle": 0.0,
+          "x": 40.0,
+          "y": 0.0
+        },
+        {
+          "index": 2,
+          "fraction": 0.0,
+          "angle": 90.0,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "index": 3,
+          "fraction": 0.25,
+          "angle": 180.0,
+          "x": -20.0,
+          "y": 2.4492935982947065e-15
+        }
+      ]
+    },
+    {
+      "name": "a value above the max clamps to the outer ring",
+      "values": [
+        20.0
+      ],
+      "max": 10.0,
+      "radius": 50.0,
+      "center": [
+        0.0,
+        0.0
+      ],
+      "expect": [
+        {
+          "index": 0,
+          "fraction": 1.0,
+          "angle": -90.0,
+          "x": 3.061616997868383e-15,
+          "y": -50.0
+        }
+      ]
+    }
+  ],
+  "funnel": [
+    {
+      "name": "a clean halving funnel",
+      "values": [
+        100.0,
+        50.0,
+        25.0
+      ],
+      "width": 300.0,
+      "height": 300.0,
+      "gap": 0.0,
+      "expect": [
+        {
+          "index": 0,
+          "topWidth": 300.0,
+          "bottomWidth": 150.0,
+          "top": 0.0,
+          "bottom": 100.0,
+          "ofFirst": 1.0,
+          "ofPrevious": 1.0
+        },
+        {
+          "index": 1,
+          "topWidth": 150.0,
+          "bottomWidth": 75.0,
+          "top": 100.0,
+          "bottom": 200.0,
+          "ofFirst": 0.5,
+          "ofPrevious": 0.5
+        },
+        {
+          "index": 2,
+          "topWidth": 75.0,
+          "bottomWidth": 75.0,
+          "top": 200.0,
+          "bottom": 300.0,
+          "ofFirst": 0.25,
+          "ofPrevious": 0.5
+        }
+      ]
+    },
+    {
+      "name": "the last stage is a rectangle, never a taper to nothing",
+      "values": [
+        100.0,
+        40.0
+      ],
+      "width": 200.0,
+      "height": 100.0,
+      "gap": 10.0,
+      "expect": [
+        {
+          "index": 0,
+          "topWidth": 200.0,
+          "bottomWidth": 80.0,
+          "top": 0.0,
+          "bottom": 45.0,
+          "ofFirst": 1.0,
+          "ofPrevious": 1.0
+        },
+        {
+          "index": 1,
+          "topWidth": 80.0,
+          "bottomWidth": 80.0,
+          "top": 55.0,
+          "bottom": 100.0,
+          "ofFirst": 0.4,
+          "ofPrevious": 0.4
+        }
+      ]
+    },
+    {
+      "name": "a widening stage is drawn, not clamped",
+      "values": [
+        50.0,
+        100.0
+      ],
+      "width": 200.0,
+      "height": 200.0,
+      "gap": 0.0,
+      "expect": [
+        {
+          "index": 0,
+          "topWidth": 100.0,
+          "bottomWidth": 200.0,
+          "top": 0.0,
+          "bottom": 100.0,
+          "ofFirst": 1.0,
+          "ofPrevious": 1.0
+        },
+        {
+          "index": 1,
+          "topWidth": 200.0,
+          "bottomWidth": 200.0,
+          "top": 100.0,
+          "bottom": 200.0,
+          "ofFirst": 2.0,
+          "ofPrevious": 2.0
+        }
+      ]
+    }
+  ],
+  "candleBuckets": [
+    {
+      "name": "three minute buckets from a tick stream",
+      "points": [
+        {
+          "t": 0.0,
+          "v": 10.0
+        },
+        {
+          "t": 10.0,
+          "v": 12.0
+        },
+        {
+          "t": 30.0,
+          "v": 8.0
+        },
+        {
+          "t": 60.0,
+          "v": 9.0
+        },
+        {
+          "t": 70.0,
+          "v": 15.0
+        },
+        {
+          "t": 130.0,
+          "v": 11.0
+        }
+      ],
+      "interval": 60.0,
+      "origin": 0.0,
+      "expect": [
+        {
+          "bucket": 0,
+          "start": 0.0,
+          "open": 10.0,
+          "high": 12.0,
+          "low": 8.0,
+          "close": 8.0,
+          "count": 3,
+          "direction": "down"
+        },
+        {
+          "bucket": 1,
+          "start": 60.0,
+          "open": 9.0,
+          "high": 15.0,
+          "low": 9.0,
+          "close": 15.0,
+          "count": 2,
+          "direction": "up"
+        },
+        {
+          "bucket": 2,
+          "start": 120.0,
+          "open": 11.0,
+          "high": 11.0,
+          "low": 11.0,
+          "close": 11.0,
+          "count": 1,
+          "direction": "flat"
+        }
+      ]
+    },
+    {
+      "name": "a single tick is a flat doji",
+      "points": [
+        {
+          "t": 5.0,
+          "v": 42.0
+        }
+      ],
+      "interval": 60.0,
+      "origin": 0.0,
+      "expect": [
+        {
+          "bucket": 0,
+          "start": 0.0,
+          "open": 42.0,
+          "high": 42.0,
+          "low": 42.0,
+          "close": 42.0,
+          "count": 1,
+          "direction": "flat"
+        }
+      ]
+    },
+    {
+      "name": "empty buckets are skipped, never emitted as zero",
+      "points": [
+        {
+          "t": 0.0,
+          "v": 5.0
+        },
+        {
+          "t": 600.0,
+          "v": 7.0
+        }
+      ],
+      "interval": 60.0,
+      "origin": 0.0,
+      "expect": [
+        {
+          "bucket": 0,
+          "start": 0.0,
+          "open": 5.0,
+          "high": 5.0,
+          "low": 5.0,
+          "close": 5.0,
+          "count": 1,
+          "direction": "flat"
+        },
+        {
+          "bucket": 10,
+          "start": 600.0,
+          "open": 7.0,
+          "high": 7.0,
+          "low": 7.0,
+          "close": 7.0,
+          "count": 1,
+          "direction": "flat"
+        }
+      ]
+    },
+    {
+      "name": "a non-zero origin shifts the grid",
+      "points": [
+        {
+          "t": 30.0,
+          "v": 5.0
+        },
+        {
+          "t": 90.0,
+          "v": 6.0
+        }
+      ],
+      "interval": 60.0,
+      "origin": 30.0,
+      "expect": [
+        {
+          "bucket": 0,
+          "start": 30.0,
+          "open": 5.0,
+          "high": 5.0,
+          "low": 5.0,
+          "close": 5.0,
+          "count": 1,
+          "direction": "flat"
+        },
+        {
+          "bucket": 1,
+          "start": 90.0,
+          "open": 6.0,
+          "high": 6.0,
+          "low": 6.0,
+          "close": 6.0,
+          "count": 1,
+          "direction": "flat"
+        }
+      ]
+    }
+  ],
+  "candleGeometry": [
+    {
+      "name": "an up candle",
+      "ohlc": [
+        10.0,
+        15.0,
+        8.0,
+        14.0
+      ],
+      "domain": [
+        0.0,
+        20.0
+      ],
+      "range": [
+        0.0,
+        200.0
+      ],
+      "minBody": 1.0,
+      "expect": {
+        "bodyTop": 60.0,
+        "bodyBottom": 100.0,
+        "wickTop": 50.0,
+        "wickBottom": 120.0,
+        "direction": "up"
+      }
+    },
+    {
+      "name": "a down candle",
+      "ohlc": [
+        14.0,
+        15.0,
+        8.0,
+        10.0
+      ],
+      "domain": [
+        0.0,
+        20.0
+      ],
+      "range": [
+        0.0,
+        200.0
+      ],
+      "minBody": 1.0,
+      "expect": {
+        "bodyTop": 60.0,
+        "bodyBottom": 100.0,
+        "wickTop": 50.0,
+        "wickBottom": 120.0,
+        "direction": "down"
+      }
+    },
+    {
+      "name": "a doji still gets a visible body",
+      "ohlc": [
+        10.0,
+        12.0,
+        9.0,
+        10.0
+      ],
+      "domain": [
+        0.0,
+        20.0
+      ],
+      "range": [
+        0.0,
+        200.0
+      ],
+      "minBody": 1.0,
+      "expect": {
+        "bodyTop": 99.5,
+        "bodyBottom": 100.5,
+        "wickTop": 80.0,
+        "wickBottom": 110.0,
+        "direction": "flat"
+      }
+    }
+  ],
+  "heatmap": [
+    {
+      "name": "the maximum lands in the last bin, not a phantom one",
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0
+        },
+        {
+          "x": 1.0,
+          "y": 1.0,
+          "w": 1.0
+        },
+        {
+          "x": 9.0,
+          "y": 9.0,
+          "w": 1.0
+        },
+        {
+          "x": 10.0,
+          "y": 10.0,
+          "w": 1.0
+        },
+        {
+          "x": 5.0,
+          "y": 5.0,
+          "w": 1.0
+        }
+      ],
+      "xBins": 2,
+      "yBins": 2,
+      "xDomain": [
+        0.0,
+        10.0
+      ],
+      "yDomain": [
+        0.0,
+        10.0
+      ],
+      "expect": {
+        "max": 3.0,
+        "cells": [
+          {
+            "xBin": 0,
+            "yBin": 0,
+            "value": 2.0,
+            "intensity": 0.6666666666666666
+          },
+          {
+            "xBin": 1,
+            "yBin": 0,
+            "value": 0.0,
+            "intensity": 0.0
+          },
+          {
+            "xBin": 0,
+            "yBin": 1,
+            "value": 0.0,
+            "intensity": 0.0
+          },
+          {
+            "xBin": 1,
+            "yBin": 1,
+            "value": 3.0,
+            "intensity": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "name": "weights sum inside a cell",
+      "points": [
+        {
+          "x": 1.0,
+          "y": 1.0,
+          "w": 2.5
+        },
+        {
+          "x": 2.0,
+          "y": 2.0,
+          "w": 1.5
+        }
+      ],
+      "xBins": 2,
+      "yBins": 2,
+      "xDomain": [
+        0.0,
+        10.0
+      ],
+      "yDomain": [
+        0.0,
+        10.0
+      ],
+      "expect": {
+        "max": 4.0,
+        "cells": [
+          {
+            "xBin": 0,
+            "yBin": 0,
+            "value": 4.0,
+            "intensity": 1.0
+          },
+          {
+            "xBin": 1,
+            "yBin": 0,
+            "value": 0.0,
+            "intensity": 0.0
+          },
+          {
+            "xBin": 0,
+            "yBin": 1,
+            "value": 0.0,
+            "intensity": 0.0
+          },
+          {
+            "xBin": 1,
+            "yBin": 1,
+            "value": 0.0,
+            "intensity": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "name": "an empty grid has zero intensity everywhere, not NaN",
+      "points": [],
+      "xBins": 2,
+      "yBins": 2,
+      "xDomain": [
+        0.0,
+        10.0
+      ],
+      "yDomain": [
+        0.0,
+        10.0
+      ],
+      "expect": {
+        "max": 0.0,
+        "cells": [
+          {
+            "xBin": 0,
+            "yBin": 0,
+            "value": 0.0,
+            "intensity": 0.0
+          },
+          {
+            "xBin": 1,
+            "yBin": 0,
+            "value": 0.0,
+            "intensity": 0.0
+          },
+          {
+            "xBin": 0,
+            "yBin": 1,
+            "value": 0.0,
+            "intensity": 0.0
+          },
+          {
+            "xBin": 1,
+            "yBin": 1,
+            "value": 0.0,
+            "intensity": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "name": "out-of-domain points clamp into the edge bins",
+      "points": [
+        {
+          "x": -5.0,
+          "y": -5.0,
+          "w": 1.0
+        },
+        {
+          "x": 50.0,
+          "y": 50.0,
+          "w": 1.0
+        }
+      ],
+      "xBins": 2,
+      "yBins": 2,
+      "xDomain": [
+        0.0,
+        10.0
+      ],
+      "yDomain": [
+        0.0,
+        10.0
+      ],
+      "expect": {
+        "max": 1.0,
+        "cells": [
+          {
+            "xBin": 0,
+            "yBin": 0,
+            "value": 1.0,
+            "intensity": 1.0
+          },
+          {
+            "xBin": 1,
+            "yBin": 0,
+            "value": 0.0,
+            "intensity": 0.0
+          },
+          {
+            "xBin": 0,
+            "yBin": 1,
+            "value": 0.0,
+            "intensity": 0.0
+          },
+          {
+            "xBin": 1,
+            "yBin": 1,
+            "value": 1.0,
+            "intensity": 1.0
+          }
+        ]
+      }
+    }
+  ]
+}

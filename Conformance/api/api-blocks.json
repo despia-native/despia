@@ -1770,6 +1770,76 @@
    "expectEvents": [
     "success"
    ]
+  },
+  {
+   "name": "sample-is-not-a-request-word",
+   "_why": "master plan P3, decisions 10/11: sample= is the unit-test sample value - editor fuel with NO production semantics. An <api> carrying sample= behaves byte-identically to one without: the sample never seeds data, never rides the request, and only a real response fills the block.",
+   "spec": {
+    "as": "orders",
+    "url": "/api/orders",
+    "sample": "[{\"id\":9,\"planted\":true}]"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": true,
+     "status": 200,
+     "data": {
+      "n": 1
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "orders.data.n": 1,
+    "orders.loading": false,
+    "orders.error": null
+   },
+   "expectCalls": [
+    "/api/orders"
+   ],
+   "expectEvents": [
+    "success"
+   ]
+  },
+  {
+   "name": "sample-never-fills-a-failed-api",
+   "_why": "the other half of the same law: a FAILED <api> does not silently read its sample - data stays null, the error envelope is the truth. Sample seeding is editor-injected (state door / SSR), never a runtime fallback branch.",
+   "spec": {
+    "as": "orders",
+    "url": "/api/orders",
+    "sample": "[{\"id\":9,\"planted\":true}]"
+   },
+   "scope": {},
+   "responses": [
+    {
+     "ok": false,
+     "status": 500,
+     "data": {
+      "reason": "boom"
+     }
+    }
+   ],
+   "steps": [
+    {
+     "settle": true
+    }
+   ],
+   "expect": {
+    "orders.data": null,
+    "orders.error.status": 500,
+    "orders.loading": false
+   },
+   "expectCalls": [
+    "/api/orders"
+   ],
+   "expectEvents": [
+    "error"
+   ]
   }
  ]
 }

@@ -85,6 +85,172 @@
    ]
   },
   {
+   "name": "a-wrapped-list-item-stays-one-item",
+   "_why": "The CommonMark lazy-continuation law, and the F7 defect: a plain line after a list item is that item's own paragraph continuing, not a new block. Hard-wrapped items are the normal shape of authored docs; splitting them double-renders every wrapped bullet.",
+   "source": "- first line\nwrapped tail\n- second",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [
+     { "inline": "first line wrapped tail" }, { "inline": "second" }
+    ] }
+   ]
+  },
+  {
+   "name": "an-indented-continuation-stays-in-its-item",
+   "_why": "The indented spelling of the same law: continuation lines aligned under the item content are the common editor-wrap shape.",
+   "source": "- first line\n  wrapped tail\n- second",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [
+     { "inline": "first line wrapped tail" }, { "inline": "second" }
+    ] }
+   ]
+  },
+  {
+   "name": "many-continuation-lines-join-one-item",
+   "source": "- a b\nc d\ne f",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [{ "inline": "a b c d e f" }] }
+   ]
+  },
+  {
+   "name": "an-ordered-item-wraps-the-same-way",
+   "source": "3. first line\nwrapped tail\n4. second",
+   "blocks": [
+    { "type": "list", "ordered": true, "start": 3, "items": [
+     { "inline": "first line wrapped tail" }, { "inline": "second" }
+    ] }
+   ]
+  },
+  {
+   "name": "a-nested-item-wraps-lazily",
+   "source": "- outer\n  - inner line\n  wrapped inner\n- second",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [
+     { "inline": "outer", "blocks": [
+      { "type": "list", "ordered": false, "items": [{ "inline": "inner line wrapped inner" }] }
+     ] },
+     { "inline": "second" }
+    ] }
+   ]
+  },
+  {
+   "name": "a-lazy-line-continues-the-deepest-item",
+   "_why": "Laziness attaches to the INNERMOST open paragraph, so an unindented wrap after a nested item continues that nested item.",
+   "source": "- outer\n  - inner line\nwrapped lazily",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [
+     { "inline": "outer", "blocks": [
+      { "type": "list", "ordered": false, "items": [{ "inline": "inner line wrapped lazily" }] }
+     ] }
+    ] }
+   ]
+  },
+  {
+   "name": "a-blank-line-ends-the-item-not-a-wrap",
+   "source": "- item\n\nafter the list",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [{ "inline": "item" }] },
+    { "type": "paragraph", "inline": "after the list" }
+   ]
+  },
+  {
+   "name": "a-new-marker-is-a-new-item-not-a-continuation",
+   "source": "- one\n* two",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [{ "inline": "one" }, { "inline": "two" }] }
+   ]
+  },
+  {
+   "name": "an-ordered-marker-interrupts-a-bullet-list",
+   "source": "- item\n3. three",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [{ "inline": "item" }] },
+    { "type": "list", "ordered": true, "start": 3, "items": [{ "inline": "three" }] }
+   ]
+  },
+  {
+   "name": "a-fence-interrupts-a-list-item",
+   "_why": "The boundary of laziness: a line that OPENS a block is never a continuation. Fence, heading, rule, quote, table and image each pin one branch of the shared block-start predicate.",
+   "source": "- item\n```\ncode\n```",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [{ "inline": "item" }] },
+    { "type": "code", "language": "", "text": "code" }
+   ]
+  },
+  {
+   "name": "a-heading-interrupts-a-list-item",
+   "source": "- item\n# Heading",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [{ "inline": "item" }] },
+    { "type": "heading", "level": 1, "inline": "Heading" }
+   ]
+  },
+  {
+   "name": "a-rule-interrupts-a-list-item",
+   "source": "- item\n---",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [{ "inline": "item" }] },
+    { "type": "rule" }
+   ]
+  },
+  {
+   "name": "a-quote-interrupts-a-list-item",
+   "source": "- item\n> note",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [{ "inline": "item" }] },
+    { "type": "quote", "blocks": [{ "type": "paragraph", "inline": "note" }] }
+   ]
+  },
+  {
+   "name": "a-table-interrupts-a-list-item",
+   "source": "- item\n| A | B |\n|---|---|\n| c | d |",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [{ "inline": "item" }] },
+    { "type": "table", "header": ["A", "B"], "rows": [["c", "d"]] }
+   ]
+  },
+  {
+   "name": "an-image-interrupts-a-list-item",
+   "source": "- item\n![shot](./shot.png)",
+   "blocks": [
+    { "type": "list", "ordered": false, "items": [{ "inline": "item" }] },
+    { "type": "image", "src": "./shot.png", "alt": "shot" }
+   ]
+  },
+  {
+   "name": "a-blockquote-continues-lazily",
+   "_why": "The same law on the quote container: an unmarked paragraph line keeps the quote open.",
+   "source": "> quoted line\nlazy tail",
+   "blocks": [
+    { "type": "quote", "blocks": [{ "type": "paragraph", "inline": "quoted line lazy tail" }] }
+   ]
+  },
+  {
+   "name": "a-quote-item-wraps-lazily",
+   "source": "> - item line\nlazy tail",
+   "blocks": [
+    { "type": "quote", "blocks": [
+     { "type": "list", "ordered": false, "items": [{ "inline": "item line lazy tail" }] }
+    ] }
+   ]
+  },
+  {
+   "name": "only-a-paragraph-continues-a-quote-lazily",
+   "_why": "Laziness is a PARAGRAPH law: when the quote's innermost open block is not a paragraph (a heading here), the unmarked line falls outside the quote.",
+   "source": "> # Quoted\nafter the quote",
+   "blocks": [
+    { "type": "quote", "blocks": [{ "type": "heading", "level": 1, "inline": "Quoted" }] },
+    { "type": "paragraph", "inline": "after the quote" }
+   ]
+  },
+  {
+   "name": "a-heading-interrupts-a-quote",
+   "source": "> quoted\n# Heading",
+   "blocks": [
+    { "type": "quote", "blocks": [{ "type": "paragraph", "inline": "quoted" }] },
+    { "type": "heading", "level": 1, "inline": "Heading" }
+   ]
+  },
+  {
    "name": "fenced-code-keeps-its-language-and-its-bytes",
    "_why": "Code is the one place markdown must NOT interpret anything: the asterisks and underscores inside a fence are code, and a renderer that runs the inline parser over them corrupts the sample.",
    "source": "```ts\nconst a = *not emphasis*;\n```",

@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "_note": "Core/Net (parity/F05-net.md), the DEBOUNCE state machine. Interfaces flap: a wifi to cellular handoff drops through `none` for a few hundred milliseconds, and an undebounced stream turns that into three events and two banner flashes. The rules: (1) the FIRST update after launch is applied immediately and announces NOTHING, because there was no earlier state to change from and waiting half a second to learn the truth at launch would be its own bug; (2) after that a candidate must hold for debounce_ms before it is published; (3) a candidate that returns to the settled value inside the window cancels it outright, so the flap produces no event at all; (4) a settled transition emits exactly ONE `change` carrying the new status plus `previous`, and updates the five context vars exactly once; (5) a settled transition clears the probe verdict, because a new link deserves a fresh one. `debounce_ms` is 500 by default (Core/Net/config.json), which is the value these timelines use.",
+  "_runner": "Runners: see status.json `_runner`. The timelines drive NetDebounce on a virtual clock; the module drives the same machine from a real timer.",
+
+  "debounceMs": 500,
+
+  "timelines": [
+    {
+      "name": "the first update lands immediately and announces nothing",
+      "steps": [
+        { "at": 0, "path": { "reachable": true, "type": "wifi", "expensive": false, "constrained": false } }
+      ],
+      "expect": {
+        "events": [],
+        "context": { "online": true, "type": "wifi", "expensive": false, "constrained": false }
+      }
+    },
+    {
+      "name": "a settled wifi to cellular handoff emits exactly one change",
+      "steps": [
+        { "at": 0, "path": { "reachable": true, "type": "wifi", "expensive": false, "constrained": false } },
+        { "at": 1000, "path": { "reachable": true, "type": "cellular", "expensive": true, "constrained": false } },
+        { "at": 2000, "path": null }
+      ],
+      "expect": {
+        "events": [
+          { "at": 1500, "event": "change",
+            "data": { "online": true, "reachable": true, "type": "cellular", "expensive": true, "constrained": false, "previous": "wifi" } }
+        ],
+        "context": { "online": true, "type": "cellular", "expensive": true, "constrained": false }
+      }
+    },
+    {
+      "name": "the none that a handoff passes through is NOT an event",
+      "steps": [
+        { "at": 0, "path": { "reachable": true, "type": "wifi", "expensive": false, "constrained": false } },
+        { "at": 1000, "path": { "reachable": false, "type": "none", "expensive": false, "constrained": false } },
+        { "at": 1200, "path": { "reachable": true, "type": "cellular", "expensive": true, "constrained": false } },
+        { "at": 2000, "path": null }
+      ],
+      "expect": {
+        "events": [
+          { "at": 1700, "event": "change",
+            "data": { "online": true, "reachable": true, "type": "cellular", "expensive": true, "constrained": false, "previous": "wifi" } }
+        ],
+        "context": { "online": true, "type": "cellular", "expensive": true, "constrained": false }
+      }
+    },
+    {
+      "name": "a flap that comes back before the window closes emits nothing at all",
+      "steps": [
+        { "at": 0, "path": { "reachable": true, "type": "wifi", "expensive": false, "constrained": false } },
+        { "at": 1000, "path": { "reachable": false, "type": "none", "expensive": false, "constrained": false } },
+        { "at": 1300, "path": { "reachable": true, "type": "wifi", "expensive": false, "constrained": false } },
+        { "at": 2500, "path": null }
+      ],
+      "expect": {
+        "events": [],
+        "context": { "online": true, "type": "wifi", "expensive": false, "constrained": false }
+      }
+    },
+    {
+      "name": "genuinely losing the link settles to none after the window",
+      "steps": [
+        { "at": 0, "path": { "reachable": true, "type": "wifi", "expensive": false, "constrained": false } },
+        { "at": 1000, "path": { "reachable": false, "type": "none", "expensive": false, "constrained": false } },
+        { "at": 2000, "path": null }
+      ],
+      "expect": {
+        "events": [
+          { "at": 1500, "event": "change",
+            "data": { "online": false, "reachable": false, "type": "none", "expensive": false, "constrained": false, "previous": "wifi" } }
+        ],
+        "context": { "online": false, "type": "none", "expensive": false, "constrained": false }
+      }
+    },
+    {
+      "name": "a metered flag changing on the SAME link is still a transition",
+      "steps": [
+        { "at": 0, "path": { "reachable": true, "type": "wifi", "expensive": false, "constrained": false } },
+        { "at": 1000, "path": { "reachable": true, "type": "wifi", "expensive": true, "constrained": false } },
+        { "at": 2000, "path": null }
+      ],
+      "expect": {
+        "events": [
+          { "at": 1500, "event": "change",
+            "data": { "online": true, "reachable": true, "type": "wifi", "expensive": true, "constrained": false, "previous": "wifi" } }
+        ],
+        "context": { "online": true, "type": "wifi", "expensive": true, "constrained": false }
+      }
+    },
+    {
+      "name": "a settled transition clears a previous probe failure",
+      "steps": [
+        { "at": 0, "path": { "reachable": true, "type": "wifi", "expensive": false, "constrained": false } },
+        { "at": 100, "probeFailed": true },
+        { "at": 1000, "path": { "reachable": true, "type": "cellular", "expensive": true, "constrained": false } },
+        { "at": 2000, "path": null }
+      ],
+      "expect": {
+        "events": [
+          { "at": 1500, "event": "change",
+            "data": { "online": true, "reachable": true, "type": "cellular", "expensive": true, "constrained": false, "previous": "wifi" } }
+        ],
+        "context": { "online": true, "type": "cellular", "expensive": true, "constrained": false }
+      }
+    },
+    {
+      "name": "a failed probe takes online false without touching the link facts",
+      "steps": [
+        { "at": 0, "path": { "reachable": true, "type": "wifi", "expensive": false, "constrained": false } },
+        { "at": 100, "probeFailed": true }
+      ],
+      "expect": {
+        "events": [],
+        "context": { "online": false, "type": "wifi", "expensive": false, "constrained": false }
+      }
+    }
+  ]
+}

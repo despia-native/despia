@@ -1,0 +1,180 @@
+{
+  "_note": "The OUTBOUND half of WebMCP (proposals/webmcp.md §3): a `<tool>` head row PROJECTED as a W3C WebMCP tool descriptor. THE LAW ENCODED HERE: (1) A TOOL NEVER DECLARES A SECOND CONTRACT — the row names a declared action and the descriptor's inputSchema is DERIVED from that action's declared inputs, so there is no `schema` field on the row and there never will be (the `facets.mcp` / `facets.tools` / `<server><tool>` rule, applied a fourth time). (2) The derived schema is HONEST: a document action's inputs are untyped by declaration (the JSE body coerces), so each property is the empty schema — an invented `\"type\":\"string\"` would claim a validation the runtime does not perform. It is deliberately NOT `{}` with no `properties` key, which would claim the tool takes no arguments. (3) `as` is OPTIONAL and defaults to the action name — the `<server><tool>` rule, so the common row is two attributes. (4) A row naming an action the document does not declare fails the BUILD, not a call (the stale-target class, the `ownAction` precedent). (5) ANNOTATIONS ARE DERIVED FROM THE ROW, never hand-written: no `mutates` means `readOnlyHint: true`; a row WITH `mutates` emits no hint at all, because the spec's dictionary default is already false and restating it is a second place to drift. (6) The tool NAME must satisfy the spec grammar (1..128 chars of ASCII alphanumeric plus `_ - .`) — our plain-identifier `action` is a strict subset, so only an explicit `as` can fail it. (7) A RESULT IS MCP-SHAPED: the action's resolved value rides as `content[0].text` plus `structuredContent`, off the SAME shaping path the MCP faces use, so a WebMCP agent and an MCP client cannot be told different things about one call. (8) A THROW IS A RESULT, not a transport failure: `isError` with a correlation id, because the model — not the transport — is who must read it and apologise. (9) Order is DECLARATION ORDER: agents render tool lists, and a set that reshuffles between mounts reads as instability.",
+  "cases": [
+    {
+      "name": "project: the canonical row derives name, description and schema",
+      "_note": "The whole feature in one case. Two attributes on the row, one declared action, and every field of the descriptor is derived from something the author already wrote.",
+      "actions": { "addTodo": { "inputs": [ "text" ] } },
+      "tools": [ { "action": "addTodo", "description": "Add a new item to the user's todo list." } ],
+      "expect": {
+        "descriptors": [
+          {
+            "name": "addTodo",
+            "description": "Add a new item to the user's todo list.",
+            "inputSchema": { "type": "object", "properties": { "text": { } } },
+            "annotations": { "readOnlyHint": true }
+          }
+        ]
+      }
+    },
+    {
+      "name": "project: mutates suppresses the read-only hint",
+      "_note": "A mutating tool emits NO annotations. The spec's default for readOnlyHint is already false, so `{readOnlyHint:false}` would be a second spelling of the same fact — and the row is the only place the fact lives.",
+      "actions": { "clearDone": { "inputs": [ ] } },
+      "tools": [ { "action": "clearDone", "description": "Remove every completed todo.", "mutates": "todos" } ],
+      "expect": {
+        "descriptors": [
+          {
+            "name": "clearDone",
+            "description": "Remove every completed todo.",
+            "inputSchema": { "type": "object", "properties": { } }
+          }
+        ]
+      }
+    },
+    {
+      "name": "project: as overrides the derived name",
+      "_note": "`as` exists so a tool name can read as agent-facing vocabulary while the action keeps its code-facing one. Hyphens are legal in a tool name and illegal in an action name, which is exactly why the two are allowed to differ.",
+      "actions": { "search": { "inputs": [ "query" ] } },
+      "tools": [ { "as": "search-products", "action": "search", "description": "Search the catalogue by text." } ],
+      "expect": {
+        "descriptors": [
+          {
+            "name": "search-products",
+            "description": "Search the catalogue by text.",
+            "inputSchema": { "type": "object", "properties": { "query": { } } },
+            "annotations": { "readOnlyHint": true }
+          }
+        ]
+      }
+    },
+    {
+      "name": "project: a no-input action derives an empty properties map",
+      "_note": "An empty `properties` object says 'an object with no known arguments'. Omitting the key entirely would say 'any object at all', and omitting the schema would say 'no arguments', neither of which is what a zero-input action means.",
+      "actions": { "countOpen": { "inputs": [ ] } },
+      "tools": [ { "action": "countOpen", "description": "Count the todos that are not done yet." } ],
+      "expect": {
+        "descriptors": [
+          {
+            "name": "countOpen",
+            "description": "Count the todos that are not done yet.",
+            "inputSchema": { "type": "object", "properties": { } },
+            "annotations": { "readOnlyHint": true }
+          }
+        ]
+      }
+    },
+    {
+      "name": "project: every declared input becomes a property",
+      "_note": "The action's declared inputs ARE the schema. Nothing filters them and nothing is added: an author who declares three inputs gets three properties without writing a schema. PRESENCE is the contract and property ORDER is not: JSON object key order is not semantic and a Swift dictionary has none, so a runner is free to emit them in any order. Descriptor order, which agents render, IS pinned - see the case below.",
+      "actions": { "book": { "inputs": [ "date", "guests", "note" ] } },
+      "tools": [ { "action": "book", "description": "Book a table.", "mutates": "reservations" } ],
+      "expect": {
+        "descriptors": [
+          {
+            "name": "book",
+            "description": "Book a table.",
+            "inputSchema": { "type": "object", "properties": { "date": { }, "guests": { }, "note": { } } }
+          }
+        ]
+      }
+    },
+    {
+      "name": "project: rows keep declaration order",
+      "_note": "Agents render the tool list. A set that reshuffles between mounts looks like the app changed when only the iteration did, so the projection preserves the order the head declares.",
+      "actions": { "a": { "inputs": [ ] }, "b": { "inputs": [ ] }, "c": { "inputs": [ ] } },
+      "tools": [
+        { "action": "c", "description": "Third." },
+        { "action": "a", "description": "First." },
+        { "action": "b", "description": "Second." }
+      ],
+      "expect": { "descriptorNames": [ "c", "a", "b" ] }
+    },
+    {
+      "name": "project: a row naming an undeclared action fails the build",
+      "_note": "The stale-target class, and the reason the row names an action instead of carrying a body: a typo is a build error with the name in it, not a tool that registers and then answers 'unknown' to every agent that tries it.",
+      "actions": { "addTodo": { "inputs": [ ] } },
+      "tools": [ { "action": "addTodoo", "description": "Add a todo." } ],
+      "expectError": { "code": "unknown_action", "names": [ "addTodoo" ] }
+    },
+    {
+      "name": "project: two rows resolving to one name fail the build",
+      "_note": "The spec REJECTS a duplicate registerTool, so a document that would emit two `addTodo` descriptors is a document whose second tool silently never exists. Caught where it can be fixed.",
+      "actions": { "addTodo": { "inputs": [ ] }, "appendTodo": { "inputs": [ ] } },
+      "tools": [
+        { "action": "addTodo", "description": "Add a todo." },
+        { "as": "addTodo", "action": "appendTodo", "description": "Append a todo." }
+      ],
+      "expectError": { "code": "duplicate_tool", "names": [ "addTodo" ] }
+    },
+    {
+      "name": "project: a name outside the spec grammar fails the build",
+      "_note": "1..128 characters of ASCII alphanumeric plus `_`, `-` and `.`. A space is the common accident and it is refused here rather than by a promise rejection inside the browser.",
+      "actions": { "search": { "inputs": [ ] } },
+      "tools": [ { "as": "search products", "action": "search", "description": "Search." } ],
+      "expectError": { "code": "invalid_name", "names": [ "search products" ] }
+    },
+    {
+      "name": "project: an empty description fails the build",
+      "_note": "The description is the entire basis on which an agent chooses this tool over that one, and the spec requires it. An empty string is a tool no model can use correctly.",
+      "actions": { "search": { "inputs": [ ] } },
+      "tools": [ { "action": "search", "description": "   " } ],
+      "expectError": { "code": "missing_description", "names": [ "search" ] }
+    },
+    {
+      "name": "project: a 128-character name is legal and 129 is not",
+      "_note": "The boundary is asserted on both sides so an off-by-one cannot pass as a rounding opinion.",
+      "actions": { "a": { "inputs": [ ] }, "b": { "inputs": [ ] } },
+      "tools": [
+        { "as": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "action": "a", "description": "Exactly 128." },
+        { "as": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "action": "b", "description": "One too many." }
+      ],
+      "expectError": { "code": "invalid_name", "names": [ "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ] }
+    },
+    {
+      "name": "project: a resolved object becomes text plus structured content",
+      "_note": "The same shaping the MCP faces use. A host that reads only `content` gets a readable answer; a host that reads `structuredContent` gets the value itself. One code path, so the two cannot disagree.",
+      "result": { "value": { "added": "milk", "open": 3 } },
+      "expect": {
+        "result": {
+          "content": [ { "type": "text", "text": "added: milk\nopen: 3" } ],
+          "structuredContent": { "added": "milk", "open": 3 }
+        }
+      }
+    },
+    {
+      "name": "project: a number is a number and a boolean is a boolean",
+      "_note": "THE APPLE TRAP, pinned deliberately: on Darwin an NSNumber holding 0 or 1 dynamic-casts to Bool, so an ordinary `as? Bool` renders the COUNT 1 as \"true\" and a model reads a quantity as a flag. Every runner must agree that 1 is \"1\" and true is \"true\", which is only checkable with both in one payload. Keys read back SORTED, because a Swift dictionary has no order and sorting is the only ordering three renderers can produce identically.",
+      "result": { "value": { "n": 1, "zero": 0, "ok": true, "off": false } },
+      "expect": {
+        "result": {
+          "content": [ { "type": "text", "text": "n: 1\noff: false\nok: true\nzero: 0" } ],
+          "structuredContent": { "n": 1, "zero": 0, "ok": true, "off": false }
+        }
+      }
+    },
+    {
+      "name": "project: an action that resolves nothing still answers",
+      "_note": "Most actions are written for a tap and return nothing. A tool over one must still produce a result the model can read, or the agent cannot tell success from silence.",
+      "result": { "value": null },
+      "expect": {
+        "result": {
+          "content": [ { "type": "text", "text": "(no result)" } ],
+          "structuredContent": null
+        }
+      }
+    },
+    {
+      "name": "project: a thrown value is an error RESULT carrying its correlation id",
+      "_note": "The tool failed; the protocol did not. A rejected promise would tell the agent the call never happened, so this is a result with `isError` — and the text carries the id an operator can grep, never the exception.",
+      "result": { "thrown": { "reason": "invalid", "message": "text is required" }, "correlationId": "c-1042" },
+      "expect": {
+        "result": {
+          "isError": true,
+          "content": [ { "type": "text", "text": "tool failed (correlation c-1042)" } ],
+          "structuredContent": null
+        }
+      }
+    }
+  ]
+}

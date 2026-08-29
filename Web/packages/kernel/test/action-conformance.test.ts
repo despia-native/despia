@@ -42,8 +42,12 @@ type Case = {
   name: string;
   actions: { [name: string]: { inputs?: Dict; body: string } };
   scope: Dict;
-  run: string;
+  /** a SURFACE entry: an `on:*` handler string. Mutually exclusive with runAction. */
+  run?: string;
   runItem?: Dict;
+  /** a HOST entry: the action a host invokes directly, with `runPayload` as its payload. */
+  runAction?: string;
+  runPayload?: Dict;
   expectStore: { [path: string]: unknown };
   expectEvents: string[];
 };
@@ -61,7 +65,13 @@ for (const c of doc.cases) {
       env.actions.set(name, { body: decl.body, inputs: (decl.inputs ?? {}) as Dict });
     }
     const runner = new ActionRunner(env);
-    await runner.run(c.run, c.runItem ? (toJse(c.runItem) as Dict) : null);
+    const item = c.runItem ? (toJse(c.runItem) as Dict) : null;
+    if (c.runAction !== undefined) {
+      // The HOST entry path — what an HTTP request, a CLI command and a queue message all do.
+      await runner.callAction(c.runAction, {}, item, toJse(c.runPayload ?? {}) as Dict, { entry: true });
+    } else {
+      await runner.run(c.run ?? "", item);
+    }
 
     const nil = (v: unknown): unknown => (v === null || v === undefined || v === NSNull ? null : v);
     for (const [path, expected] of Object.entries(c.expectStore)) {

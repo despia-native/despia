@@ -49,7 +49,10 @@ class FormsAccessoryTest {
             .substringAfter("private fun FieldTextInput")
             .substringBefore("// MARK: - the keyboard accessory bar")
 
-        assertTrue(field.contains("OutlinedTextField("))
+        // The FILLED M3 TextField is the library-grade default (system-defaults.md,
+        // amended 2026-08-20) — outlined and the bare BasicTextField are both wrong here.
+        assertTrue(field.contains("TextField("))
+        assertFalse(field.contains("OutlinedTextField("))
         assertFalse(field.contains("BasicTextField("))
         assertTrue(field.contains("label = { if (label != null) Text(label) }"))
         assertTrue(field.contains("placeholder = { if (placeholder != null) Text(placeholder) }"))
@@ -58,7 +61,7 @@ class FormsAccessoryTest {
         assertTrue(
             "The conditional keyboard accessory must follow the field so recomposition " +
                 "cannot replace the focus-owning slot",
-            field.indexOf("OutlinedTextField(") < field.indexOf("if (focused) {"),
+            field.indexOf("TextField(") < field.indexOf("if (focused) {"),
         )
     }
 }

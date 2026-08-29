@@ -16,6 +16,7 @@ import { compileComponent, type IRNode } from "../../compiler/src/component.ts";
 import { CssCollector, extractComponentCss } from "../../compiler/src/css.ts";
 import type { Registry } from "../../compiler/src/resolve.ts";
 import { renderEmbedFragment, renderToString } from "../src/render.ts";
+import { createPageHandler } from "../src/live.ts";
 import {
   renderPage,
   renderRedirect,
@@ -36,7 +37,17 @@ function repoRoot(): string {
 }
 
 const modules = join(repoRoot(), "ClosedSource/DSX/Modules");
-const registry = buildRegistry(
+
+// The suite's shared registry compiles the REAL closed Demo/Foundation sources. An
+// open drop skips the tests that use it LOUDLY (the component-fold-conformance rule);
+// every mini-registry test here runs anywhere.
+const hasClosedSource = existsSync(join(repoRoot(), "ClosedSource"));
+function skipWithoutClosedSource(t: { skip(msg: string): void }): boolean {
+  if (hasClosedSource) return false;
+  t.skip("open drop without ClosedSource - the Demo/Foundation sources ship closed");
+  return true;
+}
+const registry = !hasClosedSource ? (null as unknown as Registry) : buildRegistry(
   [
     { dir: join(modules, "Custom/Demo") },
     { dir: join(modules, "Mandatory/Foundation"), scheme: "shared" },
@@ -53,7 +64,8 @@ const registry = buildRegistry(
   },
 );
 
-test("ssr: Flex renders with interpolations, owner stamp, sheet classes", () => {
+test("ssr: Flex renders with interpolations, owner stamp, sheet classes", (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const html = renderToString(registry, "demo.Flex");
   assert.ok(html.includes('data-dsx-owner="Flex"'));
   assert.ok(html.includes("Flip flex-direction (row)")); // {{ dsx.variable.dir }} evaluated
@@ -61,16 +73,18 @@ test("ssr: Flex renders with interpolations, owner stamp, sheet classes", () => 
   assert.ok(html.includes("dsx-hstack")); // static row axes stamped
 });
 
-test("ssr: Launcher renders its 24 rows from the computed variable", () => {
+test("ssr: Launcher renders its 25 rows from the computed variable", (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const html = renderToString(registry, "demo.Launcher", {});
   const rows = html.split('class="dsx-pressable launcher-row"').length - 1;
-  assert.equal(rows, 24);
+  assert.equal(rows, 25);   // 25th: the Analytics dashboard (the complex-dashboard proof)
   assert.ok(html.includes("Component catalog"));
   assert.ok(html.includes("Errors &amp; logs")); // the diagnostics-spine page is listed
   assert.ok(html.includes(">Setup<")); // omitted availability fails closed
 });
 
-test("ssr: Foundation chips expose selected state without relying on color", () => {
+test("ssr: Foundation chips expose selected state without relying on color", (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const html = renderToString(registry, "demo.Gallery");
   assert.match(html, /class="dsx-pressable dsx-chip"[^>]*aria-pressed="true"/);
   assert.match(html, /class="dsx-pressable dsx-chip"[^>]*aria-pressed="false"/);
@@ -90,7 +104,9 @@ test("ssr: rich web primitives keep semantic, non-placeholder first paint", () =
   for (const className of ["dsx-searchbar", "dsx-segmented", "dsx-stars", "dsx-chart", "dsx-map", "dsx-qrcode", "dsx-webview"]) {
     assert.ok(html.includes(className), `${className} has an SSR twin`);
   }
-  assert.ok(html.includes('sandbox="allow-scripts allow-forms"'));
+  // the exact DOM-factory token set (elements.ts webView) — SSR/client sandbox parity
+  assert.ok(html.includes('sandbox="allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads"'));
+  assert.ok(html.includes(" credentialless"));
   assert.ok(html.includes('aria-label="Customer rating: 0 of 5 stars"'));
   assert.ok(!html.includes("aria-valuetext"));
 });
@@ -123,6 +139,20 @@ test("ssr: Foundation form/field paint as labeled semantic controls with inherit
   for (const target of [...html.matchAll(/<label[^>]+for="([^"]+)"/g)].map((match) => match[1])) {
     assert.ok(ids.includes(target), `label target ${target} exists`);
   }
+});
+
+test("ssr: a multiline field paints a real three-row textarea in the same well (wave-7 F5)", () => {
+  const ir = compileComponent("Prose", "t", `<stack>
+    <head><variable as="editor">return { values: { body: 'line one' } }</variable></head>
+    <form as="editor">
+      <field name="body" label="Note" multiline="true" placeholder="Write it down"/>
+      <field name="title" label="Title"/>
+    </form>
+  </stack>`);
+  const mini: Registry = { components: { "t.Prose": ir }, globalPool: {}, css: "", schemes: [] };
+  const html = renderToString(mini, "t.Prose");
+  assert.match(html, /<textarea class="dsx-field-control dsx-field-multiline" rows="3" [^>]*name="body"[^>]*placeholder="Write it down"[^>]*>line one<\/textarea>/);
+  assert.match(html, /<input class="dsx-field-control" type="text" [^>]*name="title"/, "a plain field stays a single-line input");
 });
 
 test("ssr: a prefilled valid form reports valid and keeps errors hidden", () => {
@@ -208,7 +238,8 @@ test("ssr: segmented optionsKey preserves typed object values like the client", 
   assert.ok(html.includes('aria-checked="true" tabindex="0">Off</button>'));
 });
 
-test("ssr: components + slots resolve (NavBar inside Flex, caller scope)", () => {
+test("ssr: components + slots resolve (NavBar inside Flex, caller scope)", (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const html = renderToString(registry, "demo.Flex");
   // NavBar defaults to the SYSTEM bar → its custom bar is visible-if'd OUT of the html
   assert.ok(html.includes('data-dsx-owner="Flex"'));
@@ -253,7 +284,8 @@ test("ssr: composed invocation class and generated styles decorate the expanded 
     "SSR and DOM keep non-style props child-owned instead of implicitly forwarding them");
 });
 
-test("ssr: renderPage emits title, description, og tags, the cascade and the app html", () => {
+test("ssr: renderPage emits title, description, og tags, the cascade and the app html", (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const page = renderPage(registry, "demo.Launcher", {}, { title: "DSX demo", description: "walk every capability" }, { theme: "dark" });
   assert.ok(page.includes("<title>DSX demo</title>"));
   assert.ok(page.includes('name="description" content="walk every capability"'));
@@ -303,7 +335,8 @@ test("ssr: renderPage and static export expose route state at vars.path", () => 
   }
 });
 
-test("ssr: CSS cannot break out of document or declarative-shadow style elements", () => {
+test("ssr: CSS cannot break out of document or declarative-shadow style elements", (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const hostileCss = `body{color:red}</style><script id="css-breakout">bad()</script><style>`;
   const hostile: Registry = { ...registry, css: hostileCss };
   const page = renderPage(hostile, "demo.Flex", {}, {});
@@ -592,7 +625,8 @@ test("ssr: ProgressRing resolves interpolated max, clamps safely, and emits no d
   }
 });
 
-test("ssr: the real Gallery exercises every universal global across its catalogSection tabs", () => {
+test("ssr: the real Gallery exercises every universal global across its catalogSection tabs", (t) => {
+  if (skipWithoutClosedSource(t)) return;
   // The Gallery is an adaptive tabbed scaffold (the `catalogSection` state): each tab
   // renders exactly one panel via visible-if, so the SSR first paint holds only the
   // default 'Controls' tab and the universal globals are partitioned across the Inputs /
@@ -637,7 +671,8 @@ test("ssr: redirects emit meta-refresh + canonical", () => {
   }
 });
 
-test("ssr: exportStatic writes non-param routes and skips dynamic ones", () => {
+test("ssr: exportStatic writes non-param routes and skips dynamic ones", (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const out = mkdtempSync(join(tmpdir(), "dsx-static-"));
   try {
     const written = exportStatic(registry, out, { appName: "DSX demo" });
@@ -676,7 +711,8 @@ test("ssr: route output contract preserves valid root, nested, encoded, and dyna
   assert.throws(() => resolveRouteOutput(out, "/orders/:id", { parameterPlaceholder: "" }), /placeholder/);
 });
 
-test("ssr: unsafe route paths fail before any output and cannot traverse outside the root", () => {
+test("ssr: unsafe route paths fail before any output and cannot traverse outside the root", (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const attacks = [
     "../escape",
     "C:\\escape",
@@ -738,7 +774,8 @@ test("ssr: route tables reject resource exhaustion and portable output collision
   );
 });
 
-test("ssr: an existing output symlink cannot redirect a route write outside the root", () => {
+test("ssr: an existing output symlink cannot redirect a route write outside the root", (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const container = mkdtempSync(join(tmpdir(), "dsx-static-symlink-"));
   const site = join(container, "site");
   const outside = join(container, "outside");
@@ -759,7 +796,8 @@ test("ssr: an existing output symlink cannot redirect a route write outside the 
 
 // ── web-component embeds (/web/13): the DSD fragment + the exposure manifest ────────
 
-test("embed: renderEmbedFragment emits the DSD template with attrs echoed and native slots", async () => {
+test("embed: renderEmbedFragment emits the DSD template with attrs echoed and native slots", async (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const { renderEmbedFragment } = await import("../src/render.ts");
   const html = renderEmbedFragment(registry, "demo.EmbedCard", "demo-embedcard", "/*css*/", { title: "T", count: 5 });
   assert.ok(html.startsWith('<demo-embedcard title="T" count="5">'), html.slice(0, 60));
@@ -782,7 +820,8 @@ test("embed: expose manifest — default tags, dash law, collisions are build er
   assert.throws(() => readExpose("solo", { expose: { X: { tag: "nodash" } } }), /needs a dash/);
 });
 
-test("embed: sliceRegistry carries the component, deps, and only their closed css", async () => {
+test("embed: sliceRegistry carries the component, deps, and only their closed css", async (t) => {
+  if (skipWithoutClosedSource(t)) return;
   const { sliceRegistry } = await import("../../compiler/src/expose.ts");
   const slice = sliceRegistry(registry, "demo.Flex"); // Flex uses NavBar
   assert.ok(slice.components["demo.Flex"]);
@@ -910,6 +949,44 @@ test("ssr: <image> paints a11yLabel, resolves asset paths and reports native bun
   assert.ok(html.includes('data-dsx-unresolved="asset" alt="App logo"'));
 });
 
+test("ssr: audio/video reflect the normalized AVAudioSession category pair", () => {
+  const ir = compileComponent("Media", "t", `<stack>
+    <audio class="a-default" src="/clip.wav"/>
+    <audio class="a-ambient" session="ambient" src="/clip.wav"/>
+    <video class="v-default" src="/clip.mp4"/>
+    <video class="v-playback" audio="playback" src="/clip.mp4"/>
+  </stack>`);
+  const mini: Registry = { components: { "t.Media": ir }, globalPool: {}, css: "", schemes: [] };
+  const html = renderToString(mini, "t.Media");
+  const tag = (marker: string): string => html.match(new RegExp(`<(?:audio|video)[^>]*${marker}[^>]*>`))?.[0] ?? "";
+  assert.match(tag("a-default"), /data-dsx-session="playback"/, "audio.json session default");
+  assert.match(tag("a-ambient"), /data-dsx-session="ambient"/);
+  assert.match(tag("v-default"), /data-dsx-session="ambient"/, "video.json audio= default");
+  assert.match(tag("v-playback"), /data-dsx-session="playback"/);
+});
+
+test("ssr: <svg> renders the safe subset and reports a native bundle key like <image>", () => {
+  const ir = compileComponent("Svg", "t", `<stack>
+    <svg class="path-form" d="M0 0 L100 0 L50 100 Z" viewBox="0 0 100 100" fill="accent" a11yLabel="Triangle"/>
+    <svg class="inline-form" src="&lt;svg viewBox='0 0 10 10'&gt;&lt;rect width='10' height='10' fill='#3366ff'/&gt;&lt;/svg&gt;"/>
+    <svg class="bundle-form" asset="AppMark"/>
+    <svg class="invalid-form" src="&lt;svg&gt;&lt;g&gt;&lt;rect width='1' height='1'/&gt;&lt;/g&gt;&lt;/svg&gt;"/>
+  </stack>`);
+  const mini: Registry = { components: { "t.Svg": ir }, globalPool: {}, css: "", schemes: [] };
+  const html = renderToString(mini, "t.Svg");
+  const span = (marker: string): string => html.match(new RegExp(`<span[^>]*${marker}[^>]*>`))?.[0] ?? "";
+  assert.match(span("path-form"), /data-dsx-valid="true"/);
+  assert.match(span("path-form"), /role="img"/);
+  assert.ok(html.includes('d="M 0 0 L 100 0 L 50 100 Z"'), "the d= convenience form canonicalizes the path");
+  assert.ok(html.includes('fill="var(--dsx-accent)"'), "semantic paint tokens resolve on the d= form");
+  assert.match(span("inline-form"), /data-dsx-valid="true"/);
+  assert.doesNotMatch(span("inline-form"), /data-dsx-unresolved/);
+  assert.match(span("bundle-form"), /data-dsx-valid="false" data-dsx-unresolved="asset"/,
+    "a native app-bundle key is reported, not swallowed (the image precedent)");
+  assert.match(span("invalid-form"), /data-dsx-valid="false"/);
+  assert.doesNotMatch(span("invalid-form"), /data-dsx-unresolved/, "refused markup is invalid, not a bundle key");
+});
+
 test("ssr: <searchbar> paints the composite anatomy the DOM factory builds", () => {
   const ir = compileComponent("Search", "t", `<stack>
     <head><variable as="q">return 'coffee'</variable></head>
@@ -955,4 +1032,86 @@ test("ssr: <textarea> rows honor minLines/maxLines, and <stepper> paints its cap
   assert.ok(html.includes('rows="3"'), "an empty field opens at minLines");
   assert.ok(html.includes('<span class="dsx-stepper-label" data-dsx-part="label">Guests</span>'));
   assert.equal(html.match(/dsx-stepper-label/g)?.length, 1, "an unlabelled stepper mounts NO caption");
+});
+
+test("ssr: the BLOCK <markdown> element paints server-side with the corpus emitter (W7)", () => {
+  const ir = compileComponent("Doc", "t", `<stack>
+    <head><variable as="body">return "# Title\\n\\nA paragraph with **bold**.\\n\\n- one\\n- two"</variable></head>
+    <markdown bind="dsx.variable.body"/>
+    <markdown value="Second block, plain."/>
+  </stack>`);
+  const mini: Registry = { components: { "t.Doc": ir }, globalPool: {}, css: "", schemes: [] };
+  const html = renderToString(mini, "t.Doc");
+  assert.ok(html.includes('class="dsx-markdown"'), "the host div carries the DOM twin's class");
+  assert.ok(html.includes('<h1 class="dsx-md-heading">Title</h1>'), "headings paint");
+  assert.ok(html.includes("<strong>bold</strong>"), "inline intents run inside blocks");
+  assert.ok(html.includes('<ul class="dsx-md-list"><li>one</li><li>two</li></ul>'), "lists paint");
+  assert.ok(html.includes('<p class="dsx-md-paragraph">Second block, plain.</p>'), "value= paints too");
+});
+
+test("ssr: <markdown> never lets authored HTML through — script arrives as text", () => {
+  const ir = compileComponent("Hostile", "t", `<stack>
+    <head><variable as="body">return "before\\n\\n<script>alert(1)</script>\\n\\nafter"</variable></head>
+    <markdown bind="dsx.variable.body"/>
+  </stack>`);
+  const mini: Registry = { components: { "t.Hostile": ir }, globalPool: {}, css: "", schemes: [] };
+  const html = renderToString(mini, "t.Hostile");
+  assert.ok(!html.includes("<script>alert"), "raw HTML in markdown source must never reach the wire live");
+  assert.ok(html.includes("&lt;script&gt;"), "it renders as escaped text instead");
+});
+
+test("ssr: exportStatic rebases ./-relative shell references by route depth", (t) => {
+  if (skipWithoutClosedSource(t)) return;
+  const out = mkdtempSync(join(tmpdir(), "dsx-static-depth-"));
+  try {
+    const shell = {
+      appName: "DSX demo",
+      mainSrc: "./main.js",
+      importMapJson: JSON.stringify({ imports: { "@despia/kernel": "./vendor/kernel/index.js" } }),
+      manifestHref: "/manifest.webmanifest",
+    };
+    exportStatic(registry, out, shell);
+    const root = readFileSync(join(out, "index.html"), "utf-8");
+    assert.ok(root.includes('src="./main.js"'));
+    assert.ok(root.includes('"./vendor/kernel/index.js"'));
+    const one = readFileSync(join(out, "flex/index.html"), "utf-8");
+    assert.ok(one.includes('src="../main.js"'));
+    assert.ok(one.includes('"../vendor/kernel/index.js"'));
+    const two = readFileSync(join(out, "docs/getting-started/index.html"), "utf-8");
+    assert.ok(two.includes('src="../../main.js"'));
+    assert.ok(two.includes('"../../vendor/kernel/index.js"'));
+    assert.ok(two.includes('href="/manifest.webmanifest"')); // absolute references pass through
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+});
+
+test("ssr: the live page handler rebases the shell by the request URL's directory depth", async (t) => {
+  if (skipWithoutClosedSource(t)) return;
+  const handler = createPageHandler(registry, { mainSrc: "./main.js" });
+  const html = async (path: string): Promise<string> => {
+    const res = await handler(new Request(`https://site.test${path}`));
+    assert.ok(res !== null && res.status === 200, `expected a page at ${path}`);
+    return await res.text();
+  };
+  assert.ok((await html("/")).includes('src="./main.js"'));                       // base /
+  assert.ok((await html("/flex")).includes('src="./main.js"'));                   // no-slash leaf: base /
+  assert.ok((await html("/docs/getting-started")).includes('src="../main.js"'));  // base /docs/
+  assert.ok((await html("/docs/getting-started/")).includes('src="../../main.js"')); // slash form: base /docs/getting-started/
+  assert.ok((await html("/orders/42")).includes('src="../main.js"'));             // dynamic route, base /orders/
+});
+
+test("ssr: density= stamps the validated subtree pin so first paint and hydration agree (W9)", () => {
+  const component = compileComponent("Dense", "t", `<stack>
+    <vstack class="pinned" density="compact"><button label="Send"/></vstack>
+    <vstack class="restored" density=" comfortable "><text value="wide"/></vstack>
+    <vstack class="invalid" density="Cozy"><text value="no pin"/></vstack>
+  </stack>`);
+  const registry: Registry = { components: { "t.Dense": component }, globalPool: {}, css: "", schemes: [] };
+  const html = renderToString(registry, "t.Dense");
+  assert.match(html, /class="dsx-stack dsx-vstack pinned"[^>]*data-dsx-density="compact"/);
+  assert.match(html, /class="dsx-stack dsx-vstack restored"[^>]*data-dsx-density="comfortable"/,
+    "the fold trims before validating (input/density.json)");
+  assert.doesNotMatch(html, /class="dsx-stack dsx-vstack invalid"[^>]*data-dsx-density/,
+    "an invalid word never stamps - the subtree stays transparent to its ancestors");
 });

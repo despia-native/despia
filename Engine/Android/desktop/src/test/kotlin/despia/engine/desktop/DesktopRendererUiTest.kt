@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import despia.engine.DSX
 import despia.engine.JSE
 import despia.engine.Platform
+import despia.engine.SplitPlan
 import despia.engine.StackNode
 import despia.engine.StackStore
 import despia.engine.getPath
@@ -84,8 +85,8 @@ class DesktopRendererUiTest {
 
         listOf(640 to false, 900 to true).forEach { (width, expectsRow) ->
             val store = StackStore()
-            val metrics = requireNotNull(desktopScreenMetrics(width, 520, 1f))
-            DSX.state.setPath("screen", desktopScreenState(DSX.state.getPath("screen"), metrics))
+            val metrics = requireNotNull(despia.engine.screenMetrics(width, 520, 1f))
+            DSX.state.setPath("screen", despia.engine.screenState(DSX.state.getPath("screen"), metrics))
             if (!SwingUtilities.isEventDispatchThread()) SwingUtilities.invokeAndWait { }
             val responsive = root.children.single()
             assertEquals(
@@ -330,11 +331,39 @@ class DesktopRendererUiTest {
                     ground > 0 && card > 0,
                     "authored ground and card fills should both paint exactly $diagnosis",
                 )
-                val glyphInk = samples.size - ground - card
-                assertTrue(
-                    glyphInk >= 8,
-                    "text glyphs should put real ink over the authored fills $diagnosis",
-                )
+                // Ink is measured INSIDE each text node's OWN bounds, every pixel of it, not
+                // on the scene-wide 64x48 grid. MEASURED on the Windows lane 2026-08-20, with
+                // the failure channel finally open: 3,072 samples landed on title ink exactly
+                // once and on subtitle ink not at all (glyphInk 2 against a floor of 8) while
+                // Segoe UI resolved and measured correctly at titleWidth28 227.5 against
+                // DejaVu's 278. The fills painted, the palette carried a text colour, the
+                // glyphs rendered - a coarse grid over a whole scene simply misses a narrower
+                // face. Ink DENSITY inside a text node's own bounds does not have that
+                // problem: the bounds shrink with the face, so coverage stays comparable.
+                // Measured here 2026-08-20: the title inks 27.61% of its own 243x42 bounds
+                // (2,818 of 10,206 pixels); a glyphless render is 0%. The 2% floor
+                // splits those regimes with room on both sides, and each text is asserted
+                // SEPARATELY, so a subtitle that never painted can no longer hide behind a
+                // title that did.
+                val inkFloorPct = 2.0
+                listOf("DSX native pixels", "Compose · Skia · Unicode ✓").forEach { copy ->
+                    val node = onNodeWithText(copy).captureToImage().toPixelMap()
+                    var ink = 0
+                    for (y in 0 until node.height) {
+                        for (x in 0 until node.width) {
+                            val argb = node[x, y].toArgb()
+                            if (argb != 0xFF2563EB.toInt() && argb != 0xFF0F172A.toInt()) ink += 1
+                        }
+                    }
+                    val area = node.width * node.height
+                    val density = if (area > 0) 100.0 * ink / area else 0.0
+                    assertTrue(
+                        area > 0 && density >= inkFloorPct,
+                        "\"$copy\" should put real ink inside its own bounds: " +
+                            "${node.width}x${node.height}, ink=$ink of $area " +
+                            "(${"%.2f".format(density)}%, floor $inkFloorPct%) $diagnosis",
+                    )
+                }
                 assertTrue(
                     colors.size >= 4,
                     "captured surface should hold text colours beyond the two fills $diagnosis",
@@ -491,6 +520,87 @@ class DesktopRendererUiTest {
         assertTrue(card.left >= 0f && card.right <= 360f)
         assertTrue(copy.left >= card.left && copy.right <= card.right)
         assertTrue(copy.height > 40f, "mixed-direction long copy should wrap to multiple lines")
+    }
+
+    @Test
+    fun splitPlansThreePanesIntoColumnsOverlayAndStackAtTheAuthoredBreakpoints() {
+        val markup = """
+            <split id="split-root" value="dsx.variable.note" collapseAt="760" expandAt="1104"
+                   on:change="noteChanged">
+              <head>
+                <variable as="note">return 'n-1'</variable>
+                <variable as="changes">return 0</variable>
+                <action as="noteChanged">dsx.variable.changes = dsx.variable.changes + 1</action>
+              </head>
+              <vstack paneRole="sidebar" padding="12"><text value="Folders"/></vstack>
+              <vstack paneRole="content" padding="12"><text value="Notes"/></vstack>
+              <vstack paneRole="detail" padding="12"><text value="Body"/></vstack>
+            </split>
+        """.trimIndent()
+
+        // Expanded: all three roles are columns, in canonical order, at the planner's widths.
+        runSkikoComposeUiTest(size = Size(1_280f, 720f), density = Density(1f), testTimeout = 20.seconds) {
+            DesktopHost.boot("Linux")
+            val store = StackStore()
+            setContent { DesktopSurface(parse(markup), store) }
+            flushDesktopEdt()
+
+            val sidebar = onNodeWithTag("dsx.split.sidebar").fetchSemanticsNode().boundsInRoot
+            val content = onNodeWithTag("dsx.split.content").fetchSemanticsNode().boundsInRoot
+            val detail = onNodeWithTag("dsx.split.detail").fetchSemanticsNode().boundsInRoot
+            assertTrue(sidebar.right <= content.left, "sidebar precedes content: $sidebar / $content")
+            assertTrue(content.right <= detail.left, "content precedes detail: $content / $detail")
+            assertEquals(
+                SplitPlan.DEFAULT_SIDEBAR.ideal.toFloat(), sidebar.width,
+                "expanded sidebar rides the planner's ideal width",
+            )
+            assertEquals(SplitPlan.DEFAULT_CONTENT.ideal.toFloat(), content.width)
+            assertTrue(
+                onAllNodesWithTag("dsx.split.divider").fetchSemanticsNodes().size == 2,
+                "two boundaries between three columns",
+            )
+        }
+
+        // Medium: past collapseAt but under expandAt, the sidebar leaves the row for the overlay.
+        runSkikoComposeUiTest(size = Size(900f, 720f), density = Density(1f), testTimeout = 20.seconds) {
+            DesktopHost.boot("Linux")
+            val store = StackStore()
+            setContent { DesktopSurface(parse(markup), store) }
+            flushDesktopEdt()
+
+            assertEquals(
+                0, onAllNodesWithTag("dsx.split.sidebar").fetchSemanticsNodes().size,
+                "a medium width parks the sidebar behind its toggle",
+            )
+            onNodeWithTag("dsx.split.toggle").assertIsDisplayed()
+            onNodeWithTag("dsx.split.content").assertIsDisplayed()
+            onNodeWithTag("dsx.split.toggle").performClick()
+            flushDesktopEdt()
+            onNodeWithTag("dsx.split.sidebar").assertIsDisplayed()
+            onNodeWithTag("dsx.split.scrim").assertIsDisplayed()
+        }
+
+        // Compact: the host pane stacks, a live selection pushes the detail, Escape pops it.
+        runSkikoComposeUiTest(size = Size(600f, 720f), density = Density(1f), testTimeout = 20.seconds) {
+            DesktopHost.boot("Linux")
+            val store = StackStore()
+            setContent { DesktopSurface(parse(markup), store) }
+            flushDesktopEdt()
+
+            onNodeWithTag("dsx.split.content").assertIsDisplayed()
+            val pushed = onNodeWithTag("dsx.split.detail").fetchSemanticsNode().boundsInRoot
+            assertTrue(pushed.width > 0f, "a non-empty selection pushes the detail over the host")
+
+            onNodeWithTag("dsx.split.detail").requestFocus()
+            onNodeWithTag("dsx.split.detail").performKeyInput { pressKey(Key.Escape) }
+            flushDesktopEdt()
+            assertEquals("", store.getPath("note"), "Escape clears the bound selection")
+            assertEquals(1.0, JSE.number(store.getPath("changes")), "clearing fires on:change once")
+            assertEquals(
+                0, onAllNodesWithTag("dsx.split.detail").fetchSemanticsNodes().size,
+                "popping the selection removes the pushed detail",
+            )
+        }
     }
 
     private fun parse(markup: String): StackNode = requireNotNull(

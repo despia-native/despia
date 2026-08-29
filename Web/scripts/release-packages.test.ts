@@ -21,7 +21,7 @@ const script = resolve(dirname(fileURLToPath(import.meta.url)), "release-package
 const version = "1.2.3";
 const tooling = new Set<string>(TOOLING_DIRS);
 
-// npm pack derives the tarball name from the package name, so the unscoped create-dsx
+// npm pack derives the tarball name from the package name, so the unscoped create-despia
 // does not get a despia- prefix. Mirrored here so the fixture names files the way npm will.
 function tarballName(dir: string): string {
   return `${PACKAGE_SPECS[dir]!.name.replace(/^@/, "").replace(/\//g, "-")}-${version}.tgz`;
@@ -155,8 +155,8 @@ test("package set fails closed on version, visibility, internal selector, and lo
   assert.throws(() => validatePackageSet(shape.manifests, shape.lock, version), /files allowlist/);
 
   shape = packageFixture();
-  shape.manifests.get("create-dsx")!["name"] = "@despia/create-dsx";
-  assert.throws(() => validatePackageSet(shape.manifests, shape.lock, version), /package name must be create-dsx/);
+  shape.manifests.get("create-dsx")!["name"] = "@despia/create-despia";
+  assert.throws(() => validatePackageSet(shape.manifests, shape.lock, version), /package name must be create-despia/);
 
   let fixture = packageFixture();
   fixture.manifests.get("kernel")!["version"] = "1.2.4";

@@ -9,7 +9,7 @@
 
 Source of truth:
 - coordinator — `DSX/Modules/Mandatory/Lifecycle/{swift/Lifecycle.swift, kotlin/Lifecycle.kt}` (web renderer: `OpenSource/Web/packages/kernel/src/screen.ts`, `installScreenPhase()`)
-- web surface reporter — `DSX/Modules/Mandatory/Dom/swift/WebDelegate.swift` (`DSXWebDelegate`)
+- web surface reporter — `DSX/Modules/Core/Dom/swift/WebDelegate.swift` (`DSXWebDelegate`)
 - **native surface reporter** — `OpenSource/Engine/iOS/DSXScreen.swift` (`DSXScreenReadiness`) · `OpenSource/Engine/Android/core/.../ScreenReadiness.kt` · `OpenSource/Web/packages/kernel/src/screen.ts` (`ScreenReadiness`)
 - the law (all three renderers) — `OpenSource/Conformance/lifecycle/readiness.json` (the reporter) + `phase.json` (the coordinator)
 - render of the load indicator — `OpenSource/Engine/iOS/RouterHost.swift` (the kernel surface applies it as chrome) + `OpenSource/Engine/iOS/LoadingIndicator.swift`

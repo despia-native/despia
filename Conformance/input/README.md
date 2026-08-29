@@ -3,7 +3,7 @@
 Two families live in this directory.
 
 **Pointer/desktop lifecycle** (landed earlier): `hover.json`, `shortcut.json`,
-`focusOrder.json` — the element-level input contracts.
+`focusOrder.json`, `tooltip.json` — the element-level input contracts.
 
 **The G4 unified-input abstraction** (dsx-game.md §2 G4): `mappings.json`,
 `axis.json` — ONE head declaration bound to keyboard, gamepad and touch on every
@@ -28,6 +28,23 @@ pointers, and balance the pair on leave, cancellation, or unmount. Touch never e
 modifier (matches meta OR ctrl); an unmodified shortcut never fires while an editable target
 holds focus; a disabled control is always out of traversal (index -1). The web renderer binds
 these directly; the native element-level key/focus wiring lands with the M1 desktop menus.
+
+`tooltip.json` is the `tooltip=` / `tooltipSide=` universal-hint contract
+(design-system.md Wave 3 (c)1): `resolve[]` pins the attribute fold (whitespace-only text
+drops the tooltip; the side vocabulary is `top | bottom | leading | trailing`, exact
+lowercase after trim, `top` the default and the fallback; a resolved tooltip ALWAYS
+doubles as the element's accessibility description — content is never gated behind
+hover), and `lifecycle[]` pins the show/dismiss machine over intent-qualified events
+(hover intent and keyboard focus reveal ONLY from a hover-capable fine-pointer source;
+touch is never tracked; pointer-out, blur, and Escape dismiss, with Escape suppressing
+re-show until hover and focus have both cleared; no authored events). Web
+(`@despia/dom` `resolveTooltip` / `TooltipLifecycle`, wired in `mount.ts` to a
+`role="tooltip"` node + `aria-describedby` + the floating solver), Kotlin
+(`StackTooltip` / `StackTooltipLifecycle`, :core), and Swift (`StackTooltip` /
+`StackTooltipLifecycle`, the record lane) run the same file; the native RENDER adapters
+consume the fold through the platform hint slots (`UIToolTipInteraction`/`.help`,
+`TooltipCompat`/`tooltipText`), and where a touch platform has none, the degradation IS
+the behavior (Article 7).
 
 ---
 

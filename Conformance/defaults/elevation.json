@@ -1,0 +1,80 @@
+{
+ "_note": "The system-defaults ELEVATION corpus (design-system.md Part 1, 'shadow levels 0-4'). RATIFIED, NOT INVENTED: every web value is the value already shipping in packages/dom/src/theme.ts, read out of the sheet rather than chosen here. AN HONEST ASYMMETRY, recorded rather than smoothed over: the Compose targets have a ratified elevation SCALE (Material 3 level0-5) and the Apple targets do not. iOS, watchOS and macOS express depth with MATERIALS - a blurred, vibrant backdrop that samples what is behind it - which is not a shadow and has no numeric rung. So the Apple column names the mechanism, not a slot, and an app on those platforms gets real system materials rather than a re-specified shadow. Faking one in a re-specified table is the mistake this framework refuses everywhere else and refuses here too. Only web carries literal shadows, and each rung declares the band it serves so picking depth is picking a role. THE RUNGS ARE SCHEME TWINS, like the colours in tokens.json and for the same reason: a shadow that reads correctly on white is a smudge on near-black. Light tints the shadow with the ink colour at low alpha; dark uses true black at higher alpha PLUS a 1px inset white highlight, which is what stops a raised dark surface reading as a hole punched in the page. The web drift gate is packages/dom/test/theme.test.ts; the element layer is held to this vocabulary by packages/dom/test/design-system-gate.test.ts, which fails a literal on this axis inside @layer dsx-elements.",
+ "tokens": {
+  "1": {
+   "ios": "material",
+   "watchos": "material",
+   "macos": "material",
+   "android": "level1",
+   "wear": "level1",
+   "windows": "level1",
+   "linux": "level1",
+   "web": {
+    "css": "--dsx-shadow-1",
+    "band": "a card at rest",
+    "light": "0 0 5px rgba(17, 17, 24, 0.02), 0 2px 10px rgba(17, 17, 24, 0.06), 0 0 1px rgba(17, 17, 24, 0.3)",
+    "dark": "0 0 5px rgba(0, 0, 0, 0.18), 0 2px 10px rgba(0, 0, 0, 0.32), inset 0 0 1px rgba(255, 255, 255, 0.15)"
+   }
+  },
+  "2": {
+   "ios": "material",
+   "watchos": "material",
+   "macos": "material",
+   "android": "level2",
+   "wear": "level2",
+   "windows": "level2",
+   "linux": "level2",
+   "web": {
+    "css": "--dsx-shadow-2",
+    "band": "a raised surface: a menu, a popover",
+    "light": "0 0 15px rgba(17, 17, 24, 0.03), 0 2px 30px rgba(17, 17, 24, 0.08), 0 0 1px rgba(17, 17, 24, 0.3)",
+    "dark": "0 0 15px rgba(0, 0, 0, 0.20), 0 2px 30px rgba(0, 0, 0, 0.36), inset 0 0 1px rgba(255, 255, 255, 0.15)"
+   }
+  },
+  "3": {
+   "ios": "material",
+   "watchos": "material",
+   "macos": "material",
+   "android": "level3",
+   "wear": "level3",
+   "windows": "level3",
+   "linux": "level3",
+   "web": {
+    "css": "--dsx-shadow-3",
+    "band": "a floating surface: a dialog",
+    "light": "0 0 30px rgba(17, 17, 24, 0.04), 0 30px 60px rgba(17, 17, 24, 0.12), 0 0 1px rgba(17, 17, 24, 0.3)",
+    "dark": "0 0 30px rgba(0, 0, 0, 0.22), 0 30px 60px rgba(0, 0, 0, 0.42), inset 0 0 1px rgba(255, 255, 255, 0.15)"
+   }
+  },
+  "4": {
+   "ios": "material",
+   "watchos": "material",
+   "macos": "material",
+   "android": "level4",
+   "wear": "level4",
+   "windows": "level4",
+   "linux": "level4",
+   "web": {
+    "css": "--dsx-shadow-4",
+    "band": "the top of the stack: a modal over everything",
+    "light": "0 0 40px rgba(17, 17, 24, 0.05), 0 40px 80px rgba(17, 17, 24, 0.16), 0 0 1px rgba(17, 17, 24, 0.3)",
+    "dark": "0 0 40px rgba(0, 0, 0, 0.24), 0 40px 80px rgba(0, 0, 0, 0.48), inset 0 0 1px rgba(255, 255, 255, 0.15)"
+   }
+  },
+  "xs": {
+   "ios": "material",
+   "watchos": "material",
+   "macos": "material",
+   "android": "level1",
+   "wear": "level1",
+   "windows": "level1",
+   "linux": "level1",
+   "web": {
+    "css": "--dsx-shadow-xs",
+    "band": "a hairline lift: a chip, a knob, a resting control",
+    "light": "0 1px 2px rgba(17, 17, 24, 0.05), 0 0 1px rgba(17, 17, 24, 0.3)",
+    "dark": "0 1px 2px rgba(0, 0, 0, 0.28), inset 0 0 1px rgba(255, 255, 255, 0.15)"
+   }
+  }
+ }
+}

@@ -1,0 +1,100 @@
+{
+ "_note": "WATCH DISPATCH corpus — the runner half of `<watch value= on:change=>` (the W12 stale-snapshot investigation). Pins the dispatch laws every renderer's view layer feeds: a watch NEVER fires on subscribe; it fires when its value MEANINGFULLY changed (JSE.watchKey — a deep-equal write is elided and never re-fires); the payload rides dsx.this (an object value as-is, else { value: … }); and — the filed bug — the handler observes the POST-WRITE store: every store read inside a watch handler sees the state that triggered the fire, never a pre-write snapshot. (Fire COUNT within one multi-write entry is renderer timing and stays unpinned — see watch-observes-settled-value-across-entry-writes.) Case `watch-entity-spelled-handler-holds-the-toggle` is the regression row for the 2026-08-17 starter toggle revert: the handler body spelled `&amp;&amp;` raw (attribute muscle memory in a code position) used to lex as `store & amp` and assign 0 over the just-clicked field (wave-7 F4, fixed by decodeOperatorEntities, jse/syntax-006); through the watch dispatch that 0 write REVERTED the toggle and was misdiagnosed as a stale store snapshot. Harnesses: watch-conformance.test.ts (TS, the store.watch primitive) · WatchConformanceTest.kt (Kotlin :core, the WatchView evaluate/fireWatch loop) · WatchConformance (Swift, ConformanceHosts.swift, record lane). Case shape = actions.json plus: `global` (app-wide store seed), `watches` [{ value, handler }], `pre` [{ path, value }] (bound-control writes landing before the entry — the toggle click's write), `expectGlobal` (dot-path asserts on the app-wide store).",
+ "cases": [
+  {
+   "name": "watch-fires-on-meaningful-change",
+   "actions": {},
+   "scope": { "t": false, "mirror": "unset" },
+   "watches": [ { "value": "t", "handler": "mirror = value" } ],
+   "run": "t = true",
+   "expectStore": { "t": true, "mirror": true },
+   "expectEvents": []
+  },
+  {
+   "name": "watch-never-fires-on-subscribe",
+   "actions": {},
+   "scope": { "t": false, "mirror": "unset" },
+   "watches": [ { "value": "t", "handler": "mirror = 'fired'" } ],
+   "run": "noop = 1",
+   "expectStore": { "t": false, "mirror": "unset" },
+   "expectEvents": []
+  },
+  {
+   "name": "watch-elided-equal-write-does-not-fire",
+   "actions": {},
+   "scope": { "t": "same", "count": 0 },
+   "watches": [ { "value": "t", "handler": "count = count + 1" } ],
+   "run": "t = 'same'",
+   "expectStore": { "t": "same", "count": 0 },
+   "expectEvents": []
+  },
+  {
+   "name": "watch-handler-observes-post-write-store",
+   "_note": "THE FILED SHAPE (STATE.md 2026-08-17, decoded spelling): a settings toggle writes its field, the field's on:change writes the app-wide store, and a mirror watch on that store writes the field back from a STORE read. The read must see the post-write world, so the mirror re-writes the value the click produced and the toggle HOLDS.",
+   "actions": {},
+   "scope": { "prefs": { "values": { "dark": false } } },
+   "global": { "settings": { "dark": false } },
+   "watches": [ { "value": "dsx.global.settings", "handler": "prefs.values.dark = dsx.global.settings && dsx.global.settings.dark ? true : false" } ],
+   "pre": [ { "path": "prefs.values.dark", "value": true } ],
+   "run": "dsx.global.settings = { dark: prefs.values.dark === true }",
+   "expectStore": { "prefs.values.dark": true },
+   "expectGlobal": { "settings.dark": true },
+   "expectEvents": []
+  },
+  {
+   "name": "watch-entity-spelled-handler-holds-the-toggle",
+   "_note": "THE REGRESSION ROW — byte-for-byte the starter's authoring, `&&` spelled `&amp;&amp;` in a raw code body. Pre-F4 kernels lexed `store & amp` and assigned 0 over the just-clicked field (the observed toggle revert, misfiled as a stale snapshot); the shared preprocessor decode (jse/syntax-006) makes it the same logical-AND as the row above, THROUGH the watch dispatch path.",
+   "actions": {},
+   "scope": { "prefs": { "values": { "dark": false } } },
+   "global": { "settings": { "dark": false } },
+   "watches": [ { "value": "dsx.global.settings", "handler": "prefs.values.dark = dsx.global.settings &amp;&amp; dsx.global.settings.dark ? true : false" } ],
+   "pre": [ { "path": "prefs.values.dark", "value": true } ],
+   "run": "dsx.global.settings = { dark: prefs.values.dark === true }",
+   "expectStore": { "prefs.values.dark": true },
+   "expectGlobal": { "settings.dark": true },
+   "expectEvents": []
+  },
+  {
+   "name": "watch-observes-settled-value-across-entry-writes",
+   "_note": "An entry that writes the watched var twice settles with the handler having READ the final value from the store — the post-write law across multiple writes. The fire COUNT inside one multi-write entry is renderer timing and deliberately unpinned: the natives run the statements synchronously (one settled fire), the web runner awaits between statements (a fire per meaningfully-changed microtask tick). The terminal store state is the contract.",
+   "actions": {},
+   "scope": { "t": 0, "last": -1 },
+   "watches": [ { "value": "t", "handler": "last = t" } ],
+   "run": "t = 1; t = 2",
+   "expectStore": { "t": 2, "last": 2 },
+   "expectEvents": []
+  },
+  {
+   "name": "watch-cascade-two-watches-settle",
+   "actions": {},
+   "scope": { "a": 0, "b": 0, "c": 0 },
+   "watches": [
+    { "value": "a", "handler": "b = value + 1" },
+    { "value": "b", "handler": "c = value + 1" }
+   ],
+   "run": "a = 1",
+   "expectStore": { "a": 1, "b": 2, "c": 3 },
+   "expectEvents": []
+  },
+  {
+   "name": "watch-scalar-payload-rides-value",
+   "actions": {},
+   "scope": { "t": "x", "got": "" },
+   "watches": [ { "value": "t", "handler": "got = value" } ],
+   "run": "t = 'clicked'",
+   "expectStore": { "t": "clicked", "got": "clicked" },
+   "expectEvents": []
+  },
+  {
+   "name": "watch-handler-runs-the-full-runner-grammar",
+   "actions": {
+    "note": { "body": "dsx.variable.log = dsx.variable.log + '|' + reason" }
+   },
+   "scope": { "t": false, "log": "start" },
+   "watches": [ { "value": "t", "handler": "if (value === true) { dsx.action.note({ reason: 'on' }) }; dsx.event('flipped')" } ],
+   "run": "t = true",
+   "expectStore": { "t": true, "log": "start|on" },
+   "expectEvents": [ "flipped" ]
+  }
+ ]
+}

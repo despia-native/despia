@@ -33,10 +33,17 @@ package despia.engine.render.elements
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -68,8 +75,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -78,10 +88,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import despia.engine.DSXStrings
 import despia.engine.JSE
+import androidx.compose.material3.minimumInteractiveComponentSize
 import despia.engine.render.ComposeStackComponentContext
 import despia.engine.render.ComposeStackComponents
 import despia.engine.render.ElementDefaults
 import despia.engine.render.StackIcon
+import despia.engine.render.StackMotion
 import despia.engine.render.StackStyle
 import despia.engine.render.rememberAnimatorDurationScale
 import despia.engine.render.dsxAccessibleActivation
@@ -147,13 +159,20 @@ private fun AccordionElement(ctx: ComposeStackComponentContext) {
     val el = El(ctx)
     var isOpen by remember { mutableStateOf(el.bool("open")) }
     val header = namedSlot(ctx, "header")
-    val chevron by animateFloatAsState(if (isOpen) ElementDefaults.ACCORDION_CHEVRON_OPEN.toFloat() else 0f, label = "accordionChevron")
+    val reduceMotion = rememberAnimatorDurationScale() == 0f            // the Skeleton gate
+    val chevron by animateFloatAsState(
+        if (isOpen) ElementDefaults.ACCORDION_CHEVRON_OPEN.toFloat() else 0f,
+        animationSpec = if (reduceMotion) snap() else spring(),
+        label = "accordionChevron")
     val toggle = {
         isOpen = !isOpen
         raiseEvent(ctx, "toggle", mapOf("open" to isOpen))
     }
     Column(Modifier.elementStyle(el), horizontalAlignment = Alignment.Start) {
         Box(Modifier.fillMaxWidth()
+            // The touch floor on the tappable header — the platform minimum (density-following:
+            // the funnel's LocalMinimumInteractiveComponentSize pin re-derives it).
+            .minimumInteractiveComponentSize()
             .dsxAccessibleActivation(
                 role = Role.Button,
                 stateDescription = DSXStrings.localize(
@@ -177,7 +196,20 @@ private fun AccordionElement(ctx: ComposeStackComponentContext) {
                 }
             }
         }
-        if (isOpen) SlotNodes(ctx, defaultSlot(ctx))                    // the collapsible body
+        // The collapsible body animates its toggle like the Swift twin (withAnimation
+        // .easeInOut — the kernel default curve/duration) and snaps under reduced motion.
+        if (reduceMotion) {
+            if (isOpen) SlotNodes(ctx, defaultSlot(ctx))
+        } else {
+            val bodySpec = StackMotion.animation(null, null)            // kernel default: easeInOut 0.35s
+            AnimatedVisibility(
+                visible = isOpen,
+                enter = expandVertically(StackMotion.spec(bodySpec)) + fadeIn(StackMotion.spec(bodySpec)),
+                exit = shrinkVertically(StackMotion.spec(bodySpec)) + fadeOut(StackMotion.spec(bodySpec)),
+            ) {
+                Column(horizontalAlignment = Alignment.Start) { SlotNodes(ctx, defaultSlot(ctx)) }
+            }
+        }
     }
 }
 
@@ -265,7 +297,14 @@ private fun ProgressRingElement(ctx: ComposeStackComponentContext) {
     val diameter = el.dbl("size", ElementDefaults.RING_SIZE)
     val label = el.str("label")
     val animated by animateFloatAsState(fraction.toFloat(), label = "ringFraction")   // .easeInOut on change
-    Box(Modifier.elementStyle(el).then(Modifier.size(diameter.dp)), contentAlignment = Alignment.Center) {
+    Box(Modifier.elementStyle(el).then(Modifier.size(diameter.dp))
+            // One spoken progress element (the web twin's role=progressbar + aria-valuenow):
+            // range info carries the fraction, the label (or "Progress") names it.
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(fraction.toFloat(), 0f..1f)
+                contentDescription = label.ifEmpty { DSXStrings.localize("Progress") }
+            },
+        contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(diameter.dp)) {
             val stroke = lineWidth.dp.toPx()
             val inset = stroke / 2

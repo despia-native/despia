@@ -43,6 +43,14 @@ public enum StackStyleSeam {
         _ elementTokens: [String: String], _ viewport: CGSize?
     ) -> [String: String] = { _, _, _, _, _ in [:] }
 
+    /// The `@keyframes` table an element's `animation` names, normalized to ordered stops
+    /// (runtime-pressure R28). Separate from the two attribute lookups because a keyframe is a
+    /// TABLE, not a declaration that applies to the element. Unfilled it answers "no timeline",
+    /// which is the same answer an animation nobody defined gets: the element does not move.
+    public static var keyframes: (
+        _ owner: String?, _ name: String, _ isDark: Bool?, _ viewport: CGSize?
+    ) -> [MotionCore.Stop] = { _, _, _, _ in [] }
+
     /// The custom properties (`--name: value`) declared in one inline CSS string.
     public static var customProperties: (_ source: String) -> [String: String] = { _ in [:] }
 

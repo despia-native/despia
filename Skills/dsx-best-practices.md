@@ -102,10 +102,12 @@ Every data-bound `list`/`grid`/`pager` declares `key="id"` (or the row's stable 
 
 `as=` is the identifier everywhere (legacy `name=` is removed — on `formula`/`action`,
 `name` is an ordinary input). Actions are verbs (`toggleLike`, `confirmRemove`); variables,
-computed values and formulas are nouns (`usedBytes`, `sizeLabel`). Component-generic
-computed names get a component prefix (`bannerTint`, not `tint` — component templates share
-the consumer surface's store). New code writes the explicit `dsx.variable.` /
-`dsx.attribute.` namespaces, and multi-line bodies use explicit `return`.
+computed values and formulas are nouns (`usedBytes`, `sizeLabel`). A component instance
+OWNS its store (the instance-store law — head declarations register per instance, two
+instances hold independent state, nothing leaks into the consumer's store), so component
+names need no defensive prefixing; name for the component's own readability. New code
+writes the explicit `dsx.variable.` / `dsx.attribute.` namespaces, and multi-line bodies
+use explicit `return`.
 
 ## 10 · Strings come from outside
 

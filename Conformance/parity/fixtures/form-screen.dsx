@@ -1,0 +1,38 @@
+<scroll style="background: background">
+<head>
+  <!--
+    Parity fixture: the FORM SCREEN. The starter's sign-in composition (SignIn.dsx)
+    with the network and routing removed: brand bar, welcome title block, a declared
+    <form> with email / secure / toggle fields and the full-width submit, the inline
+    problem line, and the secondary mode-switch text button. Static state only; no
+    motion attributes (the parity plane measures REST geometry - see ../README.md).
+  -->
+  <variable as="mode">return 'signin'</variable>
+  <variable as="problem">return ''</variable>
+</head>
+<stack style="gap: 0; align-items: stretch; background: background">
+
+  <hstack style="align-items: center; padding: 1.125rem 1.5rem">
+    <text value="Field Notes" style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em"/>
+  </hstack>
+
+  <stack style="gap: 0.5rem; padding: 3.5rem 2rem 0; max-width: 24.5rem; align-self: center; width: 100%">
+    <text value="Welcome back" style="font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em"/>
+    <text value="Sign in to your field notes." style="color: secondary"/>
+
+    <stack style="gap: 0; margin-top: 1rem">
+      <form as="auth" submit="Sign in">
+        <field name="email" type="email" label="Email" placeholder="you@example.com" validate="required,email"/>
+        <field name="password" type="secure" label="Password" placeholder="At least 8 characters" validate="required,minLength:8"/>
+        <field name="remember" type="toggle" label="Stay signed in"/>
+      </form>
+    </stack>
+
+    <text bind="dsx.variable.problem" visible-if="dsx.variable.problem !== ''" style="color: destructive; font-size: 0.9375rem"/>
+
+    <button label="New here? Create an account"
+            on:tap="dsx.variable.mode = dsx.variable.mode === 'signin' ? 'signup' : 'signin'"
+            style="color: secondary; font-weight: 500; font-size: 0.9375rem; background: transparent; margin-top: 0.75rem; align-self: center"/>
+  </stack>
+</stack>
+</scroll>

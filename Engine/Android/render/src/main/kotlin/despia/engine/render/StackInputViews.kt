@@ -30,9 +30,14 @@
 //  byte-identical (the inert-landing invariant), so nothing there may change shape.
 //
 //  Material DOES enter this file for `M3TextFieldView` (the M3-text CLOSE of the M3 wave):
-//  the unstyled `<textfield>`/`<input>` renders a REAL Material 3 `OutlinedTextField`
-//  (SelectionControl.TEXTFIELD gate — the shared allowlist, NOT a fork — dispatched from
-//  raw()). It preserves the FULL B2 event contract byte-for-byte: on:focus/on:blur from the
+//  the unstyled `<textfield>`/`<input>` renders a REAL Material 3 FILLED `TextField` — the
+//  library-grade default of the 2026-08-20 library-grade ruling (system-defaults.md
+//  amendment): the container-fill + floating-label field every design library ships, not
+//  the outline-only variant this path first landed with. (SelectionControl.TEXTFIELD gate —
+//  the shared allowlist, NOT a fork — dispatched from raw(). Outlined is NOT reachable by a
+//  word: the census has no `variant` on textfield, and minting one is new authoring surface
+//  — corpus-first on three kernels — so filled ships as THE default, per the ruling.)
+//  It preserves the FULL B2 event contract byte-for-byte: on:focus/on:blur from the
 //  onFocusChanged CHANGE, on:submit from the IME action THEN clearFocus→blur, the same
 //  keyboard→ImeAction map (textFieldKeyboard/textFieldImeAction below) — the events stay
 //  wired on the FIELD MODIFIER exactly as on the legacy `TextFieldView`, which stays the
@@ -44,6 +49,7 @@ package despia.engine.render
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -63,10 +69,11 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldColors
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -75,6 +82,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -170,29 +178,49 @@ internal class BoundControl(
 
 // MARK: - toggle / switch — bind= two-way Bool (UISwitch metrics: 51×31 capsule, 27pt thumb)
 
+/// The switch travel/track-crossfade duration — the platform switch's own thumb motion
+/// (material3 SwitchImpl's classic 100ms spec). iOS never reaches this path (it renders the
+/// NATIVE UISwitch on styled toggles too, which always animates), so a SNAPPING ejected
+/// capsule was an Android-only fidelity gap — the 2026-08-20 library-grade ruling's
+/// animated-system-control rule closes it.
+private const val TOGGLE_MOTION_MS = 100
+
 @Composable
 internal fun ToggleView(a: Map<String, String>, modifier: Modifier, ctl: BoundControl) {
     val m = modifier
     val bindKey = a["bind"]
     val on = bindKey?.let { JSE.truthy(ctl.boundValue(it)) } ?: false
+    // disabled= / disabled-if= (W9): the capsule dims and its gestures gate
+    val disabled = despia.engine.render.elements.SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     val tint = StackStyle.color(ctl.interp("color") ?: ElementDefaults.TOGGLE_TINT)
     // Off-track rides the semantic `fill` (system-defaults base pass): iOS renders the
     // NATIVE UISwitch whose off-track is the adaptive systemFill — the pinned white
     // approximation was the pre-theme compromise and broke on light schemes.
+    // Thumb travel + track color ANIMATE between the same two at-rest renderings (the
+    // resting geometry/colors are byte-identical to the pre-motion capsule).
+    val fraction by animateFloatAsState(if (on) 1f else 0f, tween(TOGGLE_MOTION_MS), label = "dsx-toggle")
+    val track by animateColorAsState(if (on) tint else StackStyle.color("fill"),
+                                     tween(TOGGLE_MOTION_MS), label = "dsx-toggle-track")
     Box(m.then(Modifier.size(ElementDefaults.TOGGLE_WIDTH.dp, ElementDefaults.TOGGLE_HEIGHT.dp))
-         .background(if (on) tint else StackStyle.color("fill"),
-                     RoundedCornerShape((ElementDefaults.TOGGLE_HEIGHT / 2).dp))
+         .background(track, RoundedCornerShape((ElementDefaults.TOGGLE_HEIGHT / 2).dp))
          .dsxAccessibleToggle(
              value = on,
-             enabled = bindKey != null,
+             enabled = bindKey != null && !disabled,
              role = Role.Switch,
-             onToggle = { value -> if (bindKey != null) ctl.setBound(bindKey, value) },
+             onToggle = { value -> if (bindKey != null && !disabled) ctl.setBound(bindKey, value) },
          )
-         .pointerInput(bindKey, on) {
-             detectTapGestures { if (bindKey != null) ctl.setBound(bindKey, !on) }
-         },
-        contentAlignment = if (on) Alignment.CenterEnd else Alignment.CenterStart) {
-        Box(Modifier.padding(ElementDefaults.TOGGLE_THUMB_INSET.dp)
+         .pointerInput(bindKey, on, disabled) {
+             detectTapGestures { if (bindKey != null && !disabled) ctl.setBound(bindKey, !on) }
+         }
+         .alpha(if (disabled) 0.5f else 1f),
+        contentAlignment = Alignment.CenterStart) {
+        Box(Modifier
+             .offset {
+                 // full travel = the width not occupied by the thumb-square (width − height)
+                 val travel = (ElementDefaults.TOGGLE_WIDTH - ElementDefaults.TOGGLE_HEIGHT).dp
+                 IntOffset((travel.toPx() * fraction).roundToInt(), 0)
+             }
+             .padding(ElementDefaults.TOGGLE_THUMB_INSET.dp)
              .size(ElementDefaults.TOGGLE_THUMB.dp).background(Color.White, CircleShape))
     }
 }
@@ -217,9 +245,12 @@ internal fun TextFieldView(a: Map<String, String>, modifier: Modifier, store: St
     // submit, and editing always ends on the IME action even with no on:submit authored.
     val submit = { ctl.fire("submit"); focusManager.clearFocus() }
     val keyboard = ctl.interp("keyboard")
+    // disabled= / disabled-if= (W9): the input's own enabled seam carries it
+    val disabled = despia.engine.render.elements.SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     BasicTextField(
         value = text,
         onValueChange = { if (bindKey != null) ctl.setBound(bindKey, it) },
+        enabled = !disabled,
         modifier = m.then(Modifier.onFocusChanged { f ->
             if (f.isFocused != focused) {
                 focused = f.isFocused
@@ -269,10 +300,12 @@ internal fun textFieldImeAction(token: String?): ImeAction = when (token) {
     else                     -> ImeAction.Done
 }
 
-// MARK: - textfield (M3 path) — the REAL Material 3 OutlinedTextField (system-defaults gate:
+// MARK: - textfield (M3 path) — the REAL Material 3 filled TextField (system-defaults gate:
 //         unstyled → M3, any authored look → TextFieldView above, byte-identical)
 
-/// The unstyled textfield's SYSTEM rendering: a REAL M3 `OutlinedTextField` (singleLine) over
+/// The unstyled textfield's SYSTEM rendering: a REAL M3 FILLED `TextField` (singleLine) —
+/// the container-fill + underline-indicator field, the library-grade default (the
+/// 2026-08-20 ruling; the file header names why outlined has no word) — over
 /// the SAME bind seam AND the SAME B2 focus/IME event contract as the legacy field — the
 /// events stay wired on the FIELD MODIFIER: on:focus/on:blur fire from onFocusChanged on
 /// CHANGE (never the initial attach), on:submit fires from the IME action THEN clearFocus()
@@ -293,9 +326,12 @@ internal fun M3TextFieldView(a: Map<String, String>, modifier: Modifier, ctl: Bo
     val submit = { ctl.fire("submit"); focusManager.clearFocus() }   // submit THEN end editing → blur (B2 order)
     val keyboard = ctl.interp("keyboard")
     val placeholder = ctl.interp("placeholder")
-    OutlinedTextField(
+    // disabled= / disabled-if= (W9): the M3 component's own enabled seam carries it
+    val disabled = despia.engine.render.elements.SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
+    TextField(
         value = text,
         onValueChange = { if (bindKey != null) ctl.setBound(bindKey, it) },
+        enabled = !disabled,
         modifier = m.then(Modifier.fillMaxWidth().onFocusChanged { f ->   // B2: the events ride the field modifier
             if (f.isFocused != focused) {
                 focused = f.isFocused
@@ -314,16 +350,18 @@ internal fun M3TextFieldView(a: Map<String, String>, modifier: Modifier, ctl: Bo
     )
 }
 
-/// The M3 text-input colors SHARED by the textfield + textarea system paths (TextAreaElements.kt
-/// imports this): uncolored rides the M3 role defaults (onSurface text, primary focus outline,
-/// onSurfaceVariant placeholder — the platform's own field, the unstyled-baseline law); an
-/// authored `color` overrides the text + cursor color (iOS keeps `.foregroundColor(color)` on
-/// the field), the outline/placeholder staying M3's own.
+/// The M3 text-input colors SHARED by the textfield + textarea + `<field>` system paths
+/// (TextAreaElements.kt / Forms.kt import this): the FILLED TextField's role defaults
+/// (surface-container fill, primary focus indicator + floating label, onSurface text — the
+/// platform's own library-grade field, never re-specified; the fill plane and accent land
+/// through the stamped scheme exactly as the ruling's token mapping names them); an
+/// authored `color` overrides the text + cursor color (iOS keeps `.foregroundColor(color)`
+/// on the field), container/indicator/label staying M3's own.
 @Composable
 internal fun m3TextInputColors(authored: String?): TextFieldColors =
-    if (authored.isNullOrEmpty()) OutlinedTextFieldDefaults.colors()
+    if (authored.isNullOrEmpty()) TextFieldDefaults.colors()
     else StackStyle.color(authored).let { c ->
-        OutlinedTextFieldDefaults.colors(
+        TextFieldDefaults.colors(
             focusedTextColor = c, unfocusedTextColor = c, cursorColor = c)
     }
 
@@ -338,10 +376,12 @@ internal fun SliderView(a: Map<String, String>, modifier: Modifier, ctl: BoundCo
     val lo = minOf(min, max); val hi = maxOf(min, max)
     val value = (bindKey?.let { JSE.number(ctl.boundValue(it)) } ?: lo).coerceIn(lo, hi)
     val fraction = if (hi > lo) ((value - lo) / (hi - lo)).toFloat() else 0f
+    // disabled= / disabled-if= (W9): the track dims and its gestures gate
+    val disabled = despia.engine.render.elements.SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     val tint = StackStyle.color(ctl.interp("color") ?: ElementDefaults.SLIDER_TINT)
     var widthPx by remember { mutableFloatStateOf(0f) }
     fun commit(x: Float) {
-        if (bindKey == null || widthPx <= 0f) return
+        if (disabled || bindKey == null || widthPx <= 0f) return
         val f = (x / widthPx).coerceIn(0f, 1f)
         ctl.setBound(bindKey, lo + f.toDouble() * (hi - lo))
     }
@@ -352,19 +392,20 @@ internal fun SliderView(a: Map<String, String>, modifier: Modifier, ctl: BoundCo
          .dsxAccessibleRange(
              value = value.toFloat(),
              valueRange = lo.toFloat()..hi.toFloat(),
-             enabled = bindKey != null && hi > lo,
+             enabled = bindKey != null && hi > lo && !disabled,
              onSetProgress = { target ->
-                 if (bindKey == null) false
+                 if (bindKey == null || disabled) false
                  else {
                      ctl.setBound(bindKey, target.toDouble())
                      true
                  }
              },
          )
-         .pointerInput(bindKey, lo, hi) { detectTapGestures { off -> commit(off.x) } }
-         .pointerInput(bindKey, lo, hi) {
+         .pointerInput(bindKey, lo, hi, disabled) { detectTapGestures { off -> commit(off.x) } }
+         .pointerInput(bindKey, lo, hi, disabled) {
              detectHorizontalDragGestures { change, _ -> change.consume(); commit(change.position.x) }
-         },
+         }
+         .alpha(if (disabled) 0.5f else 1f),
         contentAlignment = Alignment.CenterStart) {
         Box(Modifier.fillMaxWidth().height(track).background(tint.copy(alpha = ElementDefaults.SLIDER_TRACK_ALPHA), trackShape))
         Box(Modifier.fillMaxWidth(fraction).height(track).background(tint, trackShape))

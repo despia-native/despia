@@ -17,3 +17,10 @@ export {
   UI_SCHEME, UI_MIME, UI_CAPABILITY,
   type UiMeta, type UiCsp, type UiVisibility, type CallToolResult, type ToolContent,
 } from "./mcp/result.ts";
+export {
+  projectTools, toolName, toolInputSchema, webMcpResult, webMcpErrorResult,
+  PageToolTable, TOOL_NAME_RE,
+  type ToolRow, type WebMcpDescriptor, type WebMcpAnnotations, type ToolInputSchema,
+  type ToolProjection, type ToolProjectionError, type ToolProjectionErrorCode,
+  type PageTool, type PageToolRegistration, type PageToolRejection, type PageToolRejectionReason,
+} from "./mcp/webmcp.ts";

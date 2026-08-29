@@ -1,0 +1,158 @@
+<stack style="position: relative; width: {{ dsx.attribute.width }}; flex: 0 0 auto;
+              margin-left: auto; margin-right: auto;
+              padding: {{ dsx.attribute.mockup ? '0px' : dsx.attribute.bezel }};
+              border-radius: {{ dsx.attribute.mockup ? '0px' : dsx.attribute.radius }};
+              background: {{ dsx.attribute.mockup ? 'none' : 'linear-gradient(148deg, #55555f 0%, #2a2a31 6%, #121216 16%, #0c0c10 50%, #101015 84%, #2b2b33 94%, #52525c 100%)' }};
+              box-shadow: {{ dsx.attribute.mockup ? 'none' : '0 0 0 0.5px rgba(255,255,255,0.16), 0 1px 2px rgba(0,0,0,0.5), 0 18px 34px -10px rgba(0,0,0,0.55), 0 46px 88px -26px rgba(0,0,0,0.55)' }};
+              transform: {{ frameTransform }}; transform-origin: center center">
+  <head>
+    <!-- THE DEVICE FRAME, ONCE. Every template composes this rather than redrawing a bezel:
+         five templates with five hand-drawn bezels drift, and the drift ships as five slightly
+         different products.
+
+         GENERIC BY LAW (09 §6): no Apple industrial-design cues, no logo, no Dynamic Island
+         geometry. Shipping a photoreal iPhone bezel to thousands of customers is Despia's
+         legal exposure, not the customer's. `mockup=` is the escape hatch for a studio that
+         has licensed its own frame art, and when it is supplied the DRAWN CHROME TURNS OFF
+         COMPLETELY - background, shadow, padding and radius all go, or the drawn bezel paints
+         a dark rectangle behind someone else's artwork.
+
+         THE ASPECT LIVES ON THE SCREEN, NOT ON THE FRAME. This is why the first version had a
+         visible gap above and below the screenshot: aspect-ratio was on the OUTER box, the
+         bezel padding was then subtracted from BOTH axes, so the inner box was no longer
+         440:956 and `contain` letterboxed it - measured at 5.3px top and bottom. Sizing the
+         screen and letting the frame be screen-plus-bezel makes the gap arithmetically
+         impossible rather than tuned away.
+
+         THE EDGE IS A GRADIENT, NOT A HIGHLIGHT BAR. The first version drew
+         `inset 0 2px 0 rgba(255,255,255,.10)`, which on a near-black bezel reads as a pale bar
+         across the top - a defect, not a material. A real anodised edge catches light at the
+         corners and goes dark along the flats, which is what the 148deg ramp does; the 0.5px
+         outer ring is the specular line where the edge meets the air. -->
+    <!-- THE FRAME CENTRES ITSELF. `justify-content`/`align-items` written into a caller's
+         style attribute are folded into a generated class that loses to the element layer's
+         own rule, so every caller that "centred" the frame was silently laying it flush left -
+         measured at 21.5px off in a 360pt column. Auto margins are the one form that survives
+         that fold, and putting them HERE means a caller cannot get it wrong. -->
+    <attribute as="screen"/>
+    <attribute as="width" default="'66%'"/>
+    <attribute as="radius" default="'46px'"/>
+    <attribute as="bezel" default="'4px'"/>
+    <attribute as="tilt" default="'0deg'"/>
+    <attribute as="lift" default="'0.55'"/>
+    <attribute as="label" default="''"/>
+    <!-- A STUDIO'S OWN FRAME ART: a transparent-screen PNG the project supplies and has the
+         right to use, plus where its screen window sits. `screenRadius` matters more than it
+         looks - a screenshot has square corners, so without it the corners poke out past a
+         rounded window and the frame reads as broken. -->
+    <!-- THE DEFAULT IS THE RENDERED DEVICE ART, not the drawn bezel. A CSS rounded rectangle
+         cannot be a device: border-radius draws a CIRCULAR corner where every phone shipped
+         this decade uses a squircle, a gradient border has no thickness so the chassis has no
+         edge, and one box-shadow is a blur rather than a shadow. `make-device-frame.mjs`
+         renders the real geometry - superellipse corners, a chassis with a specular rail and
+         an occluded underside, a bezel stepping down to the glass, buttons on the silhouette,
+         3x supersampled - and the shot composites the screenshot through the transparent
+         window. Pass mockup="" to fall back to the drawn bezel; pass your own licensed art
+         with its own measurements to use that instead.
+
+         screenRadius is 0 ON PURPOSE here: the art's bezel is opaque in the corner region
+         between the squircle window and its bounding rectangle, so it masks the screenshot's
+         square corners itself. A radius on the screen would fight the art. -->
+    <attribute as="mockup" default="'device-ios.png'"/>
+    <attribute as="screenTop" default="'2.860%'"/>
+    <attribute as="screenLeft" default="'5.823%'"/>
+    <attribute as="screenWidth" default="'88.353%'"/>
+    <attribute as="screenHeight" default="'94.280%'"/>
+    <attribute as="screenRadius" default="'0px'"/>
+    <!-- THE ART'S OWN ASPECT, which is NOT the screen's: the art carries bezel, rail and a
+         margin for the buttons to protrude into. The screen* percentages are measured against
+         the ART, so the box they are positioned in must be the art's shape or every inset is
+         read against the wrong denominator and the screen sits off-centre inside the body. -->
+    <attribute as="artAspect" default="'498 / 1014'"/>
+    <!-- THE LEAN: a REAL 3D rotation, not a flat skew. `transform` takes the CSS
+         perspective() function, so the device rotates about its own Y axis with genuine
+         foreshortening - the receding edge narrows, the near edge grows, and the parallel
+         rails stop being parallel. That is the difference between "turned" and "tilted",
+         and it is what the professional sets do when a phone enters from the side. There
+         is no 3D engine here and none is needed: perspective is a projection, and CSS
+         does the projection. What CSS canNOT do is bend the glass - a cylindrical curve
+         needs a mesh - so we do not fake one; the lean plus the raking specular reads as
+         a real object without claiming geometry we cannot render. -->
+    <attribute as="lean" default="'0deg'"/>
+    <attribute as="leanDepth" default="'1500px'"/>
+    <!-- THE SPECULAR SWEEP: one raking highlight across the cover glass plus a falloff on
+         the receding side, in a single overlay clipped to the screen. Light on glass is
+         what tells the eye "this is an object", and clipping it to the screen keeps it
+         honest - it reflects on the display, it does not paint over the app's content
+         with a haze. -->
+    <attribute as="shine" default="'false'"/>
+
+    <variable as="frameTransform" computed="true">
+      const tilt = 'rotate(' + dsx.attribute.tilt + ')'
+      const lean = dsx.attribute.lean
+      if (!lean || lean == '0deg') { return tilt }
+      return 'perspective(' + dsx.attribute.leanDepth + ') rotateY(' + lean + ') ' + tilt
+    </variable>
+    <!-- A leaning device catches the light on its NEAR edge: the sweep flips with the
+         rotation direction so the highlight always faces the notional light, which is what
+         keeps two leaning slides in one strip looking like the same scene. -->
+    <variable as="shineAngle" computed="true">
+      if (dsx.attribute.lean.indexOf('-') == 0) { return '104deg' }
+      return '256deg'
+    </variable>
+  </head>
+
+  <!-- The screen well: black under the pixels, and `overflow: hidden` so the corners are
+       clipped by the well rather than by a radius on the image, which keeps the rounding
+       exact at any scale. -->
+  <stack visible-if="!dsx.attribute.mockup" id="shot-screen"
+         style="position: relative; width: 100%; overflow: hidden; background: #000;
+                border-radius: calc({{ dsx.attribute.radius }} - {{ dsx.attribute.bezel }})">
+    <image src="{{ dsx.attribute.screen }}" contentFit="cover" a11yLabel="{{ dsx.attribute.label }}"
+           style="width: 100%; height: auto; aspect-ratio: 440 / 956"/>
+    <!-- The glass edge: a hairline darkening where the cover glass meets the bezel. Without it
+         a bright app screen butts flat against the frame and the device reads as a coloured
+         rectangle with a border rather than as an object with depth. One inset hairline, not a
+         vignette - anything heavier tints the app content, and the app content is the thing a
+         reviewer compares against the real build. -->
+    <stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;
+                  border-radius: inherit;
+                  box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.55),
+                              inset 0 0.5px 1.5px rgba(0,0,0,0.35)"/>
+    <stack visible-if="dsx.attribute.shine == 'true'"
+           style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 2;
+                  border-radius: inherit;
+                  background: linear-gradient({{ shineAngle }},
+                              rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.07) 16%,
+                              rgba(255,255,255,0.00) 34%, rgba(8,10,18,0.03) 68%,
+                              rgba(8,10,18,0.10) 100%)"/>
+  </stack>
+
+  <!-- The supplied-art path: the screenshot sits in the declared window, clipped to the
+       window's own radius, and the frame art lays over it. -->
+  <!-- drop-shadow, not box-shadow: it follows the ART'S ALPHA, so the shadow has the phone's
+       silhouette (buttons included) instead of the shape of a rectangle. Two passes - a tight
+       contact shadow and a wide ambient one - because a single blur reads as a sticker. -->
+  <stack visible-if="dsx.attribute.mockup"
+         style="position: relative; width: 100%; aspect-ratio: {{ dsx.attribute.artAspect }};
+                filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45))
+                        drop-shadow(0 26px 34px rgba(0,0,0,{{ dsx.attribute.lift }}))">
+    <!-- the screenshot sits in the declared window, BEHIND the art -->
+    <stack id="shot-screen" style="position: absolute; top: {{ dsx.attribute.screenTop }};
+                  left: {{ dsx.attribute.screenLeft }}; width: {{ dsx.attribute.screenWidth }};
+                  height: {{ dsx.attribute.screenHeight }}; overflow: hidden; background: #000;
+                  border-radius: {{ dsx.attribute.screenRadius }}">
+      <image src="{{ dsx.attribute.screen }}" contentFit="cover" a11yLabel="{{ dsx.attribute.label }}"
+             style="width: 100%; height: 100%"/>
+      <stack visible-if="dsx.attribute.shine == 'true'"
+             style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;
+                    border-radius: inherit;
+                    background: linear-gradient({{ shineAngle }},
+                                rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.07) 16%,
+                                rgba(255,255,255,0.00) 34%, rgba(8,10,18,0.03) 68%,
+                                rgba(8,10,18,0.10) 100%)"/>
+    </stack>
+    <image src="{{ dsx.attribute.mockup }}" contentFit="contain" a11yLabel=""
+           style="position: relative; width: 100%; height: auto; z-index: 1"/>
+  </stack>
+</stack>

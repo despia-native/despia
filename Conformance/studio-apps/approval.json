@@ -1,0 +1,91 @@
+{
+  "_note": "THE APPROVAL SIGNATURE CORPUS (studio-apps.md §11, T5): the canonical bytes and the Ed25519 round-trip, two runners on day one - TS (packages/cli/test/studio-apps-approval.test.ts) and ruby (ClosedSource/scripts/sign_app_approval.rb --self-test) - because a signature format with one implementation is a format nobody has checked (the entitlement N-implementations lesson). THE KEYPAIR HERE IS THE DEV FIXTURE, public on purpose: it is the private half of support/apps-shelf-key.json and approves nothing real; the production key is minted offline at the owner ceremony and never appears in this repository. canonicalBytes law: top-level keys sorted, `signature` excluded, JSON.stringify/JSON.generate semantics (the entitlement rule verbatim), PLUS `grants` sorted inside the bytes so two honest signers of one review cannot disagree over array order. Ed25519 is deterministic (RFC 8032), so the ruby signer's output must BYTE-MATCH `record.signature` - a mismatch is a canonicalization drift, the exact defect this corpus exists to catch.",
+  "keys": {
+    "_note": "DEV FIXTURE KEYPAIR - see the corpus _note. Never sign a real approval with this.",
+    "privateKeyPem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIE0DncPBWqrz+OC+a2vlTfzhylm6i3xPNHMEHPBlxHQc\n-----END PRIVATE KEY-----\n",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAjYNETtAPLWdtkwgAtS7yZY2UL5ZezDEqzgmrUviCdpI=\n-----END PUBLIC KEY-----\n",
+    "keyId": "despia-apps-dev-2026"
+  },
+  "canonical": "{\"coordinate\":\"github:acme/copy-studio\",\"grants\":[\"net:api.acme.dev\",\"project:read\"],\"keyId\":\"despia-apps-dev-2026\",\"treeHash\":\"sha256-9c1185a5c5e9fc54612808977ee8f548b2258d31f0a9ad0e4e36eea9d5f2a9d4\",\"version\":\"1.2.0\"}",
+  "record": {
+    "coordinate": "github:acme/copy-studio",
+    "version": "1.2.0",
+    "treeHash": "sha256-9c1185a5c5e9fc54612808977ee8f548b2258d31f0a9ad0e4e36eea9d5f2a9d4",
+    "grants": [
+      "project:read",
+      "net:api.acme.dev"
+    ],
+    "keyId": "despia-apps-dev-2026",
+    "signature": "lZdPT3q5P+44TO2OTPuStr/VDO2vZHPdVQNbOXbu3Zc0f51K6/toIN+VPYVvbAbBiQqipwbi73GhxvoeSzQ0Bw=="
+  },
+  "cases": [
+    {
+      "name": "the signed record verifies",
+      "tamper": null,
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "name": "a flipped version refuses",
+      "tamper": {
+        "version": "1.2.1"
+      },
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "name": "a widened grant refuses - the reviewed set is the signed set",
+      "tamper": {
+        "grants": [
+          "project:read",
+          "net:api.acme.dev",
+          "project:write"
+        ]
+      },
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "name": "a different tree refuses - the review covered these bytes and no others",
+      "tamper": {
+        "treeHash": "sha256-0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "name": "a re-ordered grants array still verifies - the canonical bytes sort it",
+      "tamper": {
+        "grants": [
+          "net:api.acme.dev",
+          "project:read"
+        ]
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "name": "a stripped signature refuses",
+      "tamper": {
+        "signature": ""
+      },
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "name": "a truncated signature refuses before any crypto runs",
+      "tamper": {
+        "signature": "AAAA"
+      },
+      "expect": {
+        "ok": false
+      }
+    }
+  ]
+}

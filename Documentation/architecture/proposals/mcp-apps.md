@@ -215,6 +215,9 @@ The bridge is the attack surface, and three of the four mitigations already exis
 - **New:** a view must never be able to reach a tool that was not declared UI-reachable. Add
   `reach: ["ui"]` semantics to the existing `provides`/`reach` grammar so view-callable is a
   declaration, fail-closed, exactly like `["widget"]` and `["activity"]` are for snapshot nodes.
+  (The studio-apps program applies the same fail-closed declaration discipline one tier up: an
+  app's `tool` slot projects only its own declared actions, and its grants are manifest-static —
+  `studio-apps.md` §4–§6.)
 
 ## 10 · Execution plan
 

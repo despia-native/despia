@@ -14,6 +14,8 @@ export {
   assertSafeRouteTable,
   assertSafeRedirectTarget,
   resolveRouteOutput,
+  rebaseShellForDepth,
+  shellDepthForRequestPath,
   type ShellOptions,
   type RouteOutputOptions,
   type RouteOutput,
@@ -41,9 +43,10 @@ export {
 // handler is: a production host cannot be assembled without them, and a plane nobody can import
 // is a plane nobody uses.
 export {
-  receiveWebhook, verifyWebhook, webhookResponse, statusFor,
+  receiveWebhook, verifyWebhook, webhookResponse, statusFor, webhookReceiver,
   DEFAULT_WEBHOOK_TOLERANCE_MS, MAX_WEBHOOK_BODY_BYTES,
   type WebhookSource, type WebhookVerdict, type WebhookOutcome, type WebhookRefusal,
+  type WebhookDeclaration,
 } from "./webhook.ts";
 export {
   spend, rateHeaders, RateLimitSeam,
@@ -60,3 +63,18 @@ export {
   type QueueEnqueueRequest, type QueueEnqueueResult, type QueueDeadLetter,
 } from "./queue.ts";
 export { secretEquals } from "./secrets.ts";
+export {
+  chargeSpend,
+  configureSpend,
+  flushSpendIfDue,
+  flushSpendNow,
+  queueDepthCeiling,
+  resetSpend,
+  SpendSeam,
+  spendHeaders,
+  spendSnapshot,
+  SPEND_CHANNEL,
+  type SpendBudget,
+  type SpendStore,
+  type SpendVerdict,
+} from "./spend.ts";

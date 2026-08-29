@@ -1,5 +1,5 @@
 //
-//  build.test.ts — `dsx build` over a real project on disk: the compile path, the vendored
+//  build.test.ts — `despia build` over a real project on disk: the compile path, the vendored
 //  runtime, the mechanically derived import map, SSR'd documents, and the route export.
 //  Nothing is mocked; every assertion is on bytes the command actually wrote.
 //
@@ -58,14 +58,23 @@ test("a project compiles into an SSR'd document, a registry, a bootloader and ve
     // the body is really rendered, not an empty shell waiting on JS
     assert.match(html, /Hello/);
     assert.match(html, /count 0/);
-    assert.match(html, /<div id="app" data-dsx-root data-dsx-ssr data-dsx-hydrate>/);
+    assert.match(html, /<div id="app" role="main" data-dsx-root data-dsx-ssr data-dsx-hydrate>/);
     assert.match(html, /<title>Fixture App<\/title>/);
     assert.match(html, /<script type="module" src="\.\/main\.js"><\/script>/);
 
     const registry = JSON.parse(readFileSync(join(result.outDir, "registry.json"), "utf8")) as {
       components: { [k: string]: unknown };
+      shell?: { appName?: string; mainSrc?: string; importMapJson?: string; manifestHref?: string };
     };
     assert.ok("fix.App" in registry.components);
+
+    // wave-7 F1: the registry carries the BAKED document shell, so a server host built
+    // from registry.json alone serves live-SSR'd dynamic routes that still load the boot
+    assert.equal(registry.shell?.appName, "Fixture App");
+    assert.equal(registry.shell?.mainSrc, "./main.js");
+    assert.equal(registry.shell?.manifestHref, "/manifest.webmanifest");
+    assert.ok(registry.shell?.importMapJson !== undefined
+      && registry.shell.importMapJson.includes("@despia/dom/boot"));
 
     // the bootloader boots the configured entry and nothing else
     const main = readFileSync(join(result.outDir, "main.js"), "utf8");
@@ -74,6 +83,16 @@ test("a project compiles into an SSR'd document, a registry, a bootloader and ve
 
     assert.ok(existsSync(join(result.outDir, "vendor/kernel/index.js")));
     assert.ok(existsSync(join(result.outDir, "vendor/dom/boot.js")));
+
+    // the PWA face: every build is installable — a manifest, an identity icon, the link
+    assert.match(html, /<link rel="manifest" href="\/manifest\.webmanifest">/);
+    const manifest = JSON.parse(readFileSync(join(result.outDir, "manifest.webmanifest"), "utf8")) as {
+      name: string; display: string; icons: { src: string; type: string }[];
+    };
+    assert.equal(manifest.name, "Fixture App");
+    assert.equal(manifest.display, "standalone");
+    assert.equal(manifest.icons[0]?.type, "image/svg+xml");
+    assert.match(readFileSync(join(result.outDir, "icon.svg"), "utf8"), />F<\/text>/);
   } finally {
     project.cleanup();
   }
@@ -150,7 +169,7 @@ test("a sidecar .css sheet is owner-scoped into the document cascade", () => {
   try {
     const result = buildProject(loadConfig(project.root));
     const html = readFileSync(join(result.outDir, "index.html"), "utf8");
-    assert.match(html, /\[data-dsx-owner="App"\] \.headline \{ color: rebeccapurple; \}/);
+    assert.match(html, /\[data-dsx-owner="App"\] \.headline, \[data-dsx-owner="App"\]:is\(\.headline\) \{ color: rebeccapurple; \}/);
   } finally {
     project.cleanup();
   }
@@ -261,6 +280,56 @@ test("the generated bootloader owns zero behavior", () => {
   }
 });
 
+// ── the bundled floor (bundled-floor.md, web renderer) ──────────────────────────────
+
+test("every build ships the offline floor: dsx-sw.js, the manifest, and the bootloader registration", () => {
+  const project = fixture({
+    "dsx.json": JSON.stringify({ name: "fixture", scheme: "fix" }),
+    "dsx.config.json": JSON.stringify({
+      name: "Floored", entry: "App",
+      routes: [
+        { path: "/", component: "fix.App", meta: { title: "Home" } },
+        { path: "/about", component: "fix.About", meta: { title: "About" } },
+        { path: "/notes/:id", component: "fix.About", meta: { title: "Note" } },
+      ],
+    }),
+    "Components/App.dsx": APP,
+    "Components/About.dsx": ABOUT,
+  });
+  try {
+    const result = buildProject(loadConfig(project.root));
+
+    // the worker script sits beside the entry, byte-identical to the one @despia/dom ships
+    assert.ok(result.written.includes("dsx-sw.js"));
+    assert.match(readFileSync(join(result.outDir, "dsx-sw.js"), "utf8"), /dsx-sw\.js|service worker|precache/i);
+
+    // the manifest covers the COMPLETE tree (itself excluded), in the one seed dialect
+    const manifest = JSON.parse(readFileSync(join(result.outDir, "despia/local.json"), "utf8")) as {
+      entry?: string; assets: { path: string; sha256: string }[]; routes?: { pattern: string; page: string }[];
+    };
+    assert.equal(manifest.entry, "index.html");
+    const paths = manifest.assets.map((a) => a.path);
+    assert.ok(!paths.includes("despia/local.json"));
+    for (const must of ["index.html", "main.js", "registry.json", "dsx-sw.js", "about/index.html"]) {
+      assert.ok(paths.includes(must), `${must} missing from the offline manifest`);
+    }
+    for (const asset of manifest.assets) assert.match(asset.sha256, /^[0-9a-f]{64}$/);
+
+    // the dynamic route exported ONE skeleton page, declared for the worker
+    assert.ok(paths.includes("notes/__param__/index.html"));
+    assert.deepEqual(manifest.routes, [{ pattern: "/notes/:id", page: "notes/__param__/index.html" }]);
+
+    // the bootloader registers the floor, anchored to itself (deep-link first visits)
+    const main = readFileSync(join(result.outDir, "main.js"), "utf8");
+    assert.match(main, /import \{ registerOfflineFloor \} from "@despia\/dom\/offline";/);
+    assert.match(main, /registerOfflineFloor\(\{ swUrl: new URL\("\.\/dsx-sw\.js", import\.meta\.url\)\.href \}\)/);
+    assert.equal(result.importMap.imports["@despia/dom/offline"], "./vendor/dom/offline.js");
+    assert.ok(existsSync(join(result.outDir, "vendor/dom/offline.js")));
+  } finally {
+    project.cleanup();
+  }
+});
+
 // ── web.entry + web.dependencies (A3) ───────────────────────────────────────────────
 
 test("a package's web.entry becomes its own lazy chunk, with npm dependencies bundled IN", () => {
@@ -331,7 +400,7 @@ test("a web.entry pointing at a missing file fails the build rather than shippin
 });
 
 // The vendoring queue is driven by scanDsxSpecifiers, so a false edge there is not a cosmetic
-// bug: it makes `dsx build` demand a package the project never imports and refuse an app that
+// bug: it makes `despia build` demand a package the project never imports and refuse an app that
 // is entirely correct. The compiler's MCP view builder EMITS import statements as string data,
 // and an unanchored scan read that as the compiler importing @despia/element — caught by the
 // cold-start gate, which builds a scaffolded project from tarballs alone.
@@ -361,5 +430,49 @@ test("scanDsxSpecifiers reads import statements, not import statements inside em
     ], "the emitted @despia/element and @despia/dom/mcp-app are data, not edges");
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ── web.boot (studio-apps.md §8) ────────────────────────────────────────────────────
+
+test("a package's web.boot registers its entry at boot — and the lazy default stands beside it", () => {
+  const project = fixture({
+    "dsx.json": JSON.stringify({
+      name: "fixture",
+      scheme: "fix",
+      web: { entry: "web/host.js", boot: true },
+    }),
+    "dsx.config.json": JSON.stringify({ name: "Fixture App", entry: "App" }),
+    "Components/App.dsx": APP,
+    // a boot module is a bus module: it imports the kernel, so the chunk-specifier scan
+    // must vendor + map @despia/kernel or the page is a clean-session blank screen.
+    "web/host.js": `import { ModuleCallError } from "@despia/kernel";\nexport default { scheme: "fix", actions: {}, components: { Probe: { mount() { void ModuleCallError; } } } };\n`,
+  });
+  try {
+    const result = buildProject(loadConfig(project.root));
+    const main = readFileSync(join(result.outDir, "main.js"), "utf8");
+    // the bootloader imports the chunk and hands it to bootDsx — one translation line
+    assert.match(main, /import bootModule0 from "dsx:package\/fix";/);
+    assert.match(main, /modules: \[bootModule0\]/);
+    // the chunk's surviving @despia/* external is mapped, fail-closed
+    assert.equal(result.importMap.imports["dsx:package/fix"], "./vendor/packages/fix.js");
+    assert.ok(result.importMap.imports["@despia/kernel"] !== undefined
+      || Object.keys(result.importMap.imports).some((s) => s.startsWith("@despia/kernel")),
+      `the chunk's kernel import must be represented (got: ${Object.keys(result.importMap.imports).join(", ")})`);
+  } finally {
+    project.cleanup();
+  }
+});
+
+test("web.boot without an entry fails the build — there is nothing to register", () => {
+  const project = fixture({
+    "dsx.json": JSON.stringify({ name: "fixture", scheme: "fix", web: { boot: true } }),
+    "dsx.config.json": JSON.stringify({ name: "Fixture App", entry: "App" }),
+    "Components/App.dsx": APP,
+  });
+  try {
+    assert.throws(() => buildProject(loadConfig(project.root)), /"boot" requires an "entry"/);
+  } finally {
+    project.cleanup();
   }
 });

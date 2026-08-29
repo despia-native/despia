@@ -1,0 +1,13 @@
+{
+  "format": "despia:server-mcp-tools@1",
+  "tools": [
+    {
+      "name": "noteSummary",
+      "chain": "server.http",
+      "action": "noteSummary",
+      "description": "Count the caller's notes, and how many are pinned.",
+      "inputs": [],
+      "auth": "required"
+    }
+  ]
+}

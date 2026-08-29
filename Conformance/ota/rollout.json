@@ -1,0 +1,719 @@
+{
+  "version": 1,
+  "_note": "OTA runtime safety, the two decisions a device makes about a generation BEFORE it applies one (parity/P05-ota.md 4b + 4c). Both are pure arithmetic, so all three renderers run this one file: @despia/kernel packages/kernel/src/ota.ts (TS), despia.engine.OtaGeneration (Kotlin, :core OtaConformanceTest), and OpenSource/Engine/iOS/OtaGeneration.swift (Swift, the reference, via the record lane). A device either takes an update or it does not, identically everywhere, or the whole staged-rollout promise is a lie.",
+  "hash": {
+    "_note": "FNV-1a 32-bit over the UTF-8 bytes of `installationId + \":\" + salt`. Chosen over SHA-256 because the gate is SYNCHRONOUS at load time and the web kernel's only hash (crypto.subtle) is async-only, and because a 20-line integer loop is reimplementable byte-identically in three languages where a crypto binding is not. The bucket is `hash / 2^32`, a half-open [0,1) position that is exactly representable as a double, so no renderer rounds differently. Ids and salts must not be assumed \":\"-free by callers reading these values back: the separator is internal.",
+    "algorithm": "fnv1a32",
+    "offsetBasis": 2166136261,
+    "prime": 16777619,
+    "inputTemplate": "{installationId}:{salt}",
+    "divisor": 4294967296,
+    "cases": [
+      {
+        "name": "a uuid installation id under the first salt",
+        "installationId": "6f1c0a2e-6b9e-4d2a-8c31-5e7f0a9b1234",
+        "salt": "gen-8a3f",
+        "hash": 2517594717,
+        "bucket": 0.5861731984186918
+      },
+      {
+        "name": "the same id under a different salt lands somewhere else",
+        "installationId": "6f1c0a2e-6b9e-4d2a-8c31-5e7f0a9b1234",
+        "salt": "gen-9b40",
+        "hash": 1620537984,
+        "bucket": 0.3773109018802643
+      },
+      {
+        "name": "a second id, outside the first decile",
+        "installationId": "a1b2c3d4-e5f6-4708-9a0b-1c2d3e4f5061",
+        "salt": "gen-8a3f",
+        "hash": 819655391,
+        "bucket": 0.19084089226089418
+      },
+      {
+        "name": "the salt change moves that id INTO the first decile",
+        "installationId": "a1b2c3d4-e5f6-4708-9a0b-1c2d3e4f5061",
+        "salt": "gen-9b40",
+        "hash": 153129414,
+        "bucket": 0.035653220023959875
+      },
+      {
+        "name": "a short id",
+        "installationId": "device-0007",
+        "salt": "gen-8a3f",
+        "hash": 195749392,
+        "bucket": 0.04557645693421364
+      },
+      {
+        "name": "the highest-bucket device in this corpus",
+        "installationId": "device-0003",
+        "salt": "gen-8a3f",
+        "hash": 3413373052,
+        "bucket": 0.7947378447279334
+      },
+      {
+        "name": "an empty salt still hashes",
+        "installationId": "6f1c0a2e-6b9e-4d2a-8c31-5e7f0a9b1234",
+        "salt": "",
+        "hash": 1537472446,
+        "bucket": 0.3579706992022693
+      },
+      {
+        "name": "an empty installation id still hashes; the gate refuses it earlier, the hash does not",
+        "installationId": "",
+        "salt": "gen-8a3f",
+        "hash": 2845480922,
+        "bucket": 0.6625151545740664
+      },
+      {
+        "name": "a non-ascii id hashes over its utf-8 bytes, not its code points",
+        "installationId": "dévice-üñiçode",
+        "salt": "gen-8a3f",
+        "hash": 1872406960,
+        "bucket": 0.4359537176787853
+      }
+    ]
+  },
+  "rollout": {
+    "_note": "applies = fraction >= 1 ? true : fraction <= 0 ? false : bucket < fraction. The two edges are explicit rather than emergent: fraction 1 must include the device whose bucket is the highest float below 1, and fraction 0 must exclude the device whose bucket is exactly 0.",
+    "cases": [
+      {
+        "name": "in the first decile",
+        "installationId": "device-0007",
+        "salt": "gen-8a3f",
+        "fraction": 0.1,
+        "applies": true
+      },
+      {
+        "name": "outside the first decile",
+        "installationId": "a1b2c3d4-e5f6-4708-9a0b-1c2d3e4f5061",
+        "salt": "gen-8a3f",
+        "fraction": 0.1,
+        "applies": false
+      },
+      {
+        "name": "the same device is inside the first decile under a new salt",
+        "installationId": "a1b2c3d4-e5f6-4708-9a0b-1c2d3e4f5061",
+        "salt": "gen-9b40",
+        "fraction": 0.1,
+        "applies": true
+      },
+      {
+        "name": "a mid-bucket device is out at 10 percent",
+        "installationId": "6f1c0a2e-6b9e-4d2a-8c31-5e7f0a9b1234",
+        "salt": "gen-8a3f",
+        "fraction": 0.1,
+        "applies": false
+      },
+      {
+        "name": "and in at 60 percent",
+        "installationId": "6f1c0a2e-6b9e-4d2a-8c31-5e7f0a9b1234",
+        "salt": "gen-8a3f",
+        "fraction": 0.6,
+        "applies": true
+      },
+      {
+        "name": "fraction 0 excludes every device",
+        "installationId": "device-0007",
+        "salt": "gen-8a3f",
+        "fraction": 0.0,
+        "applies": false
+      },
+      {
+        "name": "fraction 1 includes the highest-bucket device",
+        "installationId": "device-0003",
+        "salt": "gen-8a3f",
+        "fraction": 1.0,
+        "applies": true
+      },
+      {
+        "name": "fraction 1 includes a device that is out at every lower fraction",
+        "installationId": "a1b2c3d4-e5f6-4708-9a0b-1c2d3e4f5061",
+        "salt": "gen-8a3f",
+        "fraction": 1.0,
+        "applies": true
+      },
+      {
+        "name": "an empty salt is still a salt",
+        "installationId": "6f1c0a2e-6b9e-4d2a-8c31-5e7f0a9b1234",
+        "salt": "",
+        "fraction": 0.7,
+        "applies": true
+      }
+    ]
+  },
+  "monotonic": {
+    "_note": "Raising the fraction only ever GROWS the population: the hash is stable per device, so a device that took generation N at 10 percent still takes it at 50 percent. Each row's `applies` must be non-decreasing across `fractions`, and must equal what the rollout rule computes at each one.",
+    "fractions": [
+      0.0,
+      0.01,
+      0.05,
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "cases": [
+      {
+        "name": "a device in the first decile",
+        "installationId": "device-0007",
+        "salt": "gen-8a3f",
+        "applies": [
+          false,
+          false,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "name": "a device just outside it",
+        "installationId": "a1b2c3d4-e5f6-4708-9a0b-1c2d3e4f5061",
+        "salt": "gen-8a3f",
+        "applies": [
+          false,
+          false,
+          false,
+          false,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "name": "a mid-bucket device",
+        "installationId": "6f1c0a2e-6b9e-4d2a-8c31-5e7f0a9b1234",
+        "salt": "gen-8a3f",
+        "applies": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+          true
+        ]
+      },
+      {
+        "name": "the highest-bucket device in this corpus",
+        "installationId": "device-0003",
+        "salt": "gen-8a3f",
+        "applies": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true
+        ]
+      }
+    ]
+  },
+  "compare": {
+    "_note": "runtimeVersion precedence, semver 2.0.0: numeric core compared numerically, missing components are zero, build metadata ignored, a pre-release ranks BELOW its release, pre-release identifiers compared left to right with numeric ones ranking below alphanumeric ones. `expect` is -1 / 0 / 1, or null when either side is unparseable — unparseable is a refusal, never a guess, because guessing here is how an OTA reaches a binary that cannot run it.",
+    "cases": [
+      {
+        "name": "identical",
+        "a": "1.0.0",
+        "b": "1.0.0",
+        "expect": 0
+      },
+      {
+        "name": "minor compares numerically, not lexically",
+        "a": "1.2.0",
+        "b": "1.10.0",
+        "expect": -1
+      },
+      {
+        "name": "a newer major wins",
+        "a": "2.0.0",
+        "b": "1.9.9",
+        "expect": 1
+      },
+      {
+        "name": "a missing patch is zero",
+        "a": "1.2",
+        "b": "1.2.0",
+        "expect": 0
+      },
+      {
+        "name": "a bare major is zero-filled",
+        "a": "1",
+        "b": "1.0.0",
+        "expect": 0
+      },
+      {
+        "name": "a present patch beats an absent one",
+        "a": "1.2.3",
+        "b": "1.2",
+        "expect": 1
+      },
+      {
+        "name": "a pre-release ranks below its release",
+        "a": "1.0.0-beta",
+        "b": "1.0.0",
+        "expect": -1
+      },
+      {
+        "name": "and the release above it",
+        "a": "1.0.0",
+        "b": "1.0.0-beta",
+        "expect": 1
+      },
+      {
+        "name": "pre-release identifiers compare in ascii order",
+        "a": "1.0.0-alpha",
+        "b": "1.0.0-beta",
+        "expect": -1
+      },
+      {
+        "name": "more identifiers beats a prefix",
+        "a": "1.0.0-alpha.1",
+        "b": "1.0.0-alpha",
+        "expect": 1
+      },
+      {
+        "name": "numeric identifiers compare numerically",
+        "a": "1.0.0-alpha.2",
+        "b": "1.0.0-alpha.10",
+        "expect": -1
+      },
+      {
+        "name": "a numeric identifier ranks below an alphanumeric one",
+        "a": "1.0.0-alpha.beta",
+        "b": "1.0.0-alpha.10",
+        "expect": 1
+      },
+      {
+        "name": "identical pre-releases",
+        "a": "1.0.0-rc.1",
+        "b": "1.0.0-rc.1",
+        "expect": 0
+      },
+      {
+        "name": "build metadata is ignored",
+        "a": "1.0.0+build.5",
+        "b": "1.0.0",
+        "expect": 0
+      },
+      {
+        "name": "build metadata on a pre-release is ignored too",
+        "a": "1.0.0-rc.1+build.5",
+        "b": "1.0.0-rc.1",
+        "expect": 0
+      },
+      {
+        "name": "an empty string is unparseable",
+        "a": "",
+        "b": "1.0.0",
+        "expect": null
+      },
+      {
+        "name": "a non-numeric core component is unparseable",
+        "a": "1.0.x",
+        "b": "1.0.0",
+        "expect": null
+      },
+      {
+        "name": "a leading zero is unparseable",
+        "a": "01.0.0",
+        "b": "1.0.0",
+        "expect": null
+      },
+      {
+        "name": "a fourth core component is unparseable",
+        "a": "1.0.0.0",
+        "b": "1.0.0",
+        "expect": null
+      },
+      {
+        "name": "an empty pre-release is unparseable",
+        "a": "1.0.0-",
+        "b": "1.0.0",
+        "expect": null
+      },
+      {
+        "name": "a v prefix is unparseable, never silently stripped",
+        "a": "v1.0.0",
+        "b": "1.0.0",
+        "expect": null
+      },
+      {
+        "name": "an underscore is not a legal identifier character",
+        "a": "1.0.0-beta_1",
+        "b": "1.0.0",
+        "expect": null
+      },
+      {
+        "name": "either side unparseable is unparseable",
+        "a": "1.0.0",
+        "b": "later",
+        "expect": null
+      }
+    ]
+  },
+  "generation": {
+    "_note": "The whole gate, in order: runtimeVersion FIRST (a generation the installed binary cannot run is refused whatever the rollout says), then the rollout. Every refusal is reported, never applied hopefully, and the device keeps its last good generation. Verdict vocabulary: apply | rollout_excluded | runtime_too_old | runtime_unknown | invalid_rollout | invalid_runtime_version | no_installation_id.",
+    "verdicts": [
+      "apply",
+      "rollout_excluded",
+      "runtime_too_old",
+      "runtime_unknown",
+      "invalid_rollout",
+      "invalid_runtime_version",
+      "no_installation_id"
+    ],
+    "cases": [
+      {
+        "name": "a manifest declaring neither applies to everyone",
+        "manifest": {},
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.2.0"
+        },
+        "expect": "apply"
+      },
+      {
+        "name": "a generation authored before runtimeVersion existed still applies",
+        "manifest": {},
+        "client": {
+          "installationId": "device-0007"
+        },
+        "expect": "apply"
+      },
+      {
+        "name": "fraction 1 needs no installation id",
+        "manifest": {
+          "rollout": {
+            "fraction": 1,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {},
+        "expect": "apply"
+      },
+      {
+        "name": "a device inside the fraction takes it",
+        "manifest": {
+          "rollout": {
+            "fraction": 0.1,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": "device-0007"
+        },
+        "expect": "apply"
+      },
+      {
+        "name": "a device outside it waits",
+        "manifest": {
+          "rollout": {
+            "fraction": 0.1,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": "a1b2c3d4-e5f6-4708-9a0b-1c2d3e4f5061"
+        },
+        "expect": "rollout_excluded"
+      },
+      {
+        "name": "the same device takes it once the fraction rises",
+        "manifest": {
+          "rollout": {
+            "fraction": 0.5,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": "a1b2c3d4-e5f6-4708-9a0b-1c2d3e4f5061"
+        },
+        "expect": "apply"
+      },
+      {
+        "name": "a new salt reshuffles the same device into the first decile",
+        "manifest": {
+          "rollout": {
+            "fraction": 0.1,
+            "salt": "gen-9b40"
+          }
+        },
+        "client": {
+          "installationId": "a1b2c3d4-e5f6-4708-9a0b-1c2d3e4f5061"
+        },
+        "expect": "apply"
+      },
+      {
+        "name": "fraction 0 holds everyone",
+        "manifest": {
+          "rollout": {
+            "fraction": 0,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": "device-0007"
+        },
+        "expect": "rollout_excluded"
+      },
+      {
+        "name": "a rollout with no installation id to hash cannot be evaluated",
+        "manifest": {
+          "rollout": {
+            "fraction": 0.1,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {},
+        "expect": "no_installation_id"
+      },
+      {
+        "name": "an empty installation id is no id at all",
+        "manifest": {
+          "rollout": {
+            "fraction": 0.1,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": ""
+        },
+        "expect": "no_installation_id"
+      },
+      {
+        "name": "a fraction above 1 is an authoring bug, refused rather than clamped",
+        "manifest": {
+          "rollout": {
+            "fraction": 1.5,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": "device-0007"
+        },
+        "expect": "invalid_rollout"
+      },
+      {
+        "name": "a negative fraction likewise",
+        "manifest": {
+          "rollout": {
+            "fraction": -0.1,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": "device-0007"
+        },
+        "expect": "invalid_rollout"
+      },
+      {
+        "name": "a fraction that is not a number likewise",
+        "manifest": {
+          "rollout": {
+            "fraction": "0.1",
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": "device-0007"
+        },
+        "expect": "invalid_rollout"
+      },
+      {
+        "name": "a rollout with no salt has no stable bucketing and is refused",
+        "manifest": {
+          "rollout": {
+            "fraction": 0.1
+          }
+        },
+        "client": {
+          "installationId": "device-0007"
+        },
+        "expect": "invalid_rollout"
+      },
+      {
+        "name": "an empty rollout object is refused",
+        "manifest": {
+          "rollout": {}
+        },
+        "client": {
+          "installationId": "device-0007"
+        },
+        "expect": "invalid_rollout"
+      },
+      {
+        "name": "a rollout that is not an object is refused",
+        "manifest": {
+          "rollout": "10%"
+        },
+        "client": {
+          "installationId": "device-0007"
+        },
+        "expect": "invalid_rollout"
+      },
+      {
+        "name": "the binary meets the declared runtime exactly",
+        "manifest": {
+          "runtimeVersion": "4.2.0"
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.2.0"
+        },
+        "expect": "apply"
+      },
+      {
+        "name": "a newer binary runs an older generation",
+        "manifest": {
+          "runtimeVersion": "4.2.0"
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.3.0"
+        },
+        "expect": "apply"
+      },
+      {
+        "name": "an older binary REFUSES the generation and keeps the last good one",
+        "manifest": {
+          "runtimeVersion": "4.3.0"
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.2.0"
+        },
+        "expect": "runtime_too_old"
+      },
+      {
+        "name": "a zero-filled client version still satisfies a bare major",
+        "manifest": {
+          "runtimeVersion": "4"
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.0.0"
+        },
+        "expect": "apply"
+      },
+      {
+        "name": "a pre-release binary is below the release it is asked for",
+        "manifest": {
+          "runtimeVersion": "4.2.0"
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.2.0-beta.1"
+        },
+        "expect": "runtime_too_old"
+      },
+      {
+        "name": "a release binary satisfies a pre-release requirement",
+        "manifest": {
+          "runtimeVersion": "4.2.0-beta.1"
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.2.0"
+        },
+        "expect": "apply"
+      },
+      {
+        "name": "an earlier pre-release binary does not satisfy a later one",
+        "manifest": {
+          "runtimeVersion": "4.2.0-beta.2"
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.2.0-beta.1"
+        },
+        "expect": "runtime_too_old"
+      },
+      {
+        "name": "a client that cannot state its runtime version fails closed",
+        "manifest": {
+          "runtimeVersion": "4.2.0"
+        },
+        "client": {
+          "installationId": "device-0007"
+        },
+        "expect": "runtime_unknown"
+      },
+      {
+        "name": "an unparseable declared version is refused, never guessed",
+        "manifest": {
+          "runtimeVersion": "latest"
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.2.0"
+        },
+        "expect": "invalid_runtime_version"
+      },
+      {
+        "name": "an unparseable client version is refused too",
+        "manifest": {
+          "runtimeVersion": "4.2.0"
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "v4.2.0"
+        },
+        "expect": "invalid_runtime_version"
+      },
+      {
+        "name": "runtimeVersion is checked BEFORE the rollout: an included device with an old binary still refuses",
+        "manifest": {
+          "runtimeVersion": "4.3.0",
+          "rollout": {
+            "fraction": 1,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.2.0"
+        },
+        "expect": "runtime_too_old"
+      },
+      {
+        "name": "a satisfied runtime with an excluding rollout is held, not refused",
+        "manifest": {
+          "runtimeVersion": "4.2.0",
+          "rollout": {
+            "fraction": 0.1,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": "a1b2c3d4-e5f6-4708-9a0b-1c2d3e4f5061",
+          "runtimeVersion": "4.2.0"
+        },
+        "expect": "rollout_excluded"
+      },
+      {
+        "name": "both gates passed",
+        "manifest": {
+          "runtimeVersion": "4.2.0",
+          "rollout": {
+            "fraction": 0.1,
+            "salt": "gen-8a3f"
+          }
+        },
+        "client": {
+          "installationId": "device-0007",
+          "runtimeVersion": "4.2.0"
+        },
+        "expect": "apply"
+      }
+    ]
+  }
+}

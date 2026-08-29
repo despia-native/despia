@@ -8,11 +8,13 @@ import {
   OVERLAY_CONTROLS_CSS,
   OVERLAY_LIMITS,
   CONTEXT_MENU_PRESS,
+  formatShortcutHint,
   normalizeOverlayItems,
   normalizeSheetBackground,
   normalizeSheetDetents,
   placeFloating,
   registerOverlayControls,
+  shortcutAriaValue,
 } from "../src/overlay-controls.ts";
 
 test("overlay controls register only through their optional feature gate", () => {
@@ -81,6 +83,47 @@ test("overlay defaults are weak, adaptive and accessibility-mode aware", () => {
   assert.ok(OVERLAY_CONTROLS_CSS.includes('[dir="rtl"]'));
   assert.ok(OVERLAY_CONTROLS_CSS.includes("--dsx-overlay-z-index, 10000"), "overlays clear the 9000 route-chrome plane by default");
   assert.ok(OVERLAY_CONTROLS_CSS.includes(".dsx-overlay-portal-scope { display: contents; }"));
+});
+
+test("menu item shortcut hints ride the shortcut= token grammar per platform family", () => {
+  assert.equal(formatShortcutHint("cmd+s", true), "⌘S");
+  assert.equal(formatShortcutHint("cmd+s", false), "Ctrl+S");
+  assert.equal(formatShortcutHint("  CMD +  Shift + p ", true), "⇧⌘P", "normalization and canonical modifier order");
+  assert.equal(formatShortcutHint("shift+ctrl+k", false), "Ctrl+Shift+K", "canonical order regardless of authoring order");
+  assert.equal(formatShortcutHint("cmd+ctrl+d", false), "Ctrl+D", "cmd and ctrl collapse to one Ctrl off-Apple");
+  assert.equal(formatShortcutHint("cmd+ctrl+d", true), "⌃⌘D");
+  assert.equal(formatShortcutHint("alt+enter", false), "Alt+Enter");
+  assert.equal(formatShortcutHint("escape", true), "⎋");
+  assert.equal(formatShortcutHint("cmd+arrowup", false), "Ctrl+↑");
+  assert.equal(formatShortcutHint("cmd+", true), "", "a modifier with no key renders nothing");
+  assert.equal(formatShortcutHint("", true), "");
+  assert.equal(shortcutAriaValue("cmd+s", true), "Meta+S", "aria-keyshortcuts names the real primary modifier");
+  assert.equal(shortcutAriaValue("cmd+s", false), "Control+S");
+  assert.equal(shortcutAriaValue("ctrl+shift+arrowdown", false), "Control+Shift+ArrowDown");
+  assert.equal(shortcutAriaValue("bogus+x", false), "X", "unknown tokens never mint fake modifiers");
+});
+
+test("overlay items carry a bounded shortcut for the menu hint plane", () => {
+  const items = normalizeOverlayItems([
+    { title: "Save", shortcut: " cmd+s " },
+    { title: "Plain" },
+    { title: "Hostile", shortcut: "x".repeat(OVERLAY_LIMITS.maxTextCharacters + 90) },
+  ]);
+  assert.equal(items[0]!.shortcut, "cmd+s");
+  assert.equal(items[1]!.shortcut, "");
+  assert.ok(Array.from(items[2]!.shortcut).length <= OVERLAY_LIMITS.maxTextCharacters);
+  assert.ok(OVERLAY_CONTROLS_CSS.includes(".dsx-menu-item-shortcut"), "the right-aligned hint style exists");
+});
+
+test("submenu flyouts ride the elevation and motion standard and collapse for reduced motion", () => {
+  const submenu = OVERLAY_CONTROLS_CSS.match(/\.dsx-submenu \{[\s\S]*?\n {2}\}/)?.[0] ?? "";
+  assert.ok(submenu.includes("var(--dsx-shadow-3)"), "submenu sits at shadow-3");
+  assert.ok(submenu.includes("dsx-float-zoom") && submenu.includes("dsx-overlay-fade"),
+    "submenu shares the floating motion standard");
+  assert.ok(OVERLAY_CONTROLS_CSS.includes('.dsx-submenu[data-dsx-placement="right"] { transform-origin: 0 12px; }'),
+    "the zoom grows out of the parent row edge");
+  const reduced = OVERLAY_CONTROLS_CSS.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n {2}\}/)?.[0] ?? "";
+  assert.ok(reduced.includes(".dsx-submenu"), "reduced motion stills the submenu flyout");
 });
 
 test("<contextmenu> long-press timing is the DECLARED platform norm, not a magic number", () => {

@@ -46,6 +46,7 @@ for (const engine of BROWSER_ENGINES) {
   run(engine, ["packages/dom/oracle/application-controls-browser.ts"]);
   run(engine, ["packages/dom/oracle/media-surfaces-browser.ts"]);
   run(engine, ["packages/dom/oracle/input-browser.ts"]);
+  run(engine, ["packages/dom/oracle/textarea-growth-browser.ts"]);
   run(engine, ["packages/dom/oracle/game-browser.ts"]);
   run(engine, ["packages/dom/oracle/sprites-browser.ts"]);
   run(engine, ["packages/dom/oracle/playthrough-browser.ts"]);

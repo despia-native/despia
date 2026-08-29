@@ -1,0 +1,49 @@
+// The @despia/live relay manifest — deployed by the DEVELOPER into their own Cloudflare
+// account (proposals/live-logs.md 3.2); Despia operates nothing and is never in the byte
+// path. Deploy:
+//   npx wrangler deploy --config wrangler.jsonc
+// `--dry-run` validates it without an account. The admin key is NEVER here —
+//   npx wrangler secret put LIVE_ADMIN_KEY --config wrangler.jsonc
+// The developer substitutes ids where marked and narrows LIVE_ALLOWED_ORIGIN to the
+// dashboard origin once known.
+{
+  "name": "despia-live",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-08-01",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    // the dashboard is a cross-origin browser client by design; "*" is the permissive
+    // default — substitute the viewer origin to narrow it
+    "LIVE_ALLOWED_ORIGIN": "*",
+    // the sliding device deadline refreshed by each batch, and the hard session age cap
+    "LIVE_SESSION_TTL_MS": "900000",
+    "LIVE_SESSION_MAX_AGE_MS": "14400000",
+    // the SSE feed self-closes after this long so viewers re-attach with a cursor
+    "LIVE_FEED_MAX_MS": "55000"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SESSIONS",
+        "class_name": "LiveSession"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["LiveSession"]
+    }
+  ]
+  // Opt-in session archive (OFF by default — the relay retains only the replay ring):
+  // create an R2 bucket in your account, put a lifecycle TTL on it for retention, then
+  // uncomment. Ended sessions fold into one JSON object each under sessions/<sid>.json.
+  // "r2_buckets": [
+  //   {
+  //     "binding": "ARCHIVE",
+  //     "bucket_name": "REPLACE_WITH_YOUR_ARCHIVE_BUCKET"
+  //   }
+  // ]
+}

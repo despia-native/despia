@@ -1,0 +1,13 @@
+{
+  "name": "Trails",
+  "entry": "App",
+  "outDir": "dist",
+  "routes": [
+    { "path": "/", "component": "trails.App", "meta": { "title": "Trails" } },
+    { "path": "/detail", "component": "trails.Detail", "meta": { "title": "Trail" } },
+    { "path": "/settings", "component": "trails.Settings", "meta": { "title": "Settings" } },
+    { "path": "/onboarding", "component": "trails.Onboarding", "meta": { "title": "Welcome" } },
+    { "path": "/paywall", "component": "trails.Paywall", "meta": { "title": "Trails Pro" } }
+  ],
+  "router": { "transition": "dsx" }
+}

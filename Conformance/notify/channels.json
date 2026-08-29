@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "_note": "THE ANDROID CHANNEL FOLD (parity/F02-notifications.md §3a `channels.*`). Channels are mandatory from Android 8 and they are the number one cause of \"push does not arrive\": post to a channel id that was never created and the OS drops the notification on the floor, with no exception, no log line and no callback. Everything in this file is therefore a REFUSAL or an ACCOUNTING, never a convenience. iOS has no channels; every row here folds to the interruption level that is its closest honest twin, and `channels.set` itself answers unsupported_platform there rather than pretending to have created something.",
+
+  "_note_importance": "Six words, exact case. `android` is the real NotificationManager constant; `ios` is the UNNotificationInterruptionLevel the same intent maps to. `critical` is deliberately absent from the iOS column: it needs an Apple entitlement, and a channel word must never be the thing that silently asks for one.",
+  "importance": [
+    { "word": "none",    "android": 0, "ios": "passive",       "headsUp": false, "sound": false },
+    { "word": "min",     "android": 1, "ios": "passive",       "headsUp": false, "sound": false },
+    { "word": "low",     "android": 2, "ios": "passive",       "headsUp": false, "sound": false },
+    { "word": "default", "android": 3, "ios": "active",        "headsUp": false, "sound": true },
+    { "word": "high",    "android": 4, "ios": "timeSensitive", "headsUp": true,  "sound": true },
+    { "word": "max",     "android": 5, "ios": "timeSensitive", "headsUp": true,  "sound": true }
+  ],
+  "defaultImportance": "default",
+
+  "_note_fold": "THE RULE EVERY LIBRARY GETS WRONG: once a channel exists, Android lets the app LOWER its importance and silently ignores every attempt to raise it, and it remembers a user's own choice forever - deleting and recreating the id does not reset it. So `channels.set` on an existing id is not an update, it is a NEGOTIATION, and the fold below reports what the channel will actually be rather than what was asked for. `lockedByUser` is what a settings screen needs in order to say \"you turned this down\" instead of showing a control that does nothing.",
+  "fold": [
+    { "name": "a brand new channel takes exactly what was asked for",
+      "existing": null, "requested": "high",
+      "expect": { "importance": "high", "created": true, "changed": true, "lockedByUser": false } },
+
+    { "name": "lowering an existing channel is honoured",
+      "existing": { "importance": "high", "userSet": false }, "requested": "low",
+      "expect": { "importance": "low", "created": false, "changed": true, "lockedByUser": false } },
+
+    { "name": "RAISING an existing channel is IGNORED by the OS, and the fold says so instead of lying",
+      "existing": { "importance": "low", "userSet": false }, "requested": "max",
+      "expect": { "importance": "low", "created": false, "changed": false, "lockedByUser": false } },
+
+    { "name": "a user-set importance wins over anything the app asks for, in both directions",
+      "existing": { "importance": "low", "userSet": true }, "requested": "high",
+      "expect": { "importance": "low", "created": false, "changed": false, "lockedByUser": true } },
+
+    { "name": "even a LOWERING request cannot move a channel the user has set",
+      "existing": { "importance": "high", "userSet": true }, "requested": "min",
+      "expect": { "importance": "high", "created": false, "changed": false, "lockedByUser": true } },
+
+    { "name": "re-declaring the same importance is a no-op and reports no change",
+      "existing": { "importance": "default", "userSet": false }, "requested": "default",
+      "expect": { "importance": "default", "created": false, "changed": false, "lockedByUser": false } },
+
+    { "name": "a channel the user switched off entirely reads as blocked, not as importance none",
+      "existing": { "importance": "high", "userSet": true, "blocked": true }, "requested": "high",
+      "expect": { "importance": "high", "created": false, "changed": false, "lockedByUser": true, "blocked": true } },
+
+    { "name": "an absent importance takes the default rather than the loudest available",
+      "existing": null, "requested": null,
+      "expect": { "importance": "default", "created": true, "changed": true, "lockedByUser": false } },
+
+    { "name": "a word that is not an importance is refused, never rounded to the nearest one",
+      "existing": null, "requested": "urgent",
+      "expect": { "error": "invalid_argument" } },
+
+    { "name": "the vocabulary is exact case",
+      "existing": null, "requested": "High",
+      "expect": { "error": "invalid_argument" } }
+  ],
+
+  "_note_required": "THE channel_required GATE. On Android 8+ a post with no channel is dropped by the OS. The module refuses first, and the message NAMES THE ID, because \"channel not found\" without the id is the same debugging session either way. `default` here is the channel the module creates for itself at first use so that an app which never thinks about channels still works; naming a DIFFERENT id that was never created is the case that must fail loudly.",
+  "required": [
+    { "name": "posting to a declared channel is fine",
+      "platform": "android", "sdk": 34, "channel": "alerts", "known": ["alerts", "default"],
+      "expect": { "ok": true, "channel": "alerts" } },
+    { "name": "posting with no channel falls back to the module's own default channel",
+      "platform": "android", "sdk": 34, "channel": null, "known": ["default"],
+      "expect": { "ok": true, "channel": "default" } },
+    { "name": "POSTING TO AN UNDECLARED CHANNEL IS A TYPED REFUSAL NAMING THE ID",
+      "platform": "android", "sdk": 34, "channel": "episodes", "known": ["alerts", "default"],
+      "expect": { "ok": false, "error": "channel_required", "channel": "episodes" } },
+    { "name": "below Android 8 there are no channels and a channel id is simply ignored",
+      "platform": "android", "sdk": 25, "channel": "episodes", "known": [],
+      "expect": { "ok": true, "channel": null } },
+    { "name": "iOS ignores the channel id rather than refusing, because a cross-platform call site carries one",
+      "platform": "ios", "channel": "episodes", "known": [],
+      "expect": { "ok": true, "channel": null } },
+    { "name": "web has no channels either",
+      "platform": "web", "channel": "episodes", "known": [],
+      "expect": { "ok": true, "channel": null } }
+  ],
+
+  "_note_unsupported": "channels.set / channels.list / channels.remove on a platform without channels resolve the TYPED ABSENCE, never a fake success and never a silent no-op. An author who calls channels.set on iOS and gets { id } back has been told a channel exists, and will spend an afternoon on why its importance does nothing.",
+  "unsupported": {
+    "ios": "unsupported_platform",
+    "web": "unsupported_platform",
+    "androidLegacySdk": 25
+  }
+}

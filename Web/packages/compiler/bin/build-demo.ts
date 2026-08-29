@@ -43,12 +43,16 @@ import { buildRegistry } from "../src/registry.ts";
 import { scanDsxSpecifiers } from "../src/specifiers.ts";
 import { LAYER_STATEMENT } from "../src/cssmap.ts";
 import { readExpose, mergeExposed, lintExposed, registryUsesAnyTag, sliceRegistry } from "../src/expose.ts";
+import { facetBindingIdent, facetBootImport, facetBootRegister } from "../src/facet-binding.ts";
 import type { Registry } from "../src/resolve.ts";
 import type { XmlNode } from "../src/xml.ts";
 import {
   assertEmbedCompatible, embedEntrySource, registryUsesAttribute, registryUsesDeclaredInput,
   registryUsesBoundCollections,
   registryUsesInterpolatedAttribute, registryUsesJsGlobals, registryUsesFetch,
+  registryUsesRegex,
+  registryUsesHighlight, registryUsesCanvasZoom, registryUsesBlockIteration, registryUsesStyleFormulas, registryUsesStyleOverrides, registryUsesButtonVariants, registryMentions,
+  embedDefines, registryUsesControlMetrics,
 } from "./embed-entry.ts";
 
 function repoRoot(): string {
@@ -154,6 +158,12 @@ function sliceUsesIcons(slice: Registry): boolean {
  * accidentally stripped. Full applications leave the feature enabled. */
 function sliceUsesApiBlocks(slice: Registry): boolean {
   return Object.values(slice.components).some((component) => component.head.apis.length > 0);
+}
+
+/** WebMCP (proposals/webmcp.md §3): the spec adapter is reachable only from a `<tool>` head
+ *  row, so a slice that declares none cannot reach it and should not carry the binding. */
+function sliceUsesAgentTools(slice: Registry): boolean {
+  return Object.values(slice.components).some((component) => component.head.tools.length > 0);
 }
 
 function embedCssFor(slice: Registry): string {
@@ -263,33 +273,104 @@ cpSync(join(web, "dist"), join(site, "dist"), {
   filter: (source) => !conflictCopyPath.test(source),
 });
 writeFileSync(join(site, "registry.json"), JSON.stringify(registry));
+// The font module reads the app's font registry from the site root — the same contract file
+// prepare_modules emits into a native bundle. The demo bundles no fonts, and an app with no
+// bundled fonts ships an explicit empty registry rather than letting every boot 404 the fetch
+// (the browser logs that as a console error, which the walk's error gate rightly refuses).
+writeFileSync(join(site, "DSXFontRegistry.json"), JSON.stringify({ families: {} }));
 
 // ── 3. module web facets (file presence = the gate; missing facet = dsx.has false) ──
-// Paths are repo-root-relative: facets live wherever their PACKAGE lives (the module
-// tree for app modules, OpenSource/CanvasEditor for the editor). Each facet is esbuild-
-// BUNDLED (not copied) so a facet may import within its own package — the editor facet
-// pulls in the StackCanvas SDK; an import-free facet emits the same file it always did.
-const FACETS: Array<[name: string, path: string]> = [
-  ["route", "ClosedSource/DSX/Modules/Mandatory/Routing/web/index.js"],
-  ["toast", "ClosedSource/DSX/Modules/Core/Toast/web/index.js"],
-  ["haptic", "ClosedSource/DSX/Modules/Core/Basics/Haptics/web/index.js"],
-  ["spinner", "ClosedSource/DSX/Modules/Core/Basics/Spinner/web/index.js"],
-  ["darkmode", "ClosedSource/DSX/Modules/Core/Basics/DarkMode/web/index.js"],
-  ["appearance", "ClosedSource/DSX/Modules/Core/Basics/Appearance/web/index.js"],
-  ["clipboard", "ClosedSource/DSX/Modules/Core/Clipboard/web/index.js"],
-  ["share", "ClosedSource/DSX/Modules/Core/SocialShare/web/index.js"],
-  ["browser", "ClosedSource/DSX/Modules/Mandatory/Browser/web/index.js"],
-  ["metadata", "ClosedSource/DSX/Modules/Core/Metadata/web/index.js"],
-  ["screenradius", "ClosedSource/DSX/Modules/Core/ScreenRadius/web/index.js"],
-  ["biometric", "ClosedSource/DSX/Modules/Core/Biometric/web/index.js"],
-  ["location", "ClosedSource/DSX/Modules/Core/Basics/Location/web/index.js"],
-  ["localpush", "ClosedSource/DSX/Modules/Core/LocalPush/web/index.js"],
-  ["gyroscope", "ClosedSource/DSX/Modules/Core/Basics/Gyroscope/web/index.js"],
-  ["dom", "ClosedSource/DSX/Modules/Mandatory/Dom/web/index.js"],
-  ["scene", "ClosedSource/DSX/Modules/Core/Scene/web/index.js"],
-  ["demo", "ClosedSource/DSX/Modules/Custom/Demo/web/index.js"],
-  ["editor", "OpenSource/CanvasEditor/web/index.js"],
+// DISCOVERED, not listed. The comment above has always said file presence is the gate, and
+// until now a hand-maintained array was the real gate: 31 of the 57 facets on disk reached
+// the demo and 26 never did — including every web twin shipped by the inline-surface family
+// (stripe, clerk, stream, revenuecat, admob, scanner, pay), so their one-to-one web
+// fallbacks were never exercised by build:demo or the browser oracle that walks it.
+//
+// A facet's registration name is the `scheme:` it declares in its own source, which is also
+// what the kernel registers it under — the manifest is not authoritative here because a
+// module may carry no `scheme` key at all (Mandatory/Routing registers as `route`). Missing
+// or unreadable is a LOUD failure: a facet that cannot name itself would register as
+// undefined and shadow whatever sorted next to it.
+//
+// Each facet is esbuild-BUNDLED (not copied) so a facet may import within its own package —
+// the editor facet pulls in the StackCanvas SDK; an import-free facet emits the same file it
+// always did.
+const FACET_ROOTS: string[] = [
+  "ClosedSource/DSX/Modules",   // every app module's own web/ facet
+  "OpenSource/CanvasEditor",    // the editor ships one from its own package
 ];
+
+/** Every `<pkg>/web/index.js` under a root, repo-root-relative, in a stable order. */
+function discoverFacets(rootRel: string): string[] {
+  const found: string[] = [];
+  const absRoot = join(root, rootRel);
+  if (!existsSync(absRoot)) return found;
+  const walk = (relDir: string): void => {
+    const abs = join(root, relDir);
+    for (const entry of readdirSync(abs, { withFileTypes: true }).sort((a, b) => a.name < b.name ? -1 : 1)) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      const childRel = `${relDir}/${entry.name}`;
+      if (entry.name === "web") {
+        const facet = `${childRel}/index.js`;
+        if (existsSync(join(root, facet))) found.push(facet);
+        continue;                       // a web/ folder never contains another package
+      }
+      walk(childRel);
+    }
+  };
+  walk(rootRel);   // a root's OWN web/ folder is reached by the walk like any other
+  return found;
+}
+
+/** The scheme a facet registers itself under, read from its own source. */
+function facetScheme(absPath: string): string {
+  const source = readFileSync(absPath, "utf8");
+  // A facet may spell `scheme: "x"` on its own line (the dominant idiom) or inline
+  // inside `export default { scheme: "x", … }`. Line-anchor-only matching refused
+  // three real facets (base, takescreenshot, reset) and made `build:demo` abort
+  // before the oracle could run.
+  const match = source.match(/\bscheme:\s*"([a-z0-9_.-]+)"/i);
+  if (!match) throw new Error(`web facet declares no scheme: ${absPath}`);
+  return match[1];
+}
+
+const FACETS: Array<[name: string, path: string]> = [];
+const facetOwner = new Map<string, string>();
+for (const rootRel of FACET_ROOTS) {
+  for (const rel of discoverFacets(rootRel)) {
+    const name = facetScheme(join(root, rel));
+    const previous = facetOwner.get(name);
+    if (previous !== undefined) {
+      throw new Error(`two web facets claim scheme "${name}": ${previous} and ${rel}`);
+    }
+    facetOwner.set(name, rel);
+    FACETS.push([name, rel]);
+  }
+}
+FACETS.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+
+/** What a facet chunk never inlines.
+ *  · `@despia/kernel` — the page's import map resolves it, so every facet shares the ONE kernel
+ *    instance. Bundling it per-facet would both fail resolution (a ClosedSource facet path has no
+ *    node_modules above it) and split kernel state per chunk.
+ *  · `./vendor/*` — a module's binary/vendored player is FETCHED at build time from the coordinate
+ *    pinned in its own dsx.lock.json (module-frameworks.md), so it is legitimately absent from a
+ *    plain checkout. Keeping it external lets the facet's chunk build anyway and lets its own
+ *    runtime guard produce its declared "this build carries no player" message, which is what the
+ *    facet already does. Inlining it would make a missing optional artifact a build failure. */
+const FACET_EXTERNALS = [
+  "@despia/kernel", "@despia/kernel/keyboard",
+  //  The MOUNT-HOST specifiers, for the same reason and by the same mechanism: a facet that
+  //  instantiates components (Core/Apps mounts a Despia app into a shadow root) reaches the
+  //  renderer and the compiler's resolver, and both are entries in the page's import map
+  //  below. Bundling them into the facet's chunk would fail resolution from a ClosedSource
+  //  path AND give that chunk its own renderer instance, which is the split-state failure
+  //  the kernel entry already exists to prevent.
+  "@despia/dom", "@despia/dom/theme", "@despia/compiler/cssmap", "@despia/compiler/resolve",
+  "./vendor/*",
+];
+
 mkdirSync(join(site, "modules"), { recursive: true });
 const present: Array<{ name: string; aliases: string[] }> = [];
 /** scheme → the facet's SOURCE path (embeds bundle the exposing package's chunk) */
@@ -297,7 +378,10 @@ const facetSrcByScheme = new Map<string, string>();
 for (const [name, rel] of FACETS) {
   const src = join(root, rel);
   if (!existsSync(src)) continue; // excluded module: not bundled at all
-  buildSync({ entryPoints: [src], bundle: true, minify: true, format: "esm", target: "es2022", outfile: join(site, "modules", `${name}.js`), absWorkingDir: web, logLevel: "silent" });
+  // @despia/kernel stays EXTERNAL: the page's import map resolves it, so every facet shares
+  // the ONE kernel instance. Bundling it per-facet would both fail resolution (a ClosedSource
+  // facet path has no node_modules above it) and split kernel state per chunk.
+  buildSync({ entryPoints: [src], bundle: true, minify: true, format: "esm", target: "es2022", outfile: join(site, "modules", `${name}.js`), absWorkingDir: web, logLevel: "silent", external: FACET_EXTERNALS });
   facetSrcByScheme.set(name, src);
   // dsx.json is the single source of truth for aliases (legacy schemes routed to
   // the owning module) — read at build, passed at registration, exactly like the
@@ -309,6 +393,17 @@ for (const [name, rel] of FACETS) {
 }
 console.log(`• module facets: ${present.map((p) => (p.aliases.length ? `${p.name}(+${p.aliases.length} aliases)` : p.name)).join(", ")}`);
 
+// Demo media assets — the /system gallery's bundled specimen clip (original synthetic
+// media generated in-repo; no external assets, no licence question). The Demo module's
+// web/media folder is copied verbatim when present; folder presence is the gate, like
+// the facets above. The target is media-assets/ — NOT media/, which is the /media
+// route's own output directory.
+const demoMedia = join(modulesRoot, "Custom/Demo/web/media");
+if (existsSync(demoMedia)) {
+  cpSync(demoMedia, join(site, "media-assets"), { recursive: true, filter: (source) => !conflictCopyPath.test(source) });
+  console.log("• demo media: web/media → site/media-assets");
+}
+
 // ── 4. the bootloader (a bootloader owns ZERO behavior — constitution) ──────────────
 const importMap = {
   imports: {
@@ -318,11 +413,13 @@ const importMap = {
     // was passing over a false positive before scanDsxSpecifiers learned to ignore emitted
     // import statements, so this gap existed unnoticed on main.
     "@despia/kernel/mcp": "./dist/kernel/src/mcp.js",
+    "@despia/kernel/keyboard": "./dist/kernel/src/keyboard.js",
     "@despia/compiler/cssmap": "./dist/compiler/src/cssmap.js",
     "@despia/compiler/options": "./dist/compiler/src/options.js",
     "@despia/compiler/resolve": "./dist/compiler/src/resolve.js",
     "@despia/compiler/component": "./dist/compiler/src/component.js",
     "@despia/dom": "./dist/dom/src/index.js",
+    "@despia/dom/theme": "./dist/dom/src/theme.js",
     "@despia/dom/boot": "./dist/dom/src/boot.js",
     "@despia/dom/offline": "./dist/dom/src/offline.js",
   },
@@ -333,7 +430,12 @@ const importMap = {
 // missing entry otherwise survives all type/unit gates and becomes a clean-session
 // blank page. Validate the complete copied browser graph before writing any shell.
 {
-  const imported = scanDsxSpecifiers(join(site, "dist"));
+  // The facet chunks keep @despia/kernel as a bare (external) specifier, so they are part of
+  // the browser graph the import map must cover — scan them with the same check.
+  const imported = new Set([
+    ...scanDsxSpecifiers(join(site, "dist")),
+    ...scanDsxSpecifiers(join(site, "modules")),
+  ]);
   const missing = [...imported].filter((specifier) => !(specifier in importMap.imports)).sort();
   if (missing.length > 0) {
     throw new Error(`demo import map is missing browser dependencies: ${missing.join(", ")}`);
@@ -362,7 +464,7 @@ writeFileSync(join(site, "main.js"), `// Demo bootloader — mounts the kernel, 
 import { bootDsx } from "@despia/dom/boot";
 import { registerOfflineFloor } from "@despia/dom/offline";
 import { ModuleRegistry } from "@despia/kernel";
-${present.map((p) => `import ${p.name}, * as ${p.name}NS from "./modules/${p.name}.js";`).join("\n")}
+${present.map((p) => facetBootImport(p.name)).join("\n")}
 
 // Anchored to THIS script's location, not the document: SSR-exported nested pages
 // (gallery/index.html, user/__param__/index.html) load the same bootloader, and a
@@ -373,7 +475,7 @@ const appBase = new URL("./", import.meta.url).pathname;
 
 // register the module chunks FIRST — availability flags read the live registry.
 // dsx.json aliases ride each registration (legacy schemes → the owning module).
-${present.map((p) => `ModuleRegistry.register(${p.name}${p.aliases.length ? `, { aliases: ${JSON.stringify(p.aliases)} }` : ""});`).join("\n")}
+${present.map((p) => facetBootRegister(p.name, p.aliases)).join("\n")}
 
 const router = bootDsx({
   registry,
@@ -381,7 +483,7 @@ const router = bootDsx({
   entry: "demo.Launcher",
   base: appBase,
   app: { name: "DSX demo", version: "1.0.0", build: "web", env: "debug" },
-  ${present.some((p) => p.name === "route") ? "configureRouter: routeNS.bindRouter," : ""}
+  ${present.some((p) => p.name === "route") ? `configureRouter: ${facetBindingIdent("route")}NS.bindRouter,` : ""}
   attrs: {
     // the SAME availability keys Demo.swift / Demo.kt seed (dsx.has per scheme) — the
     // launcher rows badge off these; a scheme with no bundled web facet reads false.
@@ -399,7 +501,6 @@ const router = bootDsx({
     avail_data: ModuleRegistry.isAvailable("writevalue"),
     avail_scene3d: ModuleRegistry.isAvailable("scene3d"),
     avail_ar: ModuleRegistry.isAvailable("ar"),
-    avail_godot: ModuleRegistry.isAvailable("godot"),
   },
 });
 
@@ -447,12 +548,21 @@ if (exposed.length > 0) {
     const usesVideoSurface = sliceUsesVideoSurface(slice);
     assertEmbedCompatible(slice, e.qualified);
     const usesBoundCollections = registryUsesBoundCollections(slice);
-    const usesSurface = registryUsesAttribute(slice, "surface");
+    // surface=/theme= gate their mount branches AND their theme.ts css blocks
+    // (SURFACE_ELEMENTS_CSS / THEME_PIN_TABLES_CSS), so the detection also keeps the
+    // rules for an author who hand-writes the class or the pin attribute/selector.
+    const usesSurface = registryUsesAttribute(slice, "surface")
+      || registryMentions(slice, "dsx-surface-");
     const usesPressedState = registryUsesAttribute(slice, "a11yPressed")
       || registryUsesAttribute(slice, "aria-pressed");
     const usesRole = registryUsesAttribute(slice, "role");
     const usesClassFormulas = registryUsesInterpolatedAttribute(slice, "class");
-    const usesTheme = registryUsesAttribute(slice, "theme");
+    const usesTheme = registryUsesAttribute(slice, "theme")
+      || registryUsesAttribute(slice, "data-dsx-theme")
+      || registryMentions(slice, "data-dsx-theme");
+    const usesDensity = registryUsesAttribute(slice, "density")
+      || registryUsesAttribute(slice, "data-dsx-density")
+      || registryMentions(slice, "data-dsx-density");
     const usesDisabled = registryUsesAttribute(slice, "disabled")
       || registryUsesAttribute(slice, "disabled-if");
     // The desktop input grammar (hover · shortcut · focusOrder) is a sliceable feature —
@@ -473,6 +583,7 @@ if (exposed.length > 0) {
       || registryUsesAttribute(slice, "on:adjust");
     const usesIcons = sliceUsesIcons(slice);
     const usesApiBlocks = sliceUsesApiBlocks(slice);
+    const usesAgentTools = sliceUsesAgentTools(slice);
     const usesScaffold = registryUsesAnyTag(slice, SCAFFOLD_TAGS);
     const usesStaticElements = registryUsesAnyTag(slice, STATIC_ELEMENT_TAGS);
     // the inline markdown parser (markdown.ts) is reachable ONLY from a `<text markdown=>`;
@@ -483,6 +594,47 @@ if (exposed.length > 0) {
     // it cannot reach it. The single largest optional block in a minimal embed.
     const usesJsGlobals = registryUsesJsGlobals(slice);
     const usesFetch = registryUsesFetch(slice);
+    // the JSE regex engine (regex.ts FULL/ABSENT): reachable only through a `/…/`
+    // literal, the RegExp/regex names, or a foreign payload — same superset rule.
+    const usesRegex = registryUsesRegex(slice);
+    const usesHighlight = registryUsesHighlight(slice);
+    // R21: the transform announcement, reachable only by a canvas under a scaled world.
+    const usesCanvasZoom = registryUsesCanvasZoom(slice);
+    // block iteration (loops + block-scope mutation, jse.ts/codegen.ts BLOCK ITERATION):
+    // reachable only through loop keywords, brace-bodied lambdas/functions, or ++/--.
+    const usesBlockIteration = registryUsesBlockIteration(slice);
+    // the runtime style-formula bridge (cssmap.ts vocabulary + legacy-attr runtime
+    // half). Universal globals keep it: their factories tint through semantic
+    // fallbacks even without an authored color=.
+    const usesStyleFormulas = registryUsesStyleFormulas(slice) || usesUniversalGlobals;
+    // the style-override plane (kernel style-overrides.ts + the mount/JSE doors):
+    // reachable only through a declared <override>, an override: spelling, or a
+    // dsx.override read — a knob-free slice folds the resolver and both doors away.
+    const usesStyleOverrides = registryUsesStyleOverrides(slice);
+    // the non-default button skin (bordered / destructive / cancel words, theme.ts)
+    const usesButtonVariants = registryUsesButtonVariants(slice);
+    // the sampled linear() spring upgrade (theme.ts SPRING_LINEAR_CSS) is reachable
+    // only through a sheet that names `--dsx-ease-spring*`. A widget that imports
+    // none of those sheets and never authors the token folds the float table.
+    const usesSpring = usesControlElements || usesFormElements || usesRichElements
+      || usesNativeControls || usesStructuralControls || usesOverlayControls
+      || usesDataControls || usesUniversalGlobals
+      || registryMentions(slice, "ease-spring");
+    // the density plane's control metrics (theme.ts CONTROL_METRICS_CSS): 28 token rows
+    // that only the control sheets read, so a control-free widget folds them away.
+    const usesControlMetrics = registryUsesControlMetrics(slice, {
+      universalGlobals: usesUniversalGlobals,
+      controlElements: usesControlElements,
+      formElements: usesFormElements,
+      richElements: usesRichElements,
+      nativeControls: usesNativeControls,
+      structuralControls: usesStructuralControls,
+      overlayControls: usesOverlayControls,
+      dataControls: usesDataControls,
+      audioSurface: usesAudioSurface,
+      videoSurface: usesVideoSurface,
+      boundCollections: usesBoundCollections,
+    });
     const embedCss = embedCssFor(slice);
     const outDir = join(site, "embed", e.scheme);
     mkdirSync(outDir, { recursive: true });
@@ -520,36 +672,39 @@ if (exposed.length > 0) {
       outfile,
       absWorkingDir: web,
       logLevel: "silent",
-      define: {
-        // A self-contained embed is mounted by a host page, not by a DSX app boot, so nothing
-        // ever installs a link transport into it — the route walk and its unreachable mapping
-        // are dead weight in every widget. (The link seam itself was already tree-shaken; what
-        // shipped was the dispatch rungs in bus.ts, which no seam can remove.)
-        "globalThis.__DSX_OPTIONAL_LINK__": "false",
-        // embeds replace-mount on upgrade by design (/web/13 v1) — the adopt walk
-        // and its instantiate seam are app-boot machinery, never embed payload.
-        "globalThis.__DSX_OPTIONAL_ADOPT__": "false",
-        "globalThis.__DSX_OPTIONAL_APIS__": usesApiBlocks ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_GLOBALS__": (usesUniversalGlobals || usesDataControls) ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_RICH__": usesRichElements ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_ICONS__": usesIcons ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_BOUND_COLLECTIONS__": usesBoundCollections ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_SURFACES__": usesSurface ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_PRESSED__": usesPressedState ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_ROLE__": usesRole ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_CLASS_FORMULAS__": usesClassFormulas ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_THEME__": usesTheme ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_DISABLED__": usesDisabled ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_DESKTOP_INPUT__": usesDesktopInput ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_INPUT__": usesDeclaredInput ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_GESTURES__": usesGestures ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_SCAFFOLD__": usesScaffold ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_STATIC_ELEMENTS__": usesStaticElements ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_CONTROLS__": usesControlElements ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_MARKDOWN__": usesMarkdown ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_JS_GLOBALS__": usesJsGlobals ? "true" : "false",
-        "globalThis.__DSX_OPTIONAL_FETCH__": usesFetch ? "true" : "false",
-      },
+      define: embedDefines({
+        apis: usesApiBlocks,
+        webmcp: usesAgentTools,
+        globals: usesUniversalGlobals || usesDataControls,
+        rich: usesRichElements,
+        icons: usesIcons,
+        boundCollections: usesBoundCollections,
+        surfaces: usesSurface,
+        pressed: usesPressedState,
+        role: usesRole,
+        classFormulas: usesClassFormulas,
+        theme: usesTheme,
+        density: usesDensity,
+        controlMetrics: usesControlMetrics,
+        disabled: usesDisabled,
+        desktopInput: usesDesktopInput,
+        declaredInput: usesDeclaredInput,
+        gestures: usesGestures,
+        scaffold: usesScaffold,
+        staticElements: usesStaticElements,
+        controls: usesControlElements,
+        markdown: usesMarkdown,
+        jsGlobals: usesJsGlobals,
+        fetch: usesFetch,
+        regex: usesRegex,
+        highlight: usesHighlight,
+        canvasZoom: usesCanvasZoom,
+        blockIteration: usesBlockIteration,
+        styleFormulas: usesStyleFormulas,
+        styleOverrides: usesStyleOverrides,
+        buttonVariants: usesButtonVariants,
+        spring: usesSpring,
+      }),
     });
     rmSync(entryPath);
     const bundle = readFileSync(outfile);

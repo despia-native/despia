@@ -100,6 +100,7 @@ function harness(values: Record<string, unknown>, defaultChildren: readonly XmlN
     events,
     api: {
       bindText: (expression, apply) => { if (expression !== undefined) apply(expression); },
+      bindDisplay: (expression, apply) => { if (expression !== undefined) apply(expression); },
       bindValue: (expression, apply) => { if (expression !== undefined) apply(values[expression]); },
       writeBack: (path, value) => { writes.push([path, value]); values[path ?? ""] = value; },
       handler: (name, payload) => { events.push([name, payload]); },
@@ -169,7 +170,15 @@ test("flow and toolbar preserve native geometry and semantic keyboard grouping",
   assert.equal(bar.getAttribute("role"), "toolbar");
   assert.equal(bar.getAttribute("aria-orientation"), "horizontal");
   assert.equal(bar.getAttribute("data-dsx-position"), "top");
+  assert.equal(bar.getAttribute("aria-label"), "Toolbar");
   assert.equal(bar.style.values.get("--dsx-toolbar-spacing"), undefined, "weak CSS owns the default spacing");
+
+  const named = STRUCTURAL_CONTROL_ELEMENTS["toolbar"]!(
+    node("toolbar", { position: "bottom", a11yLabel: "Composer actions" }, children),
+    ctx(), harness({}, children).api,
+  ) as unknown as FakeElement;
+  assert.equal(named.getAttribute("aria-label"), "Composer actions",
+    "authored a11yLabel is the accessible name, not the generic Toolbar fallback");
 });
 
 test("unbound list and grid emit real collection roles, rows and native defaults", () => {
@@ -196,6 +205,27 @@ test("unbound list and grid emit real collection roles, rows and native defaults
   assert.equal(grid.style.values.get("--dsx-grid-columns"), undefined, "weak CSS owns the default columns");
   assert.equal(grid.childAt(0).getAttribute("role"), "row");
   assert.equal(grid.childAt(0).childAt(1).getAttribute("role"), "gridcell");
+});
+
+test("unset list align stamps NOTHING (base stretch applies); authored words keep meaning", () => {
+  // wave-7 F3: stamping "leading" for unset made every list hug its content — the base
+  // .dsx-list rule is align-items: stretch and must win when the author says nothing.
+  const children = [child("text")];
+  const bare = STRUCTURAL_CONTROL_ELEMENTS["list"]!(
+    node("list", {}, children), ctx(), harness({}, children).api,
+  ) as unknown as FakeElement;
+  assert.equal(bare.getAttribute("data-dsx-align"), null, "no stamp for unset align");
+
+  for (const word of ["leading", "center", "trailing"]) {
+    const aligned = STRUCTURAL_CONTROL_ELEMENTS["list"]!(
+      node("list", { align: word }, children), ctx(), harness({}, children).api,
+    ) as unknown as FakeElement;
+    assert.equal(aligned.getAttribute("data-dsx-align"), word, `authored ${word} keeps today's meaning`);
+  }
+  const garbage = STRUCTURAL_CONTROL_ELEMENTS["list"]!(
+    node("list", { align: "sideways" }, children), ctx(), harness({}, children).api,
+  ) as unknown as FakeElement;
+  assert.equal(garbage.getAttribute("data-dsx-align"), "leading", "unrecognized authored word falls to leading");
 });
 
 test("tabs expose the ARIA tab pattern, roving focus and two-way selection", () => {
@@ -267,6 +297,12 @@ test("structural presentation stays responsive, token-driven and author-overrida
   assert.ok(STRUCTURAL_CONTROLS_CSS.includes("prefers-reduced-motion"));
   assert.ok(STRUCTURAL_CONTROLS_CSS.includes("forced-colors"));
   assert.ok(STRUCTURAL_CONTROLS_CSS.includes("var(--dsx-toolbar-spacing, 12px)"));
+  assert.ok(STRUCTURAL_CONTROLS_CSS.includes("max(16px, env(safe-area-inset-right, 0px))"),
+    "toolbar pads the trailing physical edge, not only the leading inset");
+  assert.ok(STRUCTURAL_CONTROLS_CSS.includes("max(16px, env(safe-area-inset-left, 0px))"),
+    "toolbar still honors the leading notch");
+  assert.ok(/\.dsx-toolbar\s*\{[^}]*box-shadow:\s*var\(--dsx-shadow-xs\)/s.test(STRUCTURAL_CONTROLS_CSS),
+    "toolbar sits on the xs contact line");
   assert.ok(STRUCTURAL_CONTROLS_CSS.includes("var(--dsx-grid-columns, 3)"));
   assert.ok(STRUCTURAL_CONTROLS_CSS.includes(".dsx-grid-aria-row"));
   assert.ok(STRUCTURAL_CONTROLS_CSS.includes(".dsx-paged:dir(rtl) .dsx-paged-page"));

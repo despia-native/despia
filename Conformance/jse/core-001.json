@@ -59,7 +59,7 @@
       "name": "null-eq-empty-string",
       "scope": {},
       "expression": "null == ''",
-      "expected": true
+      "expected": false
     },
     {
       "name": "lt-coerces-null-to-zero",

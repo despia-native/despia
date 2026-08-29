@@ -105,6 +105,29 @@ enum StackDesktopInput {
         return true
     }
 
+    /// The Return-key spellings the toolkits use (Compose `Enter`, DOM `Enter`/`NumpadEnter`,
+    /// AppKit `Return`).
+    static let returnKeys: Set<String> = ["enter", "return", "numpadenter"]
+
+    /// What Return should do in a MULTILINE field. See the corpus for the full reasoning
+    /// (OpenSource/Conformance/input/multiline-submit.json); the short version is that Return
+    /// already means "newline" in a multiline field and must keep meaning it on a soft
+    /// keyboard, so this grammar decides HARDWARE key events only.
+    ///
+    /// Returns `submit`, `newline`, or `ignore` - and the last two are different answers.
+    /// `ignore` means this grammar has no opinion and the caller must NOT consume the event;
+    /// `newline` means Return was handled and resolved to a break.
+    static func multilineReturn(key: String, shift: Bool, meta: Bool, ctrl: Bool, alt: Bool,
+                                submitOnEnter: Bool, hasSubmit: Bool) -> String {
+        guard returnKeys.contains(key.lowercased()) else { return "ignore" }
+        // The explicit line-break chords win over everything, including an authored
+        // submitOnEnter: turning Enter-to-send on must not take away the way out of it.
+        if shift || alt { return "newline" }
+        if meta || ctrl { return hasSubmit ? "submit" : "ignore" }
+        if submitOnEnter && hasSubmit { return "submit" }
+        return "newline"
+    }
+
     /// Resolve `focusOrder=` to a traversal index. A disabled control is ALWAYS out of traversal
     /// (-1); otherwise a finite integer order is the explicit index, and absent/non-finite/empty
     /// leaves the toolkit default (nil).
@@ -113,6 +136,118 @@ enum StackDesktopInput {
         guard let raw = focusOrder?.trimmingCharacters(in: .whitespaces),
               !raw.isEmpty, let index = Int(raw) else { return nil }
         return index
+    }
+}
+
+/// Renderer-neutral `tooltip=` / `tooltipSide=` grammar — the universal element hint
+/// (design-system.md Wave 3 (c)1). Gated by OpenSource/Conformance/input/tooltip.json and
+/// executed by all three runtimes. A resolved tooltip always doubles as the element's
+/// accessibility description (aria-describedby on web; the platform hint slots on native —
+/// UIToolTipInteraction / `.help` on Apple targets, tooltipText on Android), so its content
+/// is never gated behind hover: the visual reveal is the only part that needs a
+/// hover-capable fine pointer, which is why a touch surface never fires it (Article 7).
+enum StackTooltip {
+    static let sides: Set<String> = ["top", "bottom", "leading", "trailing"]
+
+    /// Resolve tooltip= / tooltipSide=: whitespace-only text drops the tooltip; the side
+    /// vocabulary is the floating-preference set, exact lowercase after trim, with `top`
+    /// the default AND the fallback for anything unrecognized.
+    static func resolve(_ tooltip: String?, side: String?) -> (text: String, side: String)? {
+        guard let text = tooltip?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty else { return nil }
+        let trimmed = side?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return (text, sides.contains(trimmed) ? trimmed : "top")
+    }
+}
+
+/// Renderer-neutral `density=` grammar — the universal subtree density knob
+/// (component-library.md W9). Gated by OpenSource/Conformance/input/density.json and
+/// executed by all three runtimes. The vocabulary is exactly `comfortable | compact`,
+/// exact lowercase after trim; anything else is NO pin, so an element stays transparent
+/// to its ancestors' density. `effective` walks the authored chain nearest-first — an
+/// invalid nearer value never masks an outer pin — and with no pin the PLATFORM default
+/// applies: compact on a desktop fine-pointer surface, comfortable everywhere else (the
+/// adapter owns finePointer detection; this renderer presents through the platform's own
+/// size system — Stack.swift maps the pin onto the SwiftUI controlSize environment).
+enum StackDensity {
+    static let comfortable = "comfortable"
+    static let compact = "compact"
+
+    /// Resolve density=: exact lowercase vocabulary after trim; anything else is no pin.
+    static func resolve(_ density: String?) -> String? {
+        guard let trimmed = density?.trimmingCharacters(in: .whitespacesAndNewlines),
+              trimmed == comfortable || trimmed == compact else { return nil }
+        return trimmed
+    }
+
+    /// The subtree law (density.json `effective[]`): `chain` is the authored raw density
+    /// attributes from the root to the element (nil = not authored); the NEAREST
+    /// resolving pin wins, else the platform default (compact iff finePointer).
+    static func effective(_ chain: [String?], finePointer: Bool) -> String {
+        for raw in chain.reversed() {
+            if let pinned = resolve(raw) { return pinned }
+        }
+        return finePointer ? compact : comfortable
+    }
+}
+
+enum StackTooltipAction: String { case show, hide }
+
+/// The show/dismiss state machine for a resolved tooltip. Events are INTENT-qualified —
+/// the UI adapter owns its hover-intent delay and pointer identity, then reports each
+/// source with its own hover capability: a non-capable source (touch) is never even
+/// tracked. visible = (hovered || focused) && !dismissed; Escape dismisses and suppresses
+/// re-show until hover and focus have BOTH cleared. No authored events exist.
+struct StackTooltipLifecycle {
+    private var hovered = false
+    private var focused = false
+    private var dismissed = false
+
+    var visible: Bool { (hovered || focused) && !dismissed }
+
+    mutating func hoverStart(hoverCapable: Bool) -> [StackTooltipAction] {
+        let before = visible
+        if hoverCapable { hovered = true }
+        return settle(before)
+    }
+
+    mutating func hoverEnd() -> [StackTooltipAction] {
+        let before = visible
+        hovered = false
+        return settle(before)
+    }
+
+    mutating func focus(hoverCapable: Bool) -> [StackTooltipAction] {
+        let before = visible
+        if hoverCapable { focused = true }
+        return settle(before)
+    }
+
+    mutating func blur() -> [StackTooltipAction] {
+        let before = visible
+        focused = false
+        return settle(before)
+    }
+
+    mutating func escape() -> [StackTooltipAction] {
+        let before = visible
+        if visible { dismissed = true }
+        return settle(before)
+    }
+
+    mutating func unmount() -> [StackTooltipAction] {
+        let before = visible
+        hovered = false
+        focused = false
+        return settle(before)
+    }
+
+    /// The shared post-transition fold: dismissal clears once hover and focus are BOTH
+    /// gone, and only a visibility EDGE emits an action.
+    private mutating func settle(_ before: Bool) -> [StackTooltipAction] {
+        if !hovered && !focused { dismissed = false }
+        let after = visible
+        return before == after ? [] : [after ? .show : .hide]
     }
 }
 

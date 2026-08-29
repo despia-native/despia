@@ -147,7 +147,7 @@ enum PlatformConformance {
     }
 }
 
-// MARK: - desktop input grammar corpus (input/shortcut.json, input/focusOrder.json)
+// MARK: - desktop input grammar corpus (input/{shortcut,focusOrder,multiline-submit}.json)
 
 enum ShortcutConformance {
     struct Failure: Error, CustomStringConvertible { let description: String }
@@ -185,6 +185,48 @@ enum ShortcutConformance {
     }
 }
 
+/// Run OpenSource/Conformance/input/multiline-submit.json through the shared grammar - what
+/// Return does in a MULTILINE field, which is a hardware-keyboard question everywhere (a soft
+/// keyboard's Return stays a newline, which is why the corpus never asks about one).
+enum MultilineSubmitConformance {
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    static func verify(corpusFile: URL) throws -> Int {
+        let data = try Data(contentsOf: corpusFile)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              (root["version"] as? Int) == 1 else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): unsupported version")
+        }
+        guard let cases = root["cases"] as? [[String: Any]] else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no cases[]")
+        }
+        let keys = Set((root["returnKeys"] as? [String] ?? []))
+        guard keys == StackDesktopInput.returnKeys else {
+            throw Failure(description: "multiline-submit: the Return spellings are a shared fact, "
+                + "not a per-toolkit guess (\(StackDesktopInput.returnKeys) vs \(keys))")
+        }
+        for raw in cases {
+            let name = raw["name"] as? String ?? "?"
+            guard let event = raw["event"] as? [String: Any],
+                  let expected = raw["expect"] as? String else {
+                throw Failure(description: "multiline-submit/\(name): malformed case")
+            }
+            let got = StackDesktopInput.multilineReturn(
+                key: event["key"] as? String ?? "",
+                shift: event["shift"] as? Bool ?? false,
+                meta: event["meta"] as? Bool ?? false,
+                ctrl: event["ctrl"] as? Bool ?? false,
+                alt: event["alt"] as? Bool ?? false,
+                submitOnEnter: raw["submitOnEnter"] as? Bool ?? false,
+                hasSubmit: raw["hasSubmit"] as? Bool ?? false)
+            guard got == expected else {
+                throw Failure(description: "multiline-submit/\(name): \(got) (expected \(expected))")
+            }
+        }
+        return cases.count
+    }
+}
+
 enum FocusOrderConformance {
     struct Failure: Error, CustomStringConvertible { let description: String }
 
@@ -208,6 +250,118 @@ enum FocusOrderConformance {
             }
         }
         return cases.count
+    }
+}
+
+// MARK: - tooltip grammar corpus (input/tooltip.json)
+
+enum TooltipConformance {
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    /// Run OpenSource/Conformance/input/tooltip.json through the Swift StackTooltip fold and
+    /// StackTooltipLifecycle state machine (design-system.md Wave 3 (c)1) — the SAME file the
+    /// TS tooltip.test.ts and Kotlin TooltipConformanceTest execute, so the universal hint
+    /// attribute can't drift: touch never reveals, Escape dismisses, and a resolved tooltip
+    /// always doubles as the element's accessibility description.
+    static func verify(corpusFile: URL) throws -> Int {
+        let data = try Data(contentsOf: corpusFile)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              (root["version"] as? Int) == 1 else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): unsupported version")
+        }
+        guard let resolveCases = root["resolve"] as? [[String: Any]], !resolveCases.isEmpty,
+              let lifecycleCases = root["lifecycle"] as? [[String: Any]], !lifecycleCases.isEmpty else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no resolve[]/lifecycle[]")
+        }
+        var count = 0
+        for raw in resolveCases {
+            let name = raw["name"] as? String ?? "?"
+            let got = StackTooltip.resolve(raw["tooltip"] as? String, side: raw["tooltipSide"] as? String)
+            if let expect = raw["expect"] as? [String: Any] {
+                guard let got else {
+                    throw Failure(description: "tooltip/\(name): resolved nil (expected \(expect))")
+                }
+                guard got.text == expect["text"] as? String, got.side == expect["side"] as? String else {
+                    throw Failure(description: "tooltip/\(name): (\(got.text), \(got.side)) disagrees with the corpus")
+                }
+                guard expect["described"] as? Bool == true else {
+                    throw Failure(description: "tooltip/\(name): a resolved tooltip must describe its element")
+                }
+            } else if got != nil {
+                throw Failure(description: "tooltip/\(name): resolved \(String(describing: got)) (expected none)")
+            }
+            count += 1
+        }
+        for raw in lifecycleCases {
+            let name = raw["name"] as? String ?? "?"
+            var machine = StackTooltipLifecycle()
+            var actions: [String] = []
+            for event in raw["events"] as? [[String: Any]] ?? [] {
+                let capable = event["hoverCapable"] as? Bool ?? false
+                let emitted: [StackTooltipAction]
+                switch event["type"] as? String {
+                case "hoverStart": emitted = machine.hoverStart(hoverCapable: capable)
+                case "hoverEnd": emitted = machine.hoverEnd()
+                case "focus": emitted = machine.focus(hoverCapable: capable)
+                case "blur": emitted = machine.blur()
+                case "escape": emitted = machine.escape()
+                case "unmount": emitted = machine.unmount()
+                default:
+                    throw Failure(description: "tooltip/\(name): unknown event \(String(describing: event["type"]))")
+                }
+                actions.append(contentsOf: emitted.map(\.rawValue))
+            }
+            let expected = raw["expect"] as? [String] ?? []
+            guard actions == expected else {
+                throw Failure(description: "tooltip/\(name): actions \(actions) (expected \(expected))")
+            }
+            guard machine.visible == (raw["expectVisible"] as? Bool ?? false) else {
+                throw Failure(description: "tooltip/\(name): visible \(machine.visible)")
+            }
+            count += 1
+        }
+        return count
+    }
+}
+
+enum DensityConformance {
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    /// Run OpenSource/Conformance/input/density.json through the Swift StackDensity fold and
+    /// subtree resolution (component-library.md W9 — the universal density knob) — the SAME
+    /// file the TS density.test.ts and Kotlin DensityConformanceTest execute, so the knob
+    /// can't drift: exact-lowercase vocabulary, nearest-ancestor pin, fine-pointer platform
+    /// default compact.
+    static func verify(corpusFile: URL) throws -> Int {
+        let data = try Data(contentsOf: corpusFile)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              (root["version"] as? Int) == 1 else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): unsupported version")
+        }
+        guard let resolveCases = root["resolve"] as? [[String: Any]], !resolveCases.isEmpty,
+              let effectiveCases = root["effective"] as? [[String: Any]], !effectiveCases.isEmpty else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no resolve[]/effective[]")
+        }
+        var count = 0
+        for raw in resolveCases {
+            let name = raw["name"] as? String ?? "?"
+            let got = StackDensity.resolve(raw["density"] as? String)
+            let expect = raw["expect"] as? String
+            guard got == expect else {
+                throw Failure(description: "density/\(name): \(String(describing: got)) (expected \(String(describing: expect)))")
+            }
+            count += 1
+        }
+        for raw in effectiveCases {
+            let name = raw["name"] as? String ?? "?"
+            let chain = (raw["chain"] as? [Any] ?? []).map { $0 as? String }
+            let got = StackDensity.effective(chain, finePointer: raw["finePointer"] as? Bool ?? false)
+            guard got == raw["expect"] as? String else {
+                throw Failure(description: "density/\(name): \(got) disagrees with the corpus")
+            }
+            count += 1
+        }
+        return count
     }
 }
 
@@ -244,7 +398,15 @@ enum ActionsConformance {
             store.anyHandlers.append { evName, _ in events.append(evName) }
 
             let runner = JSERunner(store: store, webView: nil, scope: nil, dsx: nil)
-            runner.run(JSE.string(c["run"]), item: c["runItem"] as? [String: Any])
+            if let runAction = c["runAction"] as? String {
+                // The HOST entry path — what an HTTP request, a CLI command and a queue message
+                // all do: a payload, and no caller scope.
+                runner.runAction(runAction,
+                                 payload: (c["runPayload"] as? [String: Any]) ?? [:],
+                                 item: c["runItem"] as? [String: Any])
+            } else {
+                runner.run(JSE.string(c["run"]), item: c["runItem"] as? [String: Any])
+            }
 
             for (path, expected) in (c["expectStore"] as? [String: Any]) ?? [:] {
                 let actual = JSE.eval(path, store: store, item: nil)
@@ -255,6 +417,117 @@ enum ActionsConformance {
             let expectEvents = ((c["expectEvents"] as? [Any]) ?? []).map { JSE.string($0) }
             if expectEvents != events {
                 throw Failure(description: "actions/\(name): event order \(events) (expected \(expectEvents))")
+            }
+        }
+        return cases.count
+    }
+}
+
+// MARK: - the watch-dispatch corpus (actions/watch-dispatch.json — `<watch value= on:change=>`)
+
+enum WatchConformance {
+
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    /// Run OpenSource/Conformance/actions/watch-dispatch.json through this runtime's dispatch:
+    /// the WatchView evaluate loop (Stack.swift — evaluate `value`, compare JSE.watchKey, fire
+    /// on meaningful change, never on subscribe) feeding WatchView.fire's dispatch (the payload
+    /// rule + `run(change, item: payload, args: payload)` against the LIVE store; the budget and
+    /// afterRender hop are render-tick machinery, not dispatch semantics). The TS harness
+    /// (watch-conformance.test.ts) and the Kotlin twin (WatchConformanceTest.kt, the real
+    /// JSERunner.fireWatch) execute the SAME file.
+    ///
+    /// Pinned after the W12 stale-snapshot investigation: a watch handler observes the
+    /// POST-WRITE store — every store read inside the handler sees the state that triggered the
+    /// fire. (The filed 2026-08-17 starter toggle revert was the wave-7 F4 entity lexing
+    /// assigning 0 through this path, never a snapshot — jse/syntax-006 pins the decode, the
+    /// corpus's entity-spelled row pins the hold.) The settle loop below is the host's stand-in
+    /// for the SwiftUI update pass: after the bound-control `pre` writes and after the entry,
+    /// re-evaluate every watch and fire the changed ones until a quiet round (bounded — corpus
+    /// rows are synchronous; fire COUNT within one multi-write entry stays unpinned).
+    static func verify(corpusFile: URL) throws -> Int {
+        let data = try Data(contentsOf: corpusFile)
+        guard let doc = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): not a JSON object")
+        }
+        guard let cases = doc["cases"] as? [[String: Any]], !cases.isEmpty else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no cases[]")
+        }
+        for c in cases {
+            let name = (c["name"] as? String) ?? "?"
+
+            // The app-wide plane: DSX.state is a process singleton — bind the boot seam
+            // (DSXBoot binds the same closure), snapshot + restore vars per case.
+            let savedAppVars = JSE.appVars
+            let savedState = DSX.state.vars
+            JSE.appVars = { DSX.state.vars }
+            defer { JSE.appVars = savedAppVars; DSX.state.vars = savedState }
+            DSX.state.vars = (c["global"] as? [String: Any]) ?? [:]
+
+            let store = StackStore()
+            for (k, v) in (c["scope"] as? [String: Any]) ?? [:] { store.vars[k] = v }
+
+            let actions = (c["actions"] as? [String: [String: Any]]) ?? [:]
+            for (actionName, decl) in actions {
+                var inputs: [String: String] = [:]
+                for (k, v) in (decl["inputs"] as? [String: Any]) ?? [:] { inputs[k] = JSE.string(v) }
+                store.actions[actionName] = StackFormula(inputs: inputs, body: JSE.string(decl["body"]))
+            }
+
+            var events: [String] = []
+            store.anyHandlers.append { evName, _ in events.append(evName) }
+
+            let runner = JSERunner(store: store, webView: nil, scope: nil, dsx: nil)
+
+            // Subscribe: evaluate once, record the key, NEVER fire (the WatchView prev-nil arm;
+            // no corpus row declares `immediate`).
+            let watches = (c["watches"] as? [[String: Any]]) ?? []
+            let exprs = watches.map { JSE.string($0["value"]) }
+            let handlers = watches.map { JSE.string($0["handler"]) }
+            var last = exprs.map { JSE.watchKey(JSE.eval($0, store: store, item: nil)) }
+
+            // One update-pass settle: re-evaluate every watch, fire the meaningfully changed
+            // ones with WatchView.fire's payload rule, repeat until a quiet round.
+            func settle() {
+                for _ in 0..<32 {
+                    var fired = false
+                    for i in exprs.indices {
+                        let v = JSE.eval(exprs[i], store: store, item: nil)
+                        let key = JSE.watchKey(v)
+                        if key != last[i] {
+                            last[i] = key
+                            fired = true
+                            let payload: [String: Any] = (v as? [String: Any]) ?? ["value": v as Any]
+                            runner.run(handlers[i], item: payload, args: payload)
+                        }
+                    }
+                    if !fired { break }
+                }
+            }
+
+            for p in (c["pre"] as? [[String: Any]]) ?? [] {
+                store.writeBound(JSE.string(p["path"]), p["value"] ?? NSNull())
+            }
+            settle()
+
+            runner.run(JSE.string(c["run"]), item: c["runItem"] as? [String: Any])
+            settle()
+
+            for (path, expected) in (c["expectStore"] as? [String: Any]) ?? [:] {
+                let actual = JSE.eval(path, store: store, item: nil)
+                if !JSE.equals(conformanceUnwrapNull(actual), conformanceUnwrapNull(expected)) {
+                    throw Failure(description: "watch/\(name): \(path) -> \(JSE.string(actual)) (expected \(JSE.string(expected)))")
+                }
+            }
+            for (path, expected) in (c["expectGlobal"] as? [String: Any]) ?? [:] {
+                let actual = DSX.state.getPath(path)
+                if !JSE.equals(conformanceUnwrapNull(actual), conformanceUnwrapNull(expected)) {
+                    throw Failure(description: "watch/\(name): global.\(path) -> \(JSE.string(actual)) (expected \(JSE.string(expected)))")
+                }
+            }
+            let expectEvents = ((c["expectEvents"] as? [Any]) ?? []).map { JSE.string($0) }
+            if expectEvents != events {
+                throw Failure(description: "watch/\(name): event order \(events) (expected \(expectEvents))")
             }
         }
         return cases.count
@@ -2373,6 +2646,83 @@ enum ChainsConformance {
             }
         }
         return cases.count
+    }
+}
+
+// MARK: - the style-override READ corpus (overrides/style-overrides.json `read`)
+
+enum StyleOverridesReadConformance {
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    /// Run the corpus's `read` section through the REAL evaluator: declared knobs in a
+    /// JSEState store, raw values on the item scope's `__overrides` dict (the tag door)
+    /// and the store's `dsx.override` var (the mount/update door), every expectation
+    /// evaluated by JSE itself — so composite expressions (`dsx.override.pad + 2`) are
+    /// asserted against this runtime, not a re-implementation. The pure `split`/`resolve`
+    /// halves run per-PR on the Linux lane (StyleOverridesConformance.swift); this host
+    /// is the engine-coupled half beside it.
+    static func verify(corpusFile: URL) throws -> Int {
+        let data = try Data(contentsOf: corpusFile)
+        guard let doc = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let cases = doc["read"] as? [[String: Any]], !cases.isEmpty else {
+            throw Failure(description: "style-overrides.json: empty read[]")
+        }
+        for c in cases {
+            let name = (c["name"] as? String) ?? "?"
+            let store = JSEVars()
+            for declMap in (c["declarations"] as? [[String: Any]] ?? []) {
+                guard let as_ = declMap["as"] as? String else { continue }
+                store.overrideDecls[as_] = OverrideDecl(name: as_,
+                                                        type: declMap["type"] as? String,
+                                                        default: declMap["default"] as? String,
+                                                        options: declMap["options"] as? String,
+                                                        min: declMap["min"],
+                                                        max: declMap["max"])
+            }
+            var item: [String: Any] = (c["attributes"] as? [String: Any]) ?? [:]
+            if let overrides = c["overrides"] as? [String: Any] { item["__overrides"] = overrides }
+            if let storeOverrides = c["storeOverrides"] as? [String: Any] { store.vars["dsx.override"] = storeOverrides }
+            for e in (c["expect"] as? [[String: Any]] ?? []) {
+                guard let expr = e["expr"] as? String else { continue }
+                let got = JSE.eval(expr, store: store, item: item)
+                let expect: Any? = e.keys.contains("value") ? e["value"] : nil
+                guard readValueMatches(got, expect) else {
+                    throw Failure(description: "read/\(name): \(expr) got \(String(describing: got)) expected \(String(describing: expect))")
+                }
+            }
+        }
+        return cases.count
+    }
+
+    /// TRUE booleans only — on Linux corelibs a JSON 0/1 NSNumber answers `as? Bool`,
+    /// so the type identity is the discriminator (the same rule the core applies).
+    private static func readIsBoolean(_ v: Any) -> Bool {
+        if type(of: v) == Bool.self { return true }
+        let t = String(describing: type(of: v))
+        return t == "__NSCFBoolean" || t == "NSCFBoolean" || t == "Boolean"
+    }
+
+    private static func readNumeric(_ v: Any?) -> Double? {
+        guard let v = v, !readIsBoolean(v) else { return nil }
+        if let d = v as? Double { return d }
+        if let i = v as? Int { return Double(i) }
+        if let i = v as? Int64 { return Double(i) }
+        if let f = v as? Float { return Double(f) }
+        if let n = v as? NSNumber { return n.doubleValue }
+        return nil
+    }
+
+    private static func readValueMatches(_ got: Any?, _ expect: Any?) -> Bool {
+        let g: Any? = (got is NSNull) ? nil : got
+        let e: Any? = (expect is NSNull) ? nil : expect
+        if g == nil && e == nil { return true }
+        guard let g = g, let e = e else { return false }
+        if readIsBoolean(g) || readIsBoolean(e) {
+            return readIsBoolean(g) && readIsBoolean(e) && (g as? Bool) == (e as? Bool)
+        }
+        if let gs = g as? String, let es = e as? String { return gs == es }
+        if let gn = readNumeric(g), let en = readNumeric(e) { return gn == en }
+        return false
     }
 }
 
@@ -5411,5 +5761,617 @@ enum InputConformance {
             throw Failure(description: "attenuation.json: the kernel defaults disagree with the corpus")
         }
         return cases.count
+    }
+}
+
+// MARK: - the <split> planning corpus (split/split.json)
+
+enum SplitConformance {
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    /// Run OpenSource/Conformance/split/split.json through the Swift `SplitPlan` — the SAME
+    /// file the TS split.test.ts and Kotlin SplitConformanceTest execute, so the `<split>`
+    /// pane-role/collapse/selection grammar cannot drift across the three renderers.
+    /// Twin discipline: expectation keys are asserted only when a case pins them.
+    static func verify(corpusFile: URL) throws -> Int {
+        let data = try Data(contentsOf: corpusFile)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              (root["schema"] as? String) == "dev.dsx.split/v1" else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): unsupported schema")
+        }
+        guard let cases = root["cases"] as? [[String: Any]], !cases.isEmpty else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no cases[]")
+        }
+        for raw in cases {
+            let name = raw["name"] as? String ?? "?"
+            let attrs = (raw["attrs"] as? [String: Any] ?? [:]).compactMapValues { $0 as? String }
+            let childRoles: [String?] = (raw["childRoles"] as? [Any] ?? []).map { $0 as? String }
+            let width: Double
+            if let n = raw["width"] as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() {
+                width = n.doubleValue
+            } else if (raw["width"] as? String) == "nonfinite" {
+                width = .nan
+            } else {
+                throw Failure(description: "split/\(name): width must be a number or \"nonfinite\"")
+            }
+            let plan = SplitPlan.resolve(attrs: attrs, childRoles: childRoles, width: width)
+            guard let expect = raw["expect"] as? [String: Any] else {
+                throw Failure(description: "split/\(name): no expect{}")
+            }
+            try check(name, expect, "panes", Double(plan.panes))
+            try check(name, expect, "collapseAt", plan.collapseAt)
+            try check(name, expect, "expandAt", plan.expandAt)
+            try check(name, expect, "detailMin", plan.detailMin)
+            try check(name, expect, "presentation", plan.presentation)
+            try check(name, expect, "host", plan.host.rawValue)
+            try check(name, expect, "overlay", plan.overlay)
+            try check(name, expect, "detail", plan.detail)
+            try check(name, expect, "resizable", plan.resizable)
+            if let roles = expect["roles"] as? [String] {
+                guard roles == plan.roles.map(\.rawValue) else {
+                    throw Failure(description: "split/\(name): roles \(plan.roles.map(\.rawValue)) (expected \(roles))")
+                }
+            }
+            if let columns = expect["columns"] as? [String] {
+                guard columns == plan.columns.map(\.rawValue) else {
+                    throw Failure(description: "split/\(name): columns \(plan.columns.map(\.rawValue)) (expected \(columns))")
+                }
+            }
+            try widths(name, "sidebar", expect["sidebar"], plan.sidebar)
+            try widths(name, "content", expect["content"], plan.content)
+        }
+        guard let selection = root["selection"] as? [[String: Any]], !selection.isEmpty else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no selection[]")
+        }
+        for raw in selection {
+            let name = raw["name"] as? String ?? "?"
+            guard let expected = raw["active"] as? Bool else {
+                throw Failure(description: "split/selection/\(name): no active")
+            }
+            let got = SplitPlan.selectionActive(raw["value"])
+            guard got == expected else {
+                throw Failure(description: "split/selection/\(name): active \(got) (expected \(expected))")
+            }
+        }
+        return cases.count + selection.count
+    }
+
+    private static func check(_ name: String, _ expect: [String: Any], _ key: String, _ got: Double) throws {
+        guard let n = expect[key] as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() else { return }
+        guard n.doubleValue == got else {
+            throw Failure(description: "split/\(name): \(key) \(got) (expected \(n.doubleValue))")
+        }
+    }
+
+    private static func check(_ name: String, _ expect: [String: Any], _ key: String, _ got: String) throws {
+        guard let expected = expect[key] as? String else { return }
+        guard expected == got else {
+            throw Failure(description: "split/\(name): \(key) \(got) (expected \(expected))")
+        }
+    }
+
+    private static func check(_ name: String, _ expect: [String: Any], _ key: String, _ got: Bool) throws {
+        guard let n = expect[key] as? NSNumber, CFGetTypeID(n) == CFBooleanGetTypeID() else { return }
+        guard n.boolValue == got else {
+            throw Failure(description: "split/\(name): \(key) \(got) (expected \(n.boolValue))")
+        }
+    }
+
+    private static func widths(_ name: String, _ role: String, _ raw: Any?, _ got: SplitPlan.Widths) throws {
+        guard let expected = raw as? [String: Any] else { return }
+        let want = SplitPlan.Widths(
+            (expected["min"] as? NSNumber)?.doubleValue ?? got.min,
+            (expected["ideal"] as? NSNumber)?.doubleValue ?? got.ideal,
+            (expected["max"] as? NSNumber)?.doubleValue ?? got.max)
+        guard want == got else {
+            throw Failure(description: "split/\(name): \(role) \(got) (expected \(want))")
+        }
+    }
+}
+
+// MARK: - the markdown BLOCK corpus (markdown/blocks.json — the `<markdown>` element, A4b)
+
+enum MarkdownBlocksConformance {
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    /// Run OpenSource/Conformance/markdown/blocks.json through the REAL Swift parser
+    /// (MarkdownBlocks.parse — the tree MarkdownBlocksView renders) — the SAME file the TS
+    /// reference (dom test markdown-blocks.test.ts) and the Kotlin twin
+    /// (MarkdownBlocksConformanceTest) execute, so `<markdown>` can never mean a different
+    /// tree on iOS. Every case is (source → the neutral block tree); the serializer below
+    /// emits exactly the corpus shape (ordered lists carry `start`, items carry `blocks`
+    /// only when nested — the web tree's own key discipline). Returns the number of cases
+    /// verified; throws on the first mismatch.
+    static func verify(corpusFile: URL) throws -> Int {
+        let data = try Data(contentsOf: corpusFile)
+        guard let doc = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): not a JSON object")
+        }
+        guard let cases = doc["cases"] as? [[String: Any]], !cases.isEmpty else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no cases[]")
+        }
+        if let limits = doc["limits"] as? [String: Any] {
+            let expected = [(limits["characters"], MarkdownBlocks.limitCharacters, "characters"),
+                            (limits["blocks"], MarkdownBlocks.limitBlocks, "blocks"),
+                            (limits["listDepth"], MarkdownBlocks.limitListDepth, "listDepth")]
+            for (corpus, mine, name) in expected {
+                if let n = corpus as? NSNumber, n.intValue != mine {
+                    throw Failure(description: "markdown: limit \(name) \(mine) drifted from corpus \(n.intValue)")
+                }
+            }
+        }
+        for c in cases {
+            let name = c["name"] as? String ?? "?"
+            guard let source = c["source"] as? String else {
+                throw Failure(description: "markdown/\(name): no source")
+            }
+            guard let expected = c["blocks"] as? [Any] else {
+                throw Failure(description: "markdown/\(name): no blocks[]")
+            }
+            let actual = MarkdownBlocks.parse(source).map(neutral)
+            if !(expected as NSArray).isEqual(actual as NSArray) {
+                throw Failure(description: "markdown/\(name): tree \(actual) (expected \(expected))")
+            }
+        }
+        return cases.count
+    }
+
+    /// The corpus's neutral shape, from this runtime's tree.
+    private static func neutral(_ block: MarkdownBlock) -> [String: Any] {
+        switch block {
+        case .paragraph(let inline):
+            return ["type": "paragraph", "inline": inline]
+        case .heading(let level, let inline):
+            return ["type": "heading", "level": level, "inline": inline]
+        case .code(let language, let text):
+            return ["type": "code", "language": language, "text": text]
+        case .quote(let blocks):
+            return ["type": "quote", "blocks": blocks.map(neutral)]
+        case .rule:
+            return ["type": "rule"]
+        case .image(let src, let alt):
+            return ["type": "image", "src": src, "alt": alt]
+        case .list(let ordered, let start, let items):
+            var out: [String: Any] = ["type": "list", "ordered": ordered]
+            if ordered { out["start"] = start }
+            out["items"] = items.map { item -> [String: Any] in
+                var row: [String: Any] = ["inline": item.inline]
+                if !item.blocks.isEmpty { row["blocks"] = item.blocks.map(neutral) }
+                return row
+            }
+            return out
+        case .table(let header, let rows):
+            return ["type": "table", "header": header, "rows": rows]
+        }
+    }
+}
+
+// MARK: - the attribute-binding corpus (composition/attribute-binding.json)
+
+enum CompositionConformance {
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    /// Run OpenSource/Conformance/composition/attribute-binding.json through the REAL Swift
+    /// fold (`JSE.attributeBinding` / `JSE.bindAttribute`) — the reference implementation the
+    /// TS (`attributeBinding`) and Kotlin (`JSE.attributeBinding`) runners execute over the
+    /// SAME file. Returns the number of cases verified; throws on the first mismatch (or a
+    /// malformed corpus — a silently-skipped suite is how drift starts).
+    ///
+    /// The law: markup has ONE way to write a consumer attribute and three things an author
+    /// can mean by it. A sole `{{ … }}` carries the expression's VALUE, a mixed template
+    /// carries the sentence, a template with no hole is its own text. Before the fold every
+    /// .dsx component prop arrived interpolated, so a component could not be handed structure
+    /// and a self-recursive component — a tree, an outliner, a comment thread — was
+    /// unbuildable. The `recursion` block additionally pins `JSE.componentDepthCap`.
+    static func verify(corpusFile: URL) throws -> Int {
+        let data = try Data(contentsOf: corpusFile)
+        guard let doc = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): not a JSON object")
+        }
+        guard let fold = doc["fold"] as? [[String: Any]], !fold.isEmpty else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no fold[]")
+        }
+        guard let typed = doc["typed"] as? [[String: Any]], !typed.isEmpty else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no typed[]")
+        }
+        var verified = 0
+
+        for c in fold {
+            let name = (c["name"] as? String) ?? "?"
+            let template = JSE.string(c["template"])
+            let got = JSE.attributeBinding(template)
+            let kind: String
+            var expr: String?
+            switch got {
+            case .staticText: kind = "static"
+            case .value(let e): kind = "value"; expr = e
+            case .text: kind = "text"
+            }
+            guard kind == JSE.string(c["kind"]) else {
+                throw Failure(description: "composition-fold/\(name): kind \(kind) (expected \(JSE.string(c["kind"])))")
+            }
+            if let want = c["expr"] as? String {
+                guard expr == want else {
+                    throw Failure(description: "composition-fold/\(name): expr \(expr ?? "nil") (expected \(want))")
+                }
+            }
+            verified += 1
+        }
+
+        for c in typed {
+            let name = (c["name"] as? String) ?? "?"
+            let store = StackStore()
+            for (k, v) in (c["vars"] as? [String: Any]) ?? [:] { store.vars[k] = v }
+            let got = JSE.bindAttribute(JSE.string(c["template"]), store: store, item: nil)
+            let want = JSE.string(c["type"])
+            guard typeName(got) == want else {
+                throw Failure(description: "composition-typed/\(name): type \(typeName(got)) (expected \(want))")
+            }
+            if c.index(forKey: "json") != nil {
+                let a = canonical(c["json"])
+                let b = canonical(got)
+                guard a == b else {
+                    throw Failure(description: "composition-typed/\(name): value \(b) (expected \(a))")
+                }
+            }
+            verified += 1
+        }
+
+        guard let recursion = doc["recursion"] as? [String: Any],
+              let cap = JSE.number(recursion["cap"]) else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no recursion.cap")
+        }
+        guard Int(cap) == JSE.componentDepthCap else {
+            throw Failure(description: "composition-recursion: componentDepthCap \(JSE.componentDepthCap) drifted from corpus \(Int(cap))")
+        }
+        for c in (recursion["cases"] as? [[String: Any]]) ?? [] {
+            let name = (c["name"] as? String) ?? "?"
+            guard let depth = JSE.number(c["depth"]) else {
+                throw Failure(description: "composition-recursion/\(name): no depth")
+            }
+            let expands = (c["expands"] as? Bool) ?? true
+            guard (Int(depth) < JSE.componentDepthCap) == expands else {
+                throw Failure(description: "composition-recursion/\(name): expands \(!expands)")
+            }
+            verified += 1
+        }
+        return verified
+    }
+
+    /// The cross-language type name for a resolved attribute value. TS and Kotlin name the
+    /// same six categories; anything outside them is a divergence, not a detail. NSNumber
+    /// carries booleans and numbers alike on this platform, so the CFTypeID decides.
+    private static func typeName(_ v: Any?) -> String {
+        guard let v, !(v is NSNull) else { return "null" }
+        if v is [Any] { return "array" }
+        if v is [String: Any] { return "object" }
+        if let n = v as? NSNumber {
+            return CFGetTypeID(n) == CFBooleanGetTypeID() ? "boolean" : "number"
+        }
+        if v is Bool { return "boolean" }
+        if v is String { return "string" }
+        if v is Int || v is Double { return "number" }
+        return String(describing: type(of: v))
+    }
+
+    /// Canonical JSON for the deep-equality check, so the three runners compare the same
+    /// bytes rather than three languages' idea of a number.
+    private static func canonical(_ v: Any?) -> String {
+        guard let v, !(v is NSNull) else { return "null" }
+        if let a = v as? [Any] { return "[" + a.map(canonical).joined(separator: ",") + "]" }
+        if let d = v as? [String: Any] {
+            return "{" + d.keys.sorted().map { "\"\($0)\":\(canonical(d[$0]!))" }.joined(separator: ",") + "}"
+        }
+        if let n = v as? NSNumber, CFGetTypeID(n) == CFBooleanGetTypeID() {
+            return n.boolValue ? "true" : "false"
+        }
+        if let b = v as? Bool { return b ? "true" : "false" }
+        if v is NSNumber || v is Int || v is Double { return JSE.string(v) }
+        return "\"\(JSE.string(v))\""
+    }
+}
+
+enum StringsConformance {
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    /// Run OpenSource/Conformance/strings/cases.json through the REAL Swift `DSXStrings` —
+    /// the reference implementation of the localization kernel seam the TS runner
+    /// (strings-conformance.test.ts) and the Kotlin runner (StringsConformanceTest.kt)
+    /// execute over the SAME file. The seams are driven exactly as the twins drive them:
+    /// `statePath` reads the case's dot-keyed state map, `loader` serves the case's
+    /// bundle-table TEXT (text, so invalid JSON is expressible), `deviceLang` is the
+    /// case's device. Returns the number of cases verified; throws on the first mismatch.
+    static func verify(corpusFile: URL) throws -> Int {
+        let data = try Data(contentsOf: corpusFile)
+        guard let doc = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): not a JSON object")
+        }
+        guard let cases = doc["cases"] as? [[String: Any]], cases.count >= 15 else {
+            throw Failure(description: "strings/cases.json: expected the full case set")
+        }
+
+        let savedLoader = DSXStrings.loader
+        let savedStatePath = DSXStrings.statePath
+        let savedDeviceLang = DSXStrings.deviceLang
+        defer {
+            DSXStrings.loader = savedLoader
+            DSXStrings.statePath = savedStatePath
+            DSXStrings.deviceLang = savedDeviceLang
+            DSXStrings.resetForConformance()
+        }
+
+        for c in cases {
+            let name = (c["name"] as? String) ?? "?"
+            var state: [String: Any] = (c["state"] as? [String: Any]) ?? [:]
+            let tables: [String: Any] = (c["tables"] as? [String: Any]) ?? [:]
+            DSXStrings.resetForConformance()
+            DSXStrings.loader = { candidate in tables[candidate] as? String }
+            DSXStrings.statePath = { path in state[path] }
+            DSXStrings.deviceLang = (c["device"] as? String) ?? "en"
+
+            let steps: [[String: Any]]
+            if let s = c["steps"] as? [[String: Any]] {
+                steps = s
+            } else {
+                steps = [["input": c["input"] ?? "", "expect": c["expect"] ?? ""]]
+            }
+            for (index, step) in steps.enumerated() {
+                if let patch = step["state"] as? [String: Any] {
+                    for (k, v) in patch { state[k] = v }
+                }
+                let input = (step["input"] as? String) ?? ""
+                let expect = (step["expect"] as? String) ?? ""
+                let got = DSXStrings.localize(input)
+                guard got == expect else {
+                    throw Failure(description: "strings/\(name) step \(index + 1): localize(\"\(input)\") == \"\(got)\", corpus expects \"\(expect)\"")
+                }
+            }
+        }
+        return cases.count
+    }
+}
+
+// MARK: - the `<code>` highlighter corpus (code/tokens.json)
+
+enum HighlightConformance {
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    /// Run OpenSource/Conformance/code/tokens.json through the Swift `Highlight` scanner - the
+    /// same file the TS runner (highlight-conformance.test.ts) and the Kotlin twin
+    /// (HighlightConformanceTest) execute. The expectation is a MASK, one letter per character,
+    /// so a mismatch prints the source and the two masks aligned rather than a list of offsets.
+    ///
+    /// Beyond the corpus this asserts the two structural invariants the mask form depends on:
+    /// the spans TILE the source (contiguous, non-overlapping, index 0 to length) and no two
+    /// adjacent spans share a kind. A scanner that satisfies both cannot lose a character.
+    static func verify(corpusFile: URL) throws -> Int {
+        let data = try Data(contentsOf: corpusFile)
+        guard let doc = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): not a JSON object")
+        }
+        guard let cases = doc["cases"] as? [[String: Any]], cases.count >= 30 else {
+            throw Failure(description: "code/tokens.json: the corpus should not shrink silently")
+        }
+        // the letter table is shared vocabulary: a rename on one side has to fail on all three
+        guard let letters = doc["_letters"] as? [String: String] else {
+            throw Failure(description: "code/tokens.json: no _letters{}")
+        }
+        for kind in HiKind.allCases {
+            guard letters[kind.word] == String(kind.letter) else {
+                throw Failure(description: "code: letter for \(kind.word) is \(kind.letter), corpus says \(letters[kind.word] ?? "nothing")")
+            }
+        }
+        guard letters.count == HiKind.allCases.count else {
+            throw Failure(description: "code: the corpus knows \(letters.count) kinds, the scanner emits \(HiKind.allCases.count)")
+        }
+
+        for c in cases {
+            let name = (c["name"] as? String) ?? "?"
+            let source = (c["source"] as? String) ?? ""
+            let want = (c["mask"] as? String) ?? ""
+            let got = Highlight.mask(source)
+            guard got == want else {
+                throw Failure(description: "code/\(name)\n  src  \(source)\n  want \(want)\n  got  \(got)")
+            }
+            var at = 0
+            var previous: HiKind?
+            for tok in Highlight.scan(source) {
+                guard tok.start == at else {
+                    throw Failure(description: "code/\(name): gap or overlap at \(tok.start), expected \(at)")
+                }
+                guard tok.end > tok.start else {
+                    throw Failure(description: "code/\(name): empty span at \(tok.start)")
+                }
+                guard tok.kind != previous else {
+                    throw Failure(description: "code/\(name): split run at \(tok.start)")
+                }
+                previous = tok.kind
+                at = tok.end
+            }
+            guard at == Array(source).count else {
+                throw Failure(description: "code/\(name): stopped at \(at) of \(Array(source).count)")
+            }
+        }
+        return cases.count
+    }
+}
+
+// MARK: - the WebMCP corpora (webmcp/project.json + webmcp/registry.json)
+
+enum WebMcpConformance {
+
+    struct Failure: Error, CustomStringConvertible { let description: String }
+
+    /// Run BOTH WebMCP corpora through this runtime's `WebMcp` fold: the outbound projection
+    /// of a `<tool>` head row into a W3C WebMCP descriptor, and the inbound page tool table a
+    /// shell keeps when a page registers through `document.modelContext`. The TS
+    /// (webmcp-conformance.test.ts) and Kotlin (WebMcpConformanceTest) twins execute the SAME
+    /// two files. Returns the number of cases verified; throws on the first mismatch, or on a
+    /// malformed corpus, because a silently-skipped suite is how drift starts.
+    static func verify(projectFile: URL, registryFile: URL) throws -> Int {
+        try verifyProject(corpusFile: projectFile) + verifyRegistry(corpusFile: registryFile)
+    }
+
+    private static func cases(_ corpusFile: URL) throws -> [[String: Any]] {
+        let data = try Data(contentsOf: corpusFile)
+        guard let doc = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): not a JSON object")
+        }
+        guard let cases = doc["cases"] as? [[String: Any]], !cases.isEmpty else {
+            throw Failure(description: "\(corpusFile.lastPathComponent): no cases[]")
+        }
+        return cases
+    }
+
+    /// Structural comparison over corpus JSON: NSNull is absence, and a number compares by
+    /// value so 3 and 3.0 are the same fact on every runner.
+    private static func same(_ a: Any?, _ b: Any?) -> Bool {
+        let x = conformanceUnwrapNull(a), y = conformanceUnwrapNull(b)
+        if x == nil && y == nil { return true }
+        guard let x, let y else { return false }
+        if let xs = x as? String, let ys = y as? String { return xs == ys }
+        if let xn = x as? NSNumber, let yn = y as? NSNumber { return xn == yn }
+        if let xd = x as? [String: Any], let yd = y as? [String: Any] {
+            guard xd.count == yd.count else { return false }
+            for (k, v) in xd where !same(v, yd[k]) { return false }
+            return true
+        }
+        if let xa = x as? [Any], let ya = y as? [Any] {
+            guard xa.count == ya.count else { return false }
+            for (i, v) in xa.enumerated() where !same(v, ya[i]) { return false }
+            return true
+        }
+        return false
+    }
+
+    private static func verifyProject(corpusFile: URL) throws -> Int {
+        let all = try cases(corpusFile)
+        for c in all {
+            let name = (c["name"] as? String) ?? "?"
+
+            // A RESULT case pins the MCP shaping a tool call answers with.
+            if let result = c["result"] as? [String: Any] {
+                let expected = (c["expect"] as? [String: Any])?["result"]
+                let actual: [String: Any] = conformanceUnwrapNull(result["thrown"]) != nil
+                    ? WebMcpResult.error(correlationId: (result["correlationId"] as? String) ?? "")
+                    : WebMcpResult.value(conformanceUnwrapNull(result["value"]))
+                if !same(actual, expected) {
+                    throw Failure(description: "webmcp-project/\(name): result \(actual) (expected \(String(describing: expected)))")
+                }
+                continue
+            }
+
+            var actionInputs: [String: [String]] = [:]
+            for (action, decl) in (c["actions"] as? [String: [String: Any]]) ?? [:] {
+                actionInputs[action] = (decl["inputs"] as? [String]) ?? []
+            }
+            let rows = ((c["tools"] as? [[String: Any]]) ?? []).map { row in
+                WebMcp.ToolRow(action: (row["action"] as? String) ?? "",
+                               description: (row["description"] as? String) ?? "",
+                               asName: row["as"] as? String,
+                               mutates: row["mutates"] as? String)
+            }
+            let projection = WebMcp.project(rows: rows, actionInputs: actionInputs)
+
+            if let expectError = c["expectError"] as? [String: Any] {
+                guard !projection.errors.isEmpty else {
+                    throw Failure(description: "webmcp-project/\(name): expected \(expectError["code"] ?? "?"), got a clean projection")
+                }
+                let code = (expectError["code"] as? String) ?? ""
+                for e in projection.errors where e.code.rawValue != code {
+                    throw Failure(description: "webmcp-project/\(name): error \(e.code.rawValue) (expected \(code))")
+                }
+                let names = (expectError["names"] as? [String]) ?? []
+                if projection.errors.map({ $0.name }) != names {
+                    throw Failure(description: "webmcp-project/\(name): error names \(projection.errors.map { $0.name }) (expected \(names))")
+                }
+                for e in projection.errors where e.message.isEmpty {
+                    throw Failure(description: "webmcp-project/\(name): an error must carry a message")
+                }
+                continue
+            }
+
+            if !projection.errors.isEmpty {
+                throw Failure(description: "webmcp-project/\(name): unexpected errors \(projection.errors.map { $0.message })")
+            }
+            let expect = (c["expect"] as? [String: Any]) ?? [:]
+            if let names = expect["descriptorNames"] as? [String], projection.descriptors.map({ $0.name }) != names {
+                throw Failure(description: "webmcp-project/\(name): names \(projection.descriptors.map { $0.name }) (expected \(names))")
+            }
+            if let descriptors = expect["descriptors"] as? [Any] {
+                let actual = projection.descriptors.map { $0.wire() }
+                if !same(actual, descriptors) {
+                    throw Failure(description: "webmcp-project/\(name): descriptors \(actual) (expected \(descriptors))")
+                }
+            }
+        }
+        return all.count
+    }
+
+    private static func verifyRegistry(corpusFile: URL) throws -> Int {
+        let all = try cases(corpusFile)
+        for c in all {
+            let name = (c["name"] as? String) ?? "?"
+            var events: [[String: Any]] = []
+            let table = WebMcp.PageToolTable { surface in
+                events.append(["event": "toolchange", "surface": surface])
+            }
+            var rejections: [[String: Any]] = []
+
+            for step in (c["steps"] as? [[String: Any]]) ?? [] {
+                if let register = step["register"] as? [String: Any] {
+                    let tool = (register["tool"] as? [String: Any]) ?? [:]
+                    if let rejected = table.register(
+                        surface: (register["surface"] as? String) ?? "",
+                        origin: (register["origin"] as? String) ?? "",
+                        name: (tool["name"] as? String) ?? "",
+                        description: (tool["description"] as? String) ?? "",
+                        inputSchema: tool["inputSchema"] as? [String: Any],
+                        annotations: tool["annotations"] as? [String: Any]
+                    ) {
+                        rejections.append(["reason": rejected.reason.rawValue, "name": rejected.name])
+                    }
+                } else if let commit = step["commit"] as? [String: Any] {
+                    table.commit(surface: (commit["surface"] as? String) ?? "")
+                } else if let abort = step["abort"] as? [String: Any] {
+                    table.abort(surface: (abort["surface"] as? String) ?? "",
+                                name: (abort["name"] as? String) ?? "")
+                } else {
+                    throw Failure(description: "webmcp-registry/\(name): unknown step \(step)")
+                }
+            }
+
+            let expect = (c["expect"] as? [String: Any]) ?? [:]
+            if let tools = expect["tools"] as? [Any] {
+                let actual = table.tools().map { wire($0) }
+                if !same(actual, tools) {
+                    throw Failure(description: "webmcp-registry/\(name): tools \(actual) (expected \(tools))")
+                }
+            }
+            if let names = expect["toolNames"] as? [String], table.tools().map({ $0.name }) != names {
+                throw Failure(description: "webmcp-registry/\(name): names \(table.tools().map { $0.name }) (expected \(names))")
+            }
+            if let expected = expect["rejections"] as? [Any], !same(rejections, expected) {
+                throw Failure(description: "webmcp-registry/\(name): rejections \(rejections) (expected \(expected))")
+            }
+            if let expected = expect["events"] as? [Any], !same(events, expected) {
+                throw Failure(description: "webmcp-registry/\(name): events \(events) (expected \(expected))")
+            }
+        }
+        return all.count
+    }
+
+    /// The recorded row as the corpus writes it — provenance, the verbatim schema, approval.
+    private static func wire(_ tool: WebMcp.PageTool) -> [String: Any] {
+        var out: [String: Any] = [
+            "surface": tool.surface,
+            "origin": tool.origin,
+            "name": tool.name,
+            "description": tool.description,
+            "inputSchema": tool.inputSchema,
+            "approval": tool.approval,
+        ]
+        if let annotations = tool.annotations { out["annotations"] = annotations }
+        return out
     }
 }

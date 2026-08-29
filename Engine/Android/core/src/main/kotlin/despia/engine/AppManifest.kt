@@ -59,6 +59,11 @@
 //  `testflight` (internal-track ≈ testflight) vs how a non-Play installer splits between
 //  `adhoc` and side-load is UNRESOLVED — the :platform detector (BuildConfig.DEBUG, emulator
 //  fingerprints, installer package) must pin it. Only the fail-closed default is law here.
+//  LANDED MEANWHILE (the declared fill, live-logs.md §3.4): a release BETA build states its
+//  channel — manifest meta-data `despia.channel`, read by the hosts (DespiaApp.kt / WearApp.kt),
+//  accepted ONLY for `testflight` / `adhoc`, everything else still failing closed. Runtime
+//  track detection remains this open item; the fill is a build-variant declaration, not a
+//  detector.
 //
 
 package despia.engine

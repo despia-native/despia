@@ -1,0 +1,25 @@
+# Vendored typeface - the pin record.
+#
+# Format: <name> <upstream-commit-or-tag> <license-id> <upstream-url>
+#
+# One uncommented line per vendor/<name>/ tree, and `<name>` must equal the
+# directory name. The four fields are machine-read by check_opensource_purity.rb;
+# everything else on this page is a comment. A commented line is NOT a pin.
+#
+# PERMISSIVE ONLY, as in every other vendored tree in the OSS drop. OFL-1.1 is
+# on check_opensource_purity.rb's PERMISSIVE_LICENCE_IDS allowlist: it permits
+# unrestricted commercial use, embedding and redistribution of the font bytes,
+# it imposes nothing on the software that renders them, and the only obligations
+# it carries - keep the copyright notice with the bytes, do not sell the font on
+# its own - are satisfied by vendor/inter/LICENSE.txt sitting next to the files.
+# Inter declares NO Reserved Font Name (its copyright line is a bare
+# "Copyright (c) 2016-2018 The Inter Project Authors", with no "with Reserved
+# Font Name" clause), so the subsets below keep the upstream family name.
+#
+# The BYTES HERE ARE DERIVED, not a copy of the upstream release: two
+# unicode-range subsets of one variable file, both axes intact. That is the same
+# shape as Local/vendor/sqlite, which vendors the amalgamation rather than the
+# upstream source tree. vendor/inter/DERIVATION.md carries the upstream sha256
+# and the exact command, so the bytes can be reproduced from the pin.
+
+inter  v4.1.1  OFL-1.1  https://github.com/rsms/inter

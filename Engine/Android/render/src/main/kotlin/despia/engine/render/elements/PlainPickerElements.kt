@@ -58,6 +58,8 @@
 
 package despia.engine.render.elements
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -120,16 +122,19 @@ internal fun pickerSelectedLabel(opts: List<Pair<String, String>>, selected: Str
 @Composable
 private fun PickerTagView(ctx: ComposeStackComponentContext, segmented: Boolean) {
     val ctl = ctx.control()
+    // disabled= / disabled-if= (W9): threaded into every arm — the M3 rows ride the
+    // component's own enabled seam, the legacy/menu arms gate their open/select taps.
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     val key = ctx.attrs["bind"] ?: ""
     val opts = ctx.resolveOptions()   // the shared, row-aware Picker grammar (see header)
     val selected = JSE.string(ctl.boundValue(key))
     when {
         segmented && SelectionControl.rendersSystem(ctx.attrs, SelectionControl.SEGMENTED) ->
-            M3SegmentedView(ctx, ctl, key, opts, selected)                 // unstyled → real M3 segmented row
-        segmented -> SegmentedControlView(ctx, ctl, key, opts, selected)   // authored look / color → legacy pill
+            M3SegmentedView(ctx, ctl, key, opts, selected, disabled)                 // unstyled → real M3 segmented row
+        segmented -> SegmentedControlView(ctx, ctl, key, opts, selected, disabled)   // authored look / color → legacy pill
         SelectionControl.rendersSystem(ctx.attrs, SelectionControl.PICKER) ->
-            M3PickerMenuView(ctx, ctl, key, opts, selected)                // unstyled → real M3 DropdownMenu
-        else -> PickerMenuView(ctx, ctl, key, opts, selected)             // authored look → legacy platter
+            M3PickerMenuView(ctx, ctl, key, opts, selected, disabled)                // unstyled → real M3 DropdownMenu
+        else -> PickerMenuView(ctx, ctl, key, opts, selected, disabled)             // authored look → legacy platter
     }
 }
 
@@ -142,7 +147,8 @@ private fun PickerTagView(ctx: ComposeStackComponentContext, segmented: Boolean)
 /// M3 component's own (the platform's segmented look — out of the parity spec, header rule).
 @Composable
 private fun M3SegmentedView(ctx: ComposeStackComponentContext, ctl: BoundControl,
-                           key: String, opts: List<Pair<String, String>>, selected: String) {
+                           key: String, opts: List<Pair<String, String>>, selected: String,
+                           disabled: Boolean) {
     // No fillMaxWidth: `SingleChoiceSegmentedButtonRow` forces `width(IntrinsicSize.Min)`
     // internally, so the row is content-width — M3's own footprint (the header's pinned
     // divergence vs the legacy full-width pill; an authored width/grow ejects to legacy).
@@ -151,6 +157,7 @@ private fun M3SegmentedView(ctx: ComposeStackComponentContext, ctl: BoundControl
             SegmentedButton(
                 selected = id == selected,
                 onClick = { if (key.isNotEmpty()) ctl.setBound(key, id) },   // write the VALUE; re-tap = seam no-op
+                enabled = !disabled,
                 shape = SegmentedButtonDefaults.itemShape(index = i, count = opts.size),
             ) { Text(label) }
         }
@@ -161,7 +168,8 @@ private fun M3SegmentedView(ctx: ComposeStackComponentContext, ctl: BoundControl
 
 @Composable
 private fun SegmentedControlView(ctx: ComposeStackComponentContext, ctl: BoundControl,
-                                 key: String, opts: List<Pair<String, String>>, selected: String) {
+                                 key: String, opts: List<Pair<String, String>>, selected: String,
+                                 disabled: Boolean) {
     val d = PlainWaveDefaults
     Row(
         Modifier.elementModifier(ctx).then(
@@ -173,18 +181,24 @@ private fun SegmentedControlView(ctx: ComposeStackComponentContext, ctl: BoundCo
     ) {
         for ((id, label) in opts) {
             val isOn = id == selected
-            val select = { if (key.isNotEmpty()) ctl.setBound(key, id) }
+            val select = { if (key.isNotEmpty() && !disabled) ctl.setBound(key, id) }
+            // The platter crossfades between segments (the animated-system-control rule,
+            // system-defaults.md 2026-08-20: iOS renders the REAL `.segmented` picker whose
+            // platter animates — a snapping platter was an Android-only fidelity gap).
+            val platter by animateColorAsState(
+                if (isOn) StackStyle.color(d.SEG_CONTROL_PLATTER) else Color.Transparent,
+                tween(CONTROL_SELECTION_MOTION_MS), label = "dsx-seg-platter")
             Box(
                 Modifier.weight(1f).fillMaxHeight()
                     .clip(RoundedCornerShape((d.SEG_CONTROL_RADIUS - d.SEG_CONTROL_PAD).dp))
-                    .background(if (isOn) StackStyle.color(d.SEG_CONTROL_PLATTER) else Color.Transparent)
+                    .background(platter)
                     .dsxAccessibleSelectable(
                         selected = isOn,
-                        enabled = key.isNotEmpty(),
+                        enabled = key.isNotEmpty() && !disabled,
                         role = Role.RadioButton,
                         onSelect = select,
                     )
-                    .pointerInput(key, id) {
+                    .pointerInput(key, id, disabled) {
                         detectTapGestures { select() }               // seam no-ops a re-tap (actual-change guard)
                     },
                 contentAlignment = Alignment.Center,
@@ -205,14 +219,15 @@ private fun SegmentedControlView(ctx: ComposeStackComponentContext, ctl: BoundCo
 /// the option VALUE (never the label) through the ONE bind seam; `color` is the tint.
 @Composable
 private fun M3PickerMenuView(ctx: ComposeStackComponentContext, ctl: BoundControl,
-                             key: String, opts: List<Pair<String, String>>, selected: String) {
+                             key: String, opts: List<Pair<String, String>>, selected: String,
+                             disabled: Boolean) {
     val d = PlainWaveDefaults
     val tint = StackStyle.color(ctx.str("color", d.PICKER_TINT))
     var open by remember { mutableStateOf(false) }
     Box(Modifier.elementModifier(ctx)) {
         Row(Modifier
-            .dsxAccessibleActivation(role = Role.Button, onClick = { open = true })
-            .pointerInput(Unit) { detectTapGestures { open = true } },
+            .dsxAccessibleActivation(enabled = !disabled, role = Role.Button, onClick = { open = true })
+            .pointerInput(disabled) { detectTapGestures { if (!disabled) open = true } },
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically) {
             BasicText(pickerSelectedLabel(opts, selected),
@@ -238,14 +253,15 @@ private fun M3PickerMenuView(ctx: ComposeStackComponentContext, ctl: BoundContro
 
 @Composable
 private fun PickerMenuView(ctx: ComposeStackComponentContext, ctl: BoundControl,
-                           key: String, opts: List<Pair<String, String>>, selected: String) {
+                           key: String, opts: List<Pair<String, String>>, selected: String,
+                           disabled: Boolean) {
     val d = PlainWaveDefaults
     val tint = StackStyle.color(ctx.str("color", d.PICKER_TINT))   // menu tint (Picker.swift:31,34)
     var open by remember { mutableStateOf(false) }
     Box(Modifier.elementModifier(ctx)) {
         Row(Modifier
-            .dsxAccessibleActivation(role = Role.Button, onClick = { open = true })
-            .pointerInput(Unit) { detectTapGestures { open = true } },
+            .dsxAccessibleActivation(enabled = !disabled, role = Role.Button, onClick = { open = true })
+            .pointerInput(disabled) { detectTapGestures { if (!disabled) open = true } },
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically) {
             BasicText(pickerSelectedLabel(opts, selected),

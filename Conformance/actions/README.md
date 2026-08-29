@@ -15,11 +15,38 @@ behavior identically on every runtime that ships the runner:
     compile-pending until the next record run; iOS is no longer verified by parity review alone.
 
 `actions.json` case shape:
-  { name, actions: { <name>: { inputs?: {k: expr}, body } }, scope, run, runItem?, expectStore, expectEvents }
+  { name, actions: { <name>: { inputs?: {k: expr}, body } }, scope,
+    run | (runAction + runPayload), runItem?, expectStore, expectEvents }
 - `actions` — the component's declared `<action>` table (inputs evaluate in the CALLER scope on invoke).
-- `run` — the entry handler string (an `on:*` body): a bare action name, a `dsx.action.x()` call, or
-  inline statements.
+- `run` — a SURFACE entry: the handler string (an `on:*` body) — a bare action name, a
+  `dsx.action.x()` call, or inline statements.
+- `runAction` + `runPayload` — a HOST entry: a host invokes the named action with a payload and
+  NO caller scope. See below; a case sets `run` or `runAction`, never both.
 - `runItem` — optional `dsx.this` payload for the entry.
+
+THE TWO KINDS OF CALL (`entry-*` cases). Only one of them has a caller, and a declared input means
+a different (both correct) thing in each. A SURFACE call comes from another action or an `on:*`
+handler, so `inputs="id: item.id"` means "compute this from what the caller can see". An ENTRY call
+comes from outside the document — an HTTP request, a CLI invocation, a queue message, a native host
+handing over a payload — so `inputs="message"` means "I accept a payload key by that name".
+
+The entry case was UNSPECIFIED here until 2026-08-21, and the cost of leaving it so is the reason
+these fixtures exist: every runtime fell through to the surface rule, evaluated the input against an
+empty scope, bound the absent sentinel and DISCARDED the host's payload. A `<server>` action
+declaring `inputs="title, total"` received null for both, which made declaring the contract strictly
+worse than omitting it — and each host then invented its own way around it (the CLI node stripped
+declared inputs entirely, a queue drain smuggled its message through the call-args plane, the HTTP
+path shipped the nulls). One unspecified case, three workarounds, one live defect.
+
+At an entry: a declared input the payload supplies binds the payload value; one the payload omits
+falls back to its expression against the store (so a declared default survives), and binds the
+absent sentinel if that resolves to nothing — a declared input is ALWAYS bound. Undeclared payload
+keys still bind, so declaring one input does not turn the payload into an allowlist. The entry
+reading applies to the ENTRY FRAME only: one hop in, an action the entry calls is an ordinary
+surface call again.
+  · TS: `ActionRunner.callAction(name, {}, item, payload, { entry: true })`
+  · Kotlin: `JSERunner.runAction(name, payload, item)`
+  · Swift: `JSERunner.runAction(_:payload:item:)`
 - `expectStore` — dot-path → value assertions on the final store (JSE-equality; absent = null).
 - `expectEvents` — the ORDERED list of `dsx.event` names emitted (the workflow's fired events).
 
@@ -35,6 +62,19 @@ success shape. `return` stays LOCAL control flow otherwise (fire-and-forget call
 `throw` that unwinds the callee keeps propagating as a real exception to the caller's try/catch —
 it is never enveloped (actions have no `{ ok: false }` arm; errors are throws). Still synchronous:
 actions only suspend at their OWN awaits, so the natives bind inline and the walk continues.
+
+`watch-dispatch.json` — the runner half of `<watch value= on:change=>` (the W12 stale-snapshot
+investigation). Case shape = actions.json plus `global` (app-wide store seed), `watches`
+[{ value, handler }], `pre` [{ path, value }] (bound-control writes landing before the entry), and
+`expectGlobal` (dot-path asserts on the app-wide store). Pins: never fires on subscribe; fires on
+MEANINGFUL change only (JSE.watchKey — an elided deep-equal write never re-fires); the payload rides
+`dsx.this` (an object value as-is, else { value: … }); and the handler observes the POST-WRITE store
+(every store read inside a watch handler sees the state that triggered the fire — the filed
+2026-08-17 toggle revert was the wave-7 F4 entity lexing, jse/syntax-006, never a stale snapshot).
+Runners:
+  · TS: OpenSource/Web/packages/kernel/test/watch-conformance.test.ts (store.watch → ActionRunner, per-PR)
+  · Kotlin: Engine/Android :core WatchConformanceTest (the WatchView evaluate loop → the real JSERunner.fireWatch, per-PR)
+  · Swift: WatchConformance (ConformanceHosts.swift — the WatchView evaluate/fire loop over JSERunner), run from RecordMain.swift in the `conformance-record` lane (compile-pending until the next record run, like the actions corpus above).
 
 The SATELLITE runner (`OpenSource/Engine/iOS/JSEActions.swift`, the watch statement walker) carries
 the same awaited-action grammar (`parseAwaitAction`/`runNamedForValue` — decl + assignment + bare

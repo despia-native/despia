@@ -37,6 +37,13 @@
 
 package despia.engine.render.elements
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -77,6 +84,7 @@ import despia.engine.JSE
 import despia.engine.render.ComposeStackComponentContext
 import despia.engine.render.ComposeStackComponents
 import despia.engine.render.StackIcon
+import despia.engine.render.rememberAnimatorDurationScale
 import despia.engine.render.StackStyle
 import despia.engine.render.StackTheme
 import despia.engine.render.dsxAccessibleActivation
@@ -225,17 +233,42 @@ private fun PopoverElement(ctx: ComposeStackComponentContext) {
     val present = el.presented(key)
     FireOnDismiss(present, el)
     val edge = popoverArrowEdge(el.str("arrow"))
+    // Presentation motion — the web dsx-float-zoom twin (scale 0.95 → 1 + fade, 200ms
+    // dur-base) / the iOS popover fade; collapses under reduced motion. The popup stays
+    // mounted through the exit (MutableTransitionState) so dismissal animates too.
+    val reduceMotion = rememberAnimatorDurationScale() == 0f
+    val visibleState = remember { MutableTransitionState(false) }
+    visibleState.targetState = present
     Box(Modifier.elementStyle(el)) {
         SlotNodes(ctx, defaultSlot(ctx))                                  // the anchor renders inline
-        if (present) {
+        if (reduceMotion) {
+            if (present) {
+                Popup(popupPositionProvider = PopoverPosition(edge),
+                      onDismissRequest = { el.dismissBound() },           // tap-outside / BACK
+                      properties = PopupProperties(focusable = true)) {
+                    PopoverBubble(edge) { SlotNodes(ctx, namedSlot(ctx, "content")) }
+                }
+            }
+        } else if (present || visibleState.currentState || !visibleState.isIdle) {
             Popup(popupPositionProvider = PopoverPosition(edge),
                   onDismissRequest = { el.dismissBound() },               // tap-outside / BACK
                   properties = PopupProperties(focusable = true)) {
-                PopoverBubble(edge) { SlotNodes(ctx, namedSlot(ctx, "content")) }
+                AnimatedVisibility(
+                    visibleState = visibleState,
+                    enter = scaleIn(tween(POPOVER_MOTION_MS), initialScale = POPOVER_ZOOM_FROM) +
+                        fadeIn(tween(POPOVER_MOTION_MS)),
+                    exit = scaleOut(tween(POPOVER_MOTION_MS), targetScale = POPOVER_ZOOM_FROM) +
+                        fadeOut(tween(POPOVER_MOTION_MS)),
+                ) {
+                    PopoverBubble(edge) { SlotNodes(ctx, namedSlot(ctx, "content")) }
+                }
             }
         }
     }
 }
+
+private const val POPOVER_MOTION_MS = 200      // the web --dsx-dur-base
+private const val POPOVER_ZOOM_FROM = 0.95f    // the web dsx-float-zoom starting scale
 
 /// Bubble beside the arrowed edge: arrow 18×9 (regular material, like the bubble),
 /// bubble radius 13. Column for top/bottom, Row for leading/trailing.

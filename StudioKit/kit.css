@@ -1,0 +1,399 @@
+/*
+  STUDIOKIT — the class vocabulary every Despia app is built from (studio-apps.md §13).
+
+  UNSCOPED ON PURPOSE. A component sidecar is scoped to its own component, which makes a kit
+  that ships only components a kit an author cannot extend: the moment they need a row shape
+  the kit did not anticipate, they invent one, and the Studio grows a second design system in
+  someone else's package. This sheet is declared `web.styles`, so it folds into the
+  `dsx-theme` layer of every app's sub-registry: the components below use these classes AND
+  the author can put them on their own markup. One vocabulary, one look.
+
+  EVERY VALUE IS A TOKEN. Not "mostly" - the app plane's lint tier (`despia review --app`)
+  fails a colour literal with the token named, and this sheet is the reference it holds
+  authors to. The mapping from the Studio's private ladders onto the shipped token plane:
+
+    ground        var(--dsx-background)              the panel itself
+    raised        var(--dsx-secondary-background)    a card that floats on it
+    well          var(--dsx-fill)                    a value container
+    hairline      var(--dsx-separator)               every line
+    ink           var(--dsx-label)                   a value
+    ink quiet     var(--dsx-secondary-label)         a label
+    ink chrome    var(--dsx-tertiary-label)          a section word, a unit
+    accent        var(--dsx-accent)                  "you chose this", and nothing else
+
+  THE THREE INK TIERS ARE THE WHOLE LEGIBILITY STORY. A section word is chrome and recedes; a
+  property label is quiet; the VALUE is the brightest thing in its row. An app that inverts
+  that reads as a website someone pasted into an editor.
+*/
+
+/* ── scaffolds ─────────────────────────────────────────────────────────────────────── */
+
+.sk-panel, .sk-pane {
+  background: var(--dsx-background);
+  min-width: 0;
+  min-height: 0;
+}
+.sk-panel-head, .sk-pane-head {
+  flex-shrink: 0;
+  padding: var(--dsx-space-3) var(--dsx-space-4) var(--dsx-space-2);
+  box-shadow: inset 0 -1px 0 var(--dsx-separator);
+}
+.sk-panel-body, .sk-pane-body {
+  padding: var(--dsx-space-3) var(--dsx-space-4) var(--dsx-space-5);
+}
+/* THE MEASURE CAP. A SidePanel is a panel: in its 340px dock this is a no-op, but the
+   person can promote it to the whole work area, and a form stretched across 1500px is not
+   a bigger version of the panel - it is a worse one. The column stays readable and centres
+   itself. An app that genuinely wants full bleed is a RailPane, which caps nothing.
+
+   HEAD, BODY AND FOOT SHARE ONE COLUMN. Capping the body alone is what made a promoted
+   panel look broken: the title and the footer button stayed hard left while the content
+   centred itself, so three regions of one panel disagreed about where the page begins. */
+.sk-panel-body > *, .sk-measure {
+  max-width: 720px;
+  margin-inline: auto;
+  width: 100%;
+}
+.sk-panel-foot {
+  flex-shrink: 0;
+  padding: var(--dsx-space-2) var(--dsx-space-4);
+  box-shadow: inset 0 1px 0 var(--dsx-separator);
+}
+.sk-panel-title, .sk-pane-title {
+  font-size: var(--dsx-type-footnote-size);
+  font-weight: var(--dsx-type-headline-weight);
+  line-height: 1.3;
+  color: var(--dsx-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sk-panel-subtitle {
+  font-size: var(--dsx-type-caption-size);
+  line-height: 1.3;
+  color: var(--dsx-secondary-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sk-toolbar {
+  flex-shrink: 0;
+  min-height: var(--dsx-control-height);
+  padding: 0 var(--dsx-space-2);
+  box-shadow: inset 0 -1px 0 var(--dsx-separator);
+}
+
+/* ── sectioning ────────────────────────────────────────────────────────────────────── */
+
+/* A COLUMN IN A PANEL STRETCHES ITS CHILDREN. A DSX stack is `align-items: start` because
+   that is what a native VStack does - a child is content-sized unless it says otherwise -
+   and every kit container inherited it, so a `<list>` inside a Section hugged its longest
+   row and every row in it came out 136px wide in a 293px panel. Filling is what a panel
+   column means, so the kit's containers say it once here rather than making every author
+   remember `grow="width"` on every nesting level. */
+.sk-section, .sk-card, .sk-panel-body, .sk-pane-body, .sk-field, .sk-empty, .sk-rail {
+  align-items: stretch;
+}
+.sk-section { padding-top: var(--dsx-space-2); }
+/* the ONE section device: caps, the smallest rung, chrome ink. Nothing else gets caps. */
+.sk-section-word {
+  font-size: var(--dsx-type-caption2-size);
+  font-weight: var(--dsx-type-headline-weight);
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dsx-tertiary-label);
+}
+.sk-section-count {
+  font-size: var(--dsx-type-caption2-size);
+  line-height: 1.3;
+  color: var(--dsx-tertiary-label);
+}
+.sk-divider {
+  height: 1px;
+  background: var(--dsx-separator);
+  flex-shrink: 0;
+}
+.sk-note {
+  font-size: var(--dsx-type-caption-size);
+  line-height: 1.45;
+  color: var(--dsx-tertiary-label);
+}
+/* an identifier is read, not scanned: mono, one rung down, quiet */
+.sk-mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: var(--dsx-type-caption2-size);
+  line-height: 1.3;
+  color: var(--dsx-secondary-label);
+}
+
+/* ── rows and cards ────────────────────────────────────────────────────────────────── */
+
+.sk-row {
+  min-height: var(--dsx-control-height);
+  border-radius: var(--dsx-radius-control);
+  padding: var(--dsx-space-2) var(--dsx-space-3);
+  min-width: 0;
+  transition-property: background-color;
+  transition-duration: var(--dsx-duration-fast);
+  transition-timing-function: var(--dsx-ease);
+}
+.sk-row:hover { background: var(--dsx-fill); }
+/* the accent means YOU CHOSE THIS - a wash and a hairline ring, never a filled slab */
+.sk-row-on {
+  background: color-mix(in srgb, var(--dsx-accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--dsx-accent);
+}
+.sk-row-glyph { color: var(--dsx-secondary-label); flex-shrink: 0; }
+.sk-row-name {
+  font-size: var(--dsx-type-footnote-size);
+  line-height: 1.3;
+  color: var(--dsx-label);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sk-row-on .sk-row-name { font-weight: var(--dsx-type-headline-weight); }
+.sk-row-meta {
+  font-size: var(--dsx-type-caption-size);
+  line-height: 1.3;
+  color: var(--dsx-tertiary-label);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.sk-row-go { color: var(--dsx-tertiary-label); flex-shrink: 0; }
+.sk-card {
+  border: 1px solid var(--dsx-separator);
+  border-radius: var(--dsx-radius-card);
+  background: var(--dsx-secondary-background);
+  padding: var(--dsx-space-3);
+  min-width: 0;
+}
+.sk-card-title {
+  font-size: var(--dsx-type-footnote-size);
+  font-weight: var(--dsx-type-headline-weight);
+  line-height: 1.3;
+  color: var(--dsx-label);
+}
+
+/* ── properties, wells and inputs ──────────────────────────────────────────────────── */
+
+.sk-prop { min-height: var(--dsx-control-height); }
+.sk-prop-label {
+  width: 88px;
+  flex-shrink: 0;
+  font-size: var(--dsx-type-caption-size);
+  line-height: 1.3;
+  color: var(--dsx-secondary-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* the other half of a property row: a READOUT. A value a person can only look at is not a
+   notice and must not wear one - that is the difference between an inspector line and an
+   alert, and getting it wrong makes a panel shout at its reader. */
+.sk-value {
+  font-size: var(--dsx-type-caption-size);
+  line-height: 1.3;
+  color: var(--dsx-label);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sk-field-label {
+  font-size: var(--dsx-type-caption-size);
+  line-height: 1.3;
+  color: var(--dsx-secondary-label);
+}
+.sk-field-hint {
+  font-size: var(--dsx-type-caption2-size);
+  line-height: 1.45;
+  color: var(--dsx-tertiary-label);
+}
+/* THE WELL. A control whose whole surface is text wears a resting container; a readout
+   wears none. That one rule is what tells a reader where they may type. */
+.sk-well {
+  min-height: var(--dsx-control-height-sm);
+  padding: 0 var(--dsx-space-2);
+  border-radius: var(--dsx-radius-control);
+  background: var(--dsx-fill);
+  box-shadow: inset 0 0 0 1px var(--dsx-separator);
+  transition-property: box-shadow;
+  transition-duration: var(--dsx-duration-fast);
+  transition-timing-function: var(--dsx-ease);
+}
+.sk-well:focus-within { box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsx-accent) 22%, transparent); }
+.sk-input, .sk-select {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  min-width: 0;
+  font-size: var(--dsx-type-footnote-size);
+  color: var(--dsx-label);
+}
+.sk-textarea {
+  background: var(--dsx-fill);
+  box-shadow: inset 0 0 0 1px var(--dsx-separator);
+  border: 0;
+  border-radius: var(--dsx-radius-control);
+  padding: var(--dsx-space-2);
+  font-size: var(--dsx-type-footnote-size);
+  line-height: 1.45;
+  color: var(--dsx-label);
+  min-width: 0;
+}
+
+/* ── controls ──────────────────────────────────────────────────────────────────────── */
+
+.sk-btn {
+  min-height: var(--dsx-control-height-sm);
+  padding: 0 var(--dsx-space-3);
+  border-radius: var(--dsx-radius-control);
+  font-size: var(--dsx-type-footnote-size);
+  font-weight: var(--dsx-type-label-weight);
+  flex-shrink: 0;
+  transition-property: background-color, transform;
+  transition-duration: var(--dsx-duration-fast);
+  transition-timing-function: var(--dsx-ease);
+}
+.sk-btn:active { transform: scale(0.97); }
+/* the one press: a NEUTRAL fill with a 1px accent ring. A filled accent slab would be
+   byte-identical to a selected row, and then every app ships one permanently-selected thing. */
+.sk-btn-primary {
+  background: var(--dsx-fill);
+  box-shadow: inset 0 0 0 1px var(--dsx-accent);
+  color: var(--dsx-label);
+}
+.sk-btn-primary:hover:not(:active) { background: color-mix(in srgb, var(--dsx-label) 14%, transparent); }
+.sk-btn-quiet {
+  background: color-mix(in srgb, var(--dsx-fill) 40%, transparent);
+  box-shadow: inset 0 0 0 1px var(--dsx-separator);
+  color: var(--dsx-secondary-label);
+}
+.sk-btn-quiet:hover { background: var(--dsx-fill); color: var(--dsx-label); }
+.sk-btn-danger {
+  background: color-mix(in srgb, var(--dsx-danger) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--dsx-danger);
+  color: var(--dsx-danger);
+}
+.sk-btn-danger:hover { background: color-mix(in srgb, var(--dsx-danger) 20%, transparent); }
+.sk-seg {
+  /* AN OUTLINED TRACK, A FILLED TAB. The obvious recipe - fill the track, raise the chosen
+     one onto `--dsx-background` - is a LIGHT-THEME recipe: in dark, `--dsx-background`
+     (#101012) is darker than `--dsx-fill`, so the chosen tab read as a hole punched in the
+     strip. `--dsx-fill` is the only surface token defined as "contrasts with whatever ground
+     you are on" in both themes, so the chosen tab wears it and the track wears a hairline. */
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--dsx-separator);
+  border-radius: var(--dsx-radius-control);
+  padding: 2px;
+  min-width: 0;
+  /* content-sized: a segmented control lives in a header strip beside a title, and one
+     that grows takes the strip. A list container is a COLUMN by default, so the row axis
+     is declared rather than assumed - that is what made it stack and escape its slot. */
+  flex: 0 0 auto;
+  align-self: center;
+}
+.sk-seg-row { flex-direction: row; gap: 2px; }
+.sk-seg-btn {
+  /* a header-strip control, not a form control: it sits beside a two-line title, so it is
+     sized to the type it carries rather than to the standalone control height */
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: var(--dsx-radius-sm);
+  min-width: 0;
+  transition-property: background-color;
+  transition-duration: var(--dsx-duration-fast);
+  transition-timing-function: var(--dsx-ease);
+}
+.sk-seg-btn:hover .sk-seg-label { color: var(--dsx-label); }
+.sk-seg-on { background: var(--dsx-fill); }
+.sk-seg-label {
+  font-size: var(--dsx-type-caption-size);
+  line-height: 1.3;
+  color: var(--dsx-secondary-label);
+  white-space: nowrap;
+}
+.sk-seg-on .sk-seg-label { color: var(--dsx-label); font-weight: var(--dsx-type-headline-weight); }
+
+/* ── marks ─────────────────────────────────────────────────────────────────────────── */
+
+.sk-chip {
+  min-height: 20px;
+  padding: 0 var(--dsx-space-2);
+  border-radius: var(--dsx-radius-sm);
+  background: var(--dsx-fill);
+  flex-shrink: 0;
+}
+.sk-chip-label {
+  font-size: var(--dsx-type-caption2-size);
+  line-height: 1.3;
+  color: var(--dsx-secondary-label);
+  white-space: nowrap;
+}
+.sk-badge {
+  padding: 2px var(--dsx-space-2);
+  border-radius: var(--dsx-radius-sm);
+  background: var(--dsx-fill);
+  font-size: var(--dsx-type-caption2-size);
+  font-weight: var(--dsx-type-headline-weight);
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dsx-tertiary-label);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.sk-badge-ok { color: var(--dsx-accent); }
+.sk-badge-warn { background: color-mix(in srgb, var(--dsx-danger) 14%, transparent); color: var(--dsx-danger); }
+/* a stat is DATA: the number carries the weight, the unit stays chrome beside it */
+.sk-stat-value {
+  font-size: var(--dsx-type-title3-size);
+  font-weight: var(--dsx-type-headline-weight);
+  line-height: 1.2;
+  color: var(--dsx-label);
+}
+.sk-stat-unit {
+  font-size: var(--dsx-type-caption-size);
+  line-height: 1.3;
+  color: var(--dsx-tertiary-label);
+}
+.sk-stat-caption {
+  font-size: var(--dsx-type-caption2-size);
+  line-height: 1.3;
+  color: var(--dsx-secondary-label);
+}
+
+/* ── states ────────────────────────────────────────────────────────────────────────── */
+
+.sk-empty-subject {
+  font-size: var(--dsx-type-footnote-size);
+  font-weight: var(--dsx-type-headline-weight);
+  line-height: 1.45;
+  color: var(--dsx-label);
+  text-align: center;
+}
+.sk-toast {
+  min-height: var(--dsx-control-height-sm);
+  padding: var(--dsx-space-2) var(--dsx-space-3);
+  border-radius: var(--dsx-radius-control);
+  background: var(--dsx-fill);
+  box-shadow: inset 0 0 0 1px var(--dsx-separator);
+  min-width: 0;
+}
+.sk-toast-text {
+  font-size: var(--dsx-type-caption-size);
+  line-height: 1.45;
+  color: var(--dsx-label);
+  /* a notice WRAPS. Without the flex floor the text lays out at its intrinsic width and
+     runs past the box it is announcing itself from, which is the one thing a notice may
+     not do. */
+  min-width: 0;
+}
+.sk-toast-ok { box-shadow: inset 0 0 0 1px var(--dsx-accent); }
+.sk-toast-warn {
+  background: color-mix(in srgb, var(--dsx-danger) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--dsx-danger);
+}

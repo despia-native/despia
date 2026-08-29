@@ -1,0 +1,2625 @@
+{
+ "_note": "TIER 1 as data: the declarative child tree \u2192 the flat DISPLAY LIST, its keyed DIFF, and its SVG serialisation. THE BUILD LAW: walk the children in document order; a wrapper (group \u00b7 blur \u00b7 shadow \u00b7 blend) emits NO op and instead folds into its descendants \u2014 transform composes (world = parentWorld \u00b7 local), opacity MULTIPLIES, paint attributes (fill \u00b7 stroke \u00b7 strokeWidth \u00b7 fillRule \u00b7 strokeLinecap \u00b7 strokeLinejoin) INHERIT, `clip` on a group rides every descendant op with the matrix in force where the clip was authored, and each effect wrapper APPENDS to the op's effect chain outermost-first. A `<gradient id>` child registers a paint and emits no op. Every shape becomes ONE op carrying its normalized path in LOCAL coordinates plus its world matrix \u2014 never a baked path, because tier 1 is retained and only the matrix changes when a transform animates. rect/circle/ellipse become paths through the SAME arc\u2192cubic converter as `d`, so a circle is four cubics with k = 4/3\u00b7tan(\u03c0/8) on every renderer. THE UNSTYLED DEFAULT IS SVG's \u2014 black fill, no stroke, strokeWidth 1, nonzero \u2014 because the vocabulary is SVG's. THE KEY LAW (the `<list>` keying law verbatim): an authored `key` wins, an unkeyed node keys on its KIND plus its position among same-kind siblings, a duplicate gets the `\u00b7n` suffix in encounter order, and the key is PATH-PREFIXED by its ancestors' keys. THE DIFF LAW: keys present on both sides KEEP their identity across reorder; the move set is the complement of a longest increasing subsequence of the retained previous indices, so a single item moved to the front is ONE move, not n. An unknown child tag is one diagnostic and no op \u2014 a canvas draws, it does not lay out. `svg` is the SSR serialisation of the same display list, byte-pinned: the tier-1 tree renders server-side as SVG and hydrates onto a canvas with no repaint flash.",
+ "cases": [
+  {
+   "name": "every primitive folds to one op",
+   "canvas": {
+    "width": 200,
+    "height": 100
+   },
+   "tree": [
+    {
+     "kind": "rect",
+     "attrs": {
+      "x": 0,
+      "y": 0,
+      "width": 10,
+      "height": 10,
+      "fill": "#ff0000"
+     }
+    },
+    {
+     "kind": "rect",
+     "attrs": {
+      "x": 20,
+      "y": 0,
+      "width": 10,
+      "height": 10,
+      "rx": 3,
+      "fill": "#00ff00"
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "cx": 50,
+      "cy": 50,
+      "r": 10,
+      "fill": "accent"
+     }
+    },
+    {
+     "kind": "ellipse",
+     "attrs": {
+      "cx": 90,
+      "cy": 50,
+      "rx": 20,
+      "ry": 10,
+      "fill": "none",
+      "stroke": "#000",
+      "strokeWidth": 2
+     }
+    },
+    {
+     "kind": "line",
+     "attrs": {
+      "x1": 0,
+      "y1": 90,
+      "x2": 100,
+      "y2": 90,
+      "stroke": "#333"
+     }
+    },
+    {
+     "kind": "polygon",
+     "attrs": {
+      "points": "0,0 10,0 5,8",
+      "fill": "#0000ff"
+     }
+    },
+    {
+     "kind": "polyline",
+     "attrs": {
+      "points": "0 0 5 5 10 0",
+      "fill": "none",
+      "stroke": "#f0f"
+     }
+    },
+    {
+     "kind": "path",
+     "attrs": {
+      "d": "M0 0 L10 10",
+      "stroke": "#000",
+      "fill": "none"
+     }
+    },
+    {
+     "kind": "text",
+     "attrs": {
+      "value": "hi & <there>",
+      "x": 5,
+      "y": 20,
+      "fontSize": 16,
+      "fill": "label"
+     }
+    },
+    {
+     "kind": "image",
+     "attrs": {
+      "src": "logo.png",
+      "x": 0,
+      "y": 0,
+      "width": 32,
+      "height": 32
+     }
+    }
+   ],
+   "ops": [
+    {
+     "key": "rect",
+     "kind": "rect",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       10.0
+      ],
+      [
+       "L",
+       0.0,
+       10.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       1.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "rect\u00b71",
+     "kind": "rect",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       23.0,
+       0.0
+      ],
+      [
+       "L",
+       27.0,
+       0.0
+      ],
+      [
+       "C",
+       28.656854,
+       0.0,
+       30.0,
+       1.343146,
+       30.0,
+       3.0
+      ],
+      [
+       "L",
+       30.0,
+       7.0
+      ],
+      [
+       "C",
+       30.0,
+       8.656854,
+       28.656854,
+       10.0,
+       27.0,
+       10.0
+      ],
+      [
+       "L",
+       23.0,
+       10.0
+      ],
+      [
+       "C",
+       21.343146,
+       10.0,
+       20.0,
+       8.656854,
+       20.0,
+       7.0
+      ],
+      [
+       "L",
+       20.0,
+       3.0
+      ],
+      [
+       "C",
+       20.0,
+       1.343146,
+       21.343146,
+       0.0,
+       23.0,
+       0.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "circle",
+     "kind": "circle",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       60.0,
+       50.0
+      ],
+      [
+       "C",
+       60.0,
+       55.522847,
+       55.522847,
+       60.0,
+       50.0,
+       60.0
+      ],
+      [
+       "C",
+       44.477153,
+       60.0,
+       40.0,
+       55.522847,
+       40.0,
+       50.0
+      ],
+      [
+       "C",
+       40.0,
+       44.477153,
+       44.477153,
+       40.0,
+       50.0,
+       40.0
+      ],
+      [
+       "C",
+       55.522847,
+       40.0,
+       60.0,
+       44.477153,
+       60.0,
+       50.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "token",
+      "token": "accent"
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "ellipse",
+     "kind": "ellipse",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       110.0,
+       50.0
+      ],
+      [
+       "C",
+       110.0,
+       55.522847,
+       101.045695,
+       60.0,
+       90.0,
+       60.0
+      ],
+      [
+       "C",
+       78.954305,
+       60.0,
+       70.0,
+       55.522847,
+       70.0,
+       50.0
+      ],
+      [
+       "C",
+       70.0,
+       44.477153,
+       78.954305,
+       40.0,
+       90.0,
+       40.0
+      ],
+      [
+       "C",
+       101.045695,
+       40.0,
+       110.0,
+       44.477153,
+       110.0,
+       50.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": null,
+     "stroke": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "strokeWidth": 2.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "line",
+     "kind": "line",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       90.0
+      ],
+      [
+       "L",
+       100.0,
+       90.0
+      ]
+     ],
+     "fill": null,
+     "stroke": {
+      "kind": "rgba",
+      "rgba": [
+       0.2,
+       0.2,
+       0.2,
+       1.0
+      ]
+     },
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "polygon",
+     "kind": "polygon",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       0.0
+      ],
+      [
+       "L",
+       5.0,
+       8.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       1.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "polyline",
+     "kind": "polyline",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       5.0,
+       5.0
+      ],
+      [
+       "L",
+       10.0,
+       0.0
+      ]
+     ],
+     "fill": null,
+     "stroke": {
+      "kind": "rgba",
+      "rgba": [
+       1.0,
+       0.0,
+       1.0,
+       1.0
+      ]
+     },
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "path",
+     "kind": "path",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       10.0
+      ]
+     ],
+     "fill": null,
+     "stroke": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "text",
+     "kind": "text",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "text": "hi & <there>",
+     "x": 5.0,
+     "y": 20.0,
+     "fontSize": 16.0,
+     "textAnchor": "start",
+     "fill": {
+      "kind": "token",
+      "token": "label"
+     }
+    },
+    {
+     "key": "image",
+     "kind": "image",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "src": "logo.png",
+     "x": 0.0,
+     "y": 0.0,
+     "width": 32.0,
+     "height": 32.0
+    }
+   ],
+   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"100\" viewBox=\"0 0 200 100\"><path d=\"M 0 0 L 10 0 L 10 10 L 0 10 Z\" fill=\"#ff0000\"/><path d=\"M 23 0 L 27 0 C 28.656854 0 30 1.343146 30 3 L 30 7 C 30 8.656854 28.656854 10 27 10 L 23 10 C 21.343146 10 20 8.656854 20 7 L 20 3 C 20 1.343146 21.343146 0 23 0 Z\" fill=\"#00ff00\"/><path d=\"M 60 50 C 60 55.522847 55.522847 60 50 60 C 44.477153 60 40 55.522847 40 50 C 40 44.477153 44.477153 40 50 40 C 55.522847 40 60 44.477153 60 50 Z\" fill=\"var(--dsx-accent)\"/><path d=\"M 110 50 C 110 55.522847 101.045695 60 90 60 C 78.954305 60 70 55.522847 70 50 C 70 44.477153 78.954305 40 90 40 C 101.045695 40 110 44.477153 110 50 Z\" fill=\"none\" stroke=\"#000000\" stroke-width=\"2\"/><path d=\"M 0 90 L 100 90\" fill=\"none\" stroke=\"#333333\" stroke-width=\"1\"/><path d=\"M 0 0 L 10 0 L 5 8 Z\" fill=\"#0000ff\"/><path d=\"M 0 0 L 5 5 L 10 0\" fill=\"none\" stroke=\"#ff00ff\" stroke-width=\"1\"/><path d=\"M 0 0 L 10 10\" fill=\"none\" stroke=\"#000000\" stroke-width=\"1\"/><text x=\"5\" y=\"20\" font-size=\"16\" fill=\"var(--dsx-label)\" text-anchor=\"start\">hi &amp; &lt;there&gt;</text><image x=\"0\" y=\"0\" width=\"32\" height=\"32\" href=\"logo.png\"/></svg>"
+  },
+  {
+   "name": "the unstyled default is SVG's: black fill, no stroke, nonzero",
+   "canvas": {
+    "width": 100,
+    "height": 100
+   },
+   "tree": [
+    {
+     "kind": "rect",
+     "attrs": {
+      "x": 0,
+      "y": 0,
+      "width": 10,
+      "height": 10
+     }
+    }
+   ],
+   "ops": [
+    {
+     "key": "rect",
+     "kind": "rect",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       10.0
+      ],
+      [
+       "L",
+       0.0,
+       10.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    }
+   ],
+   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><path d=\"M 0 0 L 10 0 L 10 10 L 0 10 Z\" fill=\"#000000\"/></svg>"
+  },
+  {
+   "name": "a group composes transform, multiplies opacity and inherits paint",
+   "canvas": {
+    "width": 100,
+    "height": 100
+   },
+   "tree": [
+    {
+     "kind": "group",
+     "attrs": {
+      "transform": "translate(10,10)",
+      "opacity": 0.5,
+      "fill": "#ff0000"
+     },
+     "children": [
+      {
+       "kind": "circle",
+       "attrs": {
+        "cx": 0,
+        "cy": 0,
+        "r": 5
+       }
+      },
+      {
+       "kind": "group",
+       "attrs": {
+        "transform": "scale(2)",
+        "opacity": 0.5
+       },
+       "children": [
+        {
+         "kind": "rect",
+         "attrs": {
+          "x": 0,
+          "y": 0,
+          "width": 4,
+          "height": 4,
+          "fill": "#0000ff"
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "ops": [
+    {
+     "key": "group/circle",
+     "kind": "circle",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      10.0,
+      10.0
+     ],
+     "opacity": 0.5,
+     "path": [
+      [
+       "M",
+       5.0,
+       0.0
+      ],
+      [
+       "C",
+       5.0,
+       2.761424,
+       2.761424,
+       5.0,
+       0.0,
+       5.0
+      ],
+      [
+       "C",
+       -2.761424,
+       5.0,
+       -5.0,
+       2.761424,
+       -5.0,
+       0.0
+      ],
+      [
+       "C",
+       -5.0,
+       -2.761424,
+       -2.761424,
+       -5.0,
+       0.0,
+       -5.0
+      ],
+      [
+       "C",
+       2.761424,
+       -5.0,
+       5.0,
+       -2.761424,
+       5.0,
+       0.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       1.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "group/group/rect",
+     "kind": "rect",
+     "transform": [
+      2.0,
+      0.0,
+      0.0,
+      2.0,
+      10.0,
+      10.0
+     ],
+     "opacity": 0.25,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       4.0,
+       0.0
+      ],
+      [
+       "L",
+       4.0,
+       4.0
+      ],
+      [
+       "L",
+       0.0,
+       4.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       1.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    }
+   ],
+   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><g transform=\"matrix(1,0,0,1,10,10)\" opacity=\"0.5\"><path d=\"M 5 0 C 5 2.761424 2.761424 5 0 5 C -2.761424 5 -5 2.761424 -5 0 C -5 -2.761424 -2.761424 -5 0 -5 C 2.761424 -5 5 -2.761424 5 0 Z\" fill=\"#ff0000\"/></g><g transform=\"matrix(2,0,0,2,10,10)\" opacity=\"0.25\"><path d=\"M 0 0 L 4 0 L 4 4 L 0 4 Z\" fill=\"#0000ff\"/></g></svg>"
+  },
+  {
+   "name": "a group clip rides every descendant op",
+   "canvas": {
+    "width": 100,
+    "height": 100
+   },
+   "tree": [
+    {
+     "kind": "group",
+     "attrs": {
+      "clip": "M0 0 H50 V50 H0 Z",
+      "transform": "translate(5,5)"
+     },
+     "children": [
+      {
+       "kind": "circle",
+       "attrs": {
+        "cx": 25,
+        "cy": 25,
+        "r": 30,
+        "fill": "#123456"
+       }
+      }
+     ]
+    }
+   ],
+   "ops": [
+    {
+     "key": "group/circle",
+     "kind": "circle",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      5.0,
+      5.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       55.0,
+       25.0
+      ],
+      [
+       "C",
+       55.0,
+       41.568542,
+       41.568542,
+       55.0,
+       25.0,
+       55.0
+      ],
+      [
+       "C",
+       8.431458,
+       55.0,
+       -5.0,
+       41.568542,
+       -5.0,
+       25.0
+      ],
+      [
+       "C",
+       -5.0,
+       8.431458,
+       8.431458,
+       -5.0,
+       25.0,
+       -5.0
+      ],
+      [
+       "C",
+       41.568542,
+       -5.0,
+       55.0,
+       8.431458,
+       55.0,
+       25.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.070588,
+       0.203922,
+       0.337255,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter",
+     "clip": {
+      "path": [
+       [
+        "M",
+        0.0,
+        0.0
+       ],
+       [
+        "L",
+        50.0,
+        0.0
+       ],
+       [
+        "L",
+        50.0,
+        50.0
+       ],
+       [
+        "L",
+        0.0,
+        50.0
+       ],
+       [
+        "Z"
+       ]
+      ],
+      "transform": [
+       1.0,
+       0.0,
+       0.0,
+       1.0,
+       5.0,
+       5.0
+      ]
+     }
+    }
+   ],
+   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><defs><clipPath id=\"dsx-fx-1\" clipPathUnits=\"userSpaceOnUse\"><path d=\"M 0 0 L 50 0 L 50 50 L 0 50 Z\" transform=\"matrix(1,0,0,1,5,5)\"/></clipPath></defs><g transform=\"matrix(1,0,0,1,5,5)\" clip-path=\"url(#dsx-fx-1)\"><path d=\"M 55 25 C 55 41.568542 41.568542 55 25 55 C 8.431458 55 -5 41.568542 -5 25 C -5 8.431458 8.431458 -5 25 -5 C 41.568542 -5 55 8.431458 55 25 Z\" fill=\"#123456\"/></g></svg>"
+  },
+  {
+   "name": "effect wrappers stack outermost-first onto every op inside",
+   "canvas": {
+    "width": 100,
+    "height": 100
+   },
+   "tree": [
+    {
+     "kind": "blur",
+     "attrs": {
+      "radius": 12
+     },
+     "children": [
+      {
+       "kind": "shadow",
+       "attrs": {
+        "dx": 2,
+        "dy": 3,
+        "radius": 8,
+        "color": "#00000080"
+       },
+       "children": [
+        {
+         "kind": "blend",
+         "attrs": {
+          "mode": "multiply"
+         },
+         "children": [
+          {
+           "kind": "circle",
+           "attrs": {
+            "cx": 60,
+            "cy": 60,
+            "r": 40,
+            "fill": "#EC4899"
+           }
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "ops": [
+    {
+     "key": "blur/shadow/blend/circle",
+     "kind": "circle",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       100.0,
+       60.0
+      ],
+      [
+       "C",
+       100.0,
+       82.09139,
+       82.09139,
+       100.0,
+       60.0,
+       100.0
+      ],
+      [
+       "C",
+       37.90861,
+       100.0,
+       20.0,
+       82.09139,
+       20.0,
+       60.0
+      ],
+      [
+       "C",
+       20.0,
+       37.90861,
+       37.90861,
+       20.0,
+       60.0,
+       20.0
+      ],
+      [
+       "C",
+       82.09139,
+       20.0,
+       100.0,
+       37.90861,
+       100.0,
+       60.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.92549,
+       0.282353,
+       0.6,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter",
+     "effects": [
+      {
+       "kind": "blur",
+       "radius": 12.0
+      },
+      {
+       "kind": "shadow",
+       "dx": 2.0,
+       "dy": 3.0,
+       "radius": 8.0,
+       "color": {
+        "kind": "rgba",
+        "rgba": [
+         0.0,
+         0.0,
+         0.0,
+         0.501961
+        ]
+       }
+      },
+      {
+       "kind": "blend",
+       "mode": "multiply"
+      }
+     ]
+    }
+   ],
+   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><defs><filter id=\"dsx-fx-1\"><feDropShadow dx=\"2\" dy=\"3\" stdDeviation=\"4\" flood-color=\"#000000\" flood-opacity=\"0.501961\"/></filter><filter id=\"dsx-fx-2\"><feGaussianBlur stdDeviation=\"6\"/></filter></defs><g filter=\"url(#dsx-fx-2)\"><g filter=\"url(#dsx-fx-1)\"><g style=\"mix-blend-mode:multiply\"><path d=\"M 100 60 C 100 82.09139 82.09139 100 60 100 C 37.90861 100 20 82.09139 20 60 C 20 37.90861 37.90861 20 60 20 C 82.09139 20 100 37.90861 100 60 Z\" fill=\"#ec4899\"/></g></g></g></svg>"
+  },
+  {
+   "name": "a gradient child registers a paint and emits no op",
+   "canvas": {
+    "width": 120,
+    "height": 60
+   },
+   "tree": [
+    {
+     "kind": "gradient",
+     "attrs": {
+      "id": "g1",
+      "kind": "linear",
+      "x1": 0,
+      "y1": 0,
+      "x2": 120,
+      "y2": 0
+     },
+     "children": [
+      {
+       "kind": "stop",
+       "attrs": {
+        "offset": 0,
+        "color": "#ff0000"
+       }
+      },
+      {
+       "kind": "stop",
+       "attrs": {
+        "offset": 1,
+        "color": "#0000ff"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "rect",
+     "attrs": {
+      "x": 0,
+      "y": 0,
+      "width": 120,
+      "height": 60,
+      "fill": "url(#g1)"
+     }
+    }
+   ],
+   "ops": [
+    {
+     "key": "rect",
+     "kind": "rect",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       120.0,
+       0.0
+      ],
+      [
+       "L",
+       120.0,
+       60.0
+      ],
+      [
+       "L",
+       0.0,
+       60.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "gradient",
+      "id": "g1"
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    }
+   ],
+   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120\" height=\"60\" viewBox=\"0 0 120 60\"><defs><linearGradient id=\"g1\" gradientUnits=\"userSpaceOnUse\" x1=\"0\" y1=\"0\" x2=\"120\" y2=\"0\"><stop offset=\"0\" stop-color=\"#ff0000\"/><stop offset=\"1\" stop-color=\"#0000ff\"/></linearGradient></defs><path d=\"M 0 0 L 120 0 L 120 60 L 0 60 Z\" fill=\"url(#g1)\"/></svg>",
+   "gradients": {
+    "g1": {
+     "kind": "linear",
+     "geom": [
+      0.0,
+      0.0,
+      120.0,
+      0.0
+     ],
+     "stops": [
+      {
+       "offset": 0.0,
+       "rgba": [
+        1.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      },
+      {
+       "offset": 1.0,
+       "rgba": [
+        0.0,
+        0.0,
+        1.0,
+        1.0
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "keys: authored key wins, unkeyed nodes key on kind and index, duplicates get \u00b7n",
+   "canvas": {
+    "width": 100,
+    "height": 100
+   },
+   "tree": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "dot",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "cx": 3,
+      "cy": 3,
+      "r": 1
+     }
+    },
+    {
+     "kind": "rect",
+     "attrs": {
+      "key": "dot",
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1
+     }
+    },
+    {
+     "kind": "group",
+     "children": [
+      {
+       "kind": "circle",
+       "attrs": {
+        "cx": 4,
+        "cy": 4,
+        "r": 1
+       }
+      }
+     ]
+    }
+   ],
+   "ops": [
+    {
+     "key": "dot",
+     "kind": "circle",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       2.0,
+       1.0
+      ],
+      [
+       "C",
+       2.0,
+       1.552285,
+       1.552285,
+       2.0,
+       1.0,
+       2.0
+      ],
+      [
+       "C",
+       0.447715,
+       2.0,
+       0.0,
+       1.552285,
+       0.0,
+       1.0
+      ],
+      [
+       "C",
+       0.0,
+       0.447715,
+       0.447715,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       "C",
+       1.552285,
+       0.0,
+       2.0,
+       0.447715,
+       2.0,
+       1.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "circle",
+     "kind": "circle",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       3.0,
+       2.0
+      ],
+      [
+       "C",
+       3.0,
+       2.552285,
+       2.552285,
+       3.0,
+       2.0,
+       3.0
+      ],
+      [
+       "C",
+       1.447715,
+       3.0,
+       1.0,
+       2.552285,
+       1.0,
+       2.0
+      ],
+      [
+       "C",
+       1.0,
+       1.447715,
+       1.447715,
+       1.0,
+       2.0,
+       1.0
+      ],
+      [
+       "C",
+       2.552285,
+       1.0,
+       3.0,
+       1.447715,
+       3.0,
+       2.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "circle\u00b71",
+     "kind": "circle",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       4.0,
+       3.0
+      ],
+      [
+       "C",
+       4.0,
+       3.552285,
+       3.552285,
+       4.0,
+       3.0,
+       4.0
+      ],
+      [
+       "C",
+       2.447715,
+       4.0,
+       2.0,
+       3.552285,
+       2.0,
+       3.0
+      ],
+      [
+       "C",
+       2.0,
+       2.447715,
+       2.447715,
+       2.0,
+       3.0,
+       2.0
+      ],
+      [
+       "C",
+       3.552285,
+       2.0,
+       4.0,
+       2.447715,
+       4.0,
+       3.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "dot\u00b71",
+     "kind": "rect",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       1.0,
+       0.0
+      ],
+      [
+       "L",
+       1.0,
+       1.0
+      ],
+      [
+       "L",
+       0.0,
+       1.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "group/circle",
+     "kind": "circle",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       5.0,
+       4.0
+      ],
+      [
+       "C",
+       5.0,
+       4.552285,
+       4.552285,
+       5.0,
+       4.0,
+       5.0
+      ],
+      [
+       "C",
+       3.447715,
+       5.0,
+       3.0,
+       4.552285,
+       3.0,
+       4.0
+      ],
+      [
+       "C",
+       3.0,
+       3.447715,
+       3.447715,
+       3.0,
+       4.0,
+       3.0
+      ],
+      [
+       "C",
+       4.552285,
+       3.0,
+       5.0,
+       3.447715,
+       5.0,
+       4.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    }
+   ],
+   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><path d=\"M 2 1 C 2 1.552285 1.552285 2 1 2 C 0.447715 2 0 1.552285 0 1 C 0 0.447715 0.447715 0 1 0 C 1.552285 0 2 0.447715 2 1 Z\" fill=\"#000000\"/><path d=\"M 3 2 C 3 2.552285 2.552285 3 2 3 C 1.447715 3 1 2.552285 1 2 C 1 1.447715 1.447715 1 2 1 C 2.552285 1 3 1.447715 3 2 Z\" fill=\"#000000\"/><path d=\"M 4 3 C 4 3.552285 3.552285 4 3 4 C 2.447715 4 2 3.552285 2 3 C 2 2.447715 2.447715 2 3 2 C 3.552285 2 4 2.447715 4 3 Z\" fill=\"#000000\"/><path d=\"M 0 0 L 1 0 L 1 1 L 0 1 Z\" fill=\"#000000\"/><path d=\"M 5 4 C 5 4.552285 4.552285 5 4 5 C 3.447715 5 3 4.552285 3 4 C 3 3.447715 3.447715 3 4 3 C 4.552285 3 5 3.447715 5 4 Z\" fill=\"#000000\"/></svg>"
+  },
+  {
+   "name": "evenodd rides the op, not the path",
+   "canvas": {
+    "width": 100,
+    "height": 100
+   },
+   "tree": [
+    {
+     "kind": "path",
+     "attrs": {
+      "d": "M0 0 H60 V60 H0 Z M20 20 H40 V40 H20 Z",
+      "fillRule": "evenodd",
+      "fill": "#000"
+     }
+    }
+   ],
+   "ops": [
+    {
+     "key": "path",
+     "kind": "path",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       60.0,
+       0.0
+      ],
+      [
+       "L",
+       60.0,
+       60.0
+      ],
+      [
+       "L",
+       0.0,
+       60.0
+      ],
+      [
+       "Z"
+      ],
+      [
+       "M",
+       20.0,
+       20.0
+      ],
+      [
+       "L",
+       40.0,
+       20.0
+      ],
+      [
+       "L",
+       40.0,
+       40.0
+      ],
+      [
+       "L",
+       20.0,
+       40.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "evenodd",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    }
+   ],
+   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><path d=\"M 0 0 L 60 0 L 60 60 L 0 60 Z M 20 20 L 40 20 L 40 40 L 20 40 Z\" fill=\"#000000\" fill-rule=\"evenodd\"/></svg>"
+  },
+  {
+   "name": "a non-drawing child is one diagnostic and no op",
+   "canvas": {
+    "width": 100,
+    "height": 100
+   },
+   "tree": [
+    {
+     "kind": "stack",
+     "children": [
+      {
+       "kind": "text",
+       "attrs": {
+        "value": "nope"
+       }
+      }
+     ]
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    }
+   ],
+   "ops": [
+    {
+     "key": "circle",
+     "kind": "circle",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       2.0,
+       1.0
+      ],
+      [
+       "C",
+       2.0,
+       1.552285,
+       1.552285,
+       2.0,
+       1.0,
+       2.0
+      ],
+      [
+       "C",
+       0.447715,
+       2.0,
+       0.0,
+       1.552285,
+       0.0,
+       1.0
+      ],
+      [
+       "C",
+       0.0,
+       0.447715,
+       0.447715,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       "C",
+       1.552285,
+       0.0,
+       2.0,
+       0.447715,
+       2.0,
+       1.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    }
+   ],
+   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><path d=\"M 2 1 C 2 1.552285 1.552285 2 1 2 C 0.447715 2 0 1.552285 0 1 C 0 0.447715 0.447715 0 1 0 C 1.552285 0 2 0.447715 2 1 Z\" fill=\"#000000\"/></svg>",
+   "diagnostics": 1
+  },
+  {
+   "name": "a fill of none paints nothing and a missing colour falls back to black",
+   "canvas": {
+    "width": 100,
+    "height": 100
+   },
+   "tree": [
+    {
+     "kind": "rect",
+     "attrs": {
+      "x": 0,
+      "y": 0,
+      "width": 10,
+      "height": 10,
+      "fill": "none",
+      "stroke": "none"
+     }
+    },
+    {
+     "kind": "rect",
+     "attrs": {
+      "x": 0,
+      "y": 0,
+      "width": 10,
+      "height": 10,
+      "fill": "not-a-colour"
+     }
+    }
+   ],
+   "ops": [
+    {
+     "key": "rect",
+     "kind": "rect",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       10.0
+      ],
+      [
+       "L",
+       0.0,
+       10.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": null,
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    },
+    {
+     "key": "rect\u00b71",
+     "kind": "rect",
+     "transform": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "opacity": 1.0,
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       10.0
+      ],
+      [
+       "L",
+       0.0,
+       10.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "fill": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "stroke": null,
+     "strokeWidth": 1.0,
+     "fillRule": "nonzero",
+     "strokeLinecap": "butt",
+     "strokeLinejoin": "miter"
+    }
+   ],
+   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><path d=\"M 0 0 L 10 0 L 10 10 L 0 10 Z\" fill=\"none\"/><path d=\"M 0 0 L 10 0 L 10 10 L 0 10 Z\" fill=\"#000000\"/></svg>",
+   "diagnostics": 1
+  }
+ ],
+ "diff": [
+  {
+   "name": "no change is all keeps",
+   "before": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "b",
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    }
+   ],
+   "after": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "b",
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    }
+   ],
+   "beforeKeys": [
+    "a",
+    "b"
+   ],
+   "afterKeys": [
+    "a",
+    "b"
+   ],
+   "diff": [
+    {
+     "op": "keep",
+     "key": "a",
+     "to": 0
+    },
+    {
+     "op": "keep",
+     "key": "b",
+     "to": 1
+    }
+   ]
+  },
+  {
+   "name": "a changed attribute is an update, identity survives",
+   "before": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    }
+   ],
+   "after": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 9
+     }
+    }
+   ],
+   "beforeKeys": [
+    "a"
+   ],
+   "afterKeys": [
+    "a"
+   ],
+   "diff": [
+    {
+     "op": "update",
+     "key": "a",
+     "to": 0
+    }
+   ]
+  },
+  {
+   "name": "appending keeps the old ops",
+   "before": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    }
+   ],
+   "after": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "b",
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    }
+   ],
+   "beforeKeys": [
+    "a"
+   ],
+   "afterKeys": [
+    "a",
+    "b"
+   ],
+   "diff": [
+    {
+     "op": "keep",
+     "key": "a",
+     "to": 0
+    },
+    {
+     "op": "insert",
+     "key": "b",
+     "to": 1
+    }
+   ]
+  },
+  {
+   "name": "removing the middle key removes exactly one op",
+   "before": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "b",
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "c",
+      "cx": 3,
+      "cy": 3,
+      "r": 1
+     }
+    }
+   ],
+   "after": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "c",
+      "cx": 3,
+      "cy": 3,
+      "r": 1
+     }
+    }
+   ],
+   "beforeKeys": [
+    "a",
+    "b",
+    "c"
+   ],
+   "afterKeys": [
+    "a",
+    "c"
+   ],
+   "diff": [
+    {
+     "op": "remove",
+     "key": "b"
+    },
+    {
+     "op": "keep",
+     "key": "a",
+     "to": 0
+    },
+    {
+     "op": "keep",
+     "key": "c",
+     "to": 1
+    }
+   ]
+  },
+  {
+   "name": "a reverse reorder moves the minimum number of ops (LIS)",
+   "before": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "b",
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "c",
+      "cx": 3,
+      "cy": 3,
+      "r": 1
+     }
+    }
+   ],
+   "after": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "c",
+      "cx": 3,
+      "cy": 3,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "b",
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    }
+   ],
+   "beforeKeys": [
+    "a",
+    "b",
+    "c"
+   ],
+   "afterKeys": [
+    "c",
+    "b",
+    "a"
+   ],
+   "diff": [
+    {
+     "op": "move",
+     "key": "c",
+     "from": 2,
+     "to": 0
+    },
+    {
+     "op": "move",
+     "key": "b",
+     "from": 1,
+     "to": 1
+    },
+    {
+     "op": "keep",
+     "key": "a",
+     "to": 2
+    }
+   ]
+  },
+  {
+   "name": "moving one item to the front moves ONLY that item",
+   "before": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "b",
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "c",
+      "cx": 3,
+      "cy": 3,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "d",
+      "cx": 4,
+      "cy": 4,
+      "r": 1
+     }
+    }
+   ],
+   "after": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "d",
+      "cx": 4,
+      "cy": 4,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "b",
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "c",
+      "cx": 3,
+      "cy": 3,
+      "r": 1
+     }
+    }
+   ],
+   "beforeKeys": [
+    "a",
+    "b",
+    "c",
+    "d"
+   ],
+   "afterKeys": [
+    "d",
+    "a",
+    "b",
+    "c"
+   ],
+   "diff": [
+    {
+     "op": "move",
+     "key": "d",
+     "from": 3,
+     "to": 0
+    },
+    {
+     "op": "keep",
+     "key": "a",
+     "to": 1
+    },
+    {
+     "op": "keep",
+     "key": "b",
+     "to": 2
+    },
+    {
+     "op": "keep",
+     "key": "c",
+     "to": 3
+    }
+   ]
+  },
+  {
+   "name": "reorder AND edit: the moved op is a move, the edited one an update",
+   "before": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "b",
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    }
+   ],
+   "after": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "b",
+      "cx": 2,
+      "cy": 2,
+      "r": 5
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    }
+   ],
+   "beforeKeys": [
+    "a",
+    "b"
+   ],
+   "afterKeys": [
+    "b",
+    "a"
+   ],
+   "diff": [
+    {
+     "op": "move",
+     "key": "b",
+     "from": 1,
+     "to": 0
+    },
+    {
+     "op": "keep",
+     "key": "a",
+     "to": 1
+    }
+   ]
+  },
+  {
+   "name": "unkeyed children key positionally, so a reorder is two updates, not a move",
+   "before": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    }
+   ],
+   "after": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "cx": 2,
+      "cy": 2,
+      "r": 1
+     }
+    },
+    {
+     "kind": "circle",
+     "attrs": {
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    }
+   ],
+   "beforeKeys": [
+    "circle",
+    "circle\u00b71"
+   ],
+   "afterKeys": [
+    "circle",
+    "circle\u00b71"
+   ],
+   "diff": [
+    {
+     "op": "update",
+     "key": "circle",
+     "to": 0
+    },
+    {
+     "op": "update",
+     "key": "circle\u00b71",
+     "to": 1
+    }
+   ]
+  },
+  {
+   "name": "swapping the kind under the same position replaces the op",
+   "before": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    }
+   ],
+   "after": [
+    {
+     "kind": "rect",
+     "attrs": {
+      "x": 0,
+      "y": 0,
+      "width": 2,
+      "height": 2
+     }
+    }
+   ],
+   "beforeKeys": [
+    "circle"
+   ],
+   "afterKeys": [
+    "rect"
+   ],
+   "diff": [
+    {
+     "op": "remove",
+     "key": "circle"
+    },
+    {
+     "op": "insert",
+     "key": "rect",
+     "to": 0
+    }
+   ]
+  },
+  {
+   "name": "everything gone",
+   "before": [
+    {
+     "kind": "circle",
+     "attrs": {
+      "key": "a",
+      "cx": 1,
+      "cy": 1,
+      "r": 1
+     }
+    }
+   ],
+   "after": [],
+   "beforeKeys": [
+    "a"
+   ],
+   "afterKeys": [],
+   "diff": [
+    {
+     "op": "remove",
+     "key": "a"
+    }
+   ]
+  }
+ ]
+}

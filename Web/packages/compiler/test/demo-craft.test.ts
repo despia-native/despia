@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test as nodeTest } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -19,6 +19,14 @@ const root = repoRoot();
 const components = join(root, "ClosedSource/DSX/Modules/Custom/Demo/Components");
 const read = (name: string): string => readFileSync(join(components, name), "utf8");
 
+// Every test here reads the closed Demo/Foundation sources. An open drop skips
+// LOUDLY, per test, with the reason - never silently (the component-fold-conformance
+// rule: the one legitimate skip is a genuine open drop with no ClosedSource/ tree).
+const hasClosedSource = existsSync(join(root, "ClosedSource"));
+const test: typeof nodeTest = hasClosedSource
+  ? nodeTest
+  : (((name: string) => nodeTest(name, (t) => t.skip("open drop without ClosedSource - the Demo/Foundation craft sources ship closed"))) as typeof nodeTest);
+
 test("demo craft surfaces remain valid DSX and use DSX-only product branding", () => {
   for (const name of ["Launcher.dsx", "Gallery.dsx", "Workspace.dsx"]) {
     const source = read(name);
@@ -38,12 +46,18 @@ test("demo craft surfaces remain valid DSX and use DSX-only product branding", (
   const builder = readFileSync(join(root, "OpenSource/Web/packages/compiler/bin/build-demo.ts"), "utf8");
   assert.match(builder, /width=device-width, initial-scale=1, viewport-fit=cover/);
   assert.doesNotMatch(builder, /interactive-widget/, "the demo viewport stays valid in WebKit");
+  // Dotted schemes (`firebase.remoteconfig`) are legal module names and illegal JS
+  // bindings. The bootloader must go through facetBindingIdent, never interpolate
+  // the raw scheme into `import ${p.name}`.
+  assert.match(builder, /facetBootImport\(p\.name\)/);
+  assert.match(builder, /facetBootRegister\(p\.name/);
+  assert.doesNotMatch(builder, /import \$\{p\.name\}/);
 });
 
 test("launcher preserves the full capability catalog and every icon has a Web path", () => {
   const launcher = read("Launcher.dsx");
   const entries = launcher.match(/\{\s*id:\s*'[^']+'[^\n]+component:\s*'[^']+'/g) ?? [];
-  assert.equal(entries.length, 24, "all capability routes stay visible");
+  assert.equal(entries.length, 25, "all capability routes stay visible");   // 25th: the Analytics dashboard (the complex-dashboard proof)
 
   // The web icon table is DERIVED from the one cross-runtime corpus (elements.ts no longer
   // carries a private fork), so an authored demo icon is checked against that corpus here —
@@ -68,9 +82,12 @@ test("craft CSS keeps restrained surfaces and distinct tablet/desktop precision 
     assert.doesNotMatch(css, /(?:radial|conic)-gradient\s*\(/i, `stylesheet ${index} has no decorative spotlight gradient`);
     assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b|\brgba?\s*\(/i, `stylesheet ${index} uses semantic tokens`);
     for (const declaration of css.match(/box-shadow\s*:[^;]+/g) ?? []) {
+      // restraint = none, inset structure lines, the accent focus layer, or the
+      // SYSTEM elevation tokens (specimen cards ride --dsx-shadow-N since the
+      // web-face detail sweep); bespoke drop shadows stay banned
       assert.match(
         declaration,
-        /box-shadow\s*:\s*(?:none|inset\b|0\s+0\s+0\s+2px\s+color-mix\([^;]*var\(--dsx-accent\))/,
+        /box-shadow\s*:\s*(?:none|inset\b|var\(--dsx-shadow-(?:[1-4]|xs)\)|0\s+0\s+0\s+2px\s+color-mix\([^;]*var\(--dsx-accent\))/,
         `restrained shadow: ${declaration}`,
       );
     }
@@ -143,7 +160,13 @@ test("Web defaults stay neutral instead of copying one native platform", () => {
   const nativeControls = readFileSync(join(root, "OpenSource/Web/packages/dom/src/native-controls.ts"), "utf8");
 
   assert.doesNotMatch(banner, /#FF453A|#FF9F0A|#30D158|#0A84FF/, "Banner has no Apple-specific status palette");
-  assert.doesNotMatch(theme + forms, /width:\s*51px|height:\s*31px/, "switches use DSX-neutral geometry");
+  // Web-only polyfill (design-system.md): the 63x28 capsule is the unstyled web switch;
+  // iOS hosts UISwitch and Android hosts the M3 / legacy switch. Neutrality is
+  // glass-free + token-driven, never a copied native palette or material.
+  assert.match(forms, /--dsx-field-toggle-width:\s*63px/, "switch geometry ships as overridable custom properties");
+  assert.match(forms, /--dsx-field-toggle-thumb-width:\s*36px/, "the pill thumb width is a token authors can restyle");
+  assert.doesNotMatch(forms, /backdrop-filter/, "the switch pill stays glass-free (no native material)");
+  assert.doesNotMatch(theme + forms, /#34C759|#30D158|#0A84FF/i, "no hardcoded native switch palette");
   const wheel = nativeControls.match(/\.dsx-wheelpicker-select\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? "";
   assert.doesNotMatch(wheel, /linear-gradient|scroll-snap/, "Web wheelpicker stays a browser-native listbox");
 });

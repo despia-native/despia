@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "_schema": "despia-masked-resolution-v1",
+  "_note": "The U07 <masked> pure core: the slot=\"mask\" child's alpha (or luminance) masks the content child. One mapping per target \u2014 iOS .mask(), Android BlendMode.DstIn/DstOut, web mask-image with an opaque base layer plus a subtract layer for invert. The mask child is decorative BY CONSTRUCTION and always hidden from assistive tech; the masked content keeps its own semantics, because <masked> changes appearance, not content.",
+  "modes": [
+    "alpha",
+    "luminance"
+  ],
+  "defaults": {
+    "mode": "alpha",
+    "invert": false
+  },
+  "cases": [
+    {
+      "name": "mode=None invert=None",
+      "mode": null,
+      "invert": null,
+      "expect": {
+        "mode": "alpha",
+        "invert": false,
+        "blend": "dstIn",
+        "cssMaskMode": "alpha",
+        "webLayers": [
+          {
+            "image": "mask",
+            "composite": "add"
+          }
+        ],
+        "maskChildHidden": true,
+        "contentSemanticsPreserved": true
+      }
+    },
+    {
+      "name": "mode='alpha' invert=None",
+      "mode": "alpha",
+      "invert": null,
+      "expect": {
+        "mode": "alpha",
+        "invert": false,
+        "blend": "dstIn",
+        "cssMaskMode": "alpha",
+        "webLayers": [
+          {
+            "image": "mask",
+            "composite": "add"
+          }
+        ],
+        "maskChildHidden": true,
+        "contentSemanticsPreserved": true
+      }
+    },
+    {
+      "name": "mode='luminance' invert=None",
+      "mode": "luminance",
+      "invert": null,
+      "expect": {
+        "mode": "luminance",
+        "invert": false,
+        "blend": "dstIn",
+        "cssMaskMode": "luminance",
+        "webLayers": [
+          {
+            "image": "mask",
+            "composite": "add"
+          }
+        ],
+        "maskChildHidden": true,
+        "contentSemanticsPreserved": true
+      }
+    },
+    {
+      "name": "mode='alpha' invert=True",
+      "mode": "alpha",
+      "invert": true,
+      "expect": {
+        "mode": "alpha",
+        "invert": true,
+        "blend": "dstOut",
+        "cssMaskMode": "alpha",
+        "webLayers": [
+          {
+            "image": "opaque",
+            "composite": "add"
+          },
+          {
+            "image": "mask",
+            "composite": "subtract"
+          }
+        ],
+        "maskChildHidden": true,
+        "contentSemanticsPreserved": true
+      }
+    },
+    {
+      "name": "mode='luminance' invert=True",
+      "mode": "luminance",
+      "invert": true,
+      "expect": {
+        "mode": "luminance",
+        "invert": true,
+        "blend": "dstOut",
+        "cssMaskMode": "luminance",
+        "webLayers": [
+          {
+            "image": "opaque",
+            "composite": "add"
+          },
+          {
+            "image": "mask",
+            "composite": "subtract"
+          }
+        ],
+        "maskChildHidden": true,
+        "contentSemanticsPreserved": true
+      }
+    },
+    {
+      "name": "mode='bogus' invert=False",
+      "mode": "bogus",
+      "invert": false,
+      "expect": {
+        "mode": "alpha",
+        "invert": false,
+        "blend": "dstIn",
+        "cssMaskMode": "alpha",
+        "webLayers": [
+          {
+            "image": "mask",
+            "composite": "add"
+          }
+        ],
+        "maskChildHidden": true,
+        "contentSemanticsPreserved": true
+      }
+    },
+    {
+      "name": "mode=None invert='true'",
+      "mode": null,
+      "invert": "true",
+      "expect": {
+        "mode": "alpha",
+        "invert": true,
+        "blend": "dstOut",
+        "cssMaskMode": "alpha",
+        "webLayers": [
+          {
+            "image": "opaque",
+            "composite": "add"
+          },
+          {
+            "image": "mask",
+            "composite": "subtract"
+          }
+        ],
+        "maskChildHidden": true,
+        "contentSemanticsPreserved": true
+      }
+    }
+  ]
+}

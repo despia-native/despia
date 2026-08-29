@@ -1,0 +1,1901 @@
+{
+ "_note": "TIER 2 as data: an `on:draw` script \u2192 the recorded COMMAND STREAM. This corpus is EXACT on all three renderers because it asserts the stream a renderer replays, never the pixels it produces. THE LAWS. (1) The CTM is baked into each path point AT POINT-ADD TIME \u2014 the Canvas2D rule, not the SVG one: translating after moveTo moves only the points added afterwards, and a scaled arc is an ellipse. A draw entry still carries the CTM in force (`ctm`) because stroke width, text and images scale with it. (2) `save`/`restore` push and pop the matrix AND the paint state (fill \u00b7 stroke \u00b7 lineWidth \u00b7 cap \u00b7 join \u00b7 globalAlpha \u00b7 shadow \u00b7 blend \u00b7 clip \u00b7 font) as one unit; restoring an empty stack is ONE diagnostic and a no-op, never a crash. (3) Angles: `arc` takes RADIANS (the Canvas2D signature authors know), `rotate` takes DEGREES (every other DSX angle). That split is deliberate and pinned here so it cannot drift. `arc` joins from the current point with a line, sweeps clockwise unless anticlockwise is set, clamps at a full turn, and folds to cubics through the same converter as `d`. (4) A draw with an EMPTY path emits nothing at all. (5) `measureText` answers from the FALLBACK metrics (advance 0.6\u00b7size, ascent 0.8\u00b7size, descent 0.2\u00b7size) whenever the platform supplies no real font metrics \u2014 pinned so the fallback itself cannot drift; a platform WITH metrics answers from them and that divergence is documented, not silent. (6) An unknown method or a missing argument is ONE diagnostic and the call is skipped \u2014 Article 7 all the way down.",
+ "cases": [
+  {
+   "name": "a filled triangle",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "moveTo",
+     0,
+     0
+    ],
+    [
+     "lineTo",
+     10,
+     0
+    ],
+    [
+     "lineTo",
+     5,
+     8
+    ],
+    [
+     "closePath"
+    ],
+    [
+     "fill"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "fill",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       0.0
+      ],
+      [
+       "L",
+       5.0,
+       8.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "rule": "nonzero"
+    }
+   ]
+  },
+  {
+   "name": "the CTM is baked into the path AT POINT-ADD TIME (the Canvas2D law)",
+   "script": [
+    [
+     "translate",
+     10,
+     10
+    ],
+    [
+     "beginPath"
+    ],
+    [
+     "moveTo",
+     0,
+     0
+    ],
+    [
+     "lineTo",
+     10,
+     0
+    ],
+    [
+     "scale",
+     2,
+     2
+    ],
+    [
+     "lineTo",
+     10,
+     0
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      2.0,
+      0.0,
+      0.0,
+      2.0,
+      10.0,
+      10.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       10.0,
+       10.0
+      ],
+      [
+       "L",
+       20.0,
+       10.0
+      ],
+      [
+       "L",
+       30.0,
+       10.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ]
+  },
+  {
+   "name": "save and restore unwind both the matrix and the paint state",
+   "script": [
+    [
+     "setFillStyle",
+     "#ff0000"
+    ],
+    [
+     "save"
+    ],
+    [
+     "translate",
+     50,
+     50
+    ],
+    [
+     "setFillStyle",
+     "#0000ff"
+    ],
+    [
+     "beginPath"
+    ],
+    [
+     "rect",
+     0,
+     0,
+     10,
+     10
+    ],
+    [
+     "fill"
+    ],
+    [
+     "restore"
+    ],
+    [
+     "beginPath"
+    ],
+    [
+     "rect",
+     0,
+     0,
+     10,
+     10
+    ],
+    [
+     "fill"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      50.0,
+      50.0
+     ],
+     "op": "fill",
+     "path": [
+      [
+       "M",
+       50.0,
+       50.0
+      ],
+      [
+       "L",
+       60.0,
+       50.0
+      ],
+      [
+       "L",
+       60.0,
+       60.0
+      ],
+      [
+       "L",
+       50.0,
+       60.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       1.0,
+       1.0
+      ]
+     },
+     "rule": "nonzero"
+    },
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "fill",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       10.0
+      ],
+      [
+       "L",
+       0.0,
+       10.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       1.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "rule": "nonzero"
+    }
+   ]
+  },
+  {
+   "name": "restore with an empty stack is one diagnostic, never a crash",
+   "script": [
+    [
+     "restore"
+    ],
+    [
+     "beginPath"
+    ],
+    [
+     "rect",
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     "fill"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "fill",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       1.0,
+       0.0
+      ],
+      [
+       "L",
+       1.0,
+       1.0
+      ],
+      [
+       "L",
+       0.0,
+       1.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "rule": "nonzero"
+    }
+   ],
+   "diagnostics": 1
+  },
+  {
+   "name": "rotate is degrees, like every other DSX angle",
+   "script": [
+    [
+     "rotate",
+     90
+    ],
+    [
+     "beginPath"
+    ],
+    [
+     "moveTo",
+     10,
+     0
+    ],
+    [
+     "lineTo",
+     20,
+     0
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      0.0,
+      1.0,
+      -1.0,
+      0.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       0.0,
+       10.0
+      ],
+      [
+       "L",
+       0.0,
+       20.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ]
+  },
+  {
+   "name": "quadTo and cubicTo",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "moveTo",
+     0,
+     0
+    ],
+    [
+     "quadTo",
+     5,
+     10,
+     10,
+     0
+    ],
+    [
+     "cubicTo",
+     15,
+     -10,
+     25,
+     10,
+     30,
+     0
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "Q",
+       5.0,
+       10.0,
+       10.0,
+       0.0
+      ],
+      [
+       "C",
+       15.0,
+       -10.0,
+       25.0,
+       10.0,
+       30.0,
+       0.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ]
+  },
+  {
+   "name": "arc, clockwise",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "arc",
+     50,
+     50,
+     20,
+     0,
+     1.5707963267948966,
+     false
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       70.0,
+       50.0
+      ],
+      [
+       "C",
+       70.0,
+       61.045695,
+       61.045695,
+       70.0,
+       50.0,
+       70.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ]
+  },
+  {
+   "name": "arc, anticlockwise",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "arc",
+     50,
+     50,
+     20,
+     0,
+     1.5707963267948966,
+     true
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       70.0,
+       50.0
+      ],
+      [
+       "C",
+       70.0,
+       38.954305,
+       61.045695,
+       30.0,
+       50.0,
+       30.0
+      ],
+      [
+       "C",
+       38.954305,
+       30.0,
+       30.0,
+       38.954305,
+       30.0,
+       50.0
+      ],
+      [
+       "C",
+       30.0,
+       61.045695,
+       38.954305,
+       70.0,
+       50.0,
+       70.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ]
+  },
+  {
+   "name": "a full-circle arc",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "arc",
+     50,
+     50,
+     20,
+     0,
+     6.283185307179586,
+     false
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       70.0,
+       50.0
+      ],
+      [
+       "C",
+       70.0,
+       61.045695,
+       61.045695,
+       70.0,
+       50.0,
+       70.0
+      ],
+      [
+       "C",
+       38.954305,
+       70.0,
+       30.0,
+       61.045695,
+       30.0,
+       50.0
+      ],
+      [
+       "C",
+       30.0,
+       38.954305,
+       38.954305,
+       30.0,
+       50.0,
+       30.0
+      ],
+      [
+       "C",
+       61.045695,
+       30.0,
+       70.0,
+       38.954305,
+       70.0,
+       50.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ]
+  },
+  {
+   "name": "arc from a current point draws the joining line first",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "moveTo",
+     0,
+     0
+    ],
+    [
+     "arc",
+     50,
+     50,
+     20,
+     0,
+     1.5707963267948966,
+     false
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       70.0,
+       50.0
+      ],
+      [
+       "C",
+       70.0,
+       61.045695,
+       61.045695,
+       70.0,
+       50.0,
+       70.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ]
+  },
+  {
+   "name": "arcTo rounds a corner",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "moveTo",
+     0,
+     0
+    ],
+    [
+     "arcTo",
+     100,
+     0,
+     100,
+     100,
+     10
+    ],
+    [
+     "lineTo",
+     100,
+     100
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       90.0,
+       0.0
+      ],
+      [
+       "C",
+       95.522847,
+       0.0,
+       100.0,
+       4.477153,
+       100.0,
+       10.0
+      ],
+      [
+       "L",
+       100.0,
+       100.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ]
+  },
+  {
+   "name": "arcTo with collinear points is a line",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "moveTo",
+     0,
+     0
+    ],
+    [
+     "arcTo",
+     50,
+     0,
+     100,
+     0,
+     10
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       50.0,
+       0.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ]
+  },
+  {
+   "name": "rect and roundRect",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "rect",
+     0,
+     0,
+     20,
+     10
+    ],
+    [
+     "roundRect",
+     30,
+     0,
+     20,
+     10,
+     4
+    ],
+    [
+     "fill"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "fill",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       20.0,
+       0.0
+      ],
+      [
+       "L",
+       20.0,
+       10.0
+      ],
+      [
+       "L",
+       0.0,
+       10.0
+      ],
+      [
+       "Z"
+      ],
+      [
+       "M",
+       34.0,
+       0.0
+      ],
+      [
+       "L",
+       46.0,
+       0.0
+      ],
+      [
+       "C",
+       48.209139,
+       0.0,
+       50.0,
+       1.790861,
+       50.0,
+       4.0
+      ],
+      [
+       "L",
+       50.0,
+       6.0
+      ],
+      [
+       "C",
+       50.0,
+       8.209139,
+       48.209139,
+       10.0,
+       46.0,
+       10.0
+      ],
+      [
+       "L",
+       34.0,
+       10.0
+      ],
+      [
+       "C",
+       31.790861,
+       10.0,
+       30.0,
+       8.209139,
+       30.0,
+       6.0
+      ],
+      [
+       "L",
+       30.0,
+       4.0
+      ],
+      [
+       "C",
+       30.0,
+       1.790861,
+       31.790861,
+       0.0,
+       34.0,
+       0.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "rule": "nonzero"
+    }
+   ]
+  },
+  {
+   "name": "clip rides every subsequent draw until restore",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "rect",
+     0,
+     0,
+     50,
+     50
+    ],
+    [
+     "clip"
+    ],
+    [
+     "beginPath"
+    ],
+    [
+     "rect",
+     0,
+     0,
+     100,
+     100
+    ],
+    [
+     "fill"
+    ],
+    [
+     "save"
+    ],
+    [
+     "restore"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "clip": {
+      "path": [
+       [
+        "M",
+        0.0,
+        0.0
+       ],
+       [
+        "L",
+        50.0,
+        0.0
+       ],
+       [
+        "L",
+        50.0,
+        50.0
+       ],
+       [
+        "L",
+        0.0,
+        50.0
+       ],
+       [
+        "Z"
+       ]
+      ],
+      "rule": "nonzero"
+     },
+     "op": "fill",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       100.0,
+       0.0
+      ],
+      [
+       "L",
+       100.0,
+       100.0
+      ],
+      [
+       "L",
+       0.0,
+       100.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "rule": "nonzero"
+    }
+   ]
+  },
+  {
+   "name": "globalAlpha, shadow and blend mode ride the draw",
+   "script": [
+    [
+     "setGlobalAlpha",
+     0.4
+    ],
+    [
+     "setShadow",
+     2,
+     2,
+     6,
+     "#00000080"
+    ],
+    [
+     "setBlendMode",
+     "multiply"
+    ],
+    [
+     "beginPath"
+    ],
+    [
+     "rect",
+     0,
+     0,
+     10,
+     10
+    ],
+    [
+     "fill"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 0.4,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "shadow": {
+      "dx": 2.0,
+      "dy": 2.0,
+      "radius": 6.0,
+      "color": {
+       "kind": "rgba",
+       "rgba": [
+        0.0,
+        0.0,
+        0.0,
+        0.501961
+       ]
+      }
+     },
+     "blend": "multiply",
+     "op": "fill",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       10.0
+      ],
+      [
+       "L",
+       0.0,
+       10.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "rule": "nonzero"
+    }
+   ]
+  },
+  {
+   "name": "stroke carries width, cap and join",
+   "script": [
+    [
+     "setStrokeStyle",
+     "#ff8800"
+    ],
+    [
+     "setLineWidth",
+     4
+    ],
+    [
+     "setLineCap",
+     "round"
+    ],
+    [
+     "setLineJoin",
+     "bevel"
+    ],
+    [
+     "beginPath"
+    ],
+    [
+     "moveTo",
+     0,
+     0
+    ],
+    [
+     "lineTo",
+     10,
+     10
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       10.0,
+       10.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       1.0,
+       0.533333,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 4.0,
+     "cap": "round",
+     "join": "bevel"
+    }
+   ]
+  },
+  {
+   "name": "clear with and without a rect",
+   "script": [
+    [
+     "clear"
+    ],
+    [
+     "clear",
+     0,
+     0,
+     50,
+     50
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "clear",
+     "rect": null
+    },
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "clear",
+     "rect": [
+      0.0,
+      0.0,
+      50.0,
+      50.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "drawImage with and without a size",
+   "script": [
+    [
+     "drawImage",
+     "a.png",
+     10,
+     20
+    ],
+    [
+     "drawImage",
+     "b.png",
+     0,
+     0,
+     32,
+     32
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "drawImage",
+     "src": "a.png",
+     "x": 10.0,
+     "y": 20.0,
+     "width": null,
+     "height": null
+    },
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "drawImage",
+     "src": "b.png",
+     "x": 0.0,
+     "y": 0.0,
+     "width": 32.0,
+     "height": 32.0
+    }
+   ]
+  },
+  {
+   "name": "fillText and strokeText",
+   "script": [
+    [
+     "setFont",
+     20
+    ],
+    [
+     "fillText",
+     "Hi",
+     5,
+     30
+    ],
+    [
+     "strokeText",
+     "Hi",
+     5,
+     60
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "fillText",
+     "text": "Hi",
+     "x": 5.0,
+     "y": 30.0,
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "fontSize": 20.0
+    },
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "strokeText",
+     "text": "Hi",
+     "x": 5.0,
+     "y": 60.0,
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "fontSize": 20.0,
+     "lineWidth": 1.0
+    }
+   ]
+  },
+  {
+   "name": "measureText uses the FALLBACK metrics when the platform has none",
+   "script": [
+    [
+     "setFont",
+     20
+    ],
+    [
+     "measureText",
+     "Hello"
+    ],
+    [
+     "setFont",
+     10
+    ],
+    [
+     "measureText",
+     ""
+    ]
+   ],
+   "log": [],
+   "measurements": [
+    {
+     "text": "Hello",
+     "width": 60.0,
+     "ascent": 16.0,
+     "descent": 4.0
+    },
+    {
+     "text": "",
+     "width": 0.0,
+     "ascent": 8.0,
+     "descent": 2.0
+    }
+   ]
+  },
+  {
+   "name": "drawing with an empty path emits nothing",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "fill"
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": []
+  },
+  {
+   "name": "an unknown method is one diagnostic",
+   "script": [
+    [
+     "glitter",
+     1,
+     2
+    ],
+    [
+     "beginPath"
+    ],
+    [
+     "rect",
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     "fill"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "fill",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       1.0,
+       0.0
+      ],
+      [
+       "L",
+       1.0,
+       1.0
+      ],
+      [
+       "L",
+       0.0,
+       1.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "rule": "nonzero"
+    }
+   ],
+   "diagnostics": 1
+  },
+  {
+   "name": "a missing argument is one diagnostic and the call is skipped",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "moveTo",
+     1
+    ],
+    [
+     "lineTo",
+     5,
+     5
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       5.0,
+       5.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ],
+   "diagnostics": 1
+  },
+  {
+   "name": "evenodd fill",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "rect",
+     0,
+     0,
+     60,
+     60
+    ],
+    [
+     "rect",
+     20,
+     20,
+     20,
+     20
+    ],
+    [
+     "fill",
+     "evenodd"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "fill",
+     "path": [
+      [
+       "M",
+       0.0,
+       0.0
+      ],
+      [
+       "L",
+       60.0,
+       0.0
+      ],
+      [
+       "L",
+       60.0,
+       60.0
+      ],
+      [
+       "L",
+       0.0,
+       60.0
+      ],
+      [
+       "Z"
+      ],
+      [
+       "M",
+       20.0,
+       20.0
+      ],
+      [
+       "L",
+       40.0,
+       20.0
+      ],
+      [
+       "L",
+       40.0,
+       40.0
+      ],
+      [
+       "L",
+       20.0,
+       40.0
+      ],
+      [
+       "Z"
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "rule": "evenodd"
+    }
+   ]
+  },
+  {
+   "name": "lineTo with no current point begins the subpath",
+   "script": [
+    [
+     "beginPath"
+    ],
+    [
+     "lineTo",
+     5,
+     5
+    ],
+    [
+     "lineTo",
+     10,
+     10
+    ],
+    [
+     "stroke"
+    ]
+   ],
+   "log": [
+    {
+     "alpha": 1.0,
+     "ctm": [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0
+     ],
+     "op": "stroke",
+     "path": [
+      [
+       "M",
+       5.0,
+       5.0
+      ],
+      [
+       "L",
+       10.0,
+       10.0
+      ]
+     ],
+     "style": {
+      "kind": "rgba",
+      "rgba": [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "lineWidth": 1.0,
+     "cap": "butt",
+     "join": "miter"
+    }
+   ]
+  }
+ ]
+}

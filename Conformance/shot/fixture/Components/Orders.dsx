@@ -1,0 +1,71 @@
+<vstack style="gap: 0rem; min-height: 100%; background: #f6f7fb">
+  <head>
+    <!-- THE FIXTURE APP IS A DESIGNED APP, and that is a screenshot-pipeline requirement,
+         not vanity: every slide in every template inherits this screen, so a wireframe here
+         makes the whole system read as machine output no matter how good the composition is.
+         The audit (AUDIT.md A1) traced most of "looks AI-made" to exactly this file.
+
+         The owner's case is unchanged underneath: a sampled variable feeds an api bound on
+         it, an on:appear action reads the global plane, a bound list renders the api's data.
+         Rows carry a precomputed `tag` + `tone` (a tinted initial tile) because sample data
+         is JSON and a letter tile needs no icon the set might not carry. -->
+    <variable as="userId" sample="&quot;u_42&quot;">return null</variable>
+    <variable as="greeting">return ''</variable>
+
+    <api as="orders"
+         url="/api/orders?user={{ userId }}"
+         sample="[{&quot;id&quot;:1,&quot;title&quot;:&quot;Noise-cancelling headphones&quot;,&quot;sub&quot;:&quot;Arriving Thursday&quot;,&quot;total&quot;:&quot;$249&quot;,&quot;tag&quot;:&quot;N&quot;,&quot;tone&quot;:&quot;#6d5efc&quot;},{&quot;id&quot;:2,&quot;title&quot;:&quot;Mechanical keyboard&quot;,&quot;sub&quot;:&quot;Shipped today&quot;,&quot;total&quot;:&quot;$149&quot;,&quot;tag&quot;:&quot;M&quot;,&quot;tone&quot;:&quot;#16a34a&quot;},{&quot;id&quot;:3,&quot;title&quot;:&quot;Studio monitor&quot;,&quot;sub&quot;:&quot;Arriving Friday&quot;,&quot;total&quot;:&quot;$899&quot;,&quot;tag&quot;:&quot;S&quot;,&quot;tone&quot;:&quot;#f59e0b&quot;},{&quot;id&quot;:4,&quot;title&quot;:&quot;USB-C dock&quot;,&quot;sub&quot;:&quot;Delivered&quot;,&quot;total&quot;:&quot;$189&quot;,&quot;tag&quot;:&quot;U&quot;,&quot;tone&quot;:&quot;#0ea5e9&quot;},{&quot;id&quot;:5,&quot;title&quot;:&quot;Desk lamp&quot;,&quot;sub&quot;:&quot;Delivered&quot;,&quot;total&quot;:&quot;$79&quot;,&quot;tag&quot;:&quot;D&quot;,&quot;tone&quot;:&quot;#ef4444&quot;},{&quot;id&quot;:6,&quot;title&quot;:&quot;Standing desk mat&quot;,&quot;sub&quot;:&quot;Delivered&quot;,&quot;total&quot;:&quot;$59&quot;,&quot;tag&quot;:&quot;S&quot;,&quot;tone&quot;:&quot;#8b5cf6&quot;},{&quot;id&quot;:7,&quot;title&quot;:&quot;4K webcam&quot;,&quot;sub&quot;:&quot;Delivered&quot;,&quot;total&quot;:&quot;$129&quot;,&quot;tag&quot;:&quot;4&quot;,&quot;tone&quot;:&quot;#14b8a6&quot;},{&quot;id&quot;:8,&quot;title&quot;:&quot;Cable organiser&quot;,&quot;sub&quot;:&quot;Delivered&quot;,&quot;total&quot;:&quot;$24&quot;,&quot;tag&quot;:&quot;C&quot;,&quot;tone&quot;:&quot;#64748b&quot;}]"/>
+
+    <action as="welcome">
+      greeting = 'Welcome back, ' + global.user.name
+    </action>
+  </head>
+
+  <vstack style="padding: 24px 20px 14px 20px; gap: 0.2rem" on:appear="welcome()">
+    <text value="{{ greeting }}"
+          style="font-size: 26px; font-weight: 800; letter-spacing: -0.03em; color: #0e1018"/>
+    <text value="{{ orders.data.length }} orders this month"
+          style="font-size: 14px; font-weight: 500; color: #6b7080"/>
+  </vstack>
+
+  <!-- the stat strip: the "designed app" beat every reference screen has -->
+  <hstack style="padding: 0 20px; gap: 0.6rem">
+    <vstack style="flex: 1 1 0; gap: 0.1rem; padding: 14px 16px; border-radius: 18px;
+                   background: #16a34a">
+      <text value="$1,772" style="font-size: 22px; font-weight: 800; color: #ffffff;
+                                  letter-spacing: -0.02em"/>
+      <text value="Spent this month" style="font-size: 12px; font-weight: 550;
+                                            color: rgba(255,255,255,0.85)"/>
+    </vstack>
+    <vstack style="flex: 1 1 0; gap: 0.1rem; padding: 14px 16px; border-radius: 18px;
+                   background: #ffffff; box-shadow: 0 1px 2px rgba(14,16,24,0.05),
+                   0 6px 18px -8px rgba(14,16,24,0.12)">
+      <text value="3 arriving" style="white-space: nowrap; font-size: 20px; font-weight: 800; color: #0e1018;
+                                      letter-spacing: -0.02em"/>
+      <text value="This week" style="font-size: 12px; font-weight: 550; color: #6b7080"/>
+    </vstack>
+  </hstack>
+
+  <text value="Recent orders"
+        style="padding: 22px 20px 10px 20px; font-size: 15px; font-weight: 700; color: #0e1018"/>
+
+  <list ref="orders" bind="orders.data" key="id" grow="true" style="padding: 0 14px">
+    <hstack style="margin: 0 0 10px 0; padding: 13px 14px; gap: 0.8rem; align-items: center;
+                   border-radius: 18px; background: #ffffff;
+                   box-shadow: 0 4px 14px -6px rgba(14,16,24,0.08)">
+      <stack style="width: 44px; height: 44px; border-radius: 13px; flex: 0 0 auto;
+                    background: {{ item.tone }}; align-items: center; justify-content: center;
+                    display: flex">
+        <text value="{{ item.tag }}" style="color: #ffffff; font-size: 18px; font-weight: 800"/>
+      </stack>
+      <vstack grow="true" style="gap: 0.05rem; min-width: 0">
+        <text value="{{ item.title }}"
+              style="font-size: 15px; font-weight: 650; color: #0e1018; white-space: nowrap;
+                     overflow: hidden; text-overflow: ellipsis"/>
+        <text value="{{ item.sub }}" style="font-size: 12.5px; font-weight: 500; color: #6b7080"/>
+      </vstack>
+      <text value="{{ item.total }}"
+            style="font-size: 16px; font-weight: 750; color: #0e1018; letter-spacing: -0.01em"/>
+    </hstack>
+  </list>
+</vstack>

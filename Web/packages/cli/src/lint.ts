@@ -23,6 +23,26 @@ import { basename, dirname, join, sep } from "node:path";
 import { parseDsx, DsxParseError } from "@despia/compiler";
 
 export type Level = "error" | "warning" | "notice";
+
+export type AttributeCensus = {
+  attrs: Map<string, Set<string>>;
+  aliases: Map<string, string>;
+  structural: Set<string>;
+  universal: Set<string>;
+  childMarkers: Set<string>;
+  styleKeys: Set<string>;
+  harness: Set<string>;
+};
+
+/** The confusions people actually type, mapped to the element's own spelling. */
+const ATTR_CONFUSIONS = new Map<string, string>([
+  ["button\u0000value", "label"],
+  ["text\u0000label", "value"],
+  ["image\u0000source", "src"],
+  ["textfield\u0000value", "bind"],
+  ["textarea\u0000value", "bind"],
+  ["searchbar\u0000value", "bind"],
+]);
 export type Finding = { file: string; line: number; level: Level; message: string };
 
 /** Everything a file is judged against. Built by `lintContext` (config.ts feeds it). */
@@ -35,6 +55,9 @@ export type LintContext = {
   schemeOf: (dir: string) => string | null;
   /** style-catalog keys classified `systemPath: "ejects"`; empty = the notice stands down */
   styleEjects: Set<string>;
+  /** The attribute census (R9): per-element vocabulary + the planes legal everywhere.
+   *  Null when the references are not reachable - the rule stands down, declared. */
+  census: AttributeCensus | null;
   /** false when the scheme universe is only partially known — softens the
    *  `dsx.module.<scheme>` rule from error to warning and says why */
   schemesComplete: boolean;
@@ -49,18 +72,42 @@ export type LintContext = {
 // facts.json is the repo's ground truth and the test is the tether.
 
 /** Built-in lowercase tags: engine specials + Foundation components + documented aliases. */
+/** TETHERED LITERAL (this file ships with no repo checkout): the canonical text inputs, whose
+ *  factories read `bind=` and never `value=`. `lint-corpus.test.ts` asserts this equals
+ *  facts.json's `valuelessInputTags`, because a copied rule table is precisely the thing that
+ *  drifts — and in this file it already had, once. */
+export const VALUELESS_INPUT_TAGS: ReadonlySet<string> = new Set(["textfield", "textarea", "searchbar"]);
+
+/** Attributes every renderer reads through `bindValue`: the RAW string is evaluated as one
+ *  JSE expression, so a `{{ }}` wrapper is a dict literal rather than the value. Mirrors
+ *  Conformance/lint/facts.json `bareExpressionAttrs`. */
+export const BARE_EXPRESSION_ATTRS: ReadonlySet<string> = new Set([
+  "visible-if", "disabled-if", "bind", "commands", "a11yChildren",
+]);
+
 export const BUILTIN_TAGS: ReadonlySet<string> = new Set([
   "stack", "vstack", "hstack", "zstack", "scroll", "spacer", "divider", "text", "label", "image", "svg",
   "button", "glassButton", "transport", "pressable", "row", "progress", "capsuleProgress", "spinner",
   "activity", "textfield", "input", "toggle", "switch", "slider", "list", "grid", "pager", "sheet",
-  "contextmenu", "video", "audio", "chart", "map", "field", "form", "tabs", "scaffold", "refreshable",
+  "contextmenu", "video", "audio", "chart", "map", "field", "form", "tabs", "split", "scaffold", "refreshable",
   "datepicker", "date", "picker", "segmented", "stepper", "gauge", "textarea", "otp", "searchbar",
   "combobox", "rangeslider", "wheelpicker", "segmentedButton", "stars", "alert", "confirmDialog", "menu",
   "popover", "carousel", "toolbar", "flow", "lockscreen", "small", "island", "compact", "expanded",
-  "minimal", "leading", "trailing", "center", "bottom", "head", "event", "expects", "api", "action",
-  "variable", "var", "let", "formula", "script", "functions", "watch", "attribute", "style", "slot",
-  "node", "dynamic", "component", "qrcode", "calendar", "lightbox", "lottie", "markdown",
-  "scene", "camera", "light", "group", "box", "sphere", "plane", "model", "text3d", "anchor", "animate", "sprite",
+  "minimal", "leading", "trailing", "center", "bottom", "head", "event", "expects", "tool", "api", "action",
+  "variable", "var", "let", "formula", "script", "functions", "watch", "attribute", "override", "style", "slot",
+  "node", "dynamic", "component", "qrcode", "calendar", "lightbox", "lottie", "rive", "markdown",
+  "scene", "canvas", "path", "circle", "ellipse", "line", "polygon", "polyline", "blur", "shadow",
+  "blend", "gradient", "stop",
+  "camera", "light", "group", "box", "sphere", "plane", "model", "text3d", "anchor", "animate", "sprite",
+]);
+
+/** Capitalized tags that are kernel GLOBAL ELEMENTS, not components — the runtime resolves
+ *  them from GLOBAL_ELEMENTS (dom data-controls), the natives from the Foundation component
+ *  pool, so they need no package component. Tethered to facts.json's globalElementTags by
+ *  the same corpus test that tethers BUILTIN_TAGS. */
+export const GLOBAL_ELEMENT_TAGS: ReadonlySet<string> = new Set([
+  "Accordion", "ChatBubble", "Checkbox", "Drawer", "MenuBar", "ProgressRing",
+  "RadioGroup", "Skeleton", "Table",
 ]);
 
 /** Tags whose bodies are raw JS, lifted before the structural scans (StackXML.codeTags). */
@@ -69,18 +116,58 @@ const CODE_TAGS = ["script", "functions", "action", "formula", "variable", "var"
 /** Declarations that belong in <head> (dsx-anatomy.md). <watch> is handled separately. */
 const DECL_TAGS: ReadonlySet<string> = new Set([
   "action", "variable", "var", "let", "formula", "script", "functions", "style", "attribute",
-  "component", "event", "expects", "api",
+  "override", "component", "event", "expects", "tool", "api",
 ]);
 
 /** Canonical <head> order; a monotonic rank also enforces same-kind contiguity. */
 const HEAD_RANK: { readonly [tag: string]: number } = {
-  attribute: 0, expects: 1, event: 2,
-  api: 3, variable: 3, var: 3, let: 3,      // rank 4 when computed="true"
-  formula: 5, action: 6, script: 7, functions: 7,
-  watch: 8, style: 9, component: 10,
+  attribute: 0, override: 1, expects: 2, event: 3, tool: 3,
+  api: 4, variable: 4, var: 4, let: 4,      // rank 5 when computed="true"
+  formula: 6, action: 7, script: 8, functions: 8,
+  watch: 9, style: 10, component: 11,
 };
+const HEAD_COMPUTED_RANK = 5;
 const HEAD_ORDER_HINT =
-  "attribute → expects → event → api/variable (plain → computed) → formula → action → script → watch → style → component";
+  "attribute → override → expects → event/input/tool → api/variable (plain → computed) → formula → action → script → watch → style → component";
+
+// ── the style-override plane (Conformance/overrides — twin of lint_dsx.rb's block) ──
+const OVERRIDE_TYPES = ["number", "length", "enum", "multiEnum", "color", "gradient", "ratio", "boolean", "text", "css"];
+const OVERRIDE_RESERVED: ReadonlySet<string> = new Set([
+  "ios", "android", "web", "watch", "wear", "macos", "windows", "linux", "native", "desktop",
+]);
+const OVERRIDE_NUMERIC_RE = /^[+-]?(\d+\.?\d*|\.\d+)$/;
+
+/** What a LITERAL override value must look like per declared type — the expected
+ *  description on a mismatch, null when fine (bound values are runtime business). */
+function overrideLiteralError(type: string, value: string, options: string | undefined): string | null {
+  const v = value.trim();
+  if (v.length === 0 || v.includes("{{")) return null;
+  const opts = (options ?? "").split(/\s+/).filter((o) => o.length > 0);
+  switch (type) {
+    case "number":
+      return OVERRIDE_NUMERIC_RE.test(v) ? null : "a number";
+    case "length":
+      if (OVERRIDE_NUMERIC_RE.test(v)) return null;
+      return /[;{}]/.test(v) ? "a length (a number, keyword, or unit value — never a declaration list)" : null;
+    case "boolean":
+      return v === "true" || v === "false" ? null : "'true' or 'false'";
+    case "enum":
+      return opts.includes(v) ? null : `one of: ${opts.join(" ")}`;
+    case "multiEnum":
+      return v.split(/\s+/).every((t) => opts.includes(t)) ? null : `space-separated members of: ${opts.join(" ")}`;
+    case "color":
+      if (v.startsWith("#")) return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(v) ? null : "a color (#RGB / #RGBA / #RRGGBB / #AARRGGBB hex)";
+      if (/^(rgb|rgba|hsl|hsla)\([\s\S]*\)$/.test(v)) return null;
+      return /^[A-Za-z]+$/.test(v) ? null : "a color (hex, rgb()/hsl(), or a semantic token name)";
+    case "gradient":
+    case "ratio":
+      return /[;{}]/.test(v) ? `a ${type} value (never a declaration list)` : null;
+    case "css":
+      return /[{}]/.test(v) ? "a declaration list (declarations only — no braces, never a rule)" : null;
+    default:
+      return null;
+  }
+}
 
 const HANDLER_MAX_STATEMENTS = 2;
 const HANDLER_MAX_CHARS = 120;
@@ -90,10 +177,14 @@ const SETTLE_ATTR_RE = /\bsettle\s*=\s*(?:"([^"]*)"|'([^']*)')/;
 const SETTLED_CALL_RE = /\bdsx\.screen\.settled\s*\(/;
 
 const JSE_ROOTS: ReadonlySet<string> = new Set([
-  "dsx.variable", "dsx.attribute", "dsx.action", "dsx.module", "dsx.component", "dsx.event",
+  "dsx.variable", "dsx.attribute", "dsx.override", "dsx.action", "dsx.module", "dsx.component", "dsx.event",
   "dsx.error", "dsx.log", "dsx.this", "dsx.item", "dsx.index", "dsx.cookie", "dsx.global",
   "dsx.route", "dsx.query", "dsx.formula", "dsx.app", "dsx.screen", "dsx.element", "dsx.params",
   "dsx.path",
+  // store-alias roots the JSE resolver folds onto the global plane (kernel jse.ts):
+  // dsx.source.* (provenance, source-plane.md) · dsx.const.* (App.json consts) ·
+  // dsx.input.* (unified input) — real grammar on all three renderers.
+  "dsx.source", "dsx.const", "dsx.input",
 ]);
 
 const CRYPTO_ALGS: ReadonlySet<string> = new Set([
@@ -138,8 +229,13 @@ export function jseBalanced(body: string): boolean {
   const depth: { [open: string]: number } = { "(": 0, "[": 0, "{": 0 };
   const pairs: { [close: string]: string } = { ")": "(", "]": "[", "}": "{" };
   let quote: string | null = null;
-  for (const ch of body) {
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i]!;
     if (quote !== null) {
+      // A backslash escapes the next character — without this, a body containing `\"`
+      // "closes" the string at the escaped quote and everything after is miscounted
+      // (measured: any JSON-encoded payload in a <variable> body reported unbalanced).
+      if (ch === "\\") { i += 1; continue; }
       if (ch === quote) quote = null;
       continue;
     }
@@ -152,6 +248,30 @@ export function jseBalanced(body: string): boolean {
     }
   }
   return quote === null && Object.values(depth).every((n) => n === 0);
+}
+
+/** Replace the INTERIOR of JSE string literals with spaces, length-preserving and
+ *  escape-aware, so textual scans (namespace roots, declared-variable uses) never read
+ *  data as code. Newlines inside a literal survive, so every line number stays true. */
+export function blankJseStrings(code: string): string {
+  const out = code.split("");
+  let quote: string | null = null;
+  for (let i = 0; i < code.length; i++) {
+    const ch = code[i]!;
+    if (quote !== null) {
+      if (ch === "\\") {
+        out[i] = " ";
+        if (i + 1 < code.length && code[i + 1] !== "\n") out[i + 1] = " ";
+        i += 1;
+        continue;
+      }
+      if (ch === quote) { quote = null; continue; }
+      if (ch !== "\n") out[i] = " ";
+      continue;
+    }
+    if (ch === "'" || ch === '"') quote = ch;
+  }
+  return out.join("");
 }
 
 /** ≥ 2 ternaries in one expression (string literals stripped first). */
@@ -240,10 +360,18 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
 
   // 0b ── a code-tag NAME inside a comment. No longer fatal (the kernel skips comments when
   // lifting code) but it broke whole surfaces on older kernels — keep tag names out of prose.
-  for (const m of raw.matchAll(/<!--[\s\S]*?-->/g)) {
+  // String DATA inside code bodies is blanked first (length-preserving): a page whose
+  // markdown PAYLOAD quotes a commented `<action>` example is carrying prose, not markup.
+  let rawScan = raw;
+  for (const m of raw.matchAll(/<(action|formula|variable|script)\s[^>]*>([\s\S]*?)<\/\1>/g)) {
+    const body = m[2]!;
+    const bodyStart = m.index + m[0].length - `</${m[1]!}>`.length - body.length;
+    rawScan = rawScan.slice(0, bodyStart) + blankJseStrings(body) + rawScan.slice(bodyStart + body.length);
+  }
+  for (const m of rawScan.matchAll(/<!--[\s\S]*?-->/g)) {
     const hit = /<\s*(script|action|formula|variable|var|let)\b/.exec(m[0]);
     if (hit === null) continue;
-    report("warning", lineAt(raw, m.index),
+    report("warning", lineAt(rawScan, m.index),
       `code-tag <${hit[1]}> written inside a comment — drop the angle brackets (reads as markup; ` +
       "broke parsing on kernels before the liftCode comment-skip)");
   }
@@ -322,7 +450,7 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
 
     if (inHead && parent !== undefined) {
       let rank = HEAD_RANK[t.tag];
-      if (rank === 3 && /computed\s*=\s*["']true["']/.test(t.attrs)) rank = 4;
+      if (rank === HEAD_RANK["variable"] && /computed\s*=\s*["']true["']/.test(t.attrs)) rank = HEAD_COMPUTED_RANK;
       if (rank === undefined) {
         report("warning", t.line, `<${t.tag}> inside <head> — only declarations belong in the head (${HEAD_ORDER_HINT})`);
       } else if (rank < parent.lastRank) {
@@ -331,12 +459,12 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
           `${HEAD_ORDER_HINT} (same-kind declarations contiguous)`);
       } else if (rank > parent.lastRank) {
         parent.lastRank = rank;
-        parent.lastRankTag = t.tag === "variable" && rank === 4 ? "variable computed" : t.tag;
+        parent.lastRankTag = t.tag === "variable" && rank === HEAD_COMPUTED_RANK ? "variable computed" : t.tag;
       }
     }
 
     // identifier discipline: as= is REQUIRED; the legacy name= identifier alias is removed
-    if (["action", "variable", "var", "let", "formula", "style", "component", "attribute", "event", "api"].includes(t.tag)) {
+    if (["action", "variable", "var", "let", "formula", "style", "component", "attribute", "override", "event", "api"].includes(t.tag)) {
       if (!/\bas\s*=/.test(t.attrs)) {
         if (/\bname\s*=/.test(t.attrs) && t.tag !== "action" && t.tag !== "formula") {
           report("error", t.line, `<${t.tag} name=…>: the legacy name= identifier was removed — the identifier is as=`);
@@ -352,13 +480,114 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
         report("error", t.line, "<api as=...> must be an ASCII identifier of at most 128 characters");
       }
     }
+    // <tool action= description= as= mutates=/> — the AGENT interface row
+    // (proposals/webmcp.md). `as` is OPTIONAL and defaults to the action name, which is why
+    // `tool` is absent from the identifier tags; `action` is the identifier that must be
+    // there, because a row naming nothing has nothing to expose.
+    if (t.tag === "tool") {
+      if (!/\baction\s*=/.test(t.attrs)) {
+        report("error", t.line, "<tool> missing action= — an agent tool names the declared action it exposes");
+      }
+      if (!/\bdescription\s*=/.test(t.attrs)) {
+        report("error", t.line, "<tool> missing description= — the description is the whole basis on which an agent chooses this tool");
+      }
+      const tm = t.attrs.match(/\bas\s*=\s*(?:"([^"]*)"|'([^']*)')/);
+      const toolName = tm === null ? null : (tm[1] ?? tm[2] ?? "");
+      if (toolName !== null && !/^[A-Za-z0-9_.-]{1,128}$/.test(toolName)) {
+        report("error", t.line, '<tool as=...> must be 1 to 128 characters of ASCII letters, digits, "_", "-" or "." (the WebMCP tool-name grammar)');
+      }
+    }
     if (t.tag === "expects" && !/\bvariable\s*=/.test(t.attrs)) {
       report("error", t.line, "<expects> missing variable= — declare the seeded state it stands for");
+    }
+    // <override> declaration discipline (the style contract — Conformance/overrides):
+    // a knob the runtime cannot resolve silently answers its default, so every
+    // declaration fact is checked where it is written. Twin of lint_dsx.rb's block.
+    if (t.tag === "override") {
+      const attrOf = (name: string): string | undefined => {
+        const m = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`).exec(t.attrs);
+        return m === null ? undefined : (m[1] ?? m[2]);
+      };
+      const oAs = attrOf("as");
+      const oType = attrOf("type");
+      const oOptions = attrOf("options");
+      const oDefault = attrOf("default");
+      if (oAs !== undefined && oAs.length > 0) {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(oAs)) {
+          report("error", t.line, `<override as="${oAs}">: an override name is an identifier — dsx.override.${oAs} must be a legal member read`);
+        }
+        if (OVERRIDE_RESERVED.has(oAs)) {
+          report("error", t.line, `<override as="${oAs}">: '${oAs}' is a platform-suffix word — the platform fold consumes override:${oAs}= before the split ever runs, so this knob could never be set; pick another name`);
+        }
+      }
+      if (oType !== undefined && !OVERRIDE_TYPES.includes(oType)) {
+        report("error", t.line, `<override type="${oType}">: not an override type — the vocabulary is ${OVERRIDE_TYPES.join(" ")} (the style catalog's control set + css)`);
+      }
+      if ((oType === "enum" || oType === "multiEnum") && (oOptions === undefined || oOptions.trim().length === 0)) {
+        report("error", t.line, `<override type="${oType}"> without options= — an enum knob with no members can never accept a value (every read answers the default)`);
+      }
+      for (const bound of ["min", "max"]) {
+        const b = attrOf(bound);
+        if (b !== undefined && !OVERRIDE_NUMERIC_RE.test(b.trim())) {
+          report("error", t.line, `<override ${bound}="${b}">: ${bound}= is a number (the clamp bound)`);
+        }
+      }
+      if (oDefault !== undefined && oDefault.includes("{{")) {
+        report("error", t.line, '<override default=…>: a default is a LITERAL style value, never a binding — {{ }} belongs at the usage site (override:name="{{ … }}")');
+      } else if (oDefault !== undefined) {
+        const why = overrideLiteralError(oType ?? "text", oDefault, oOptions);
+        if (why !== null) {
+          report("error", t.line, `<override default="${oDefault}">: the default is not ${why} — an invalid default resolves null, so the knob has no fallback at all`);
+        }
+      }
+    }
+
+    // sample= — the unit-test sample value (master plan P3): JSON on every runner
+    // (decision 10), v1 kinds only (decision 11) — on <formula>/<action> every head
+    // parser folds unknown attributes into input bindings, so a sample there is active
+    // runtime state until all four parsers learn the skip.
+    {
+      const sm = /\bsample\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(t.attrs);
+      if (sm !== null) {
+        const sampleText = (sm[1] ?? sm[2] ?? "")
+          .replaceAll("&quot;", '"').replaceAll("&#39;", "'")
+          .replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
+        if (t.tag === "formula" || t.tag === "action") {
+          report("error", t.line,
+            `sample= on <${t.tag}> is deferred — it becomes an input binding evaluated at call time; declare samples on variable/event/api/attribute (master plan P3)`);
+        } else if (["variable", "var", "let", "event", "api", "attribute"].includes(t.tag)) {
+          try {
+            JSON.parse(sampleText);
+          } catch {
+            report("error", t.line,
+              "sample= is not valid JSON — a sample is a JSON literal on every runner; quote strings (sample='\"Spring sale\"'), use [] and {} for structure");
+          }
+        }
+      }
     }
 
     if (["list", "grid", "pager"].includes(t.tag) && /\bbind\s*=/.test(t.attrs) && !/\bkey\s*=/.test(t.attrs)) {
       report("warning", t.line,
         `<${t.tag} bind=…> without key= — rows need a stable identity (key="id", or key="index" for static data)`);
+    }
+
+    // A text input reads its content from `bind=` and never looks at `value=`. Written here,
+    // `value=` parses, renders an empty field and reports nothing — the spelling is right for
+    // a <text>/<image>/<progress>, which is exactly why an author reaches for it.
+    // An authored `data-*` never reaches the element. Dropping it is the RIGHT call - a sheet
+    // keyed on an attribute selector would work on web and quietly do nothing on the native
+    // twins - but the drop is silent, and the state class the author wanted simply never
+    // applies. A class formula is the spelling all three renderers honour.
+    for (const authored of t.attrs.matchAll(/(?:^|\s)(data-[\w-]+)\s*=/g)) {
+      report("error", t.line,
+        `<${t.tag} ${authored[1]}=…>: an authored data- attribute is dropped by every renderer, ` +
+        `so the sheet rule keyed on it never matches. Put the state in the class instead: ` +
+        `class="row {{ selected ? 'row-on' : 'row-off' }}"`);
+    }
+
+    if (VALUELESS_INPUT_TAGS.has(t.tag) && /(?:^|\s)value\s*=/.test(t.attrs)) {
+      report("notice", t.line,
+        `<${t.tag} value=…> is inert — a text input reads its content from bind= (path-aware, including the current row). value= parses, renders nothing, and reports no error. Did you mean bind=?`);
     }
 
     if (!t.selfClose) {
@@ -388,6 +617,7 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
   const localDefs = new Set([...lifted.matchAll(/<component\s[^>]*as="([^"]+)"/g)].map((m) => m[1]!));
   const localActions = new Set([...lifted.matchAll(/<action\s[^>]*as="([^"]+)"/g)].map((m) => m[1]!));
 
+  const rawLines = lifted.split("\n");
   // 2 ── per-tag: component resolution · on:* JSE + budget · nested ternaries · suffix typos
   for (const t of scanTags(lifted)) {
     if (t.closing) continue;
@@ -405,15 +635,75 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
         }
       } else {
         const scopes = ctx.pool.get(t.tag) ?? [];
-        const resolvable = (localScheme !== null && scopes.includes(localScheme)) || scopes.includes(null) || localDefs.has(t.tag);
+        const resolvable = (localScheme !== null && scopes.includes(localScheme)) || scopes.includes(null)
+          || localDefs.has(t.tag) || GLOBAL_ELEMENT_TAGS.has(t.tag);
         if (!resolvable) report("error", t.line, `<${t.tag}>: unresolved component (not in this package, not global)`);
       }
     } else if (!BUILTIN_TAGS.has(t.tag)) {
       report("warning", t.line, `<${t.tag}>: unknown element tag (typo, or extend BUILTIN_TAGS in the linter)`);
     }
 
+    // R9 - the attribute vocabulary (twin of lint_dsx.rb). Main-surface dialect only:
+    // extension apps and Live Activity layouts (markup inside a JSE string) have their
+    // own grammars. Skips head grammar and stands down without the census.
+    if (ctx.census !== null && !file.includes("/Extensions/")
+        && !(rawLines[t.line - 1] ?? "").includes("return '<")) {
+      const catalogTag = ctx.census.aliases.get(t.tag) ?? t.tag;
+      const known = ctx.census.structural.has(catalogTag) || DECL_TAGS.has(t.tag)
+        ? undefined
+        : ctx.census.attrs.get(catalogTag);
+      if (known !== undefined) {
+        for (const { key } of attrPairs(t.attrs)) {
+          if (key.startsWith("override:")) {
+            // the style contract is COMPONENT grammar: an element's attributes ARE its
+            // style surface, so an override: here can only be a misplaced habit
+            report("warning", t.line,
+              `<${t.tag}> ${key}=: override: is the component style contract — <${t.tag}> is an element; set the style attribute directly (its attributes are the style surface)`);
+            continue;
+          }
+          let base = key.replace(/:(ios|android|watch|web|desktop|macos|windows|linux)$/, "");
+          base = base.replace(/-(web|ios|android|watch|desktop)$/, "");
+          if (base.startsWith("on:") || base.startsWith("__")) continue;
+          if (known.has(base) || ctx.census.universal.has(base) || ctx.census.childMarkers.has(base)) continue;
+          if (ctx.census.harness.has(base) || ctx.census.styleKeys.has(base)) continue;
+          const confusion = ATTR_CONFUSIONS.get(`${catalogTag}\u0000${base}`);
+          const candidates = [...known, ...ctx.census.universal, ...ctx.census.harness, ...ctx.census.styleKeys];
+          let nearest = confusion ?? candidates[0] ?? "";
+          if (confusion === undefined) {
+            for (const c of candidates) if (editDistance(base, c) < editDistance(base, nearest)) nearest = c;
+          }
+          if (confusion !== undefined) {
+            report("error", t.line,
+              `<${t.tag}> ${key}=: not an attribute this element honours - this element spells it ` +
+              `${confusion}=. The runtime drops unknown attributes silently, so the element ` +
+              `renders as if you never wrote it.`);
+          } else if (nearest !== "" && editDistance(base, nearest) <= 2 && base.length >= 3) {
+            report("error", t.line,
+              `<${t.tag}> ${key}=: not an attribute this element honours - did you mean ${nearest}=? ` +
+              `The runtime drops unknown attributes silently, so the element renders as if you ` +
+              `never wrote it.`);
+          } else {
+            report("notice", t.line,
+              `<${t.tag}> ${key}=: not in the census for this element (stack-elements.json) - ` +
+              `a typo dies here, a real word belongs in the census so every surface learns it`);
+          }
+        }
+      }
+    }
+
     for (const { key, value } of attrPairs(t.attrs)) {
       let exprs = [...value.matchAll(/\{\{([\s\S]*?)\}\}/g)].map((m) => m[1]!);
+      if (BARE_EXPRESSION_ATTRS.has(key) && value.trimStart().startsWith("{{")) {
+        // The braces turn the expression into a dict literal, and every one of these
+        // attributes then fails SILENTLY in its own way: visible-if is truthy forever so the
+        // element never hides (found live: the example's offline banner), and a data
+        // attribute like commands= resolves to nothing so the surface renders empty with no
+        // error anywhere. These are BARE expression attrs (StackReference "Bindings"),
+        // unlike the interpolated value attrs the same braces are right for.
+        report("error", t.line,
+          `${key}: drop the '{{ }}' braces — ${key} takes a bare JSE expression ` +
+          `(braces read as a dict literal, so the attribute never sees the value you wrote)`);
+      }
       if (key === "visible-if" && exprs.length === 0) exprs = [decodeEntities(value)];
       for (const e of exprs) {
         if (nestedTernary(e)) {
@@ -458,20 +748,33 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
       ...[...lifted.matchAll(/<(?:variable|var|let)\s[^>]*as="([^"]+)"/g)].map((m) => m[1]!),
       ...[...lifted.matchAll(/<expects\s[^>]*variable="([^"]+)"/g)].map((m) => m[1]!),
     ]);
+    // Blank string DATA inside code bodies before scanning for uses — length-preserving,
+    // so every reported line number stays true. A page carrying documentation in a string
+    // literal must not be told its prose uses undeclared variables.
+    let scanSrc = src;
+    for (const m of src.matchAll(/<(action|formula|variable|script)\s[^>]*>([\s\S]*?)<\/\1>/g)) {
+      const body = m[2]!;
+      const bodyStart = m.index + m[0].length - `</${m[1]!}>`.length - body.length;
+      scanSrc = scanSrc.slice(0, bodyStart) + blankJseStrings(body) + scanSrc.slice(bodyStart + body.length);
+    }
+    // Events: the NAME legitimately lives inside a string literal, so the match runs on
+    // the original source — and counts only where the `dsx.event(` token itself survived
+    // the blanking (a docs page QUOTING the call has the whole thing inside a literal).
     const seenEvent = new Set<string>();
     for (const m of src.matchAll(/dsx\.event\(\s*['"]([\w:.-]+)['"]/g)) {
       const name = m[1]!;
       if (declaredEvents.has(name) || seenEvent.has(name)) continue;
+      if (!scanSrc.startsWith("dsx.event", m.index)) continue;
       seenEvent.add(name);
       report("warning", lineAt(src, m.index),
         `dsx.event('${name}') is not declared — add <event as="${name}"/> to <head> (the component's outbound contract)`);
     }
     const seenVar = new Set<string>();
-    for (const m of src.matchAll(/dsx\.variable\.(\w+)/g)) {
+    for (const m of scanSrc.matchAll(/dsx\.variable\.(\w+)/g)) {
       const name = m[1]!;
       if (declaredVars.has(name) || seenVar.has(name)) continue;
       seenVar.add(name);
-      report("warning", lineAt(src, m.index),
+      report("warning", lineAt(scanSrc, m.index),
         `dsx.variable.${name} is not declared — add <variable as="${name}">…</variable> (own state) or ` +
         `<expects variable="${name}"/> (seeded/shared) to <head>`);
     }
@@ -483,6 +786,10 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
     const body = decodeEntities(m[3]!);
     const line = lineAt(src, m.index);
     if (!jseBalanced(body)) report("error", line, `<${el}> body: unbalanced (){}[] or unterminated string`);
+    // RETIRED (2026-08-22): the loop-in-value-body error. Expression blocks run the full
+    // loop grammar now, BUDGETED (kernel JSEval, corpus jse/core-004), so a loop in a
+    // <variable>/<formula> body is legal and terminates — the restriction this rule
+    // guarded fell with it (runtime-pressure R11).
     lintJse(report, line, `<${el}>`, body, ctx);
   }
 
@@ -511,12 +818,16 @@ function lintJse(
   report: (level: Level, line: number, message: string) => void,
   line: number, where: string, body: string, ctx: LintContext,
 ): void {
-  for (const m of body.matchAll(/\bdsx\.(\w+)/g)) {
+  // Identifier scans run over the body with string INTERIORS blanked (data is not code);
+  // the crypto/socket scans below read names that legitimately LIVE in strings, so they
+  // match the original and count only where the call token itself survived the blanking.
+  const scan = blankJseStrings(body);
+  for (const m of scan.matchAll(/\bdsx\.(\w+)/g)) {
     const root = `dsx.${m[1]}`;
     if (JSE_ROOTS.has(root)) continue;
     report("warning", line, `${where}: unknown namespace '${root}' (JSE roots: ${[...JSE_ROOTS].join(" ")})`);
   }
-  for (const m of body.matchAll(/\bdsx\.module\.(\w[\w-]*)/g)) {
+  for (const m of scan.matchAll(/\bdsx\.module\.(\w[\w-]*)/g)) {
     const scheme = m[1]!;
     if (ctx.schemes.has(scheme)) continue;
     if (ctx.schemesComplete) {
@@ -528,17 +839,19 @@ function lintJse(
         "module tree and reports it as an ERROR there.");
     }
   }
-  if (body.includes("crypto.subtle")) {
+  if (scan.includes("crypto.subtle")) {
     for (const m of body.matchAll(/crypto\.subtle\.\w+\(\s*'([^']+)'/g)) {
+      if (!scan.startsWith("crypto.subtle", m.index)) continue;
       if (!CRYPTO_ALGS.has(m[1]!)) report("warning", line, `${where}: crypto algorithm '${m[1]}' not in the supported set`);
     }
     for (const m of body.matchAll(/name:\s*'([^']+)'/g)) {
+      if (!scan.startsWith("name", m.index)) continue;
       const alg = m[1]!;
       if (CRYPTO_ALGS.has(alg) || !/^[A-Z0-9-]/.test(alg)) continue;
       report("warning", line, `${where}: crypto algorithm '${alg}' not in the supported set`);
     }
   }
-  if (/new WebSocket\(/.test(body) && !/key\s*:/.test(body)) {
+  if (/new WebSocket\(/.test(scan) && !/key\s*:/.test(scan)) {
     report("warning", line, `${where}: new WebSocket(…) without { key: '…' } — re-runs replace by URL only`);
   }
 }
@@ -575,6 +888,39 @@ function ejectionNotice(
 
 /** Read the style catalog's `systemPath: "ejects"` keys, if the repo copy is reachable.
  *  Missing/malformed → an empty set and the notice stands down (never a crash). */
+/** Build the R9 census from the two reference catalogs + the shared facts file. */
+export function readAttributeCensus(elementsPath: string, stylePath: string, factsPath: string): AttributeCensus | null {
+  try {
+    const elements = JSON.parse(readFileSync(elementsPath, "utf8")) as {
+      elements: Record<string, { category?: string; attributes?: Record<string, unknown> }>;
+      aliases: Record<string, string>;
+      universalAttributes: Record<string, unknown>;
+      childMarkers: Record<string, unknown>;
+    };
+    const style = JSON.parse(readFileSync(stylePath, "utf8")) as {
+      groups: Array<{ properties: Array<{ key: string }> }>;
+    };
+    const facts = JSON.parse(readFileSync(factsPath, "utf8")) as { harnessAttrs?: string[] };
+    const attrs = new Map<string, Set<string>>();
+    const structural = new Set<string>();
+    for (const [tag, el] of Object.entries(elements.elements)) {
+      attrs.set(tag, new Set(Object.keys(el.attributes ?? {})));
+      if (el.category === "structural") structural.add(tag);
+    }
+    return {
+      attrs,
+      aliases: new Map(Object.entries(elements.aliases)),
+      structural,
+      universal: new Set(Object.keys(elements.universalAttributes)),
+      childMarkers: new Set(Object.keys(elements.childMarkers)),
+      styleKeys: new Set(style.groups.flatMap((g) => g.properties.map((pr) => pr.key))),
+      harness: new Set(facts.harnessAttrs ?? []),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function readStyleEjects(catalogPath: string): Set<string> {
   const out = new Set<string>();
   try {

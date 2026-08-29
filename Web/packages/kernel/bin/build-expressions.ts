@@ -72,7 +72,7 @@ export const KNOWN_GLOBAL_ROOTS: ReadonlySet<string> = new Set([
   "encodeURIComponent", "decodeURIComponent", "encodeURI", "decodeURI",
   "btoa", "atob", "structuredClone",
   "abs", "cap", "capitalize", "ceil", "clock", "contains", "count", "email", "first",
-  "floor", "has", "if", "int", "join", "keys", "last", "len", "lower", "matches",
+  "floor", "has", "highlight", "if", "int", "join", "keys", "last", "len", "lower", "matches",
   "max", "maxLength", "min", "minLength", "mmss", "pad", "phone", "range", "regex",
   "required", "reverse", "round", "sum", "trim", "typeof", "upper", "url", "values",
 ]);

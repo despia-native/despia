@@ -55,6 +55,11 @@ final class Router: Module {
     private var chromeGrace: Set<String> = []            // popped frames whose spec survives the exit animation — see apply()
     private var chromeMemory: [String: [String: Any]] = [:]   // component name → its last LIVE claim (reopen hints — see chromeHint)
     private var echoMemo: (key: String, at: Date)?   // the DOUBLE-TAP echo guard memo — see isEcho()
+    /// F07b — what this router has claimed with the Orientation module, in claim order. The
+    /// reconcile is a function of the LIVE published surfaces, so a button pop, an edge-swipe
+    /// back, a modal drag-dismiss, a deep link that replaces the stack and a backgrounded return
+    /// all funnel into the SAME release path (Conformance/input/orientation-binding.json).
+    private var orientationClaims: [StackOrientationBinding.Surface] = []
 
     override func setup() {
         Self.shared = self                       // let the kernel host (RouterHost) report back-swipe pops
@@ -90,7 +95,8 @@ final class Router: Module {
                                 scope: c.args("scope") as? String,
                                 path: (c.args("path") as? String) ?? "",
                                 vars: c.args("vars") as? [String: Any],
-                                attrs: c.args("attrs") as? [String: Any]); c.resolve() }
+                                attrs: c.args("attrs") as? [String: Any],
+                                overrides: c.args("overrides") as? [String: Any]); c.resolve() }
         dsx.action("presentComponent") { [weak self] c in
             self?.presentComponent(name: (c.args("component") as? String) ?? "",
                                    scope: c.args("scope") as? String,
@@ -98,10 +104,12 @@ final class Router: Module {
                                    vars: c.args("vars") as? [String: Any],
                                    detents: c.args("detents") as? [String],
                                    touch: c.args("touch") as? String,
-                                   attrs: c.args("attrs") as? [String: Any]); c.resolve() }
+                                   attrs: c.args("attrs") as? [String: Any],
+                                   overrides: c.args("overrides") as? [String: Any]); c.resolve() }
         dsx.action("updateComponent")  { [weak self] c in
             self?.updateComponent(target: (c.args("target") as? String) ?? (c.args("component") as? String),
-                                  attrs: (c.args("attrs") as? [String: Any]) ?? [:]); c.resolve() }
+                                  attrs: (c.args("attrs") as? [String: Any]) ?? [:],
+                                  overrides: (c.args("overrides") as? [String: Any]) ?? [:]); c.resolve() }
         dsx.action("dismiss")          { [weak self] c in self?.dismissModal(target: c.args("target") as? String); c.resolve() }
 
         // SYSTEM CHROME — a screen claims the REAL navigation bar for its frame (the host shows
@@ -776,11 +784,13 @@ final class Router: Module {
     // MARK: navigation (the stack is state — push / pop / popTo / popToRoot / replace / reset)
 
     private func push(_ path: String) {
+        let from = topFrameID
         stack.append(entry(path, depth: stack.count))
         beginUIQualificationTransition("push")
+        announceSharedFlight(source: from, destination: topFrameID, direction: .forward)
         apply()
     }
-    private func pop()                   { guard stack.count > 1 else { return }; echoMemo = nil; let gone = Array(stack.suffix(1)); stack.removeLast(); apply(); releaseNative(gone) }
+    private func pop()                   { guard stack.count > 1 else { return }; echoMemo = nil; let gone = Array(stack.suffix(1)); stack.removeLast(); announceSharedFlight(source: topFrameID, destination: Self.frameID(gone.last), direction: .reverse); apply(); releaseNative(gone) }
     private func replace(_ path: String) {
         echoMemo = nil
         let gone = stack.isEmpty ? [] : Array(stack.suffix(1))
@@ -848,7 +858,16 @@ final class Router: Module {
 
     /// The kernel host (`RouterHost`) popped via back-swipe → truncate the live stack to `depth`
     /// (root … depth). Only ever a REDUCTION — every push originates in a verb — so it never grows.
-    func hostTruncate(toDepth depth: Int) { truncate(toDepth: depth) }
+    func hostTruncate(toDepth depth: Int) {
+        // The finger-driven back-swipe lands here on COMMIT. Announcing the flight before the
+        // publish is what lets the hosting controller's transition coordinator pick it up while
+        // the interaction is still live (RouterSharedElements.SharedTransitionMarker).
+        if depth < stack.count {
+            announceSharedFlight(source: Self.frameID(stack[depth - 1]),
+                                 destination: Self.frameID(stack.last), direction: .reverse)
+        }
+        truncate(toDepth: depth)
+    }
 
     /// Re-run the ROOT PLAN once — the boot diagnostic's Retry (root-plan.md §9). Clears the
     /// exhaustion state and folds the plan again from candidate 0; a second exhaustion simply
@@ -975,12 +994,13 @@ final class Router: Module {
     /// DIFFERENT inputs (two product screens raced open by a deep link + a tap) both land —
     /// only a byte-identical repeat reads as a double-tap echo.
     private static func echoKey(_ verb: String, component: String?, path: String = "",
-                                vars: [String: Any]?, attrs: [String: Any]?) -> String {
+                                vars: [String: Any]?, attrs: [String: Any]?,
+                                overrides: [String: Any]? = nil) -> String {
         func digest(_ d: [String: Any]?) -> String {
             guard let d, !d.isEmpty else { return "" }
             return d.keys.sorted().map { "\($0)=\(d[$0].map { "\($0)" } ?? "")" }.joined(separator: "&")
         }
-        return "\(verb):\(component ?? "")|\(path)|\(digest(vars))|\(digest(attrs))"
+        return "\(verb):\(component ?? "")|\(path)|\(digest(vars))|\(digest(attrs))|\(digest(overrides))"
     }
 
     // MARK: native frames (a module-pushed component surface — StackSurface.push)
@@ -991,9 +1011,9 @@ final class Router: Module {
     /// removes it and `releaseNative` runs the surface's onPop + frees it. The web view (a lower frame)
     /// stays alive underneath, so the surface's `dsx.broadcast` state events keep flowing to web.
     func pushNative(_ surface: StackSurface, path: String, component: String? = nil, vars: [String: Any]? = nil,
-                    attrs: [String: Any]? = nil, scope: String? = nil) {
+                    attrs: [String: Any]? = nil, scope: String? = nil, overrides: [String: Any]? = nil) {
         if component?.isEmpty == false || !path.isEmpty,
-           isEcho(Self.echoKey("push", component: component, path: path, vars: vars, attrs: attrs)) {
+           isEcho(Self.echoKey("push", component: component, path: path, vars: vars, attrs: attrs, overrides: overrides)) {
             kernelLog("[Router] pushNative(\"\(component ?? path)\") dropped — identical to the push just before it (double-tap echo)")
             return
         }
@@ -1021,7 +1041,9 @@ final class Router: Module {
         if let component, !component.isEmpty { frame["component"] = component }
         if let vars, !vars.isEmpty { frame["vars"] = vars }
         if let attrs, !attrs.isEmpty { frame["attrs"] = attrs }
+        let from = topFrameID
         stack.append(frame)
+        announceSharedFlight(source: from, destination: id, direction: .forward)
         apply()
     }
 
@@ -1054,9 +1076,10 @@ final class Router: Module {
     /// tag + serializable `vars` (testable without a host). The surface is held by id in
     /// `StackSurface.modalFrames`, exactly like a pushed frame.
     func presentModal(_ surface: StackSurface, mode: String, component: String, vars: [String: Any]?,
-                      detents: [String]?, touch: String? = nil, attrs: [String: Any]? = nil) {
+                      detents: [String]?, touch: String? = nil, attrs: [String: Any]? = nil,
+                      overrides: [String: Any]? = nil) {
         if !component.isEmpty,
-           isEcho(Self.echoKey("present:\(mode)", component: component, vars: vars, attrs: attrs)) {
+           isEcho(Self.echoKey("present:\(mode)", component: component, vars: vars, attrs: attrs, overrides: overrides)) {
             kernelLog("[Router] presentModal(\"\(component)\") dropped — identical to the present just before it (double-tap echo)")
             return
         }
@@ -1125,7 +1148,7 @@ final class Router: Module {
     /// qualified). The kernel names nobody: the tag resolves against the component registry in that
     /// scope at render time. nil for an empty / unparsable tag (fail-open — the verb no-ops).
     private func buildSurface(_ component: String, scope: String?, vars: [String: Any]?,
-                              attrs: [String: Any]? = nil) -> StackSurface? {
+                              attrs: [String: Any]? = nil, overrides: [String: Any]? = nil) -> StackSurface? {
         let tag = component.trimmingCharacters(in: .whitespaces)
         guard !tag.isEmpty, let root = StackXML.parse("<\(tag)/>") else { return nil }
         let surface = StackSurface(root: root, webView: dsx.shared.use("web") as? UIView, scope: scope, dsx: dsx)
@@ -1134,6 +1157,9 @@ final class Router: Module {
         // hard-coding consumer's props ride (surface.attribute — runtime values win over the
         // head's `default=`s; later updateComponent writes recalc bindings + fire on:change).
         if let attrs { for (k, v) in attrs { surface.attribute(k, v) } }
+        // THE style contract's verb door: seed the reactive `dsx.override` dict (typed reads
+        // resolve through the component's <override> declarations — Conformance/overrides).
+        if let overrides { for (k, v) in overrides { surface.override(k, v) } }
         return surface
     }
 
@@ -1142,24 +1168,25 @@ final class Router: Module {
     /// A failed surface build is LOGGED, never silent — the caller's resolve may already have
     /// fired (resolve-first callers), so this log is the only trace a screen never appeared.
     func pushComponent(name: String, scope: String?, path: String, vars: [String: Any]?,
-                       attrs: [String: Any]? = nil) {
-        guard let surface = buildSurface(name, scope: scope, vars: vars, attrs: attrs) else {
+                       attrs: [String: Any]? = nil, overrides: [String: Any]? = nil) {
+        guard let surface = buildSurface(name, scope: scope, vars: vars, attrs: attrs, overrides: overrides) else {
             kernelLog("[Router] pushComponent(\"\(name)\") no-op — empty or unparsable component tag; no frame was pushed")
             return
         }
-        pushNative(surface, path: path, component: name, vars: vars, attrs: attrs, scope: scope)
+        pushNative(surface, path: path, component: name, vars: vars, attrs: attrs, scope: scope, overrides: overrides)
     }
 
     /// Present a component (by name, caller-scoped) as a state-backed modal — the name-only twin of
     /// `presentModal` behind the markup / web `dsx.component.present` verb. Failed build → logged (see pushComponent).
     func presentComponent(name: String, scope: String?, mode: String, vars: [String: Any]?,
-                          detents: [String]?, touch: String? = nil, attrs: [String: Any]? = nil) {
-        guard let surface = buildSurface(name, scope: scope, vars: vars, attrs: attrs) else {
+                          detents: [String]?, touch: String? = nil, attrs: [String: Any]? = nil,
+                          overrides: [String: Any]? = nil) {
+        guard let surface = buildSurface(name, scope: scope, vars: vars, attrs: attrs, overrides: overrides) else {
             kernelLog("[Router] presentComponent(\"\(name)\") no-op — empty or unparsable component tag; nothing was presented")
             return
         }
         presentModal(surface, mode: mode, component: name, vars: vars, detents: detents, touch: touch,
-                     attrs: attrs)
+                     attrs: attrs, overrides: overrides)
     }
 
     /// updateComponent — LIVE attribute updates on an open frame/modal: the reactive half of the
@@ -1169,19 +1196,24 @@ final class Router: Module {
     /// bindings recalc and `<attribute on:change>` fires. Target matching = the dismiss rule
     /// (component tag or `as:` mode, deepest-last, modals first then stack frames); nil → the
     /// top-most presented entry, else the top frame. Unmatched → documented no-op.
-    func updateComponent(target: String?, attrs: [String: Any]) {
-        guard !attrs.isEmpty else { return }
+    func updateComponent(target: String?, attrs: [String: Any], overrides: [String: Any] = [:]) {
+        guard !attrs.isEmpty || !overrides.isEmpty else { return }
         func updated(_ e: [String: Any]) -> [String: Any] {
             var copy = e
-            var merged = (e["attrs"] as? [String: Any]) ?? [:]
-            for (k, v) in attrs { merged[k] = v }
-            copy["attrs"] = merged
+            if !attrs.isEmpty {
+                var merged = (e["attrs"] as? [String: Any]) ?? [:]
+                for (k, v) in attrs { merged[k] = v }
+                copy["attrs"] = merged
+            }
             return copy
         }
         func reseed(_ e: [String: Any]) {
             if let id = e["id"] as? Int,
                let surface = StackSurface.modalFrames[id] ?? StackSurface.pushedFrames[id] {
                 for (k, v) in attrs { surface.attribute(k, v) }
+                // the style plane's live re-seed (no entry record in v1 — the mounted
+                // surface's reactive dsx.override dict is the truth the bindings read)
+                for (k, v) in overrides { surface.override(k, v) }
             }
         }
         let mIdx: Int?
@@ -1261,6 +1293,57 @@ final class Router: Module {
                         "modal": modal, "chrome": chrome],
                 "route": top,
             ])
+        }
+        syncOrientation()   // F07b: the ONE funnel every dismissal path passes through
+    }
+
+    // MARK: - U03 shared element transitions
+
+    /// The frame id at the top of the published stack, or nil for an empty one.
+    private var topFrameID: Int? { Self.frameID(stack.last) }
+
+    private static func frameID(_ entry: [String: Any]?) -> Int? {
+        entry?["id"].flatMap(NavFrame.intId)
+    }
+
+    /// Tell the flight driver which two frames the transition it is about to see joins. The
+    /// Router owns frame IDENTITY; UIKit owns the TIMING (the hosting controller's transition
+    /// coordinator, RouterSharedElements.SharedTransitionMarker), and neither has to learn the
+    /// other's job. A transition with no `shared=` ids in common never starts a flight, so this
+    /// is free on every ordinary navigation.
+    private func announceSharedFlight(source: Int?, destination: Int?,
+                                      direction: StackSharedTransition.Direction) {
+        // The driver is @MainActor and this is not, so the hop has to be stated. It must stay
+        // SYNCHRONOUS: the whole point is that the driver learns the pair BEFORE the transition
+        // it is about to see, and a `Task { @MainActor }` would announce after the transition
+        // started. `assumeIsolated` is the honest spelling here and the kernel's existing one
+        // (StackScroll uses it twice): every caller is a navigation mutation of the @Published
+        // `stack` two lines away, which SwiftUI already requires to be on the main thread.
+        MainActor.assumeIsolated {
+            SharedFlightDriver.shared.expect(source: source, destination: destination,
+                                             direction: direction,
+                                             reducedMotion: Router.reducedMotionActive)
+        }
+    }
+
+    /// F07b — reconcile `lockOrientation=` against the surfaces just published. Called from the
+    /// single publish point, so nothing has to remember to undo itself: a surface that left the
+    /// stack by ANY route is simply no longer in the live set. A merely COVERED screen is still
+    /// in `stack`, so it correctly keeps its claim — the bug an `onDisappear` pair ships, because
+    /// SwiftUI reports a covered screen as disappeared.
+    private func syncOrientation() {
+        let live = RouterOrientationBinding.surfaces(stack: stack, modal: modal)
+        let plan = StackOrientationBinding.plan(live: live, claimed: orientationClaims)
+        orientationClaims = plan.ledger
+        for op in plan.ops {
+            // Over the BUS, because Orientation is excludable: absent module ⇒ the call is a
+            // no-op ⇒ the app keeps its build-time orientation set, exactly the pre-attribute
+            // behaviour (Article 7). The kernel never holds the module's claim stack.
+            if op.op == "release" {
+                try? dsx.module.orientation.release(["surface": op.surface])
+            } else {
+                try? dsx.module.orientation.claim(["surface": op.surface, "to": op.to ?? ""])
+            }
         }
     }
 

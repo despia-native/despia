@@ -1,0 +1,39 @@
+<stack id="shot-card"
+       style="position: relative; width: 100%; height: 100%; overflow: hidden; background: #07041a">
+  <head>
+    <!-- TEMPLATE 5 - A STUDIO'S OWN FRAME ART. Identical to the hero except that ShotFrame is
+         handed a `mockup=` PNG and the four percentages describing where its screen window
+         sits. Nothing else in the template changes, which is the point: a studio that has
+         LICENSED real device art drops it in without forking a template, and the default
+         drawn bezel stays generic for everyone who has not (09 §6). -->
+    <attribute as="caption" sample="&quot;Android, same\npipeline&quot;"/>
+    <attribute as="subcaption" sample="&quot;One template, either device frame - or bring your own licensed art.&quot;"/>
+    <attribute as="screen" sample="&quot;01-orders.png&quot;"/>
+    <attribute as="art" sample="&quot;device-android.png&quot;"/>
+  </head>
+
+  <stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0">
+    <ShotGlow a="#3ba7ff" b="#9dffb0" c="#062033"/>
+  </stack>
+
+  <vstack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;
+                 padding: 84px 40px 0 40px; gap: 0rem">
+    <text value="{{ dsx.attribute.caption }}"
+          style="color: #ffffff; text-align: center; font-size: 42px; font-weight: 800;
+                 letter-spacing: -0.038em; line-height: 1.02; white-space: pre-wrap"/>
+    <text value="{{ dsx.attribute.subcaption }}"
+          style="margin-top: 16px; color: rgba(255,255,255,0.64); text-align: center;
+                 font-size: 15px; font-weight: 450; line-height: 1.4"/>
+    <!-- The four percentages are MEASURED from the art, and its screen window must carry the
+         DEVICE's aspect (440:956 here). A window of the wrong aspect makes `cover` crop the
+         screenshot sideways - which is what a 440x980 window did before this comment existed,
+         and it reads as a rendering bug rather than as a mis-measured asset. -->
+    <stack style="margin-top: 44px; width: 100%">
+      <ShotFrame screen="{{ dsx.attribute.screen }}" label="{{ dsx.attribute.caption }}"
+                 mockup="{{ dsx.attribute.art }}"
+                 screenTop="2.579%" screenLeft="5.285%"
+                 screenWidth="89.431%" screenHeight="94.841%" artAspect="492 / 1008"
+                 width="88%" bezel="0px" radius="0px" lift="0.6"/>
+    </stack>
+  </vstack>
+</stack>

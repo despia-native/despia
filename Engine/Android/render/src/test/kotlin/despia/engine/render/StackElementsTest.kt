@@ -64,11 +64,13 @@ class StackElementsTest {
         StackElements.register()
         StackElements.register()   // idempotent (defines replace; the flag short-circuits)
         val natives = listOf("sheet", "Drawer", "alert", "confirmDialog", "menu", "contextmenu",
-                             "popover", "lightbox", "toolbar", "flow", "form", "field",
+                             "popover", "lightbox", "toolbar", "form", "field",
                              "searchbar", "Table", "Accordion", "Skeleton", "ChatBubble",
                              "ProgressRing", "SystemSettingsRow", "SystemFAB")
         for (tag in natives) assertNotNull("native $tag", ComposeStackComponents.nativeGlobal(tag))
-        for (tag in listOf("scaffold", "carousel")) {
+        // `flow` moved native -> privileged on 2026-08-26 (runtime-pressure R29): `<flow bind>`
+        // repeats, and the privileged tier is what exposes `bound()` and the per-row render.
+        for (tag in listOf("scaffold", "carousel", "flow")) {
             assertNotNull("privileged $tag", ComposeStackComponents.privilegedGlobal(tag))
         }
     }
@@ -149,11 +151,11 @@ class StackElementsTest {
     @Test fun chatBubbleSquaresTheTailCorner() {
         val right = chatBubbleShape(isRight = true)
         val left = chatBubbleShape(isRight = false)
-        // 18 everywhere except the 4dp tail on the bubble's own side (flips with `side`).
+        // The `sheet` rung (20) everywhere except the 4dp tail on the bubble's own side (flips with `side`).
         assertEquals(androidx.compose.foundation.shape.CornerSize(4.dp), right.bottomEnd)
-        assertEquals(androidx.compose.foundation.shape.CornerSize(18.dp), right.bottomStart)
+        assertEquals(androidx.compose.foundation.shape.CornerSize(20.dp), right.bottomStart)
         assertEquals(androidx.compose.foundation.shape.CornerSize(4.dp), left.bottomStart)
-        assertEquals(androidx.compose.foundation.shape.CornerSize(18.dp), left.bottomEnd)
-        assertEquals(androidx.compose.foundation.shape.CornerSize(18.dp), right.topStart)
+        assertEquals(androidx.compose.foundation.shape.CornerSize(20.dp), left.bottomEnd)
+        assertEquals(androidx.compose.foundation.shape.CornerSize(20.dp), right.topStart)
     }
 }

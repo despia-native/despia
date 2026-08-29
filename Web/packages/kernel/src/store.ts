@@ -182,6 +182,14 @@ export class ReactiveStore {
   private sinks = new Set<(vars: Map<string, unknown>) => void>();
   /** batch depth — writes inside an action coalesce notifications per key set */
   private pending: Set<string> | null = null;
+  /** Each var's watch key AS WRITTEN. The dedupe below has to compare the past to the
+   *  present, and it only holds a reference: re-deriving the "previous" key from that
+   *  reference reads the value as it is NOW, so a value that was mutated in place looks
+   *  unchanged and the write is elided. That is not hypothetical - a keyed row's item
+   *  view is deliberately one object whose contents move, and handing it to a component
+   *  as a prop silently stopped notifying the child. Remembering the key at write time
+   *  is the fix, and it is also cheaper: the old code walked the value twice per set. */
+  private varKeys = new Map<string, string>();
 
   constructor() {
     this.jse.onVarRead = (name) => noteSurfaceRead(name);
@@ -205,7 +213,16 @@ export class ReactiveStore {
   /** one write — deep-equal writes are elided (the reference behavior). */
   set(key: string, value: unknown): void {
     const prev = this.jse.vars.get(key);
-    if (prev !== undefined && jseEquals(prev, value) && watchKey(prev) === watchKey(value)) return;
+    // A first write has nothing to compare against, so it must not fingerprint the value
+    // at all: a hostile row object throws on enumeration, and seeding a bound collection
+    // is exactly where one arrives.
+    if (prev === undefined) { this.jse.vars.set(key, value); this.changed(key); return; }
+    const nextKey = watchKey(value);
+    const prevKey = this.varKeys.get(key) ?? watchKey(prev);
+    // Remembered whether or not the write lands — an elided write is still the moment the
+    // stored value's fingerprint was last known to be true.
+    this.varKeys.set(key, nextKey);
+    if (prevKey === nextKey && jseEquals(prev, value)) return;
     this.jse.vars.set(key, value);
     this.changed(key);
   }

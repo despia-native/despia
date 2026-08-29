@@ -50,6 +50,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import despia.engine.DSXBusDispatch
+import despia.engine.DSXDispatchVerdict
 import despia.engine.JSE
 import despia.engine.JSERunner
 import despia.engine.StackNode
@@ -75,6 +77,7 @@ object StackElements {
             registerContainerElements()
             registerFormElements()
             registerDisplayElements()
+            registerSignatureElement()
             registerSettingsRowElement()
             registerSystemFabElement()
             registered = true
@@ -129,11 +132,14 @@ internal fun raiseEvent(ctx: ComposeStackComponentContext, name: String, payload
 }
 
 /// Fire a point-to-point bus call from a menu/alert item dict — twin of `dsx.dispatch`.
-/// Accepts the dot-API form (`studio.deleteClip`); an unshipped scheme is a silent no-op.
-internal fun dispatchCall(call: String, args: Map<String, Any?>) {
-    if (call.isEmpty()) return
-    JSERunner.moduleHandle(JSERunner.normalizeCall(call), args) { }
-}
+/// Accepts the dot-API form (`studio.deleteClip`); an unshipped scheme answers `unavailable`.
+///
+/// Answers the VERDICT (X1 H5). It used to answer `Unit`, which discarded the refusal along
+/// with everything else, so a component that needed to gate a side effect on the call had
+/// nothing to gate on. Read `.succeeded` — false on a refusal, false when nothing claimed the
+/// call, false while the answer is in flight. Statement-position callers are unaffected.
+internal fun dispatchCall(call: String, args: Map<String, Any?>): DSXDispatchVerdict =
+    DSXBusDispatch.run(call, args)
 
 // MARK: - slots (default = un-named children; `slot="name"` = named — the iOS slot contract)
 

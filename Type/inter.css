@@ -1,0 +1,46 @@
+/* inter.css - the ONE @font-face declaration for the framework's bundled face.
+ *
+ * Hand-written copies of this block existed in three places before it did:
+ * ClosedSource/Website/web/tokens.css, ClosedSource/Dashboard/web/tokens.css and the
+ * Editor sheet, each pointing at its own 352 KB copy of the unsubsetted upstream file,
+ * none of them with a unicode-range. This file replaces all three.
+ *
+ * WHY IT IS NOT IN THE KERNEL'S TOKEN SHEET. @despia/dom's TOKENS_CSS is inlined into an
+ * SSR page head, injected as a <style> at boot, adopted into a custom element's shadow
+ * root and handed to a WKWebView - four base URLs, and in the SSR case a fresh copy of
+ * the string on every page. A src: url() inside it would resolve differently in each and
+ * would ship the same bytes per page. The token sheet stays asset-free on purpose; the
+ * face is a separate stylesheet a surface links once and the browser caches once.
+ *
+ * DEGRADATION. --dsx-font names this family FIRST and keeps the entire previous system
+ * stack behind it, so a surface that never links this file renders exactly as it did
+ * before, and font-display: swap means a slow or 404ing font file shows fallback text
+ * immediately rather than invisible text.
+ *
+ * The URLs are relative to THIS FILE. Serve OpenSource/Type/ as a static root and it
+ * works unchanged; copy the two .woff2 elsewhere and rewrite the two url() values.
+ *
+ * Licence: SIL Open Font License 1.1 - vendor/inter/LICENSE.txt, which must travel with
+ * the bytes. Provenance and the exact subsetting command: vendor/inter/DERIVATION.md.
+ */
+
+@font-face {
+  font-family: "InterVariable";
+  src: url("vendor/inter/InterVariable-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+                 U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "InterVariable";
+  src: url("vendor/inter/InterVariable-latin-ext.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-017F, U+0192, U+01FA-01FF, U+0218-021B, U+0259, U+2020,
+                 U+20A0-20BF, U+2113;
+}

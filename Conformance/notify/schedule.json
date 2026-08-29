@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "_note": "THE TRIGGER RESOLVER (parity/F02-notifications.md §3a `schedule`). A scheduled notification is pure date math, and it is the one piece of a notification stack that is quietly wrong on exactly one platform: the reminder fires an hour early in March, twice on the first Sunday in November, or not at all on a leap day. So the decision is a pure function judged here on all three renderers, and the plumbing (UNCalendarNotificationTrigger, AlarmManager, setTimeout) only takes the instants this function returns. EVERY EXPECTED INSTANT IN THIS FILE WAS COMPUTED BY AN INDEPENDENT SCRATCH IMPLEMENTATION, never by running the code under test.",
+
+  "_note_zones": "The corpus carries its OWN zone rules rather than naming an IANA zone and hoping three platforms agree. `base` is the UTC offset in MINUTES before the first transition; each transition names the INSTANT (epoch ms) at which `offset` takes effect. A runner resolves wall-clock time through this table and nothing else, which is what makes the DST cases a statement about the law rather than about whichever tzdata the device shipped with.",
+  "zones": {
+    "UTC": { "base": 0, "transitions": [] },
+    "America/New_York": {
+      "base": -300,
+      "transitions": [
+        { "at": 1772953200000, "offset": -240 },
+        { "at": 1793512800000, "offset": -300 },
+        { "at": 1805007600000, "offset": -240 },
+        { "at": 1825567200000, "offset": -300 },
+        { "at": 1836457200000, "offset": -240 },
+        { "at": 1857016800000, "offset": -300 },
+        { "at": 1867906800000, "offset": -240 },
+        { "at": 1888466400000, "offset": -300 },
+        { "at": 1899356400000, "offset": -240 },
+        { "at": 1919916000000, "offset": -300 },
+        { "at": 1930806000000, "offset": -240 },
+        { "at": 1951365600000, "offset": -300 },
+        { "at": 1962860400000, "offset": -240 },
+        { "at": 1983420000000, "offset": -300 }
+      ]
+    },
+    "Europe/Berlin": {
+      "base": 60,
+      "transitions": [
+        { "at": 1774746000000, "offset": 120 },
+        { "at": 1792890000000, "offset": 60 },
+        { "at": 1806195600000, "offset": 120 },
+        { "at": 1824944400000, "offset": 60 }
+      ]
+    }
+  },
+
+  "_note_search": "The cron search is BOUNDED: 1600 local days (a shade over four years) from `from`. A bound is not a limitation, it is the difference between `0 12 30 2 *` answering \"never\" and a scheduler hanging forever on a date that does not exist. When the bound is reached with fewer than `count` fires the answer is what was found plus `exhausted: true` — never an exception, never a silent empty list that looks like a bug.",
+  "searchDays": 1600,
+
+  "_note_units": "`hourly` is an INTERVAL (exactly 3600000 ms apart, straight through a DST transition). Every other unit is WALL CLOCK: 09:00 stays 09:00 the day the clocks move, so the gap between those two fires is 23 or 25 hours. Both are correct; they are different; a runtime may not choose.",
+  "units": ["hourly", "daily", "weekly", "monthly", "yearly"],
+
+  "_note_dst": "gap = the wall time does not exist (spring forward) -> the fire moves to the FIRST INSTANT AFTER THE GAP, never dropped. overlap = the wall time happens twice (fall back) -> the FIRST occurrence fires, and only the first.",
+
+  "resolve": [
+    { "name": "a daily 09:00 wall-clock cron keeps 09:00 across spring forward (the interval becomes 23h)",
+      "trigger": { "cron": "0 9 * * *" }, "zone": "America/New_York",
+      "from": 1772805540000, "count": 4,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1772805600000, 1772892000000, 1772974800000, 1773061200000] } },
+
+    { "name": "02:30 DOES NOT EXIST on the spring-forward day and fires at 03:00 local rather than being skipped",
+      "trigger": { "cron": "30 2 * * *" }, "zone": "America/New_York",
+      "from": 1772798400000, "count": 4,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1772868600000, 1772953200000, 1773037800000, 1773124200000] } },
+
+    { "name": "01:30 HAPPENS TWICE on the fall-back day and fires ONCE, on the first occurrence",
+      "trigger": { "cron": "30 1 * * *" }, "zone": "America/New_York",
+      "from": 1793404800000, "count": 4,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1793424600000, 1793511000000, 1793601000000, 1793687400000] } },
+
+    { "name": "the European transition is a different weekend and is resolved from the same table",
+      "trigger": { "cron": "15 7 * * *" }, "zone": "Europe/Berlin",
+      "from": 1774605600000, "count": 4,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1774678500000, 1774761300000, 1774847700000, 1774934100000] } },
+
+    { "name": "A LEAP DAY: 29 February resolves to the next leap year, four years out, inside the search bound",
+      "trigger": { "cron": "0 12 29 2 *" }, "zone": "UTC",
+      "from": 1767225600000, "count": 1,
+      "expect": { "ok": true, "kind": "repeating", "fires": [1835438400000] } },
+
+    { "name": "a date that never exists answers NEVER, bounded, instead of hanging",
+      "trigger": { "cron": "0 12 30 2 *" }, "zone": "UTC",
+      "from": 1767225600000, "count": 1,
+      "expect": { "ok": true, "kind": "repeating", "fires": [], "exhausted": true } },
+
+    { "name": "the 31st SKIPS the months that do not have one, it does not clamp to the 30th",
+      "trigger": { "cron": "0 8 31 * *" }, "zone": "UTC",
+      "from": 1767225600000, "count": 5,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1769846400000, 1774944000000, 1780214400000, 1785484800000, 1788163200000] } },
+
+    { "name": "day-of-month AND day-of-week both restricted is cron's classic OR, not AND",
+      "trigger": { "cron": "0 9 13 * 5" }, "zone": "UTC",
+      "from": 1767225600000, "count": 6,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1767344400000, 1767949200000, 1768294800000, 1768554000000, 1769158800000, 1769763600000] } },
+
+    { "name": "steps, ranges and lists fold the same way on every runtime",
+      "trigger": { "cron": "*/15 9-10 * * 1" }, "zone": "UTC",
+      "from": 1767225600000, "count": 6,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1767603600000, 1767604500000, 1767605400000, 1767606300000, 1767607200000, 1767608100000] } },
+
+    { "name": "the next fire is STRICTLY after `from`, so re-resolving at the instant one fired never repeats it",
+      "trigger": { "cron": "0 9 * * *" }, "zone": "UTC",
+      "from": 1767603600000, "count": 2,
+      "expect": { "ok": true, "kind": "repeating", "fires": [1767690000000, 1767776400000] } },
+
+    { "name": "resolving from an instant inside the spring-forward gap moves on to the next real day",
+      "trigger": { "cron": "30 2 * * *" }, "zone": "America/New_York",
+      "from": 1772953500000, "count": 2,
+      "expect": { "ok": true, "kind": "repeating", "fires": [1773037800000, 1773124200000] } },
+
+    { "name": "repeats daily is wall clock: the anchor's local time survives the transition",
+      "trigger": { "at": "2026-03-07T14:00:00Z", "repeats": "daily" }, "zone": "America/New_York",
+      "from": 1772798400000, "count": 4,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1772892000000, 1772974800000, 1773061200000, 1773147600000] } },
+
+    { "name": "repeats hourly is an INTERVAL and stays 3600000 ms apart straight through the gap",
+      "trigger": { "at": "2026-03-08T06:30:00Z", "repeats": "hourly" }, "zone": "America/New_York",
+      "from": 1772949600000, "count": 4,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1772951400000, 1772955000000, 1772958600000, 1772962200000] } },
+
+    { "name": "repeats monthly anchored on the 31st skips February, April, June and September",
+      "trigger": { "at": "2026-01-31T09:00:00Z", "repeats": "monthly" }, "zone": "UTC",
+      "from": 1767225600000, "count": 5,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1769850000000, 1774947600000, 1780218000000, 1785488400000, 1788166800000] } },
+
+    { "name": "repeats yearly anchored on 29 February fires only in leap years",
+      "trigger": { "at": "2028-02-29T12:00:00Z", "repeats": "yearly" }, "zone": "UTC",
+      "from": 1767225600000, "count": 3,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1835438400000, 1961668800000, 2087899200000] } },
+
+    { "name": "repeats weekly keeps the wall clock across the autumn transition",
+      "trigger": { "at": "2026-10-30T13:00:00Z", "repeats": "weekly" }, "zone": "America/New_York",
+      "from": 1793318400000, "count": 3,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1793365200000, 1793973600000, 1794578400000] } },
+
+    { "name": "a repeat anchored in the future starts at the anchor, not at the next interval after now",
+      "trigger": { "at": "2026-06-01T12:00:00Z", "repeats": "daily" }, "zone": "UTC",
+      "from": 1767225600000, "count": 2,
+      "expect": { "ok": true, "kind": "repeating", "fires": [1780315200000, 1780401600000] } },
+
+    { "name": "an absolute `at` is one fire and is not a repeat",
+      "trigger": { "at": "2026-06-01T12:00:00Z" }, "zone": "UTC",
+      "from": 1767225600000, "count": 3,
+      "expect": { "ok": true, "kind": "once", "fires": [1780315200000] } },
+
+    { "name": "an `at` already in the past resolves to nothing rather than firing immediately",
+      "trigger": { "at": "2026-01-01T00:00:00Z" }, "zone": "UTC",
+      "from": 1767225600000, "count": 3,
+      "expect": { "ok": true, "kind": "once", "fires": [] } },
+
+    { "name": "`in` is seconds from now and is one fire",
+      "trigger": { "in": 900 }, "zone": "UTC",
+      "from": 1767225600000, "count": 3,
+      "expect": { "ok": true, "kind": "once", "fires": [1767226500000] } },
+
+    { "name": "`in` with a repeat unit is an interval anchored `in` seconds out",
+      "trigger": { "in": 900, "repeats": "hourly" }, "zone": "UTC",
+      "from": 1767225600000, "count": 3,
+      "expect": { "ok": true, "kind": "repeating",
+                  "fires": [1767226500000, 1767230100000, 1767233700000] } },
+
+    { "name": "an unknown zone is not a failure: UTC is the fallback and the resolution still happens",
+      "trigger": { "cron": "0 9 * * *" }, "zone": "Mars/Olympus",
+      "from": 1767225600000, "count": 1,
+      "expect": { "ok": true, "kind": "repeating", "fires": [1767258000000] } }
+  ],
+
+  "_note_reject": "invalid_trigger is a REFUSAL, never a default. A schedule call whose trigger the module quietly reinterpreted is the bug that ships a reminder nobody ever receives, and it is invisible in every log.",
+  "reject": [
+    { "name": "no trigger at all", "trigger": {}, "expect": { "error": "invalid_trigger" } },
+    { "name": "two absolute triggers at once", "trigger": { "at": "2026-06-01T12:00:00Z", "in": 60 }, "expect": { "error": "invalid_trigger" } },
+    { "name": "cron together with an absolute anchor", "trigger": { "cron": "0 9 * * *", "at": "2026-06-01T12:00:00Z" }, "expect": { "error": "invalid_trigger" } },
+    { "name": "cron together with a repeat unit, because a cron already repeats", "trigger": { "cron": "0 9 * * *", "repeats": "daily" }, "expect": { "error": "invalid_trigger" } },
+    { "name": "a non-positive delay", "trigger": { "in": 0 }, "expect": { "error": "invalid_trigger" } },
+    { "name": "a negative delay", "trigger": { "in": -30 }, "expect": { "error": "invalid_trigger" } },
+    { "name": "an unparseable instant", "trigger": { "at": "next tuesday" }, "expect": { "error": "invalid_trigger" } },
+    { "name": "a repeat unit that is not one of the five", "trigger": { "at": "2026-06-01T12:00:00Z", "repeats": "fortnightly" }, "expect": { "error": "invalid_trigger" } },
+    { "name": "a cron with four fields", "trigger": { "cron": "0 9 * *" }, "expect": { "error": "invalid_trigger" } },
+    { "name": "a cron with six fields, because seconds are not a notification granularity", "trigger": { "cron": "0 0 9 * * *" }, "expect": { "error": "invalid_trigger" } },
+    { "name": "a cron field out of range", "trigger": { "cron": "0 25 * * *" }, "expect": { "error": "invalid_trigger" } },
+    { "name": "a cron range whose ends are inverted", "trigger": { "cron": "0 10-9 * * *" }, "expect": { "error": "invalid_trigger" } },
+    { "name": "a cron step of zero", "trigger": { "cron": "*/0 * * * *" }, "expect": { "error": "invalid_trigger" } },
+    { "name": "a cron field that is not a number", "trigger": { "cron": "0 nine * * *" }, "expect": { "error": "invalid_trigger" } }
+  ]
+}

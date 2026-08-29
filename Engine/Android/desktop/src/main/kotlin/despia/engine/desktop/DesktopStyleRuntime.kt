@@ -64,6 +64,9 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.material.Colors
+import androidx.compose.material.MaterialTheme
+import androidx.compose.ui.graphics.lerp
 import despia.engine.CSSEngine
 import despia.engine.CSSInline
 import despia.engine.CSSResolver
@@ -73,6 +76,7 @@ import despia.engine.Platform
 import despia.engine.PlatformAttrs
 import despia.engine.StackNode
 import despia.engine.StackStore
+import despia.engine.SurfaceMaterials
 import despia.engine.writeBound
 import java.awt.GraphicsEnvironment
 import java.awt.Toolkit
@@ -240,9 +244,6 @@ internal fun desktopFontSize(attrs: Map<String, String>): TextUnit {
 internal val desktopStyleDeterministicDegradations: Map<String, String> = linkedMapOf(
     "fontDesign:rounded" to "platform sans-serif fallback (no bundled rounded family)",
     "surface" to "native Compose translucent material fallback (no browser/WebView)",
-    "glassInteractive" to "static material on Windows/Linux; activation remains native",
-    "shadowX" to "Compose elevation light has a platform-owned x offset",
-    "shadowY" to "Compose elevation light has a platform-owned y offset",
     "ignoreSafeArea" to "desktop windows report zero mobile safe-area insets",
 )
 
@@ -259,22 +260,26 @@ internal fun desktopAspectRatio(raw: String?): Float? {
     return ratio.toFloat().takeIf { it.isFinite() && it > 0f && it <= 1_000_000f }
 }
 
-internal fun desktopGradientColors(raw: String?): List<String>? {
-    val values = raw?.split('|')?.map(String::trim)?.filter(String::isNotEmpty) ?: return null
-    return values.takeIf { it.size in 2..64 }
-}
-
-internal fun desktopGradientAxis(raw: String?): Pair<Offset, Offset> = when (raw) {
-    "horizontal" -> Offset.Zero to Offset(Float.POSITIVE_INFINITY, 0f)
-    "diagonal" -> Offset.Zero to Offset.Infinite
-    else -> Offset.Zero to Offset(0f, Float.POSITIVE_INFINITY)
-}
-
-internal fun desktopMaterialColor(name: String): Color = when (name) {
-    "thin" -> Color(0xB3252525)
-    "regular" -> Color(0xD1252525)
-    "thick" -> Color(0xE6252525)
-    else -> Color(0x8C252525)
+/**
+ * `surface=` on the desktop lane. Compose Desktop has no backdrop primitive either, so a token
+ * is a translucent fill at the alpha [SurfaceMaterials.alpha] gives it - the same ladder :render
+ * paints, which is the point of the ladder living in :core.
+ *
+ * The BASE is the live theme's surface, not a pinned dark constant. It used to be the latter,
+ * which meant a light window got a dark slab wherever an author wrote `surface=`; on a desktop,
+ * where light windows are the default on all three OSes, that was the common case rather than
+ * the edge one. Thickness also steps the base toward `onSurface`, which is what M3's container
+ * ladder does and what keeps `thin` and `thick` distinguishable by more than opacity.
+ */
+internal fun desktopMaterialColor(name: String, colors: Colors): Color {
+    val step = when (name) {
+        "thin" -> 0.04f
+        "regular" -> 0.08f
+        "thick" -> 0.12f
+        else -> 0.0f
+    }
+    val base = if (step == 0f) colors.surface else lerp(colors.surface, colors.onSurface, step)
+    return base.copy(alpha = SurfaceMaterials.alpha(name))
 }
 
 private fun Modifier.desktopGrowAlignment(
@@ -307,9 +312,12 @@ private fun Modifier.desktopGrowAlignment(
 }
 
 /** The Windows/Linux style onion. Every numeric path is finite and bounded before
- * it reaches a Compose measurement, layer or Skia allocation. */
+ * it reaches a Compose measurement, layer or Skia allocation. [flexContainer] marks
+ * the DsxFlex/Box container tags, whose `align`/`align-items` word aligns their
+ * CHILDREN (the container's cross axis) - never the container itself inside its own
+ * grown box. */
 @Composable
-internal fun desktopStyleModifier(base: Modifier, attrs: Map<String, String>): Modifier {
+internal fun desktopStyleModifier(base: Modifier, attrs: Map<String, String>, flexContainer: Boolean = false): Modifier {
     var modifier = base
     fun wrap(step: Modifier) { modifier = step.then(modifier) }
 
@@ -354,6 +362,21 @@ internal fun desktopStyleModifier(base: Modifier, attrs: Map<String, String>): M
     val grow = attrs["grow"]
     val growWidth = grow == "true" || grow == "both" || grow == "width"
     val growHeight = grow == "true" || grow == "both" || grow == "height"
+    // On a flex container `align`/`align-items` is the CHILDREN's cross-axis word
+    // (DsxFlex crossAlign consumes it); reading it here as a self-anchor hug-centered
+    // every grown row's content block - the W18 dashboard-header/split-detail defect.
+    val horizontalAnchor = (attrs["alignItems"] ?: attrs["align"]).takeUnless { flexContainer }
+    val verticalAnchor = (attrs["alignY"] ?: attrs["align"]).takeUnless { flexContainer }
+    if ((growWidth || growHeight) && (horizontalAnchor != null || verticalAnchor != null)) {
+        wrap(Modifier.desktopGrowAlignment(growWidth, growHeight, horizontalAnchor, verticalAnchor))
+    } else when (grow) {
+        "true", "both" -> wrap(Modifier.fillMaxSize())
+        "width" -> wrap(Modifier.fillMaxWidth())
+        "height" -> wrap(Modifier.fillMaxHeight())
+    }
+    // min/max clamps wrap OUTSIDE the fill (CSS: max-width beats width:100%). Inside
+    // it, the fill's tight constraints made every authored max-width inert — the W17
+    // D3 defect and the whole never-clamping breach class.
     if (minWidth != null || maxWidth != null) {
         wrap(Modifier.widthIn(
             min = (minWidth ?: 0f).dp,
@@ -366,28 +389,26 @@ internal fun desktopStyleModifier(base: Modifier, attrs: Map<String, String>): M
             max = (maxHeight ?: MAX_DESKTOP_LAYOUT_DP).coerceAtLeast(minHeight ?: 0f).dp,
         ))
     }
-    val horizontalAnchor = attrs["alignItems"] ?: attrs["align"]
-    val verticalAnchor = attrs["alignY"] ?: attrs["align"]
-    if ((growWidth || growHeight) && (horizontalAnchor != null || verticalAnchor != null)) {
-        wrap(Modifier.desktopGrowAlignment(growWidth, growHeight, horizontalAnchor, verticalAnchor))
-    } else when (grow) {
-        "true", "both" -> wrap(Modifier.fillMaxSize())
-        "width" -> wrap(Modifier.fillMaxWidth())
-        "height" -> wrap(Modifier.fillMaxHeight())
-    }
 
     val radius = boundedNumberOrNull(attrs["radius"], 0f, MAX_DESKTOP_LAYOUT_DP) ?: 0f
     val shape = if (radius > 0f) RoundedCornerShape(radius.dp) else RectangleShape
     attrs["background"]?.let { wrap(Modifier.background(color(it, attrs["theme"]), shape)) }
-    desktopGradientColors(attrs["gradient"])?.let { stops ->
-        val (start, end) = desktopGradientAxis(attrs["gradientDir"])
-        wrap(Modifier.background(Brush.linearGradient(stops.map { color(it, attrs["theme"]) }, start = start, end = end)))
-    }
+    // The whole declared gradient surface - linear / radial / angular / mesh, with stops, angle,
+    // centre and radius - is DesktopGradients.kt, over the SAME ControlsCore.resolveGradient
+    // decision the other three renderers paint from; `gradientDir` stays an exact alias. Mesh
+    // degrades to layers, so this is a list - REVERSED, exactly as the :render twin reverses:
+    // wrap() prepends, so the LAST wrap paints first, and without the reversal the mesh's opaque
+    // base fill painted OVER its radial layers and the element rendered as a flat solid.
+    DesktopGradients.layers(attrs, attrs["theme"]).asReversed().forEach { wrap(Modifier.background(it)) }
     attrs["surface"]?.let { surface ->
         val surfaceRadius = boundedNumberOrNull(attrs["radius"], 0f, MAX_DESKTOP_LAYOUT_DP)
             ?: if (surface == "sheet") 24f else 16f
-        val fill = attrs["glassTint"]?.let { color(it, attrs["theme"]) } ?: desktopMaterialColor(surface)
+        val fill = attrs["glassTint"]?.let { color(it, attrs["theme"]) }
+            ?: desktopMaterialColor(surface, MaterialTheme.colors)
         wrap(Modifier.background(fill, RoundedCornerShape(surfaceRadius.dp)))
+        // The press response (DesktopGlass.kt), wrapped AFTER the fill so it lands outside it and
+        // the surface moves with its content rather than the content sliding under a static pane.
+        if (attrs["glassInteractive"] == "true") wrap(Modifier.desktopGlassPress())
     }
     if (radius > 0f) wrap(Modifier.clip(shape))
     desktopAspectRatio(attrs["aspectRatio"])?.let { wrap(Modifier.aspectRatio(it)) }
@@ -403,10 +424,21 @@ internal fun desktopStyleModifier(base: Modifier, attrs: Map<String, String>): M
         val borderWidth = boundedNumber(attrs["borderWidth"], 1f, 0f, 1_024f)
         wrap(Modifier.border(borderWidth.dp, color(border, attrs["theme"]), shape))
     }
+    // A DRAWN shadow (DesktopShadow.kt), not an elevation one: the platform light is fixed, so an
+    // elevation shadow has nowhere to put shadowX/shadowY. Defaults are the shared ones - blur 8,
+    // x 0, y 2, black at 25% - so this matches the other three renderers rather than resembling
+    // them (Article 10).
     attrs["shadow"]?.let { raw ->
-        val elevation = boundedNumber(raw, 8f, 0f, 1_024f)
         val shadowColor = attrs["shadowColor"]?.let { color(it, attrs["theme"]) } ?: Color.Black.copy(alpha = 0.25f)
-        wrap(Modifier.shadow(elevation.dp, shape, clip = false, ambientColor = shadowColor, spotColor = shadowColor))
+        wrap(
+            Modifier.desktopShadow(
+                blur = boundedNumber(raw, 8f, 0f, 1_024f),
+                color = shadowColor,
+                dx = boundedNumber(attrs["shadowX"], 0f, -1_024f, 1_024f),
+                dy = boundedNumber(attrs["shadowY"], 2f, -1_024f, 1_024f),
+                cornerRadius = radius,
+            )
+        )
     }
     if (attrs["offset"] != null || attrs["offsetX"] != null || attrs["offsetY"] != null) {
         val x = boundedNumber(attrs["offsetX"], 0f, -MAX_DESKTOP_LAYOUT_DP, MAX_DESKTOP_LAYOUT_DP)
@@ -564,7 +596,10 @@ internal fun desktopResolvedAttributes(
     var resolved = PlatformAttrs.resolve(base, Platform.attributeTarget)
         .mapValues { (_, value) -> JSE.interpolate(value, store, item) }
     if (resolved["display"] == "none") resolved = resolved + ("css-hidden" to "true")
-    return resolved
+    // `@keyframes` is sampled LAST, after interpolation and the platform fold: it overrides the
+    // base opacity/transform the cascade produced, which is what a running CSS animation does
+    // (runtime-pressure R28).
+    return desktopAnimatedAttributes(node, resolved, css)
 }
 
 /** `<watch value=… on:change=…/>` is headless but reactive and budgeted by
@@ -723,6 +758,7 @@ internal fun desktopUniversalModifier(
     runner: JSERunner,
     item: Map<String, Any?>?,
     disabled: Boolean,
+    passthrough: Boolean,
 ): Modifier {
     var modifier = base
 
@@ -736,6 +772,18 @@ internal fun desktopUniversalModifier(
             if (JSE.eval(measureKey, store, item) != value) store.writeBound(measureKey, value)
         }.then(modifier)
     }
+
+    // `passthrough="true"` on an ancestor: this element and its subtree are DECORATIVE, so the
+    // pointer falls through to whatever is behind. Compose (unlike the DOM) does not hit-test a
+    // box that carries no gesture modifier, so the twin of iOS `.allowsHitTesting(false)` is to
+    // WITHHOLD the arms rather than to add an occluding one - the same shape `:render` uses
+    // (LocalDsxPassthrough, StackNodeView.kt). Everything above this line still applies: a
+    // passthrough scrim still measures, still styles and still carries its accessibility.
+    //
+    // PINNED DIVERGENCE, identical to `:render`'s: a real SYSTEM control authored inside a
+    // passthrough subtree keeps its component-internal hit-testing here, where iOS kills it.
+    // Authoring one is degenerate - the attribute is for decorative scrims.
+    if (passthrough) return modifier
 
     val adjust = attrs["on:adjust"]
     val nativeLongPress = attrs["on:longpress"]?.takeIf(String::isNotBlank)

@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "_note": "THE UNIT PLANE. An editor that offers rem and px must answer one question honestly: what happens to the NUMBER when the unit changes. Converting (16px -> 1rem) keeps the rendered size and changes how the author says it; reinterpreting (16px -> 16rem) makes a headline sixteen times larger while claiming to have changed nothing. These cases pin CONVERT, plus the two behaviours a unit switch must never have: destroying a value it cannot parse, and losing precision when switched twice.",
+  "rootFontSizePx": 16,
+  "convert": [
+    {
+      "name": "px to rem divides by the root",
+      "from": "16px",
+      "to": "rem",
+      "expect": "1rem"
+    },
+    {
+      "name": "a real headline size converts to a readable decimal",
+      "from": "42px",
+      "to": "rem",
+      "expect": "2.625rem"
+    },
+    {
+      "name": "rem to px multiplies by the root",
+      "from": "1.5rem",
+      "to": "px",
+      "expect": "24px"
+    },
+    {
+      "name": "already in the target unit is a relabel, never a re-scale",
+      "from": "17px",
+      "to": "px",
+      "expect": "17px"
+    },
+    {
+      "name": "switching twice is lossless",
+      "from": "15px",
+      "to": "rem",
+      "expect": "0.9375rem"
+    },
+    {
+      "name": "and back again",
+      "from": "0.9375rem",
+      "to": "px",
+      "expect": "15px"
+    },
+    {
+      "name": "em is the element's own size, so the editor reads it against the root as rem",
+      "from": "17em",
+      "to": "rem",
+      "expect": "17rem"
+    },
+    {
+      "name": "a bare number is px by CSS's own reading",
+      "from": "24",
+      "to": "rem",
+      "expect": "1.5rem"
+    },
+    {
+      "name": "zero has no unit trouble",
+      "from": "0px",
+      "to": "rem",
+      "expect": "0rem"
+    },
+    {
+      "name": "a negative offset converts like any other length",
+      "from": "-8px",
+      "to": "rem",
+      "expect": "-0.5rem"
+    },
+    {
+      "name": "a percentage is of its container and has no rem equivalent, so it passes through",
+      "from": "98%",
+      "to": "rem",
+      "expect": "98%"
+    },
+    {
+      "name": "an expression the author wrote deliberately is never mangled",
+      "from": "calc(100% - 2rem)",
+      "to": "px",
+      "expect": "calc(100% - 2rem)"
+    },
+    {
+      "name": "an empty well stays empty",
+      "from": "",
+      "to": "rem",
+      "expect": ""
+    }
+  ],
+  "unitOf": [
+    {
+      "name": "px is read from the value",
+      "text": "16px",
+      "expect": "px"
+    },
+    {
+      "name": "rem is read from the value",
+      "text": "1rem",
+      "expect": "rem"
+    },
+    {
+      "name": "em reads as rem, the unit the editor offers",
+      "text": "2em",
+      "expect": "rem"
+    },
+    {
+      "name": "a bare number reports the DEFAULT rather than pretending to know",
+      "text": "16",
+      "expect": "rem"
+    },
+    {
+      "name": "an unparsable value reports the default",
+      "text": "calc(1px + 1rem)",
+      "expect": "rem"
+    },
+    {
+      "name": "a percentage is not a switchable unit, so the default stands",
+      "text": "50%",
+      "expect": "rem"
+    }
+  ]
+}

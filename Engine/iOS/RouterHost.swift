@@ -371,7 +371,12 @@ private final class FrameSurface: ObservableObject {
     /// reference, and the record table is main-thread-only.
     deinit {
         let id = frameId
-        DispatchQueue.main.async { DSXScreenReadiness.release(id) }
+        DispatchQueue.main.async {
+            DSXScreenReadiness.release(id)
+            // U03: a frame that is permanently gone can hold no measurements, and a flight
+            // still naming it has nothing left to fly (the same permanent-removal seam).
+            SharedFlightDriver.shared.release(frame: id)
+        }
     }
 }
 
@@ -409,6 +414,11 @@ private struct ScreenFrame: View {
             }
         }
         .modifier(FrameChrome(spec: chromeSpec))   // REAL system nav bar when the screen claims it (nav.chrome), hidden otherwise
+        // U03: the hosting controller's transition coordinator is the ONLY place a SwiftUI
+        // NavigationStack's INTERACTIVE pop is observable, and interruption is the whole
+        // acceptance test. Ships in Release — the DEBUG qualification marker below is a
+        // separate, measurement-only controller.
+        .background(SharedTransitionMarker(frame: frame.id))
         #if DEBUG
         .background(RouterUIQualificationTransitionMarker(frame: frame.id))
         #endif
@@ -573,11 +583,18 @@ struct RouterHost: View {
                 .background(InteractivePopEnabler())               // re-enable finger back-swipe (DSX routes hide the nav bar, which disables it)
                 .navigationDestination(for: NavFrame.self) { ScreenFrame(frame: $0) }
         }
+        // U03: ONE coordinate space every `shared=` node measures itself in, so a frame's
+        // geometry means the same thing whether it is pushed, presented or merely covered
+        // (RouterSharedElements.SharedElementProbe).
+        .coordinateSpace(name: dsxSharedSpace)
         .modifier(DSXScreenMetrics())                              // publish global.screen.* (dsx.screen)
         // NavigationStack remains the native host. This transaction only removes its motion when
         // the real system accessibility value requests it (or the explicit DEBUG fixture mirrors
         // that request); it does not substitute a custom transition.
         .modifier(RouterReducedMotionTransaction())
+        // U03: the plane the matched pairs fly in — above every frame, below the loading
+        // indicator and the boot diagnostic, and never hit-testable (SharedFlightContainer).
+        .overlay { SharedFlightHost().allowsHitTesting(false) }
         .overlay { LoadingIndicator(showing: (global.getPath("ui.loading") as? Bool) ?? false) }
         // THE BOOT DIAGNOSTIC (root-plan.md §9) — kernel-owned pixels, deliberately NOT a
         // component: it must survive a broken component system and never re-privilege a

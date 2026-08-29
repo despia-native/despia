@@ -1,15 +1,17 @@
-# Transport & OTA integrity — HTTP/HTTPS and signed updates (the visual guide)
+# Transport & OTA integrity: HTTP/HTTPS and signed updates (the visual guide)
 
 > **A note on paths.** This guide is written in the Despia monorepo, where the open tree
 > you are reading lives under `OpenSource/` and the commercial layer (the production
-> module catalog, host shells, and build machinery) lives under `ClosedSource/`. Paths
-> with those prefixes refer to the monorepo; only the open tree ships in the public
-> repository, and an `OpenSource/X` path is `X/` there.
+> module catalog, host shells, and build machinery) lives in a sibling PRIVATE tree that
+> is not part of this drop. An `OpenSource/X` path is `X/` in the public repository. A
+> command or file named below as `scripts/…`, `DSX/Modules/…` or `Documentation/…`
+> without the `OpenSource/` prefix belongs to that private tree: it is named for the
+> record, never as something to run from what you have.
 
 > **Who this is for.** Anyone who needs to answer "does my app need HTTPS?", "can I load an HTTP
 > site?", or "what is `bundle_signing` and do I need it?" without reading the crypto spec. This is
 > the plain-language map. The two authoritative docs it ties together:
-> - `ClosedSource/Documentation/app-transport-security.md` — the ATS decision + App Review text.
+> - `Documentation/app-transport-security.md` (private tree) — the ATS decision + App Review text.
 > - `OpenSource/Documentation/architecture/remote-bundle-signing.md` — the signing spec (crypto, byte format).
 
 ---
@@ -65,7 +67,7 @@ The generated `Info.plist` says exactly this:
 ```
 
 > You don't edit this file — it's **generated** by `prepare_modules.rb` from the Dom module's
-> manifest. The block lives in `ClosedSource/DSX/Modules/Mandatory/Dom/dsx.json` under `infoPlist`.
+> manifest. The block lives in the Dom module's `dsx.json` (`DSX/Modules/Core/Dom/`, private tree) under `infoPlist`.
 
 ---
 
@@ -85,7 +87,7 @@ carries the **scheme**, and it defaults to `https://`. Changing it to `http://` 
 production build: ATS will block the load unless that app also declares a narrow host exception.
 
 ```jsonc
-// ClosedSource/DSX/Modules/Mandatory/Dom/config.json  (or the per-app config override)
+// the Dom module's config.json  (or the per-app config override)
 "webview_url": {
   "value": "http://myapp.com"    // ← http, not https
 }
@@ -218,7 +220,7 @@ lock you add when a third party hosts your update files.
 
 ## See also
 
-- `ClosedSource/Documentation/app-transport-security.md` — the ATS sign-off record + the exact App Review justification paragraph.
+- `Documentation/app-transport-security.md` (private tree) — the ATS sign-off record + the exact App Review justification paragraph.
 - `OpenSource/Documentation/architecture/remote-bundle-signing.md` — signing: threat model, crypto, byte format, deploy how-to.
 - `OpenSource/Documentation/guides/staging-and-testing.md` — the dev-origin override (local `http://host:port` servers, non-production).
 - `OpenSource/Skills/security.md` — the load-gate model (why remote DSX is source-anchored).

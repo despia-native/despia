@@ -1,0 +1,100 @@
+{
+  "_note": "Core/Handoff (F17.8) — the platform-neutral corpus for continuity. The real constraint is a SIZE LIMIT nobody documents precisely: Apple transports an NSUserActivity's userInfo over Bluetooth LE advertisement plus a short exchange, and an oversized payload does not error — the activity simply stops appearing on the other device, and the developer has nothing to debug. A limit only one platform enforces, or two measure differently, is not a limit. So the payload grammar, the CANONICAL serialisation and the byte count are decided here. The canonical form is deliberately exact: ASCII sorted keys (Swift's default String ordering is Unicode-canonical and would sort differently from JS and Kotlin), integers only (a binary float has no single decimal spelling), and hand-written escapes rather than each platform's JSON encoder. Read by kernel/test/handoff-conformance.test.ts (TS, reference), :core HandoffConformanceTest (Kotlin) and Engine/iOS/Handoff.swift. Byte counts were produced by an independent UTF-8 derivation, never by the code under test.",
+
+  "limits": {
+    "maxPayloadBytes": 3072,
+    "maxTitleChars": 256
+  },
+
+  "activityType": [
+    { "name": "reverse-DNS", "raw": "com.example.viewing", "ok": true, "expect": "com.example.viewing" },
+    { "name": "two labels is the floor", "raw": "com.example", "ok": true, "expect": "com.example" },
+    { "name": "whitespace is trimmed", "raw": "  com.example.viewing  ", "ok": true, "expect": "com.example.viewing" },
+    { "name": "hyphens are legal in a label", "raw": "com.my-app.viewing", "ok": true, "expect": "com.my-app.viewing" },
+    { "name": "case is preserved — Apple matches NSUserActivityTypes exactly", "raw": "com.Example.Viewing", "ok": true, "expect": "com.Example.Viewing" },
+    { "name": "one label is not reverse-DNS", "raw": "viewing", "ok": false, "error": "invalid_activity" },
+    { "name": "empty", "raw": "", "ok": false, "error": "invalid_activity" },
+    { "name": "an empty label", "raw": "com..viewing", "ok": false, "error": "invalid_activity" },
+    { "name": "a trailing dot leaves an empty label", "raw": "com.example.", "ok": false, "error": "invalid_activity" },
+    { "name": "an underscore is not a DNS character", "raw": "com.my_app.viewing", "ok": false, "error": "invalid_activity" },
+    { "name": "a space inside", "raw": "com.example. viewing", "ok": false, "error": "invalid_activity" }
+  ],
+
+  "url": [
+    { "name": "absent is legal — a fallback is optional", "raw": "", "ok": true, "expect": "" },
+    { "name": "https", "raw": "https://example.com/a", "ok": true, "expect": "https://example.com/a" },
+    { "name": "http", "raw": "http://example.com/a", "ok": true, "expect": "http://example.com/a" },
+    { "name": "the scheme folds for the check but the URL is kept verbatim", "raw": "HTTPS://Example.com/A", "ok": true, "expect": "HTTPS://Example.com/A" },
+    { "name": "a custom scheme opens nothing on a Mac that never installed the app", "raw": "myapp://open", "ok": false, "error": "invalid_url" },
+    { "name": "a bare host is not a URL", "raw": "example.com", "ok": false, "error": "invalid_url" },
+    { "name": "a space inside", "raw": "https://example.com/a b", "ok": false, "error": "invalid_url" }
+  ],
+
+  "canonical": [
+    { "name": "an empty payload", "payload": {}, "ok": true, "text": "{}", "bytes": 2 },
+    { "name": "one string", "payload": { "id": "42" }, "ok": true, "text": "{\"id\":\"42\"}", "bytes": 11 },
+    { "name": "keys are SORTED, not authored-order — three languages must produce one string", "payload": { "b": 1, "a": "x" }, "ok": true, "text": "{\"a\":\"x\",\"b\":1}", "bytes": 15 },
+    { "name": "every scalar kind plus one array", "payload": { "tags": ["a", "b"], "n": 10, "ok": true }, "ok": true, "text": "{\"n\":10,\"ok\":true,\"tags\":[\"a\",\"b\"]}", "bytes": 35 },
+    { "name": "a two-byte character counts as two", "payload": { "t": "café" }, "ok": true, "text": "{\"t\":\"café\"}", "bytes": 13 },
+    { "name": "a three-byte character counts as three", "payload": { "t": "你好" }, "ok": true, "text": "{\"t\":\"你好\"}", "bytes": 14 },
+    { "name": "an astral character counts as four, not two UTF-16 units", "payload": { "t": "😀" }, "ok": true, "text": "{\"t\":\"😀\"}", "bytes": 12 },
+    { "name": "a newline is escaped short-form, which is one byte cheaper than \\u000a", "payload": { "t": "line\nbreak" }, "ok": true, "text": "{\"t\":\"line\\nbreak\"}", "bytes": 19 },
+    { "name": "a fractional number has no single decimal spelling, so it is refused", "payload": { "n": 1.5 }, "ok": false, "error": "invalid_payload" },
+    { "name": "a non-ASCII key would sort differently in Swift than in JS and Kotlin", "payload": { "café": 1 }, "ok": false, "error": "invalid_payload" },
+    { "name": "a key with a space", "payload": { "a b": 1 }, "ok": false, "error": "invalid_payload" },
+    { "name": "an empty key", "payload": { "": 1 }, "ok": false, "error": "invalid_payload" },
+    { "name": "a nested object — a handoff payload is a pointer to state, not the state", "payload": { "o": { "deep": 1 } }, "ok": false, "error": "invalid_payload" },
+    { "name": "an array of objects", "payload": { "list": [{ "a": 1 }] }, "ok": false, "error": "invalid_payload" }
+  ],
+
+  "activity": [
+    {
+      "name": "the shortest complete activity",
+      "raw": { "activity": "com.example.viewing", "payload": { "id": "42" } },
+      "ok": true,
+      "expect": { "activity": "com.example.viewing", "title": "", "url": "", "payloadBytes": 11 }
+    },
+    {
+      "name": "every field",
+      "raw": { "activity": "com.example.viewing", "title": "  Pasta carbonara  ", "url": "https://example.com/recipes/42", "payload": { "id": "42", "step": 3 } },
+      "ok": true,
+      "expect": { "activity": "com.example.viewing", "title": "Pasta carbonara", "url": "https://example.com/recipes/42", "payloadBytes": 20 }
+    },
+    {
+      "name": "no payload is an empty one, not an error",
+      "raw": { "activity": "com.example.viewing" },
+      "ok": true,
+      "expect": { "activity": "com.example.viewing", "title": "", "url": "", "payloadBytes": 2 }
+    },
+    { "name": "a bare activity type", "raw": { "activity": "viewing" }, "ok": false, "error": "invalid_activity" },
+    { "name": "a custom-scheme fallback", "raw": { "activity": "com.example.viewing", "url": "myapp://open" }, "ok": false, "error": "invalid_url" },
+    { "name": "a payload that is an array rather than an object", "raw": { "activity": "com.example.viewing", "payload": [1, 2] }, "ok": false, "error": "invalid_payload" },
+    { "name": "a fractional number in the payload", "raw": { "activity": "com.example.viewing", "payload": { "n": 1.5 } }, "ok": false, "error": "invalid_payload" }
+  ],
+
+  "oversize": {
+    "_note": "Built at test time rather than written out: a 3 KB literal in a corpus is unreadable and would drift from the constant. The runner fills `key` with `filler` repeated until the canonical form crosses the ceiling.",
+    "key": "blob",
+    "filler": "0123456789",
+    "repeat": 400,
+    "error": "payload_too_large"
+  },
+
+  "continuation": [
+    {
+      "name": "what arrives is normalised into the shape the sender advertised",
+      "raw": { "activity": "com.example.viewing", "title": "Pasta", "url": "https://example.com/a", "payload": { "id": "42" } },
+      "expect": { "activity": "com.example.viewing", "title": "Pasta", "url": "https://example.com/a", "payloadBytes": 11 }
+    },
+    {
+      "name": "a malformed incoming URL is DROPPED, not refused — losing the whole handoff over a bad fallback is worse",
+      "raw": { "activity": "com.example.viewing", "url": "myapp://open", "payload": { "id": "42" } },
+      "expect": { "activity": "com.example.viewing", "title": "", "url": "", "payloadBytes": 11 }
+    },
+    {
+      "name": "a missing payload arrives as an empty one",
+      "raw": { "activity": "com.example.viewing" },
+      "expect": { "activity": "com.example.viewing", "title": "", "url": "", "payloadBytes": 2 }
+    }
+  ]
+}

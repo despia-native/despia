@@ -12,7 +12,7 @@
 > is `OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/RemoteBundleGate.kt` — same names,
 > same verdicts, one documented divergence (Ed25519 below the Android platform floor: *Platform floor
 > — Ed25519 on Android*).
-> Module: `ClosedSource/DSX/Modules/Mandatory/Routing/Routing.swift` (fetches the detached signature,
+> Module: `ClosedSource/DSX/Modules/Mandatory/Routing/swift/Routing.swift` (fetches the detached signature,
 > calls `verifyManifest`, publishes `global.routes_signed`).
 > Build/signer: `ClosedSource/scripts/sign_manifest.rb` (the reference signer) + the "Sign route
 > manifest" step in `codemagic.yaml` (guarded by the `BUNDLE_SIGNING_PRIVATE_KEY` secret and required
@@ -193,7 +193,7 @@ from the same place, and that is worth stating plainly:
 | Runtime | Ed25519 comes from | ECDSA-P256 comes from |
 |---|---|---|
 | **iOS / watchOS** (`Engine/iOS/RemoteBundleGate.swift`) | CryptoKit `Curve25519.Signing` — present since iOS 13, at or below every supported deployment target | CryptoKit `P256.Signing` |
-| **Android / JVM** (`Engine/Android/core/.../RemoteBundleGate.kt`) | the platform JCA provider **when it exists**; below API 33, the **optional, excludable legacy facet** `Core/LegacyCrypto` — see below | `SHA256withECDSA` + the `EC` KeyFactory, present on **every** supported API level |
+| **Android / JVM** (`Engine/Android/core/.../RemoteBundleGate.kt`) | the platform JCA provider **when one can import a raw public key**; otherwise the **excludable facet** `Core/LegacyCrypto` — which, measured, is the path taken on Android 16 too (see below) | `SHA256withECDSA` + the `EC` KeyFactory, present on **every** supported API level |
 
 **The problem this closes.** Android's Conscrypt gained the `Ed25519` JCA algorithm only at **API 33
 (Android 13)**, while every Android module in this repo targets **`minSdk = 24` (Android 7)**. On API
@@ -204,9 +204,27 @@ only asked the platform would have swallowed that throw into its totality `catch
 through 12**: those devices frozen on the bundled floor, OTA silently never applying, and no test
 able to see it (the Kotlin suite is pure-JVM, where the provider always exists).
 
-**The resolution — an EMPTY KERNEL SEAM plus a LEGACY FACET.** This is backward compatibility for
-old Android, so it is maintained as legacy support and kept out of the kernel; the modern path stays
-wholly dynamic.
+**What the device actually says (measured 2026-08-22).** The paragraph above is what the platform
+documentation implies; enumerate the providers on a real image and the story is worse. On
+`google/sdk_gphone64_arm64` **API 36 (Android 16, Google APIs)**, checked by
+`ClosedSource/RuntimeAndroid/app/src/androidTest/.../RemoteBundleSigningDeviceTest.kt`:
+
+| Provider | Ed25519 services |
+|---|---|
+| `AndroidKeyStore` | `KeyFactory/ED25519`, `KeyPairGenerator/ED25519` — **throws `InvalidKeySpecException` on import** |
+| `AndroidKeyStoreBCWorkaround` | `Signature/Ed25519` only |
+| `AndroidOpenSSL` (Conscrypt) | X25519 **HPKE** only — no Ed25519 KeyFactory |
+| `BC` 1.77 | none |
+
+`KeyFactory.getInstance("Ed25519")` resolves to `AndroidKeyStore`, which only returns keys it
+generated itself, so **an app author's public key cannot be imported on Android 16 at all**. Two
+consequences: a probe that asks only "can the algorithm be instantiated?" picks a provider that then
+throws (the bug fixed in `probeEd25519Factory`, which imports a real RFC 8032 key before choosing);
+and `Core/LegacyCrypto` is **not** an Android 7–12 facet — it is what verifies signed OTA on the
+newest Android as well.
+
+**The resolution — an EMPTY KERNEL SEAM plus a FACET.** The kernel carries no curve math either way;
+the facet is a module so an app that provably does not need it does not ship it.
 
 - The **kernel** (`RemoteBundleGate`) probes the provider once (`ed25519PlatformAvailable`). Present
   ⇒ the platform verify runs verbatim (API 33+, the JVM, and CI are byte-for-byte unchanged).
@@ -236,8 +254,15 @@ wholly dynamic.
   (fail-closed)`. So "which code verified my bundle?" — or "why did nothing verify it?" — is
   answerable from logcat rather than inferred.
 
-**Excluding it — apps with `minSdk >= 33` should ship zero hand-written crypto.** The facet ships
-included by default; excluding it is the whole point of the quarantine.
+**Excluding it — `minSdk >= 33` is NOT a reason.** The facet ships included by default. Exclude it
+when your rotation set carries an ECDSA-P256 anchor, or when you have enumerated an importable
+platform Ed25519 on every device you ship to. Excluding it wrongly fails **closed and silent**:
+every correctly signed manifest is refused and the app freezes on its bundled floor.
+
+`scripts/validate_ota_release.rb` refuses that combination at release time — a non-empty
+`entry.ota` whose usable anchors are **all** Ed25519, with `Core/LegacyCrypto` excluded, is an
+error. It is the same rule as "production `entry.ota` requires `bundle_signing` enabled", one path
+further down: production OTA is never fail-open.
 
 1. add `"Core/LegacyCrypto"` to the `exclude` list of your release-profile descriptor under
    `ClosedSource/release/profiles/` (the `production-minimal` descriptor is an **allowlist** —
@@ -248,7 +273,7 @@ included by default; excluding it is the whole point of the quarantine.
 
 `prepare_modules_android` then drops the module's `kotlin/` lane from the app source set —
 **file-presence is the gate, never `#if`** — and the build contains no RFC 8032 code at all. Do this
-when `minSdk >= 33`, or when your rotation set carries an ECDSA-P256 anchor.
+for an ECDSA-P256 rotation set, or after measuring the devices you ship to.
 
 Scope and posture, honestly:
 
@@ -279,9 +304,10 @@ Scope and posture, honestly:
 - **Cost:** two 255-bit BigInteger scalar multiplications per manifest — single-digit milliseconds on
   a modern device, well under 100 ms on API-24-era hardware, paid once per refresh, off-main.
 
-**The modern alternative:** ship an **ECDSA-P256** anchor. That algorithm is platform-provided on
-every supported API level, needs no facet at all, and a rotation set may carry both
-(`keys: [...]`) — one build that serves Android 7 through 16 with zero hand-written crypto.
+**The alternative that needs no facet:** ship an **ECDSA-P256** anchor. That algorithm is
+platform-provided on every supported API level — including Android 16, where Ed25519 measurably is
+not — needs no facet at all, and a rotation set may carry both (`keys: [...]`): one build that
+serves Android 7 through 16 with zero hand-written crypto.
 
 ## Key management
 

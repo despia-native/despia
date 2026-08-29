@@ -33,9 +33,11 @@ import type { Registry } from "@despia/compiler/resolve";
 import {
   assertSafeRedirectTarget,
   assertSafeRouteTable,
+  rebaseShellForDepth,
   renderPageAsync,
+  shellDepthForRequestPath,
   type ShellOptions,
-} from "./static.ts";
+} from "./page-render.ts";
 import { renderPageStream } from "./stream.ts";
 
 export type PageHandlerOptions = ShellOptions & {
@@ -57,8 +59,16 @@ export type PageHandlerOptions = ShellOptions & {
  *  chain it in front of static assets / API handlers. */
 export function createPageHandler(
   registry: Registry,
-  opts: PageHandlerOptions = {},
+  callerOpts: PageHandlerOptions = {},
 ): (req: Request) => Promise<Response | null> {
+  // The build BAKES the document shell into registry.json (compiler Registry.shell,
+  // wave-7 F1), so a host built from the registry alone serves live-SSR'd documents
+  // that still load the client boot. Explicit caller options win PER KEY; a caller
+  // key explicitly set to undefined does not erase the baked value.
+  const opts: PageHandlerOptions = { ...(registry.shell ?? {}) };
+  for (const [key, value] of Object.entries(callerOpts)) {
+    if (value !== undefined) (opts as Record<string, unknown>)[key] = value;
+  }
   const routes = registry.routes ?? [];
   // The static exporter's preflight, once at creation: a bad table must fail the boot,
   // not the Nth request.
@@ -70,14 +80,17 @@ export function createPageHandler(
   const schemes = new Set(registry.schemes);
 
   async function page(component: string, vars: Dict, meta: { title?: string; description?: string },
-                      status: number, head: boolean): Promise<Response> {
+                      status: number, head: boolean, pathname: string): Promise<Response> {
+    // the served URL decides how the browser resolves ./-relative shell references,
+    // so the shell is rebased per request (rebaseShellForDepth)
+    const shell = rebaseShellForDepth(opts, shellDepthForRequestPath(pathname));
     if (opts.stream === true && status === 200 && !head) {
-      return new Response(renderPageStream(registry, component, vars, meta, opts), {
+      return new Response(renderPageStream(registry, component, vars, meta, shell), {
         status,
         headers: { "content-type": "text/html; charset=utf-8", "cache-control": cacheControl },
       });
     }
-    const html = await renderPageAsync(registry, component, vars, meta, opts);
+    const html = await renderPageAsync(registry, component, vars, meta, shell);
     return new Response(head ? null : html, {
       status,
       headers: { "content-type": "text/html; charset=utf-8", "cache-control": cacheControl },
@@ -93,7 +106,7 @@ export function createPageHandler(
     url.searchParams.forEach((v, k) => { query[k] = v; });
 
     const notFound = async (): Promise<Response | null> =>
-      registry.notFound === undefined ? null : page(registry.notFound, {}, {}, 404, head);
+      registry.notFound === undefined ? null : page(registry.notFound, {}, {}, 404, head, url.pathname);
 
     try {
       for (const route of routes) {
@@ -106,7 +119,7 @@ export function createPageHandler(
         if (route.requires !== undefined && !route.requires.every((s) => schemes.has(s))) {
           return await notFound();
         }
-        return await page(route.component, { ...params, ...query }, route.meta ?? {}, 200, head);
+        return await page(route.component, { ...params, ...query }, route.meta ?? {}, 200, head, url.pathname);
       }
       return await notFound();
     } catch (e) {

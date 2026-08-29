@@ -1,0 +1,13 @@
+<stack>
+  <head>
+    <attribute as="title" sample='"Spring sale"'/>
+    <event as="purchase" sample='{"sku":"pro","price":249}'/>
+    <api as="orders" url="https://example.test/orders" sample='[{"id":1}]'/>
+    <variable as="count" sample="3">return 0</variable>
+    <variable as="user" sample='{"name":"Ada","pro":true}'>return null</variable>
+    <variable as="broken" sample="{not json}">return 0</variable>
+    <formula as="total" rows="{{ orders }}" sample="12">return rows.length</formula>
+    <action as="buy" sample='{"sku":"pro"}'>return null</action>
+  </head>
+  <text value="{{ count }}"/>
+</stack>

@@ -141,7 +141,7 @@ Four of these were CI checks failing silently in lanes everyone read as green.
 | `generate_package_catalog.rb --check` reported DRIFT | Already failing before this branch touched it. Regenerating cleared a config toggle for a key the module does not have. |
 | 63 of 186 conformance cases counted without being checked | The TS and Kotlin runners read none of the 14 expect keys the G2P cases use, and ignored the `requires` guard built to prevent exactly that. BOTH now skip loudly with a count — TS `123/123 … 63 cases in 5 files SKIPPED`, Kotlin the same sentence (was `183/183 drivable cases passed`); the C++ runner that does serve them is in the CI chain. |
 | The model catalog had no gate at all | Nothing in `ClosedSource/scripts` read `models.json`. Six rules now, each mutation-proved. |
-| A shipped page advertised a removed vendor SDK | `Mandatory/Dom/local-www/index.html`, a declared bundled asset, read "On-Device Inference via Cactus SDK - Qwen 3.1 7B". Neither the SDK nor that model exists. |
+| A shipped page advertised a removed vendor SDK | `Core/Dom/local-www/index.html`, a declared bundled asset, read "On-Device Inference via Cactus SDK - Qwen 3.1 7B". Neither the SDK nor that model exists. |
 
 ### The ios-app lane, audited end to end
 

@@ -100,7 +100,9 @@ const engine = browserEngine();
 const browser = await launchBrowser(engine);
 const errors: string[] = [];
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  // 1024 = 64rem: desktop-compact chrome, still BELOW the 69rem standing/bar step,
+  // so the modal-drawer and dock phases below exercise the compact presentations.
+  const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
   page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(`console.error: ${message.text()}`);
@@ -405,8 +407,249 @@ try {
   await page.waitForTimeout(25);
   if (await presentationListenerCount() !== 0) errors.push("application-control teardown left document listeners active");
 
+  // ── THE DESKTOP STEP (>= 69rem, fine pointer): standing drawer + menubar ──
+  // (reduced motion stays emulated from the phase above, deliberately: geometry
+  // assertions read final values without waiting out width transitions.)
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const closesBefore = await read("dsx.variable.closes");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  // Same engine-capability gate as the desktop dock checks above: an engine that
+  // reports no fine hover pointer keeps the compact presentations by design.
+  const wideCapable = await page.evaluate(() => matchMedia("(min-width: 69rem) and (hover: hover) and (pointer: fine)").matches);
+  if (!wideCapable) console.log(`[${engine}] no fine hover pointer reported; standing/bar phase verified on engines that have one`);
+  if (wideCapable) {
+  await set("drawerOpen", true);
+  await page.waitForTimeout(40);
+  const standingState = await page.evaluate(() => {
+    const host = document.querySelector<HTMLElement>(".dsx-drawer-host");
+    const panel = document.querySelector<HTMLElement>(".dsx-drawer-panel");
+    const layer = document.querySelector<HTMLElement>(".dsx-drawer-layer");
+    const scrim = document.querySelector<HTMLElement>(".dsx-drawer-scrim");
+    return {
+      presentation: host?.getAttribute("data-dsx-presentation"),
+      hostRole: host?.getAttribute("role"),
+      role: panel?.getAttribute("role"),
+      modal: panel?.getAttribute("aria-modal"),
+      layerPosition: layer === null ? "" : getComputedStyle(layer).position,
+      scrimDisplay: scrim === null ? "" : getComputedStyle(scrim).display,
+      width: Math.round(host?.getBoundingClientRect().width ?? 0),
+      overflow: document.documentElement.style.overflow,
+      inBody: layer?.parentElement?.classList.contains("dsx-drawer-host") === true,
+    };
+  });
+  if (standingState.presentation !== "standing" || standingState.role !== "complementary" || standingState.modal !== null) {
+    errors.push(`standing drawer semantics are wrong (${JSON.stringify(standingState)})`);
+  }
+  if (standingState.hostRole !== "group") errors.push("drawer host span lost its honest group role");
+  if (standingState.layerPosition !== "static" || standingState.scrimDisplay !== "none" || !standingState.inBody) {
+    errors.push(`standing drawer did not leave the overlay plane (${JSON.stringify(standingState)})`);
+  }
+  if (standingState.width !== 288) errors.push(`standing drawer default width is ${standingState.width}px (wanted 288)`);
+  if (standingState.overflow !== "") errors.push("standing drawer locked document scrolling");
+  if (await presentationListenerCount() !== 0) errors.push("standing drawer installed modal document listeners");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(25);
+  if (await read("dsx.variable.drawerOpen") !== true) errors.push("Escape dismissed the standing (non-modal) drawer");
+
+  const resizerHandle = page.locator(".dsx-drawer-resizer");
+  await resizerHandle.focus();
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(30);
+  let standingWidth = await page.evaluate(() => Math.round(document.querySelector(".dsx-drawer-host")!.getBoundingClientRect().width));
+  if (standingWidth !== 304) errors.push(`keyboard resize step landed at ${standingWidth}px (wanted 304)`);
+  await page.keyboard.press("End");
+  await page.waitForTimeout(30);
+  standingWidth = await page.evaluate(() => Math.round(document.querySelector(".dsx-drawer-host")!.getBoundingClientRect().width));
+  if (standingWidth !== 480) errors.push(`End did not clamp the standing drawer to max (${standingWidth}px)`);
+  if (await resizerHandle.getAttribute("aria-valuenow") !== "480"
+      || await resizerHandle.getAttribute("aria-valuemin") !== "200"
+      || await resizerHandle.getAttribute("role") !== "separator") {
+    errors.push("resizer separator value semantics are wrong");
+  }
+  await page.keyboard.press("Home");
+  await page.waitForTimeout(30);
+  const resizerBox = await resizerHandle.boundingBox();
+  if (resizerBox === null) errors.push("standing resizer has no layout box");
+  else {
+    const grabY = resizerBox.y + resizerBox.height / 2;
+    await page.mouse.move(resizerBox.x + resizerBox.width / 2, grabY);
+    await page.mouse.down();
+    await page.mouse.move(resizerBox.x + resizerBox.width / 2 + 60, grabY, { steps: 3 });
+    await page.mouse.up();
+    await page.waitForTimeout(30);
+    standingWidth = await page.evaluate(() => Math.round(document.querySelector(".dsx-drawer-host")!.getBoundingClientRect().width));
+    if (Math.abs(standingWidth - 260) > 2) errors.push(`drag resize landed at ${standingWidth}px (wanted ~260)`);
+    if (await page.evaluate(() => document.querySelector(".dsx-drawer-host")?.hasAttribute("data-dsx-resizing"))) {
+      errors.push("resize release left the dragging state");
+    }
+  }
+
+  const collapseControl = page.locator(".dsx-drawer-collapse");
+  await collapseControl.click();
+  await page.waitForTimeout(320);
+  const railState = await page.evaluate(() => ({
+    collapsed: document.querySelector(".dsx-drawer-host")?.getAttribute("data-dsx-collapsed"),
+    width: Math.round(document.querySelector(".dsx-drawer-host")!.getBoundingClientRect().width),
+    contentHidden: (document.querySelector(".dsx-drawer-content") as HTMLElement | null)?.hidden,
+    expanded: document.querySelector(".dsx-drawer-collapse")?.getAttribute("aria-expanded"),
+  }));
+  if (railState.collapsed !== "true" || railState.width !== 56 || railState.contentHidden !== true || railState.expanded !== "false") {
+    errors.push(`collapse-to-rail state is wrong (${JSON.stringify(railState)})`);
+  }
+  await collapseControl.click();
+  await page.waitForTimeout(320);
+  if (await page.evaluate(() => Math.round(document.querySelector(".dsx-drawer-host")!.getBoundingClientRect().width)) !== 260) {
+    errors.push("expanding the rail did not restore the resized width");
+  }
+
+  await set("drawerOpen", false);
+  await page.waitForTimeout(25);
+  if (await page.evaluate(() => getComputedStyle(document.querySelector(".dsx-drawer-host")!).display) !== "none") {
+    errors.push("present=false did not hide the standing drawer");
+  }
+  await set("drawerOpen", true);
+  await page.waitForTimeout(25);
+  if (await read("dsx.variable.closes") !== closesBefore) {
+    errors.push("presentation swaps or standing visibility emitted phantom close events");
+  }
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.waitForTimeout(40);
+  const backToModal = await page.evaluate(() => ({
+    presentation: document.querySelector(".dsx-drawer-host")?.getAttribute("data-dsx-presentation"),
+    role: document.querySelector(".dsx-drawer-panel")?.getAttribute("role"),
+    modal: document.querySelector(".dsx-drawer-panel")?.getAttribute("aria-modal"),
+    activeInside: document.querySelector(".dsx-drawer-panel")?.contains(document.activeElement) ?? false,
+  }));
+  if (backToModal.presentation !== "modal" || backToModal.role !== "dialog" || backToModal.modal !== "true" || !backToModal.activeInside) {
+    errors.push(`narrowing did not re-present the open drawer modally (${JSON.stringify(backToModal)})`);
+  }
+  if (await read("dsx.variable.closes") !== closesBefore) errors.push("the standing->modal swap emitted a phantom close");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(25);
+  if (await read("dsx.variable.drawerOpen") !== false) errors.push("modal drawer did not dismiss after the presentation round-trip");
+
+  // ── the WAI-ARIA menubar presentation ──
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await set("items", [
+    {
+      id: "file", name: "File",
+      items: [
+        { title: "New note", shortcut: "cmd+n" },
+        { separator: true },
+        { title: "Export", items: [{ title: "Markdown" }, { title: "PDF" }] },
+      ],
+    },
+    { id: "edit", name: "Edit", items: [{ title: "Undo", shortcut: "cmd+z" }] },
+    { id: "home", name: "Home", icon: "star" },
+  ]);
+  await page.waitForTimeout(40);
+  const barState = await page.evaluate(() => {
+    const bar = document.querySelector(".dsx-menu-bar");
+    const roots = [...document.querySelectorAll<HTMLElement>(".dsx-menu-bar-item")];
+    return {
+      presentation: bar?.getAttribute("data-dsx-presentation"),
+      fileRole: roots[0]?.getAttribute("role"),
+      filePopup: roots[0]?.getAttribute("aria-haspopup"),
+      homeRole: roots[2]?.getAttribute("role"),
+      fileIconHidden: (roots[0]?.querySelector(".dsx-menu-bar-icon") as HTMLElement | null)?.hidden,
+      homeIconHidden: (roots[2]?.querySelector(".dsx-menu-bar-icon") as HTMLElement | null)?.hidden,
+    };
+  });
+  if (barState.presentation !== "bar" || barState.fileRole !== "menuitem" || barState.filePopup !== "menu"
+      || barState.homeRole !== "menuitemradio") {
+    errors.push(`menubar root semantics are wrong (${JSON.stringify(barState)})`);
+  }
+  if (barState.fileIconHidden !== true || barState.homeIconHidden !== false) {
+    errors.push("bar presentation did not keep declared icons while dropping fallback glyphs");
+  }
+  // The strip is app chrome on the ambient tokens: the authored dark= tone (seeded
+  // false above, consumed by the dock phase) must not pin the desktop bar's scheme.
+  const barChrome = await page.evaluate(() => {
+    const bar = document.querySelector(".dsx-menu-bar")!;
+    const probe = document.createElement("div");
+    probe.style.color = "var(--dsx-label)";
+    document.body.appendChild(probe);
+    const ambient = getComputedStyle(probe).color;
+    probe.remove();
+    const style = getComputedStyle(bar);
+    return { scheme: style.colorScheme, color: style.color, ambient };
+  });
+  if (barChrome.scheme !== "normal" || barChrome.color !== barChrome.ambient) {
+    errors.push(`bar strip does not ride ambient chrome (${JSON.stringify(barChrome)}); dark= stays a dock-only tone`);
+  }
+  const fileRoot = page.locator(".dsx-menu-bar-item").nth(0);
+  await fileRoot.focus();
+  await page.keyboard.press("ArrowDown");
+  const flyout = page.locator(".dsx-menu-bar-flyout");
+  await flyout.waitFor({ state: "visible" });
+  const flyoutState = await page.evaluate(() => {
+    const panel = document.querySelector<HTMLElement>(".dsx-menu-bar-flyout");
+    const active = document.activeElement as HTMLElement | null;
+    const shortcutted = panel?.querySelector<HTMLElement>("[aria-keyshortcuts]");
+    const hint = shortcutted?.querySelector<HTMLElement>(".dsx-menu-item-shortcut");
+    const label = shortcutted?.querySelector<HTMLElement>(".dsx-menu-item-label");
+    return {
+      shadow: panel === null ? "none" : getComputedStyle(panel).boxShadow,
+      focusedRole: active?.getAttribute("role"),
+      focusedText: active?.textContent?.trim(),
+      expanded: document.querySelector(".dsx-menu-bar-item")?.getAttribute("aria-expanded"),
+      keyshortcuts: shortcutted?.getAttribute("aria-keyshortcuts") ?? "",
+      hintHidden: hint?.getAttribute("aria-hidden"),
+      hintRightOfLabel: hint !== null && hint !== undefined && label !== null && label !== undefined
+        ? hint.getBoundingClientRect().left > label.getBoundingClientRect().right - 1 : false,
+    };
+  });
+  if (flyoutState.shadow === "none") errors.push("menubar flyout is not elevated (no shadow-3)");
+  if (flyoutState.focusedRole !== "menuitem" || flyoutState.focusedText?.startsWith("New note") !== true
+      || flyoutState.expanded !== "true") {
+    errors.push(`Down did not open the root flyout on its first item (${JSON.stringify(flyoutState)})`);
+  }
+  if (!/^(Meta|Control)\+N$/.test(flyoutState.keyshortcuts) || flyoutState.hintHidden !== "true" || !flyoutState.hintRightOfLabel) {
+    errors.push(`shortcut hint plane is wrong (${JSON.stringify(flyoutState)})`);
+  }
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(30);
+  if (await page.evaluate(() => document.activeElement?.textContent?.trim()?.startsWith("Undo")) !== true) {
+    errors.push("ArrowRight on a leaf did not hop to the next menubar root's flyout");
+  }
+  await page.keyboard.press("ArrowLeft");
+  await page.waitForTimeout(30);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(30);
+  if (await page.evaluate(() => document.activeElement?.textContent?.trim()) !== "Markdown") {
+    errors.push("submenu keyboard walk inside the menubar flyout failed");
+  }
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(30);
+  const walkedUp = await page.evaluate(() => ({
+    focused: document.activeElement?.textContent?.trim(),
+    flyoutVisible: (document.querySelector(".dsx-menu-bar-flyout-layer") as HTMLElement | null)?.hidden === false,
+  }));
+  if (walkedUp.focused?.startsWith("Export") !== true || !walkedUp.flyoutVisible) {
+    errors.push(`Escape did not walk up one level (${JSON.stringify(walkedUp)})`);
+  }
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(30);
+  const closedBar = await page.evaluate(() => ({
+    flyoutVisible: (document.querySelector(".dsx-menu-bar-flyout-layer") as HTMLElement | null)?.hidden === false,
+    focusedRoot: (document.activeElement as HTMLElement | null)?.classList.contains("dsx-menu-bar-item"),
+    expanded: document.querySelector(".dsx-menu-bar-item")?.getAttribute("aria-expanded"),
+  }));
+  if (closedBar.flyoutVisible || closedBar.focusedRoot !== true || closedBar.expanded !== "false") {
+    errors.push(`Escape did not close the flyout back to its root (${JSON.stringify(closedBar)})`);
+  }
+  if (await presentationListenerCount() !== 0) errors.push("closed menubar flyout leaked document listeners");
+  const selectsBefore = await read("dsx.variable.selects");
+  await page.locator(".dsx-menu-bar-item").nth(2).click();
+  await page.waitForTimeout(25);
+  if (await read("dsx.variable.selected") !== 2 || await read("dsx.variable.selects") !== (selectsBefore as number) + 1) {
+    errors.push("plain menubar root did not keep the selection contract");
+  }
+  }
+
   if (errors.length === 0) {
-    console.log(`✓ [${engine}] application controls: Drawer focus/dismiss/drag + MenuBar keyboard/RTL/keyed/adaptive`);
+    console.log(`✓ [${engine}] application controls: Drawer modal+standing (rail/resize/no-phantom-close) + MenuBar dock+menubar (flyouts/shortcuts/Escape-walk) + keyboard/RTL/keyed/adaptive`);
   }
 } finally {
   await browser.close();

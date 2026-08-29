@@ -1,0 +1,24 @@
+<stack style="position: relative; width: 100%; height: 100%; background: #f1f2f7">
+  <head>
+    <!-- The drawn marks alone on a flat ground, so each can be judged without a composition
+         hiding it. -->
+  </head>
+  <text value="Drawn marks" style="position: absolute; left: 8%; top: 4%; color: #14161c;
+        font-size: 24px; font-weight: 800"/>
+  <stack style="position: absolute; left: 12%; top: 12%; width: 52%">
+    <image src="laurel-dark.png" contentFit="contain" a11yLabel="laurel"
+           style="width: 100%; height: auto; display: block"/>
+  </stack>
+  <stack style="position: absolute; left: 12%; top: 44%; width: 34%">
+    <image src="arrow-accent.png" contentFit="contain" a11yLabel="arrow"
+           style="width: 100%; height: auto; display: block"/>
+  </stack>
+  <stack style="position: absolute; left: 54%; top: 44%; width: 34%">
+    <image src="arrow-flip.png" contentFit="contain" a11yLabel="arrow flipped"
+           style="width: 100%; height: auto; display: block"/>
+  </stack>
+  <stack style="position: absolute; left: 12%; top: 66%; width: 34%">
+    <image src="app-logo.png" contentFit="contain" a11yLabel="logo"
+           style="width: 100%; height: auto; display: block"/>
+  </stack>
+</stack>

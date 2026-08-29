@@ -909,6 +909,10 @@ object NetworkBackend {
                             if (continuation.isActive) continuation.resume(it.code)
                         }
                     } catch (_: Exception) {
+                        // Delete the staging file BEFORE resuming: the caller observes
+                        // completion on resume, so cleanup after it is a visible race.
+                        temp?.delete()
+                        temp = null
                         if (continuation.isActive) continuation.resume(null)
                     } finally {
                         temp?.delete()

@@ -1,0 +1,953 @@
+{
+ "_note": "THE on:scroll / on:scrollEnd / on:reachEnd PLANE. Three independent laws in one file because one dispatch decides all three. (1) MOTION is derived from a SAMPLE PAIR, never from an accumulated delta: dx/dy, a per-axis velocity in points per second, the DOMINANT-axis direction word, and a scalar `velocity` signed along the axis `direction` names, so the two are one coherent statement. Direction is STICKY below the half-point tolerance — a one-pixel jitter that flips `direction` every frame is exactly the shrinking-header flicker, so a sub-tolerance sample keeps the previous word instead of inventing `none`. A non-monotonic or backwards clock yields velocity 0 rather than an infinity. (2) COALESCING is the performance contract: `on:scroll` NEVER dispatches when no handler is bound (zero, not cheap), and otherwise at most once per display-link tick (16 ms default). The corpus asserts the DISPATCH COUNT over a fixed sample train, so a regression is caught rather than felt. (3) reachEnd is EDGE-TRIGGERED through a latch: it fires on the sample that crosses the threshold, not on every frame spent at the bottom, and the latch releases when the user scrolls back out. Threshold is in points and the sub-pixel tolerance applies, so a rail reached to within a quarter point counts. ORDERING within one dispatch is scroll -> reachEnd, so a handler that appends rows sees the position that triggered it; scrollEnd is a separate settle signal (SETTLE_MS = 120 on renderers with no platform deceleration callback).",
+ "cases": [
+  {
+   "name": "scrolling down: the offset grows, so the finger moved up",
+   "previous": {
+    "x": 0,
+    "y": 0,
+    "t": 0
+   },
+   "next": {
+    "x": 0,
+    "y": 120,
+    "t": 100
+   },
+   "previousDirection": null,
+   "expect": {
+    "dx": 0.0,
+    "dy": 120.0,
+    "velocityX": 0.0,
+    "velocityY": 1200.0,
+    "velocity": 1200.0,
+    "direction": "down"
+   }
+  },
+  {
+   "name": "scrolling up",
+   "previous": {
+    "x": 0,
+    "y": 400,
+    "t": 0
+   },
+   "next": {
+    "x": 0,
+    "y": 280,
+    "t": 100
+   },
+   "previousDirection": null,
+   "expect": {
+    "dx": 0.0,
+    "dy": -120.0,
+    "velocityX": 0.0,
+    "velocityY": -1200.0,
+    "velocity": -1200.0,
+    "direction": "up"
+   }
+  },
+  {
+   "name": "a horizontal rail reports left/right, not up/down",
+   "previous": {
+    "x": 0,
+    "y": 0,
+    "t": 0
+   },
+   "next": {
+    "x": 90,
+    "y": 0,
+    "t": 50
+   },
+   "previousDirection": null,
+   "expect": {
+    "dx": 90.0,
+    "dy": 0.0,
+    "velocityX": 1800.0,
+    "velocityY": 0.0,
+    "velocity": 1800.0,
+    "direction": "right"
+   }
+  },
+  {
+   "name": "dragging back left",
+   "previous": {
+    "x": 300,
+    "y": 0,
+    "t": 0
+   },
+   "next": {
+    "x": 210,
+    "y": 0,
+    "t": 50
+   },
+   "previousDirection": null,
+   "expect": {
+    "dx": -90.0,
+    "dy": 0.0,
+    "velocityX": -1800.0,
+    "velocityY": 0.0,
+    "velocity": -1800.0,
+    "direction": "left"
+   }
+  },
+  {
+   "name": "a diagonal drag picks the DOMINANT axis",
+   "previous": {
+    "x": 0,
+    "y": 0,
+    "t": 0
+   },
+   "next": {
+    "x": 40,
+    "y": 90,
+    "t": 100
+   },
+   "previousDirection": null,
+   "expect": {
+    "dx": 40.0,
+    "dy": 90.0,
+    "velocityX": 400.0,
+    "velocityY": 900.0,
+    "velocity": 900.0,
+    "direction": "down"
+   }
+  },
+  {
+   "name": "an exact tie prefers the vertical axis (the default axis of a <scroll>)",
+   "previous": {
+    "x": 0,
+    "y": 0,
+    "t": 0
+   },
+   "next": {
+    "x": 60,
+    "y": 60,
+    "t": 100
+   },
+   "previousDirection": null,
+   "expect": {
+    "dx": 60.0,
+    "dy": 60.0,
+    "velocityX": 600.0,
+    "velocityY": 600.0,
+    "velocity": 600.0,
+    "direction": "down"
+   }
+  },
+  {
+   "name": "a sub-pixel jitter KEEPS the previous direction — this is the header-flicker bug",
+   "previous": {
+    "x": 0,
+    "y": 600,
+    "t": 0
+   },
+   "next": {
+    "x": 0,
+    "y": 600.25,
+    "t": 8
+   },
+   "previousDirection": "up",
+   "expect": {
+    "dx": 0.0,
+    "dy": 0.25,
+    "velocityX": 0.0,
+    "velocityY": 31.25,
+    "velocity": 31.25,
+    "direction": "up"
+   }
+  },
+  {
+   "name": "with no previous direction, a sub-pixel jitter is `none`, not a guess",
+   "previous": {
+    "x": 0,
+    "y": 600,
+    "t": 0
+   },
+   "next": {
+    "x": 0,
+    "y": 600.25,
+    "t": 8
+   },
+   "previousDirection": null,
+   "expect": {
+    "dx": 0.0,
+    "dy": 0.25,
+    "velocityX": 0.0,
+    "velocityY": 31.25,
+    "velocity": 31.25,
+    "direction": "none"
+   }
+  },
+  {
+   "name": "two identical samples: no movement, zero velocity, direction retained",
+   "previous": {
+    "x": 0,
+    "y": 600,
+    "t": 0
+   },
+   "next": {
+    "x": 0,
+    "y": 600,
+    "t": 16
+   },
+   "previousDirection": "down",
+   "expect": {
+    "dx": 0.0,
+    "dy": 0.0,
+    "velocityX": 0.0,
+    "velocityY": 0.0,
+    "velocity": 0.0,
+    "direction": "down"
+   }
+  },
+  {
+   "name": "a non-monotonic clock cannot produce an infinite velocity",
+   "previous": {
+    "x": 0,
+    "y": 600,
+    "t": 100
+   },
+   "next": {
+    "x": 0,
+    "y": 700,
+    "t": 100
+   },
+   "previousDirection": null,
+   "expect": {
+    "dx": 0.0,
+    "dy": 100.0,
+    "velocityX": 0.0,
+    "velocityY": 0.0,
+    "velocity": 0.0,
+    "direction": "down"
+   }
+  },
+  {
+   "name": "a clock that went BACKWARDS is treated the same way",
+   "previous": {
+    "x": 0,
+    "y": 600,
+    "t": 100
+   },
+   "next": {
+    "x": 0,
+    "y": 700,
+    "t": 60
+   },
+   "previousDirection": null,
+   "expect": {
+    "dx": 0.0,
+    "dy": 100.0,
+    "velocityX": 0.0,
+    "velocityY": 0.0,
+    "velocity": 0.0,
+    "direction": "down"
+   }
+  },
+  {
+   "name": "a fling: 900 points in 250 ms is 3600 pt/s",
+   "previous": {
+    "x": 0,
+    "y": 0,
+    "t": 0
+   },
+   "next": {
+    "x": 0,
+    "y": 900,
+    "t": 250
+   },
+   "previousDirection": null,
+   "expect": {
+    "dx": 0.0,
+    "dy": 900.0,
+    "velocityX": 0.0,
+    "velocityY": 3600.0,
+    "velocity": 3600.0,
+    "direction": "down"
+   }
+  },
+  {
+   "name": "NO HANDLER BOUND: not one dispatch, whatever the platform reports",
+   "samples": [
+    0.0,
+    8.333333333333334,
+    16.666666666666668,
+    25.0,
+    33.333333333333336,
+    41.666666666666664,
+    50.0,
+    58.333333333333336,
+    66.66666666666667,
+    75.0,
+    83.33333333333333,
+    91.66666666666667,
+    100.0,
+    108.33333333333333,
+    116.66666666666667,
+    125.0,
+    133.33333333333334,
+    141.66666666666666,
+    150.0,
+    158.33333333333334,
+    166.66666666666666,
+    175.0,
+    183.33333333333334,
+    191.66666666666666,
+    200.0,
+    208.33333333333334,
+    216.66666666666666,
+    225.0,
+    233.33333333333334,
+    241.66666666666666,
+    250.0,
+    258.3333333333333,
+    266.6666666666667,
+    275.0,
+    283.3333333333333,
+    291.6666666666667,
+    300.0,
+    308.3333333333333,
+    316.6666666666667,
+    325.0,
+    333.3333333333333,
+    341.6666666666667,
+    350.0,
+    358.3333333333333,
+    366.6666666666667,
+    375.0,
+    383.3333333333333,
+    391.6666666666667,
+    400.0,
+    408.3333333333333,
+    416.6666666666667,
+    425.0,
+    433.3333333333333,
+    441.6666666666667,
+    450.0,
+    458.3333333333333,
+    466.6666666666667,
+    475.0,
+    483.3333333333333,
+    491.6666666666667,
+    500.0,
+    508.3333333333333,
+    516.6666666666666,
+    525.0,
+    533.3333333333334,
+    541.6666666666666,
+    550.0,
+    558.3333333333334,
+    566.6666666666666,
+    575.0,
+    583.3333333333334,
+    591.6666666666666,
+    600.0,
+    608.3333333333334,
+    616.6666666666666,
+    625.0,
+    633.3333333333334,
+    641.6666666666666,
+    650.0,
+    658.3333333333334,
+    666.6666666666666,
+    675.0,
+    683.3333333333334,
+    691.6666666666666,
+    700.0,
+    708.3333333333334,
+    716.6666666666666,
+    725.0,
+    733.3333333333334,
+    741.6666666666666,
+    750.0,
+    758.3333333333334,
+    766.6666666666666,
+    775.0,
+    783.3333333333334,
+    791.6666666666666,
+    800.0,
+    808.3333333333334,
+    816.6666666666666,
+    825.0,
+    833.3333333333334,
+    841.6666666666666,
+    850.0,
+    858.3333333333334,
+    866.6666666666666,
+    875.0,
+    883.3333333333334,
+    891.6666666666666,
+    900.0,
+    908.3333333333334,
+    916.6666666666666,
+    925.0,
+    933.3333333333334,
+    941.6666666666666,
+    950.0,
+    958.3333333333334,
+    966.6666666666666,
+    975.0,
+    983.3333333333334,
+    991.6666666666666,
+    1000.0
+   ],
+   "hasHandler": false,
+   "frameBudgetMs": 16.0,
+   "expect": {
+    "dispatches": 0,
+    "at": []
+   }
+  },
+  {
+   "name": "a 120 Hz sample train collapses to the 60 Hz display link",
+   "samples": [
+    0.0,
+    8.333333333333334,
+    16.666666666666668,
+    25.0,
+    33.333333333333336,
+    41.666666666666664,
+    50.0,
+    58.333333333333336,
+    66.66666666666667,
+    75.0,
+    83.33333333333333,
+    91.66666666666667,
+    100.0,
+    108.33333333333333,
+    116.66666666666667,
+    125.0,
+    133.33333333333334,
+    141.66666666666666,
+    150.0,
+    158.33333333333334,
+    166.66666666666666,
+    175.0,
+    183.33333333333334,
+    191.66666666666666,
+    200.0,
+    208.33333333333334,
+    216.66666666666666,
+    225.0,
+    233.33333333333334,
+    241.66666666666666,
+    250.0,
+    258.3333333333333,
+    266.6666666666667,
+    275.0,
+    283.3333333333333,
+    291.6666666666667,
+    300.0,
+    308.3333333333333,
+    316.6666666666667,
+    325.0,
+    333.3333333333333,
+    341.6666666666667,
+    350.0,
+    358.3333333333333,
+    366.6666666666667,
+    375.0,
+    383.3333333333333,
+    391.6666666666667,
+    400.0,
+    408.3333333333333,
+    416.6666666666667,
+    425.0,
+    433.3333333333333,
+    441.6666666666667,
+    450.0,
+    458.3333333333333,
+    466.6666666666667,
+    475.0,
+    483.3333333333333,
+    491.6666666666667,
+    500.0,
+    508.3333333333333,
+    516.6666666666666,
+    525.0,
+    533.3333333333334,
+    541.6666666666666,
+    550.0,
+    558.3333333333334,
+    566.6666666666666,
+    575.0,
+    583.3333333333334,
+    591.6666666666666,
+    600.0,
+    608.3333333333334,
+    616.6666666666666,
+    625.0,
+    633.3333333333334,
+    641.6666666666666,
+    650.0,
+    658.3333333333334,
+    666.6666666666666,
+    675.0,
+    683.3333333333334,
+    691.6666666666666,
+    700.0,
+    708.3333333333334,
+    716.6666666666666,
+    725.0,
+    733.3333333333334,
+    741.6666666666666,
+    750.0,
+    758.3333333333334,
+    766.6666666666666,
+    775.0,
+    783.3333333333334,
+    791.6666666666666,
+    800.0,
+    808.3333333333334,
+    816.6666666666666,
+    825.0,
+    833.3333333333334,
+    841.6666666666666,
+    850.0,
+    858.3333333333334,
+    866.6666666666666,
+    875.0,
+    883.3333333333334,
+    891.6666666666666,
+    900.0,
+    908.3333333333334,
+    916.6666666666666,
+    925.0,
+    933.3333333333334,
+    941.6666666666666,
+    950.0,
+    958.3333333333334,
+    966.6666666666666,
+    975.0,
+    983.3333333333334,
+    991.6666666666666,
+    1000.0
+   ],
+   "hasHandler": true,
+   "frameBudgetMs": 16.0,
+   "expect": {
+    "dispatches": 61,
+    "at": [
+     0.0,
+     16.6667,
+     33.3333,
+     50.0,
+     66.6667,
+     83.3333,
+     100.0,
+     116.6667,
+     133.3333,
+     150.0,
+     166.6667,
+     183.3333,
+     200.0,
+     216.6667,
+     233.3333,
+     250.0,
+     266.6667,
+     283.3333,
+     300.0,
+     316.6667,
+     333.3333,
+     350.0,
+     366.6667,
+     383.3333,
+     400.0,
+     416.6667,
+     433.3333,
+     450.0,
+     466.6667,
+     483.3333,
+     500.0,
+     516.6667,
+     533.3333,
+     550.0,
+     566.6667,
+     583.3333,
+     600.0,
+     616.6667,
+     633.3333,
+     650.0,
+     666.6667,
+     683.3333,
+     700.0,
+     716.6667,
+     733.3333,
+     750.0,
+     766.6667,
+     783.3333,
+     800.0,
+     816.6667,
+     833.3333,
+     850.0,
+     866.6667,
+     883.3333,
+     900.0,
+     916.6667,
+     933.3333,
+     950.0,
+     966.6667,
+     983.3333,
+     1000.0
+    ]
+   }
+  },
+  {
+   "name": "a 60 Hz train is already at the budget and passes through untouched",
+   "samples": [
+    0.0,
+    16.666666666666668,
+    33.333333333333336,
+    50.0,
+    66.66666666666667,
+    83.33333333333333,
+    100.0,
+    116.66666666666667,
+    133.33333333333334,
+    150.0,
+    166.66666666666666,
+    183.33333333333334,
+    200.0,
+    216.66666666666666,
+    233.33333333333334,
+    250.0,
+    266.6666666666667,
+    283.3333333333333,
+    300.0,
+    316.6666666666667,
+    333.3333333333333,
+    350.0,
+    366.6666666666667,
+    383.3333333333333,
+    400.0,
+    416.6666666666667,
+    433.3333333333333,
+    450.0,
+    466.6666666666667,
+    483.3333333333333,
+    500.0,
+    516.6666666666666,
+    533.3333333333334,
+    550.0,
+    566.6666666666666,
+    583.3333333333334,
+    600.0,
+    616.6666666666666,
+    633.3333333333334,
+    650.0,
+    666.6666666666666,
+    683.3333333333334,
+    700.0,
+    716.6666666666666,
+    733.3333333333334,
+    750.0,
+    766.6666666666666,
+    783.3333333333334,
+    800.0,
+    816.6666666666666,
+    833.3333333333334,
+    850.0,
+    866.6666666666666,
+    883.3333333333334,
+    900.0,
+    916.6666666666666,
+    933.3333333333334,
+    950.0,
+    966.6666666666666,
+    983.3333333333334,
+    1000.0
+   ],
+   "hasHandler": true,
+   "frameBudgetMs": 16.0,
+   "expect": {
+    "dispatches": 61,
+    "at": [
+     0.0,
+     16.6667,
+     33.3333,
+     50.0,
+     66.6667,
+     83.3333,
+     100.0,
+     116.6667,
+     133.3333,
+     150.0,
+     166.6667,
+     183.3333,
+     200.0,
+     216.6667,
+     233.3333,
+     250.0,
+     266.6667,
+     283.3333,
+     300.0,
+     316.6667,
+     333.3333,
+     350.0,
+     366.6667,
+     383.3333,
+     400.0,
+     416.6667,
+     433.3333,
+     450.0,
+     466.6667,
+     483.3333,
+     500.0,
+     516.6667,
+     533.3333,
+     550.0,
+     566.6667,
+     583.3333,
+     600.0,
+     616.6667,
+     633.3333,
+     650.0,
+     666.6667,
+     683.3333,
+     700.0,
+     716.6667,
+     733.3333,
+     750.0,
+     766.6667,
+     783.3333,
+     800.0,
+     816.6667,
+     833.3333,
+     850.0,
+     866.6667,
+     883.3333,
+     900.0,
+     916.6667,
+     933.3333,
+     950.0,
+     966.6667,
+     983.3333,
+     1000.0
+    ]
+   }
+  },
+  {
+   "name": "the very first sample always dispatches — a handler must see the gesture start",
+   "samples": [
+    0.0
+   ],
+   "hasHandler": true,
+   "frameBudgetMs": 16.0,
+   "expect": {
+    "dispatches": 1,
+    "at": [
+     0.0
+    ]
+   }
+  },
+  {
+   "name": "a burst of samples inside one frame yields exactly one dispatch",
+   "samples": [
+    0.0,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+   ],
+   "hasHandler": true,
+   "frameBudgetMs": 16.0,
+   "expect": {
+    "dispatches": 1,
+    "at": [
+     0.0
+    ]
+   }
+  },
+  {
+   "name": "an explicit budget of 0 disables coalescing (the escape hatch, opt-in)",
+   "samples": [
+    0.0,
+    1.0,
+    2.0,
+    3.0
+   ],
+   "hasHandler": true,
+   "frameBudgetMs": 0.0,
+   "expect": {
+    "dispatches": 4,
+    "at": [
+     0.0,
+     1.0,
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "name": "far from the end: nothing fires",
+   "latched": false,
+   "geometry": {
+    "x": 0,
+    "y": 200,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "threshold": 0,
+   "axis": "vertical",
+   "expect": {
+    "fire": false,
+    "latched": false,
+    "remaining": 1000.0
+   }
+  },
+  {
+   "name": "landing exactly on the rail fires once",
+   "latched": false,
+   "geometry": {
+    "x": 0,
+    "y": 1200,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "threshold": 0,
+   "axis": "vertical",
+   "expect": {
+    "fire": true,
+    "latched": true,
+    "remaining": 0.0
+   }
+  },
+  {
+   "name": "still on the rail on the NEXT sample: latched, so it does not fire again",
+   "latched": true,
+   "geometry": {
+    "x": 0,
+    "y": 1200,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "threshold": 0,
+   "axis": "vertical",
+   "expect": {
+    "fire": false,
+    "latched": true,
+    "remaining": 0.0
+   }
+  },
+  {
+   "name": "a 400-point threshold fires early, which is the point of prefetching",
+   "latched": false,
+   "geometry": {
+    "x": 0,
+    "y": 820,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "threshold": 400,
+   "axis": "vertical",
+   "expect": {
+    "fire": true,
+    "latched": true,
+    "remaining": 380.0
+   }
+  },
+  {
+   "name": "one point outside the threshold does not fire",
+   "latched": false,
+   "geometry": {
+    "x": 0,
+    "y": 799,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "threshold": 400,
+   "axis": "vertical",
+   "expect": {
+    "fire": false,
+    "latched": false,
+    "remaining": 401.0
+   }
+  },
+  {
+   "name": "scrolling back up past the threshold RELEASES the latch",
+   "latched": true,
+   "geometry": {
+    "x": 0,
+    "y": 300,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "threshold": 400,
+   "axis": "vertical",
+   "expect": {
+    "fire": false,
+    "latched": false,
+    "remaining": 900.0
+   }
+  },
+  {
+   "name": "a page with nothing to scroll has already reached its end",
+   "latched": false,
+   "geometry": {
+    "x": 0,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 400
+   },
+   "threshold": 0,
+   "axis": "vertical",
+   "expect": {
+    "fire": true,
+    "latched": true,
+    "remaining": 0.0
+   }
+  },
+  {
+   "name": "over-scrolling past the bottom is still the end, not beyond it",
+   "latched": false,
+   "geometry": {
+    "x": 0,
+    "y": 1340,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "threshold": 0,
+   "axis": "vertical",
+   "expect": {
+    "fire": true,
+    "latched": true,
+    "remaining": 0.0
+   }
+  },
+  {
+   "name": "a horizontal rail measures its own axis",
+   "latched": false,
+   "geometry": {
+    "x": 810,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 200,
+    "contentWidth": 1200,
+    "contentHeight": 200
+   },
+   "threshold": 0,
+   "axis": "horizontal",
+   "expect": {
+    "fire": true,
+    "latched": true,
+    "remaining": 0.0
+   }
+  }
+ ]
+}

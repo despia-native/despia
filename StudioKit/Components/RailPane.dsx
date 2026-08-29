@@ -1,0 +1,20 @@
+<!-- RailPane — the FULL-WINDOW scaffold, for the app that genuinely is a destination: a
+     board, a canvas, a whole editor. Everything else is a SidePanel, which is the placement
+     a person can keep open while they work. -->
+<vstack class="sk-pane" grow="true" style="gap: 0rem; min-width: 0; min-height: 0">
+  <head>
+    <attribute as="title"/>
+    <attribute as="subtitle" default=""/>
+  </head>
+  <hstack class="sk-pane-head" grow="width" style="align-items: center; gap: 0.5rem">
+    <vstack grow="width" style="gap: 0.125rem; min-width: 0">
+      <text value="{{ dsx.attribute.title }}" class="sk-pane-title" lineLimit="1"/>
+      <text value="{{ dsx.attribute.subtitle }}" class="sk-panel-subtitle" lineLimit="1"
+            visible-if="dsx.attribute.subtitle != ''"/>
+    </vstack>
+    <slot name="actions"/>
+  </hstack>
+  <scroll grow="true" class="sk-pane-body">
+    <slot/>
+  </scroll>
+</vstack>

@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "_note": "THE TWO-STEP PERMISSION LADDER, enforced rather than documented (parity/F09-geo.md §3a). Asking for `always` cold is denied by most users, and it is flagged in App Store and Play review; both platforms are built on the assumption that an app earns background location AFTER it has demonstrated the foreground case. So the module makes the correct sequence the ONLY sequence: a cold `always` refuses with escalation_required and never reaches a prompt. This corpus pins the state machine every renderer shares (TS GeoPolicy.permissionPlan/applyPermission, Kotlin :core GeoPolicy, Swift Engine/iOS GeoPolicy), including the case libraries get wrong in the other direction: a user who DECLINES the escalation. iOS shows the Always prompt exactly once, so a second request cannot prompt; the honest answer is to settle with the whenInUse the app still holds and prompted:false, not to spin a dialog that will never appear.",
+
+  "statuses": ["notDetermined", "denied", "restricted", "whenInUse", "always"],
+  "levels": ["whenInUse", "always"],
+
+  "plan": [
+    { "name": "a cold whenInUse request prompts",
+      "level": "whenInUse", "state": { "status": "notDetermined", "escalationOffered": false },
+      "expect": { "action": "prompt", "prompt": "whenInUse" } },
+
+    { "name": "whenInUse when already granted settles without prompting again",
+      "level": "whenInUse", "state": { "status": "whenInUse", "escalationOffered": false },
+      "expect": { "action": "settle", "status": "whenInUse", "prompted": false } },
+
+    { "name": "whenInUse while holding always settles at always",
+      "level": "whenInUse", "state": { "status": "always", "escalationOffered": true },
+      "expect": { "action": "settle", "status": "always", "prompted": false } },
+
+    { "name": "whenInUse after a denial refuses, because the OS will not prompt twice",
+      "level": "whenInUse", "state": { "status": "denied", "escalationOffered": false },
+      "expect": { "action": "refuse", "error": "permission_denied" } },
+
+    { "name": "whenInUse under parental or MDM restriction refuses",
+      "level": "whenInUse", "state": { "status": "restricted", "escalationOffered": false },
+      "expect": { "action": "refuse", "error": "permission_denied" } },
+
+    { "name": "A COLD ALWAYS IS REFUSED - the ladder is enforced, not suggested",
+      "level": "always", "state": { "status": "notDetermined", "escalationOffered": false },
+      "expect": { "action": "refuse", "error": "escalation_required" } },
+
+    { "name": "always after a denied whenInUse is still escalation_required, never a second prompt",
+      "level": "always", "state": { "status": "denied", "escalationOffered": false },
+      "expect": { "action": "refuse", "error": "escalation_required" } },
+
+    { "name": "always ON TOP of a granted whenInUse is the one legal escalation",
+      "level": "always", "state": { "status": "whenInUse", "escalationOffered": false },
+      "expect": { "action": "prompt", "prompt": "always" } },
+
+    { "name": "always after the user declined the escalation settles at whenInUse, prompted:false",
+      "_note": "The case every library gets wrong. iOS offers the Always prompt ONCE; asking again shows nothing. Resolving with the truth - you still hold whenInUse, and no dialog appeared - lets an app route the user to Settings instead of waiting for a callback that will never come.",
+      "level": "always", "state": { "status": "whenInUse", "escalationOffered": true },
+      "expect": { "action": "settle", "status": "whenInUse", "prompted": false } },
+
+    { "name": "always when already granted settles",
+      "level": "always", "state": { "status": "always", "escalationOffered": true },
+      "expect": { "action": "settle", "status": "always", "prompted": false } },
+
+    { "name": "always under restriction refuses as denied, not as an escalation problem",
+      "level": "always", "state": { "status": "restricted", "escalationOffered": false },
+      "expect": { "action": "refuse", "error": "permission_denied" } },
+
+    { "name": "an unrecognised level is refused, never defaulted to the safer one",
+      "level": "background", "state": { "status": "whenInUse", "escalationOffered": false },
+      "expect": { "action": "refuse", "error": "invalid_argument" } },
+
+    { "name": "the level vocabulary is exact case",
+      "level": "WhenInUse", "state": { "status": "notDetermined", "escalationOffered": false },
+      "expect": { "action": "refuse", "error": "invalid_argument" } },
+
+    { "name": "an empty level is refused",
+      "level": "", "state": { "status": "notDetermined", "escalationOffered": false },
+      "expect": { "action": "refuse", "error": "invalid_argument" } }
+  ],
+
+  "apply": [
+    { "name": "granting the whenInUse prompt lands at whenInUse",
+      "state": { "status": "notDetermined", "escalationOffered": false },
+      "prompted": "whenInUse", "granted": true,
+      "expect": { "status": "whenInUse", "escalationOffered": false } },
+
+    { "name": "declining the whenInUse prompt lands at denied, and the ladder is over",
+      "state": { "status": "notDetermined", "escalationOffered": false },
+      "prompted": "whenInUse", "granted": false,
+      "expect": { "status": "denied", "escalationOffered": false } },
+
+    { "name": "granting the escalation lands at always and records that it was offered",
+      "state": { "status": "whenInUse", "escalationOffered": false },
+      "prompted": "always", "granted": true,
+      "expect": { "status": "always", "escalationOffered": true } },
+
+    { "name": "DECLINING THE ESCALATION KEEPS whenInUse and burns the one offer",
+      "_note": "This is what a denied `always` after a granted `whenInUse` MEANS: the app did not lose foreground location, and it will never be offered the upgrade again in-app. The next honest move is a Settings deep link, which is why the state records escalationOffered rather than throwing the grant away.",
+      "state": { "status": "whenInUse", "escalationOffered": false },
+      "prompted": "always", "granted": false,
+      "expect": { "status": "whenInUse", "escalationOffered": true } },
+
+    { "name": "a second escalation attempt cannot un-burn the offer",
+      "state": { "status": "whenInUse", "escalationOffered": true },
+      "prompted": "always", "granted": false,
+      "expect": { "status": "whenInUse", "escalationOffered": true } }
+  ],
+
+  "_note_route": "THE ANDROID BACKGROUND SPLIT. `always` is ACCESS_BACKGROUND_LOCATION, a separate runtime permission since Android 10 - and from Android 11 (API 30) the system REFUSES to show it in a normal request dialog at all: the only path is the app settings screen. An app that calls requestPermissions and waits for a callback waits forever. The route is therefore part of the contract, not an implementation detail.",
+  "route": [
+    { "name": "iOS escalates with a prompt", "platform": "ios", "sdk": 0, "expect": "prompt" },
+    { "name": "Android 9 escalates with a prompt", "platform": "android", "sdk": 28, "expect": "prompt" },
+    { "name": "Android 10 escalates with a prompt", "platform": "android", "sdk": 29, "expect": "prompt" },
+    { "name": "Android 11 must send the user to Settings", "platform": "android", "sdk": 30, "expect": "settings" },
+    { "name": "Android 14 must send the user to Settings", "platform": "android", "sdk": 34, "expect": "settings" },
+    { "name": "the web has no background location at all", "platform": "web", "sdk": 0, "expect": "unsupported" }
+  ],
+
+  "_note_precise": "iOS 14 and Android 12 both let a user grant APPROXIMATE location while accepting the permission. An app that needs precision (turn-by-turn, a fitness track) must know, so `precise` is requested explicitly and a reduced grant is the typed precise_denied rather than a stream of 3-kilometre fixes that look like a bug in the app.",
+  "precise": [
+    { "name": "precision not requested, and not granted, is fine",
+      "requested": false, "granted": false, "expect": { "ok": true, "precise": false } },
+    { "name": "precision not requested but granted anyway is fine",
+      "requested": false, "granted": true, "expect": { "ok": true, "precise": true } },
+    { "name": "precision requested and granted",
+      "requested": true, "granted": true, "expect": { "ok": true, "precise": true } },
+    { "name": "precision requested and reduced is a typed refusal",
+      "requested": true, "granted": false, "expect": { "ok": false, "error": "precise_denied" } }
+  ]
+}

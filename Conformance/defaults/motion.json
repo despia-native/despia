@@ -1,0 +1,106 @@
+{
+ "_note": "The system-defaults MOTION corpus (design-system.md Part 1, 'duration and easing tokens'). RATIFIED, NOT INVENTED: every web value is the value already shipping in packages/dom/src/theme.ts, read out of the sheet rather than chosen here. ONE FAMILY, TWO SPELLINGS. The sheet reads --dsx-dur-*; --dsx-duration-* is a PUBLISHED ALIAS resolving onto it, because the spec names that spelling and motion-tokens.test.ts pins it. An alias onto the canonical token is one value with two names, not a second family, and it inherits the reduced-motion collapse for free. A rival family that resolves independently is the actual defect, and there was one: --dsx-motion-* and --dsx-dur-* both existed with their own values until 2026-08-25. REDUCED MOTION IS PART OF THE CONTRACT, not a component's problem: under prefers-reduced-motion every duration collapses to 0ms and both springs lose their overshoot, in the token sheet, once. The Apple column names the system animation because those platforms own their curves and honour the accessibility setting themselves. The web drift gate is packages/dom/test/theme.test.ts; the element layer is held to this vocabulary by packages/dom/test/design-system-gate.test.ts, which fails a literal on this axis inside @layer dsx-elements.",
+ "tokens": {
+  "fast": {
+   "ios": "systemAnimation",
+   "watchos": "systemAnimation",
+   "macos": "systemAnimation",
+   "android": "short2",
+   "wear": "short2",
+   "windows": "short2",
+   "linux": "short2",
+   "web": {
+    "css": "--dsx-dur-fast",
+    "duration": "120ms",
+    "band": "a state change on one control: hover, press, check",
+    "alias": "--dsx-duration-fast"
+   }
+  },
+  "base": {
+   "ios": "systemAnimation",
+   "watchos": "systemAnimation",
+   "macos": "systemAnimation",
+   "android": "short4",
+   "wear": "short4",
+   "windows": "short4",
+   "linux": "short4",
+   "web": {
+    "css": "--dsx-dur-base",
+    "duration": "200ms",
+    "band": "a local transition: a panel, a row, a reveal",
+    "alias": "--dsx-duration-base"
+   }
+  },
+  "slow": {
+   "ios": "systemAnimation",
+   "watchos": "systemAnimation",
+   "macos": "systemAnimation",
+   "android": "medium2",
+   "wear": "medium2",
+   "windows": "medium2",
+   "linux": "medium2",
+   "web": {
+    "css": "--dsx-dur-slow",
+    "duration": "300ms",
+    "band": "a surface entering or leaving",
+    "alias": "--dsx-duration-slow"
+   }
+  },
+  "ease": {
+   "ios": "systemAnimation",
+   "watchos": "systemAnimation",
+   "macos": "systemAnimation",
+   "android": "standard",
+   "wear": "standard",
+   "windows": "standard",
+   "linux": "standard",
+   "web": {
+    "css": "--dsx-ease",
+    "curve": "cubic-bezier(0.2, 0, 0, 1)",
+    "band": "the default: everything without a reason to differ"
+   }
+  },
+  "easeOut": {
+   "ios": "systemAnimation",
+   "watchos": "systemAnimation",
+   "macos": "systemAnimation",
+   "android": "emphasizedDecelerate",
+   "wear": "emphasizedDecelerate",
+   "windows": "emphasizedDecelerate",
+   "linux": "emphasizedDecelerate",
+   "web": {
+    "css": "--dsx-ease-out",
+    "curve": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+    "band": "something arriving and settling"
+   }
+  },
+  "spring": {
+   "ios": "systemAnimation",
+   "watchos": "systemAnimation",
+   "macos": "systemAnimation",
+   "android": "emphasized",
+   "wear": "emphasized",
+   "windows": "emphasized",
+   "linux": "emphasized",
+   "web": {
+    "css": "--dsx-ease-spring",
+    "curve": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+    "band": "a control that should feel physical; overshoot 1.02"
+   }
+  },
+  "springSoft": {
+   "ios": "systemAnimation",
+   "watchos": "systemAnimation",
+   "macos": "systemAnimation",
+   "android": "emphasized",
+   "wear": "emphasized",
+   "windows": "emphasized",
+   "linux": "emphasized",
+   "web": {
+    "css": "--dsx-ease-spring-soft",
+    "curve": "cubic-bezier(0.22, 1.2, 0.36, 1)",
+    "band": "the same, barely; overshoot 1.005"
+   }
+  }
+ }
+}

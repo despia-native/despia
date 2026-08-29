@@ -935,10 +935,11 @@ class Router : JSERunnerRouter {
     /// vars/attrs seeds (key-sorted). Both seeds participate so two same-component opens with
     /// DIFFERENT inputs both land — only a byte-identical repeat reads as a double-tap echo.
     private fun echoKey(verb: String, component: String?, path: String = "",
-                        vars: Map<String, Any?>?, attrs: Map<String, Any?>?): String {
+                        vars: Map<String, Any?>?, attrs: Map<String, Any?>?,
+                        overrides: Map<String, Any?>? = null): String {
         fun digest(d: Map<String, Any?>?): String =
             if (d.isNullOrEmpty()) "" else d.keys.sorted().joinToString("&") { "$it=${d[it]}" }
-        return "$verb:${component ?: ""}|$path|${digest(vars)}|${digest(attrs)}"
+        return "$verb:${component ?: ""}|$path|${digest(vars)}|${digest(attrs)}|${digest(overrides)}"
     }
 
     // MARK: system chrome (#1002 — the `chrome` action; spec rides global.nav.chrome by frame id)
@@ -1020,9 +1021,10 @@ class Router : JSERunnerRouter {
     /// entry describes WHAT is on screen (component name + serializable `vars`) — testable
     /// without a host; extra keys are inert to the frame reader.
     fun pushNative(surface: Any, path: String, component: String? = null, vars: Map<String, Any?>? = null,
-                   attrs: Map<String, Any?>? = null, scope: String? = null) {
+                   attrs: Map<String, Any?>? = null, scope: String? = null,
+                   overrides: Map<String, Any?>? = null) {
         if ((!component.isNullOrEmpty() || path.isNotEmpty()) &&
-            isEcho(echoKey("push", component, path, vars, attrs))) {
+            isEcho(echoKey("push", component, path, vars, attrs, overrides))) {
             kernelLog("[Router] pushNative(\"${component ?: path}\") dropped — identical to the push just before it (double-tap echo)")
             return
         }
@@ -1040,6 +1042,7 @@ class Router : JSERunnerRouter {
         if (!component.isNullOrEmpty()) frame["component"] = component
         if (!vars.isNullOrEmpty()) frame["vars"] = vars                 // LEGACY seed (documented)
         if (!attrs.isNullOrEmpty()) frame["attrs"] = attrs              // THE input contract (dsx.attribute.*)
+        if (!overrides.isNullOrEmpty()) frame["overrides"] = overrides  // the STYLE contract (dsx.override.*)
         stack.add(frame)
         apply()
     }
@@ -1072,9 +1075,10 @@ class Router : JSERunnerRouter {
     /// records the component tag + serializable `vars` (testable without a host); the surface is
     /// held by id in `StackSurface.modalFrames`, exactly like a pushed frame.
     fun presentModal(surface: Any, mode: String, component: String, vars: Map<String, Any?>?,
-                     detents: List<String>?, touch: String? = null, attrs: Map<String, Any?>? = null) {
+                     detents: List<String>?, touch: String? = null, attrs: Map<String, Any?>? = null,
+                     overrides: Map<String, Any?>? = null) {
         if (component.isNotEmpty() &&
-            isEcho(echoKey("present:$mode", component, vars = vars, attrs = attrs))) {
+            isEcho(echoKey("present:$mode", component, vars = vars, attrs = attrs, overrides = overrides))) {
             kernelLog("[Router] presentModal(\"$component\") dropped — identical to the present just before it (double-tap echo)")
             return
         }
@@ -1086,6 +1090,7 @@ class Router : JSERunnerRouter {
         if (kind == "overlay") e["touch"] = if (touch == "block") "block" else "passthrough"
         if (!vars.isNullOrEmpty()) e["vars"] = vars                     // LEGACY seed (documented)
         if (!attrs.isNullOrEmpty()) e["attrs"] = attrs                  // THE input contract (dsx.attribute.*)
+        if (!overrides.isNullOrEmpty()) e["overrides"] = overrides      // the STYLE contract (dsx.override.*)
         if (!detents.isNullOrEmpty()) e["detents"] = detents
         modal.add(e)
         apply()
@@ -1098,17 +1103,28 @@ class Router : JSERunnerRouter {
     /// if a hard-coding consumer changed the prop. Target matching = the dismiss rule
     /// (component tag or `as:` mode, deepest-last, modals first then stack frames); null →
     /// the top-most presented entry, else the top stack frame. Unmatched → documented no-op.
-    override fun updateComponent(target: String?, attrs: Map<String, Any?>) {
-        if (attrs.isEmpty()) return
+    override fun updateComponent(target: String?, attrs: Map<String, Any?>,
+                                 overrides: Map<String, Any?>) {
+        if (attrs.isEmpty() && overrides.isEmpty()) return
         // REPLACE the entry (never mutate in place): the published state holds the old entry
         // reference, and the deep-equal write elision would swallow an in-place merge — the
-        // same shallow-copy discipline apply() documents for the containers (NOTES).
+        // same shallow-copy discipline apply() documents for the containers (NOTES). The
+        // style plane rides the same entry replace: the render hosts' LaunchedEffect over the
+        // entry's `overrides` re-seeds the surface's dsx.override dict.
         fun updated(e: Map<String, Any?>): Map<String, Any?> {
             val copy = LinkedHashMap(e)
-            @Suppress("UNCHECKED_CAST")
-            val merged = LinkedHashMap((e["attrs"] as? Map<String, Any?>) ?: emptyMap())
-            merged.putAll(attrs)
-            copy["attrs"] = merged
+            if (attrs.isNotEmpty()) {
+                @Suppress("UNCHECKED_CAST")
+                val merged = LinkedHashMap((e["attrs"] as? Map<String, Any?>) ?: emptyMap())
+                merged.putAll(attrs)
+                copy["attrs"] = merged
+            }
+            if (overrides.isNotEmpty()) {
+                @Suppress("UNCHECKED_CAST")
+                val merged = LinkedHashMap((e["overrides"] as? Map<String, Any?>) ?: emptyMap())
+                merged.putAll(overrides)
+                copy["overrides"] = merged
+            }
             return copy
         }
         val mIdx = if (target.isNullOrEmpty()) modal.size - 1
@@ -1188,25 +1204,27 @@ class Router : JSERunnerRouter {
     /// A failed surface build is LOGGED, never silent — the caller's resolve may already have
     /// fired, so this log is the only trace a screen never appeared.
     override fun pushComponent(name: String, scope: String?, path: String, vars: Map<String, Any?>?,
-                               attrs: Map<String, Any?>?) {
+                               attrs: Map<String, Any?>?, overrides: Map<String, Any?>?) {
         val surface = buildSurface(name, scope, vars) ?: run {
             kernelLog("[Router] pushComponent(\"$name\") no-op — empty or unparsable component tag; no frame was pushed")
             return
         }
-        pushNative(surface, path = path, component = name, vars = vars, attrs = attrs, scope = scope)
+        pushNative(surface, path = path, component = name, vars = vars, attrs = attrs, scope = scope,
+                   overrides = overrides)
     }
 
     /// Present a component (by name, caller-scoped) as a state-backed modal — the name-only twin
     /// of `presentModal` behind the markup / web `dsx.component.present` verb. Failed build →
     /// logged (see pushComponent).
     override fun presentComponent(name: String, scope: String?, mode: String, vars: Map<String, Any?>?,
-                                  detents: List<String>?, touch: String?, attrs: Map<String, Any?>?) {
+                                  detents: List<String>?, touch: String?, attrs: Map<String, Any?>?,
+                                  overrides: Map<String, Any?>?) {
         val surface = buildSurface(name, scope, vars) ?: run {
             kernelLog("[Router] presentComponent(\"$name\") no-op — empty or unparsable component tag; nothing was presented")
             return
         }
         presentModal(surface, mode = mode, component = name, vars = vars, detents = detents,
-                     touch = touch, attrs = attrs)
+                     touch = touch, attrs = attrs, overrides = overrides)
     }
 
     /// Publish the stack: `nav.stack` (frames) + `nav.canPop` / `nav.depth` (back affordances),
@@ -1282,7 +1300,8 @@ class RouterActions : Module() {
                                          scope = c.args("scope") as? String,
                                          path = (c.args("path") as? String) ?: "",
                                          vars = stringKeyed(c.args("vars")),
-                                         attrs = stringKeyed(c.args("attrs")))
+                                         attrs = stringKeyed(c.args("attrs")),
+                                         overrides = stringKeyed(c.args("overrides")))
             c.resolve()
         }
         dsx.action("presentComponent") { c ->
@@ -1292,13 +1311,15 @@ class RouterActions : Module() {
                                             vars = stringKeyed(c.args("vars")),
                                             detents = strictStringList(c.args("detents")),
                                             touch = c.args("touch") as? String,
-                                            attrs = stringKeyed(c.args("attrs")))
+                                            attrs = stringKeyed(c.args("attrs")),
+                                            overrides = stringKeyed(c.args("overrides")))
             c.resolve()
         }
         dsx.action("updateComponent") { c ->
             Router.shared?.updateComponent(c.args("target") as? String
                                                ?: c.args("component") as? String,
-                                           attrs = stringKeyed(c.args("attrs")) ?: emptyMap())
+                                           attrs = stringKeyed(c.args("attrs")) ?: emptyMap(),
+                                           overrides = stringKeyed(c.args("overrides")) ?: emptyMap())
             c.resolve()
         }
         dsx.action("dismiss") { c -> Router.shared?.dismissModal(c.args("target") as? String); c.resolve() }

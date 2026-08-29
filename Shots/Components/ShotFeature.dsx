@@ -1,0 +1,41 @@
+<stack id="shot-card"
+       style="position: relative; width: 100%; height: 100%; overflow: hidden; background: #07041a">
+  <head>
+    <!-- TEMPLATE 4 - THE PLAY FEATURE GRAPHIC. 1024x500 landscape, a different problem from a
+         phone slide: it is read at banner size beside other banners, so it carries the product
+         name and one promise, and the device is a supporting object at the right rather than
+         the subject. -->
+    <attribute as="title" sample="&quot;Orders&quot;"/>
+    <attribute as="caption" sample="&quot;Every purchase, tracked automatically.&quot;"/>
+    <attribute as="screen" sample="&quot;01-orders.png&quot;"/>
+    <attribute as="tone" sample="&quot;#6d5efc&quot;"/>
+    <attribute as="tone2" sample="&quot;#f0a6ff&quot;"/>
+  </head>
+
+  <!-- LAYERS, NOT A GRID. A template root is a positioned box and every layer is absolutely
+       placed inside it. `.dsx-zstack` is display:grid with justify-items:center and an
+       auto-sized column (theme.ts), so a child asking for width:100% contributes 0 to the
+       column's max-content and the whole layer collapses to zero width - which rendered a
+       Play feature graphic as a flat rectangle of background colour that passed every guard.
+       Positioned layers have no such circularity. -->
+
+  <stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0">
+    <ShotGlow a="{{ dsx.attribute.tone }}" b="{{ dsx.attribute.tone2 }}"/>
+  </stack>
+
+  <stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1">
+    <vstack style="position: absolute; top: 150px; left: 72px; width: 54%; gap: 0rem">
+      <text value="{{ dsx.attribute.title }}"
+            style="color: #ffffff; font-size: 64px; font-weight: 800; letter-spacing: -0.04em;
+                   line-height: 1"/>
+      <text value="{{ dsx.attribute.caption }}"
+            style="margin-top: 18px; color: rgba(255,255,255,0.70); font-size: 24px;
+                   font-weight: 450; line-height: 1.3"/>
+    </vstack>
+
+    <stack style="position: absolute; left: 66%; top: 84px; width: 24%; display: flex">
+      <ShotFrame screen="{{ dsx.attribute.screen }}" label="{{ dsx.attribute.title }}"
+               width="100%" radius="34px" tilt="-8deg" lift="0.6"/>
+    </stack>
+  </stack>
+</stack>

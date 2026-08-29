@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "_note": "THE ESCALATED PATH (parity F12). Everything past `pick` reaches the store, and this corpus pins the three things that are subtle: (1) an ungranted bulk read REFUSES and names the fix rather than prompting on the caller's behalf, (2) iOS 17+ limited contact access is a GRANT over a shared subset, reported as access:\"limited\" with only that subset returned, and (3) paging arithmetic, which is the same on all three renderers even though the underlying cursor is not (an enumeration offset on iOS, a SQL LIMIT/OFFSET on Android). Runners: TS (@despia/kernel contacts-core.ts, contacts-conformance.test.ts), Kotlin (:core ContactsCore, ContactsConformanceTest), Swift (Engine/iOS/ContactsCore.swift, ContactsConformance in the record lane).",
+
+  "paging": {
+    "_note": "{ total, limit, offset } -> what one `list` page reports. `endCursor` is present only when there IS a next page, so a caller that loops until endCursor is absent terminates.",
+    "cases": [
+      { "name": "the first of several pages",
+        "given": { "total": 5, "limit": 2, "offset": 0 },
+        "expect": { "returned": 2, "hasNextPage": true, "endCursor": "2" } },
+      { "name": "a middle page",
+        "given": { "total": 5, "limit": 2, "offset": 2 },
+        "expect": { "returned": 2, "hasNextPage": true, "endCursor": "4" } },
+      { "name": "the LAST page carries no cursor",
+        "given": { "total": 5, "limit": 2, "offset": 4 },
+        "expect": { "returned": 1, "hasNextPage": false, "endCursor": null } },
+      { "name": "an exact multiple still terminates rather than offering an empty page",
+        "given": { "total": 4, "limit": 2, "offset": 2 },
+        "expect": { "returned": 2, "hasNextPage": false, "endCursor": null } },
+      { "name": "an empty book is one empty page",
+        "given": { "total": 0, "limit": 100, "offset": 0 },
+        "expect": { "returned": 0, "hasNextPage": false, "endCursor": null } },
+      { "name": "a limit past the cap clamps to 500 rather than fetching the world",
+        "given": { "total": 5000, "limit": 100000, "offset": 0 },
+        "expect": { "returned": 500, "hasNextPage": true, "endCursor": "500" } },
+      { "name": "a zero or negative limit clamps to 1, never to unbounded",
+        "given": { "total": 5, "limit": 0, "offset": 0 },
+        "expect": { "returned": 1, "hasNextPage": true, "endCursor": "1" } }
+    ]
+  },
+
+  "access": {
+    "_note": "authorization -> what `list` does. `limited` is a GRANT over a shared subset, not a soft denial. The refusal MESSAGE must name `permission`, because a caller that cannot find the fix retries the same call forever.",
+    "cases": [
+      { "name": "full access enumerates and reports granted",
+        "given": { "access": "granted", "shared": 3, "total": 3 },
+        "expect": { "runs": true, "returned": 3, "access": "granted" } },
+      { "name": "iOS 17 limited access returns ONLY the shared subset and says limited",
+        "given": { "access": "limited", "shared": 1, "total": 3 },
+        "expect": { "runs": true, "returned": 1, "access": "limited" } },
+      { "name": "undetermined refuses and does NOT prompt",
+        "given": { "access": "undetermined", "shared": 0, "total": 3 },
+        "expect": { "runs": false, "prompted": false, "error": "permission_denied",
+                    "messageNames": "permission" } },
+      { "name": "denied refuses the same way",
+        "given": { "access": "denied", "shared": 0, "total": 3 },
+        "expect": { "runs": false, "prompted": false, "error": "permission_denied",
+                    "messageNames": "permission" } },
+      { "name": "a device policy denial is `restricted`, which is not recoverable by asking again",
+        "given": { "access": "restricted", "shared": 0, "total": 3 },
+        "expect": { "runs": false, "prompted": false, "error": "restricted", "recoverable": false } }
+    ]
+  },
+
+  "write": {
+    "_note": "A limited read grant carries NO write right, and the write refusal names the write level specifically.",
+    "cases": [
+      { "name": "a full grant writes", "given": { "access": "granted" }, "expect": { "runs": true } },
+      { "name": "limited access is a read subset, not a write grant",
+        "given": { "access": "limited" },
+        "expect": { "runs": false, "error": "permission_denied", "messageNames": "write" } },
+      { "name": "an empty contact is refused before any store call",
+        "given": { "access": "granted", "contact": {} },
+        "expect": { "runs": false, "error": "invalid_contact" } },
+      { "name": "a contact with only an email is meaningful enough to save",
+        "given": { "access": "granted", "contact": { "emails": [{ "label": "work", "value": "a@b.c" }] } },
+        "expect": { "runs": true } }
+    ]
+  },
+
+  "shape": {
+    "_note": "The vCard round-trip: what goes in comes back, with labels normalised to the shared vocabulary (home | work | mobile | main | other) rather than the platform's own constant.",
+    "cases": [
+      { "name": "labels normalise across platforms",
+        "given": { "platformLabel": "_$!<Mobile>!$_" }, "expect": { "label": "mobile" } },
+      { "name": "an unknown platform label folds to other",
+        "given": { "platformLabel": "_$!<Assistant>!$_" }, "expect": { "label": "other" } },
+      { "name": "a birthday is an ISO date, never a locale string",
+        "given": { "year": 1990, "month": 4, "day": 2 }, "expect": { "birthday": "1990-04-02" } },
+      { "name": "a nameless contact still has a display name",
+        "given": { "givenName": "", "familyName": "" }, "expect": { "displayName": "Unnamed Contact" } }
+    ]
+  }
+}

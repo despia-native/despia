@@ -150,3 +150,37 @@ test("live adapter: a malicious route table fails at CREATION, not at the Nth re
     { path: "/../escape", component: "t.Home" },
   ])));
 });
+
+test("live adapter: the registry's BAKED shell serves a deep-linked param route with the module script, depth-rebased", async () => {
+  // wave-7 F1: dsx build bakes the document shell into registry.json, so a host built
+  // from the registry ALONE (createSiteHandler(dist, registry) with no options) still
+  // serves live-SSR'd documents that load the client boot.
+  const handle = createPageHandler(registryOf({ "t.User": USER }, [
+    { path: "/notes/:id", component: "t.User" },
+  ], {
+    shell: {
+      appName: "Field Notes",
+      importMapJson: JSON.stringify({ imports: { "@despia/kernel": "./vendor/kernel/index.js" } }),
+      mainSrc: "./main.js",
+      manifestHref: "/manifest.webmanifest",
+    },
+  }));
+  const html = await (await handle(new Request("http://x/notes/abc123")))!.text();
+  assert.ok(html.includes(`<script type="module" src="../main.js"></script>`),
+    "the module script is present AND rebased for the served depth");
+  assert.ok(html.includes(`"@despia/kernel": "../vendor/kernel/index.js"`),
+    "the inlined import map rebases with the document");
+  assert.ok(html.includes(`<link rel="manifest" href="/manifest.webmanifest">`));
+});
+
+test("live adapter: explicit caller shell options win over the baked registry shell, per key", async () => {
+  const handle = createPageHandler(registryOf({ "t.Home": HOME }, [
+    { path: "/", component: "t.Home" },
+  ], {
+    shell: { appName: "Baked", mainSrc: "./main.js" },
+  }), { mainSrc: "./custom.js", appName: undefined });
+  const html = await (await handle(new Request("http://x/")))!.text();
+  assert.ok(html.includes(`src="./custom.js"`), "the caller's mainSrc wins");
+  assert.ok(html.includes("<title>Baked</title>"),
+    "an explicitly-undefined caller key does NOT erase the baked value");
+});

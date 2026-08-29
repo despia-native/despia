@@ -7,18 +7,28 @@
       "entrypoints": {
         ".": {
           "types": "./dist/index.d.ts",
-          "fingerprint": "05735465a0824ca1aa0f8622ee5c6cc0bfc55164cf87092e3e4c9af0bee30faf",
-          "files": 30
+          "fingerprint": "bc688f45860a6447eac89b4dbaea0ed47cbf72f0802cb7c31bfaa6230dc934b4",
+          "files": 80
         },
         "./config-validate": {
           "types": "./dist/config-validate.d.ts",
           "fingerprint": "d70dd6b3272d9f47edc27fb3e5be3f2cc3f3df85b4410a09e8411899eee336e0",
           "files": 1
         },
+        "./film": {
+          "types": "./dist/film.d.ts",
+          "fingerprint": "739311840b3ea93834e0aba13cbb2fe6b5dacf407c02c65db05132199bf0edcc",
+          "files": 5
+        },
+        "./keyboard": {
+          "types": "./dist/keyboard.d.ts",
+          "fingerprint": "c85368959e1e6a8c735c6cdbfa8826745b0ee8236595c536eef6b4be9de3c748",
+          "files": 1
+        },
         "./mcp": {
           "types": "./dist/mcp.d.ts",
-          "fingerprint": "2f935efe1d12c49e17ad9d18ab085d18eff5374ff554244c24df3054096531ef",
-          "files": 3
+          "fingerprint": "6a910d22d8b0f89eac23ac70ba90210277c84a5ff0b05eab4ee1ddabbb763b32",
+          "files": 4
         }
       },
       "untypedExports": []
@@ -29,22 +39,22 @@
       "entrypoints": {
         ".": {
           "types": "./dist/index.d.ts",
-          "fingerprint": "b8c6aeff9e81bca14a641107f25a76bf720e4929c6c29fcdba7e2c9ffe8ab7b9",
-          "files": 9
+          "fingerprint": "0d22981f83d75fc1ee313c8edaec49c9e2d87e3aff9d40cad7202876d8d92f64",
+          "files": 10
         },
         "./component": {
           "types": "./dist/component.d.ts",
-          "fingerprint": "ec47f497d63d3467d669d706f2ec256e6b5749abd0c08ead29556b052a4dc6ff",
+          "fingerprint": "8486eb0d44b92d92500bb49d83621b31a5c01641515526fcae8cf1cff5a18388",
           "files": 2
         },
         "./cssmap": {
           "types": "./dist/cssmap.d.ts",
-          "fingerprint": "a8debd74ef65f196d2f7810e01b1e5cec8a8150d53442addfa291bce982916ea",
+          "fingerprint": "8944c840ebeb08473bd7d4d63fc3dfb4bab3741b522cd2502b135c006aee1240",
           "files": 1
         },
         "./expose": {
           "types": "./dist/expose.d.ts",
-          "fingerprint": "f5e3406ae0eefcad3d72a4e8f83e4b9a35512349e98209da50167da135c7c04a",
+          "fingerprint": "8065e5c39262de8f3ec5d91ca9b92881e81714c670a1e1f89e6159c697c9ad98",
           "files": 4
         },
         "./options": {
@@ -54,13 +64,28 @@
         },
         "./resolve": {
           "types": "./dist/resolve.d.ts",
-          "fingerprint": "5d160080bf58dcba2af52e9c78121921db75cfee8722dad0d46e6894d634cea4",
+          "fingerprint": "b56297112bd80bb12e6459dac7ad1c8d313830e8227df498cc3597a3a0d67ac2",
           "files": 3
+        },
+        "./screengraph": {
+          "types": "./dist/screengraph.d.ts",
+          "fingerprint": "28b63457070e1efa68379787e26fb761a0d76708bcb31b00f29121dc5c12e393",
+          "files": 1
+        },
+        "./screenlayout": {
+          "types": "./dist/screenlayout.d.ts",
+          "fingerprint": "d4154c0eaa03055fc52f8d051f47c0683cd9c91e3dbb7524f99536d3ba68651a",
+          "files": 2
         },
         "./specifiers": {
           "types": "./dist/specifiers.d.ts",
           "fingerprint": "5ab57802dfe3b41c1ff94507ec337b82b53c8d874c4bfab1e884cbb8e5deab55",
           "files": 1
+        },
+        "./surgery": {
+          "types": "./dist/surgery.d.ts",
+          "fingerprint": "f2491622ec718146b1e092ed47afd2c0fe7e65a8372385a764cef5aafd73c3bc",
+          "files": 2
         },
         "./universal-links": {
           "types": "./dist/universal-links.d.ts",
@@ -69,12 +94,12 @@
         },
         "./web-manifest": {
           "types": "./dist/web-manifest.d.ts",
-          "fingerprint": "5dafa41b5b132fe121664ab590e9c1ee0fdda5127bb170e6ddf9324c280fe735",
+          "fingerprint": "e488f52a6c22b90931627c70226c3dff15f30060d344133151e5f5a12c54258b",
           "files": 5
         },
         "./xml": {
           "types": "./dist/xml.d.ts",
-          "fingerprint": "297ec7edef6d5431f07684094c38c16d7ea578e6996b7d85dd547d19ec3438ba",
+          "fingerprint": "ab7266b39cbd19b321b76eb8be11342e6c5b31b7657771d6dfdea4cf412738e6",
           "files": 1
         }
       },
@@ -86,22 +111,22 @@
       "entrypoints": {
         ".": {
           "types": "./dist/index.d.ts",
-          "fingerprint": "e401a25c11228aaa58ec5bbade3e8e683d8f1a649a406a82baf0325509c8d627",
-          "files": 20
+          "fingerprint": "38406edf4ece0f3ab0b1f31f16082a96c79530bbd571b159972877394e0068bc",
+          "files": 28
         },
         "./application-controls": {
           "types": "./dist/application-controls.d.ts",
-          "fingerprint": "2223b09dbdc53451c6cd773c33316e3b00f252e9e7b8b547af44e17c2e802133",
-          "files": 3
+          "fingerprint": "e40d85a847173cc62bee8449c696968837202c0aa60678d146796e76f7c4c3ff",
+          "files": 4
         },
         "./boot": {
           "types": "./dist/boot.d.ts",
-          "fingerprint": "d4fdcdf19db4088a85d5b5a796e384c760cc7410b2ebaf7361060add16cc76f5",
+          "fingerprint": "902bb91c1248353b3bdc83cffad676034d6c52f80b594c56887d6bb1789a5f5c",
           "files": 4
         },
         "./data-controls": {
           "types": "./dist/data-controls.d.ts",
-          "fingerprint": "cc427f5b0413126353d38c2a314baeeb2e685e889607b8b04f37f2b8511d9790",
+          "fingerprint": "543aa8a4e747589071bb17790346408d740458273eeeb37d36b19bb27ca84de0",
           "files": 3
         },
         "./element-motion": {
@@ -111,17 +136,17 @@
         },
         "./elements": {
           "types": "./dist/elements.d.ts",
-          "fingerprint": "c9f7218aadaf5c83afebd7835d9f53cd5ef3900170fb1cd5f335c5cba52bdae1",
+          "fingerprint": "eac7c08d9c230a0c66691a41e9e4bcd8de1d02648718338e1295945ebaa21142",
           "files": 2
         },
         "./forms": {
           "types": "./dist/forms.d.ts",
-          "fingerprint": "0b4bf6f41d598424a6cf554c46b177f326c03fbc7cecb79f5d8336087b83959f",
+          "fingerprint": "9020d8ad4e453af5caea564460b41acb7bba18f7c2a75d88f1773aacc330cbb0",
           "files": 3
         },
         "./globals": {
           "types": "./dist/globals.d.ts",
-          "fingerprint": "f3c296ba46a4aa2c54b71b8816479c4a7a340b38b14cb2650ebaf3a4f4d293a0",
+          "fingerprint": "656d5c70fe23e7870907c80f394b0bf608e2f0ea190f55470906e129fa6a0a1f",
           "files": 3
         },
         "./mcp-app": {
@@ -131,17 +156,17 @@
         },
         "./media-surfaces": {
           "types": "./dist/media-surfaces.d.ts",
-          "fingerprint": "588a2c755deed101f536247612ccbc9a7e3b10bfdbe491dd6a80ed920dab0a09",
+          "fingerprint": "c29adf252f9373c9299922503284bb2683c7aee19bd0e4f8b36b48ca8fc27394",
           "files": 3
         },
         "./mount": {
           "types": "./dist/mount.d.ts",
-          "fingerprint": "c9f7218aadaf5c83afebd7835d9f53cd5ef3900170fb1cd5f335c5cba52bdae1",
+          "fingerprint": "eac7c08d9c230a0c66691a41e9e4bcd8de1d02648718338e1295945ebaa21142",
           "files": 2
         },
         "./native-controls": {
           "types": "./dist/native-controls.d.ts",
-          "fingerprint": "d33efbfe0ad4de84065b2e6002104f9267177f56034a53bae51fa8d2cc9a2eab",
+          "fingerprint": "ef434473aaeec18e2e15c11b78fe27b5ccfc8c004bbc206940a854ad9c49f89e",
           "files": 3
         },
         "./offline": {
@@ -151,23 +176,28 @@
         },
         "./overlay-controls": {
           "types": "./dist/overlay-controls.d.ts",
-          "fingerprint": "66601f7e5b1e36e3b67cb95247547c2ce03e931879101aa993cfdcb3d88adfb2",
+          "fingerprint": "318d1f15a2b31696d36fa0de68b8be414da07ec2f961c5193287a4448ea9708e",
           "files": 3
+        },
+        "./prose": {
+          "types": "./dist/prose.d.ts",
+          "fingerprint": "902265b7a5eb6c9018e8d14fe26cf09282a447afe9b75cd4177e0ea3819c3778",
+          "files": 1
         },
         "./scene": {
           "types": "./dist/scene.d.ts",
-          "fingerprint": "a78b0c90c9097a352f5faf2b2251ecca1f29778c83852c948e74ddc3a6db6e47",
+          "fingerprint": "88b7ce1596789aa48a4afc44fa4e38ea38e38daedc37ea158482966ecd305984",
           "files": 3
         },
         "./structural-controls": {
           "types": "./dist/structural-controls.d.ts",
-          "fingerprint": "a02b268ab5d126104075f450a0ff04e32118d54e5d10fea4e7862497b40ffbb5",
+          "fingerprint": "1ad354db36f918ada28540824acc1cb3ed34a1e90344ec5cc2c0d15e285f572f",
           "files": 3
         },
         "./theme": {
           "types": "./dist/theme.d.ts",
-          "fingerprint": "73f5444b34a5f24789aa920c83ec9e3276f9286cdf3229b85c864fffedc30b22",
-          "files": 6
+          "fingerprint": "b7edc50abed08d591555198ad3f7bb71e57040a80db775241c2f72f59127e370",
+          "files": 8
         }
       },
       "untypedExports": [
@@ -180,7 +210,7 @@
       "entrypoints": {
         ".": {
           "types": "./dist/index.d.ts",
-          "fingerprint": "681eb56239ee08118f6b59e79ce8ec894b9b723a1e83323267af8c2bf6b6391e",
+          "fingerprint": "b9f4dd6e0ede2b2ca99fcc187dea04330553ac8b34463ec72d4f4aa0607b47cd",
           "files": 1
         }
       },
@@ -192,28 +222,53 @@
       "entrypoints": {
         ".": {
           "types": "./dist/index.d.ts",
-          "fingerprint": "0da94c4dc6a8288c779c650f6917f170afbfd2b194d7f143af8b3761b4a4b6c7",
-          "files": 14
+          "fingerprint": "a46620d37b53485ae99ae61b6de0ca7a2e23f43afb93e20e6419d8f6b9495828",
+          "files": 17
+        },
+        "./actions": {
+          "types": "./dist/actions.d.ts",
+          "fingerprint": "e083778b212d222ed560155c51cc9362095eba78376ef82dbc12e06ef830f0e7",
+          "files": 7
         },
         "./bootloader-deno": {
           "types": "./dist/bootloader-deno.d.ts",
-          "fingerprint": "1b27fab9fabdd8e1ea3e97968089c35bfb59e6db41dd8900ce453e152310d918",
-          "files": 6
+          "fingerprint": "1cd07cd23aa91e9c17f88469be3b87660d8c85df27b7e944c136104d5ec6f8b4",
+          "files": 9
         },
         "./bootloader-node": {
           "types": "./dist/bootloader-node.d.ts",
           "fingerprint": "35107539245673631b1d6b5dc9705dda7637e22fab9d03fd9152abf4e9f13cc1",
           "files": 1
         },
+        "./bootloader-workers": {
+          "types": "./dist/bootloader-workers.d.ts",
+          "fingerprint": "0d9384630c8ef191c4bb444614a93a78cfab8e9d3463507995781ebdc4156e00",
+          "files": 13
+        },
+        "./deploy": {
+          "types": "./dist/deploy-emit.d.ts",
+          "fingerprint": "e1e4bf68521db48892ef5c194c3be925483b8ac9a0598f7f1b63ffb4f4986d9c",
+          "files": 1
+        },
         "./host": {
           "types": "./dist/host.d.ts",
-          "fingerprint": "28a8bcd2970ecc045d6ef30ac4a1c9dd43955528d611d233f37f54e8cea8cdd9",
-          "files": 4
+          "fingerprint": "7a9925157fb9de378ec2d9fac5c08efece2049ed4b385466016ae3289fd76aa8",
+          "files": 6
         },
         "./identity": {
           "types": "./dist/identity.d.ts",
           "fingerprint": "b0fd4ccd235d8a975f996a91e7099695f65303c2accbb399f82e442a797e7ad4",
           "files": 1
+        },
+        "./postgres": {
+          "types": "./dist/postgres.d.ts",
+          "fingerprint": "43c6b537ade762be47547b9b7c0a1685d23cbca69311a87880c9c56886e2ba7f",
+          "files": 9
+        },
+        "./preview-workers": {
+          "types": "./dist/preview-workers.d.ts",
+          "fingerprint": "094875d5bc3e256de580c1634af48eac8632d24c6b2209ec95103e499c7543c6",
+          "files": 3
         }
       },
       "untypedExports": []

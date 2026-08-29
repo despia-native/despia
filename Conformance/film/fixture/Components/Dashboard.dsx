@@ -1,0 +1,74 @@
+<vstack grow="true" style="background: #0b0d12; padding: 24px 20px 28px 20px; gap: 1rem">
+  <head>
+    <!-- KetoLock, the film-corpus demo app: a calorie tracker that LOCKS a day's budget and
+         reports ketosis. Deliberately a handful of real elements - the film corpus needs a
+         screen with landmarks a camera can find, a button a tap can flip, and a state plane
+         a <state> journey can walk (every number on screen is a var, so an <apply> makes the
+         whole day appear the way it does in the running product). -->
+    <variable as="calories" sample="1480">return 1480</variable>
+    <variable as="budget" sample="1800">return 1800</variable>
+    <variable as="ketone" sample="1.8">return 1.8</variable>
+    <variable as="protein" sample="0.72">return 0.72</variable>
+    <variable as="fat" sample="0.61">return 0.61</variable>
+    <variable as="carbs" sample="0.18">return 0.18</variable>
+    <variable as="proteinG" sample="118">return 118</variable>
+    <variable as="fatG" sample="96">return 96</variable>
+    <variable as="carbsG" sample="14">return 14</variable>
+    <variable as="locked">return false</variable>
+    <variable as="remaining" computed="true">return budget - calories</variable>
+    <variable as="inKetosis" computed="true">return ketone >= 0.5</variable>
+    <action as="lockDay">
+      dsx.variable.locked = true;
+    </action>
+  </head>
+
+  <hstack grow="width" style="align-items: center; gap: 0.5rem">
+    <text value="KetoLock" style="color: #f4f6fb; font-size: 22px; font-weight: 800; letter-spacing: -0.02em"/>
+    <spacer grow="width"/>
+    <text value="Today" style="color: #8b93a7; font-size: 14px; font-weight: 600"/>
+  </hstack>
+
+  <vstack id="calorieRing" grow="width" style="align-items: center; gap: 0.5rem; padding: 12px 0 4px 0">
+    <ProgressRing value="{{ calories }}" max="{{ budget }}" size="196" lineWidth="14"
+                  color="#34d399" trackColor="#1c212c" label="{{ remaining }} kcal left"/>
+    <text value="{{ calories }} of {{ budget }} kcal" style="color: #8b93a7; font-size: 15px; font-weight: 600"/>
+  </vstack>
+
+  <vstack grow="width" style="gap: 0.625rem">
+    <hstack grow="width" style="align-items: center; gap: 0.75rem; background: #12151d; border-radius: 16px; padding: 14px 16px">
+      <text value="Protein" style="color: #f4f6fb; font-size: 15px; font-weight: 700; width: 72px"/>
+      <progress value="{{ protein }}" color="#34d399" height="8" grow="width"/>
+      <text value="{{ proteinG }}g" style="color: #8b93a7; font-size: 14px; font-weight: 600"/>
+    </hstack>
+    <hstack grow="width" style="align-items: center; gap: 0.75rem; background: #12151d; border-radius: 16px; padding: 14px 16px">
+      <text value="Fat" style="color: #f4f6fb; font-size: 15px; font-weight: 700; width: 72px"/>
+      <progress value="{{ fat }}" color="#fbbf24" height="8" grow="width"/>
+      <text value="{{ fatG }}g" style="color: #8b93a7; font-size: 14px; font-weight: 600"/>
+    </hstack>
+    <hstack grow="width" style="align-items: center; gap: 0.75rem; background: #12151d; border-radius: 16px; padding: 14px 16px">
+      <text value="Carbs" style="color: #f4f6fb; font-size: 15px; font-weight: 700; width: 72px"/>
+      <progress value="{{ carbs }}" color="#60a5fa" height="8" grow="width"/>
+      <text value="{{ carbsG }}g" style="color: #8b93a7; font-size: 14px; font-weight: 600"/>
+    </hstack>
+  </vstack>
+
+  <hstack id="ketoCard" grow="width" style="align-items: center; gap: 0.75rem; border-radius: 18px; padding: 16px;
+                 background: linear-gradient(135deg, #103127 0%, #0e2018 100%);
+                 border: 1px solid #1d5c44">
+    <vstack style="gap: 0.125rem" grow="width">
+      <text value="{{ inKetosis ? 'In ketosis' : 'Getting there' }}"
+            style="color: {{ inKetosis ? '#34d399' : '#fbbf24' }}; font-size: 17px; font-weight: 800"/>
+      <text value="{{ ketone }} mmol/L blood ketones" style="color: #7fb8a3; font-size: 13px; font-weight: 600"/>
+    </vstack>
+    <text value="&#9679;" style="color: {{ inKetosis ? '#34d399' : '#fbbf24' }}; font-size: 22px"/>
+  </hstack>
+
+  <spacer grow="height"/>
+
+  <pressable id="lockButton" grow="width" on:tap="lockDay()"
+             style="border-radius: 16px; padding: 16px; align-items: center; justify-content: center;
+                    background: {{ locked ? '#12151d' : '#34d399' }}">
+    <text value="{{ locked ? 'Locked for today' : 'Lock my calories' }}"
+          style="color: {{ locked ? '#34d399' : '#08110c' }}; font-size: 17px; font-weight: 800"/>
+  </pressable>
+</vstack>

@@ -1,0 +1,172 @@
+<!-- Flow — the viewport, and only the viewport.
+
+     A flow surface has exactly one piece of machinery that is the same everywhere: the
+     pannable, zoomable world with a fit contract. Everything else - what a node is, what an
+     edge means, which panels float where - belongs to the consumer, arrives through slots,
+     and renders in the CONSUMER's data scope. A library that owns more than the viewport
+     starts owning meaning, and a canvas that owns meaning is a second source of truth.
+
+     THE PAN SURFACE IS A SIBLING BEHIND THE WORLD, never an ancestor, and that placement is
+     load-bearing: a drag recognizer captures the pointer on press, and a captured pointer
+     retargets the click that follows it, so a pan layer wrapping the nodes makes every node
+     unclickable (runtime-pressure R8, found the hard way).
+
+     THE VIEWPORT IS FITTED UNTIL SOMEBODY MOVES IT. `null` means "nobody has touched this",
+     and the fitted computed answers instead. There is no fit EVENT anywhere, so there is
+     nothing to race a container measurement (an on:success fit races the pane publishing its
+     size, divides by nothing, and clamps to the floor - measured, runtime-pressure R10 era).
+     The percent readout doubles as the fit button: pressing it releases the overrides, and
+     releasing the overrides IS the fit.
+
+     THE FIT IS TO WIDTH. A flow is usually deep and narrow - a funnel is six screens tall and
+     one wide - so fitting both axes divides by the height and opens the map as a postage
+     stamp in a sea of empty pane. A flow is a tall document: fit what makes it readable
+     across, cap at 100% so a small graph is not magnified, scroll the length of it. -->
+<stack class="flow" grow="true" container="true"
+       style="position: relative; overflow: hidden; min-height: 0; min-width: 0">
+  <head>
+    <attribute as="contentWidth"/>
+    <attribute as="contentHeight"/>
+    <!-- px reserved at the leading edge for a consumer's floating panel: the fit, the
+         centering and the zoom cluster all clear it, so the world never opens underneath. -->
+    <attribute as="insetLeading" default="0"/>
+    <attribute as="insetTop" default="76"/>
+    <attribute as="minZoom" default="0.2"/>
+    <!-- `width` (the default) or `both`. A WORKFLOW is a tall document and fitting its
+         height opens it as a postage stamp; a FORMULA is the other shape - wide, shallow,
+         and with one Result at the right wall that has to be on screen or the drawing does
+         not say what it returns. So the axis is the consumer's to name, and the surface
+         that is wide rather than deep says `both`. -->
+    <attribute as="fit" default="width"/>
+
+    <variable as="flowUserZoom">return null</variable>
+    <variable as="flowUserPanX">return null</variable>
+    <variable as="flowUserPanY">return null</variable>
+    <variable as="flowPanBaseX">return 0</variable>
+    <variable as="flowPanBaseY">return 0</variable>
+
+    <variable as="flowExtent" computed="true">
+      const w = Number(dsx.attribute.contentWidth)
+      return w > 0 ? w : 1
+    </variable>
+
+    <variable as="flowInset" computed="true">
+      const inset = Number(dsx.attribute.insetLeading)
+      return inset > 0 ? inset : 0
+    </variable>
+
+    <variable as="flowFloor" computed="true">
+      const floor = Number(dsx.attribute.minZoom)
+      return floor > 0 ? floor : 0.2
+    </variable>
+
+    <variable as="flowDepth" computed="true">
+      const h = Number(dsx.attribute.contentHeight)
+      return h > 0 ? h : 1
+    </variable>
+
+    <variable as="flowFitZoom" computed="true">
+      if (dsx.element.width == null || dsx.element.width &lt; 200) { return 1 }
+      const byWidth = (dsx.element.width - flowInset - 96) / flowExtent
+      const tall = dsx.element.height == null || dsx.element.height &lt; 200
+      const byHeight = tall ? byWidth : (dsx.element.height - 96) / flowDepth
+      const fit = dsx.attribute.fit == 'both' &amp;&amp; byHeight &lt; byWidth ? byHeight : byWidth
+      return fit > 1 ? 1 : fit &lt; flowFloor ? flowFloor : fit
+    </variable>
+
+    <variable as="flowZoom" computed="true">
+      return flowUserZoom == null ? flowFitZoom : flowUserZoom
+    </variable>
+
+    <variable as="flowPanX" computed="true">
+      if (flowUserPanX != null) { return flowUserPanX }
+      const width = dsx.element.width == null ? 0 : dsx.element.width
+      const drawn = flowExtent * flowZoom
+      const avail = width - flowInset - 96
+      return avail &lt;= drawn ? flowInset + 48 : flowInset + 48 + (avail - drawn) / 2
+    </variable>
+
+    <!-- A WIDE, SHALLOW DOCUMENT CENTRES ON BOTH AXES. `fit="both"` already exists because a
+         formula is that shape rather than a funnel's; what was missing is that a `both` fit
+         still pinned the world to `insetTop`, so a strip that fits comfortably opened as a
+         band across the top of a mostly empty pane. When the drawn depth is shorter than the
+         viewport the leftover is split, which is the arithmetic flowPanX has always done for
+         the other axis. A `width` fit keeps the top pin: a tall document read from the top is
+         the whole reason that mode exists. -->
+    <variable as="flowPanY" computed="true">
+      if (flowUserPanY != null) { return flowUserPanY }
+      const top = Number(dsx.attribute.insetTop)
+      const pin = top > 0 ? top : 76
+      if (dsx.attribute.fit != 'both' || dsx.element.height == null) { return pin }
+      const drawn = flowDepth * flowZoom
+      const avail = dsx.element.height - pin - 48
+      return avail &lt;= drawn ? pin : pin + (avail - drawn) / 2
+    </variable>
+
+    <!-- The first drag TAKES the viewport, seeded from wherever the fit had put it, so
+         nothing jumps at the moment a person starts moving. -->
+    <action as="flowPanStart">
+      dsx.variable.flowPanBaseX = dsx.variable.flowPanX
+      dsx.variable.flowPanBaseY = dsx.variable.flowPanY
+    </action>
+
+    <action as="flowPan">
+      dsx.variable.flowUserPanX = dsx.variable.flowPanBaseX + dsx.this.dx
+      dsx.variable.flowUserPanY = dsx.variable.flowPanBaseY + dsx.this.dy
+    </action>
+
+    <action as="flowZoomBy" inputs="factor">
+      const next = dsx.variable.flowZoom * factor
+      dsx.variable.flowUserZoom = next &lt; flowFloor ? flowFloor : next > 2 ? 2 : next
+    </action>
+
+    <!-- Releasing the overrides IS the fit. Not a recomputation - the fitted value is
+         already a computed, so there is nothing here that can go stale or race. -->
+    <action as="flowFit">
+      dsx.variable.flowUserZoom = null
+      dsx.variable.flowUserPanX = null
+      dsx.variable.flowUserPanY = null
+    </action>
+  </head>
+
+  <stack class="flow-pan" a11yHidden="true"
+         style="position: absolute; left: 0px; top: 0px; right: 0px; bottom: 0px"
+         on:dragStart="flowPanStart()" on:drag="flowPan()"/>
+
+  <!-- THE WORLD. One transformed 1px anchor: everything inside is in content coordinates,
+       so no child ever has to know what the zoom is. Slot children keep the CALLER's data
+       scope - the library never sees the consumer's nodes.
+
+       THE ZOOM IS PUBLISHED as a custom property, because one thing inside a world does need it:
+       CHROME. A node's own name, its selection ring, a handle - those are UI drawn beside the
+       content rather than part of it, and a transform scales them with everything else, so a
+       12px label reads at 6px the moment a strip is fitted. Nothing else in the runtime could
+       express that: the zoom was private, so a consumer had two options - hand-scale its
+       world (which then lies about what the zoom readout means), or accept unreadable
+       chrome. A caller divides by it, as `calc(var(size) / var(flow-zoom, 1))`, which
+       holds a label at its authored SCREEN size at any zoom. The fallback of 1 keeps that
+       same declaration correct outside a Flow. -->
+  <stack class="flow-world"
+         style="--flow-zoom: {{ flowZoom }};
+                position: absolute; left: 0px; top: 0px; width: 1px; height: 1px;
+                transform: translate({{ flowPanX }}px, {{ flowPanY }}px) scale({{ flowZoom }});
+                transform-origin: 0 0">
+    <slot/>
+  </stack>
+
+  <!-- Consumer chrome floats above the viewport and does not pan. -->
+  <slot name="chrome"/>
+
+  <stack class="flow-cluster flow-zoom-cluster" style="position: absolute; bottom: 16px; left: {{ 16 + flowInset }}px; gap: 0rem">
+    <pressable class="flow-button flow-square" a11yLabel="Zoom in" on:tap="flowZoomBy({ factor: 1.25 })">
+      <text value="+" class="flow-button-label"/>
+    </pressable>
+    <pressable class="flow-button flow-square" a11yLabel="Zoom out" on:tap="flowZoomBy({ factor: 0.8 })">
+      <text value="&#8722;" class="flow-button-label"/>
+    </pressable>
+    <pressable class="flow-button flow-square" a11yLabel="Fit to content" shortcut="f" tooltip="Fit"
+               on:tap="flowFit()">
+      <text value="{{ (flowZoom * 100).toFixed(0) }}%" class="flow-button-label flow-readout" fontFeature="tnum"/>
+    </pressable>
+  </stack>
+</stack>

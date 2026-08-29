@@ -58,7 +58,8 @@ internal fun registerPlainWaveSpecs() {
     ElementSpecs.register(ElementSpec("picker",
         attributes = mapOf("bind" to null, "options" to null, "optionsKey" to null,
                            "valueField" to "id", "labelField" to "label",
-                           "label" to null, "color" to d.PICKER_TINT),
+                           "label" to null, "color" to d.PICKER_TINT,
+                               "disabled" to "false"),
         colors = mapOf("tint" to d.PICKER_TINT)))
     ElementSpecs.register(ElementSpec("refreshable", aliases = listOf("refresh"),
         attributes = mapOf("on:refresh" to null, "busy" to null),
@@ -67,13 +68,15 @@ internal fun registerPlainWaveSpecs() {
     ElementSpecs.register(ElementSpec("segmented",
         attributes = mapOf("bind" to null, "options" to null, "optionsKey" to null,
                            "valueField" to "id", "labelField" to "label",
-                           "label" to null)))
+                           "label" to null,
+                               "disabled" to "false")))
     ElementSpecs.register(ElementSpec("textarea",
         attributes = mapOf("bind" to null, "placeholder" to null,
                            "color" to d.TEXTAREA_COLOR,
                            "minLines" to ElementSpecs.canon(d.TEXTAREA_MIN_LINES.toDouble()),
                            "maxLines" to ElementSpecs.canon(d.TEXTAREA_MAX_LINES.toDouble()),
-                           "on:focus" to null, "on:blur" to null),
+                           "on:focus" to null, "on:blur" to null,
+                               "disabled" to "false"),
         geometry = mapOf("minLines" to d.TEXTAREA_MIN_LINES.toDouble(),
                          "maxLines" to d.TEXTAREA_MAX_LINES.toDouble()),
         colors = mapOf("text" to d.TEXTAREA_COLOR)))

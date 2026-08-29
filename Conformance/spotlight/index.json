@@ -1,0 +1,104 @@
+{
+  "_note": "Core/Spotlight (F17.7) — the platform-neutral corpus for system search indexing. Indexing is only half the feature; the half that matters is the TAP, which arrives as an opaque identifier the app must turn back into a route. Core Spotlight calls it `uniqueIdentifier`, AppSearch calls it a namespaced document id, and if each platform invented its own encoding a deep link that worked on iOS would 404 on Android. So the encoding, the validation and the batch size are decided here. Read by kernel/test/spotlight-conformance.test.ts (TS, reference), :core SpotlightConformanceTest (Kotlin) and Engine/iOS/Spotlight.swift.",
+
+  "limits": {
+    "batchMax": 100,
+    "maxIdChars": 256,
+    "maxTitleChars": 256,
+    "maxDescriptionChars": 2000,
+    "maxKeywords": 32
+  },
+
+  "domain": [
+    { "name": "absent falls back to a named default rather than an empty group", "raw": null, "ok": true, "expect": "default" },
+    { "name": "empty falls back too", "raw": "   ", "ok": true, "expect": "default" },
+    { "name": "a feature name", "raw": "notes", "ok": true, "expect": "notes" },
+    { "name": "whitespace is trimmed", "raw": " recipes ", "ok": true, "expect": "recipes" },
+    { "name": "a colon is the separator, so a domain may not contain one", "raw": "notes:v2", "ok": false, "error": "invalid_domain" },
+    { "name": "a control character", "raw": "no\u0007tes", "ok": false, "error": "invalid_domain" }
+  ],
+
+  "uniqueId": [
+    { "name": "the plain case", "domain": "notes", "id": "42", "expect": "notes:42" },
+    { "name": "an id containing colons round-trips exactly, because the split is at the FIRST one", "domain": "links", "id": "https://example.com/a:b", "expect": "links:https://example.com/a:b" },
+    { "name": "an id containing a slash", "domain": "files", "id": "folder/name.txt", "expect": "files:folder/name.txt" },
+    { "name": "a unicode id", "domain": "notes", "id": "café", "expect": "notes:café" }
+  ],
+
+  "parseUniqueId": [
+    { "name": "the plain case", "raw": "notes:42", "ok": true, "domain": "notes", "id": "42" },
+    { "name": "the first colon wins", "raw": "links:https://example.com/a:b", "ok": true, "domain": "links", "id": "https://example.com/a:b" },
+    { "name": "no colon is not a unique id", "raw": "notes", "ok": false },
+    { "name": "a leading colon leaves no domain", "raw": ":42", "ok": false },
+    { "name": "a trailing colon leaves no id", "raw": "notes:", "ok": false },
+    { "name": "empty", "raw": "", "ok": false }
+  ],
+
+  "keywords": [
+    { "name": "absent is no keywords", "raw": null, "expect": [] },
+    { "name": "trimmed and lowercased, because both indexers match case-insensitively", "raw": [" Recipe ", "PASTA"], "expect": ["recipe", "pasta"] },
+    { "name": "case-different duplicates collapse, so the cap is not spent on nothing", "raw": ["Recipe", "recipe", "RECIPE"], "expect": ["recipe"] },
+    { "name": "empties are dropped", "raw": ["a", "", "  ", "b"], "expect": ["a", "b"] },
+    { "name": "a comma string is a list", "raw": "one,two", "expect": ["one", "two"] },
+    { "name": "the cap is enforced by truncation, not refusal", "raw": ["k01", "k02", "k03", "k04", "k05", "k06", "k07", "k08", "k09", "k10", "k11", "k12", "k13", "k14", "k15", "k16", "k17", "k18", "k19", "k20", "k21", "k22", "k23", "k24", "k25", "k26", "k27", "k28", "k29", "k30", "k31", "k32", "k33", "k34"], "expect": ["k01", "k02", "k03", "k04", "k05", "k06", "k07", "k08", "k09", "k10", "k11", "k12", "k13", "k14", "k15", "k16", "k17", "k18", "k19", "k20", "k21", "k22", "k23", "k24", "k25", "k26", "k27", "k28", "k29", "k30", "k31", "k32"] }
+  ],
+
+  "item": [
+    {
+      "name": "the shortest complete item",
+      "raw": { "id": "42", "title": "Pasta carbonara", "route": "/recipes/42" },
+      "ok": true,
+      "expect": { "id": "42", "title": "Pasta carbonara", "description": "", "keywords": [], "image": "", "route": "/recipes/42", "domain": "default", "expires": 0 }
+    },
+    {
+      "name": "every field",
+      "raw": { "id": "42", "title": "  Pasta carbonara  ", "description": " Eggs, cheese, pepper ", "keywords": ["Pasta", "pasta", "Italian"], "image": "/img/42.jpg", "route": "/recipes/42", "domain": "recipes", "expires": 1893456000000 },
+      "ok": true,
+      "expect": { "id": "42", "title": "Pasta carbonara", "description": "Eggs, cheese, pepper", "keywords": ["pasta", "italian"], "image": "/img/42.jpg", "route": "/recipes/42", "domain": "recipes", "expires": 1893456000000 }
+    },
+    {
+      "name": "a malformed expiry means no expiry rather than a refused item",
+      "raw": { "id": "42", "title": "T", "route": "/a", "expires": "soon" },
+      "ok": true,
+      "expect": { "id": "42", "title": "T", "description": "", "keywords": [], "image": "", "route": "/a", "domain": "default", "expires": 0 }
+    },
+    {
+      "name": "a negative expiry means no expiry",
+      "raw": { "id": "42", "title": "T", "route": "/a", "expires": -5 },
+      "ok": true,
+      "expect": { "id": "42", "title": "T", "description": "", "keywords": [], "image": "", "route": "/a", "domain": "default", "expires": 0 }
+    },
+    {
+      "name": "a fractional expiry floors rather than rounding, so an item never outlives its stated instant",
+      "raw": { "id": "42", "title": "T", "route": "/a", "expires": 1000.9 },
+      "ok": true,
+      "expect": { "id": "42", "title": "T", "description": "", "keywords": [], "image": "", "route": "/a", "domain": "default", "expires": 1000 }
+    },
+    { "name": "no id", "raw": { "title": "T", "route": "/a" }, "ok": false, "error": "invalid_id" },
+    { "name": "a blank id", "raw": { "id": "   ", "title": "T", "route": "/a" }, "ok": false, "error": "invalid_id" },
+    { "name": "no title — the OS would show a blank row", "raw": { "id": "1", "route": "/a" }, "ok": false, "error": "invalid_title" },
+    { "name": "no route — the user taps and lands on the home screen with no explanation", "raw": { "id": "1", "title": "T" }, "ok": false, "error": "invalid_route" },
+    { "name": "a relative route", "raw": { "id": "1", "title": "T", "route": "recipes/42" }, "ok": false, "error": "invalid_route" },
+    { "name": "a colon in the domain", "raw": { "id": "1", "title": "T", "route": "/a", "domain": "x:y" }, "ok": false, "error": "invalid_domain" }
+  ],
+
+  "batch": [
+    {
+      "name": "a whole batch normalizes",
+      "raw": [{ "id": "1", "title": "One", "route": "/1" }, { "id": "2", "title": "Two", "route": "/2" }],
+      "ok": true,
+      "count": 2
+    },
+    { "name": "an empty batch is legal", "raw": [], "ok": true, "count": 0 },
+    { "name": "one bad item refuses the whole batch — a partial index is the hardest state to reason about", "raw": [{ "id": "1", "title": "One", "route": "/1" }, { "id": "2", "title": "Two" }], "ok": false, "error": "invalid_route" }
+  ],
+
+  "chunk": [
+    { "name": "under the cap is one transaction", "count": 5, "max": 100, "sizes": [5] },
+    { "name": "exactly the cap is still one", "count": 100, "max": 100, "sizes": [100] },
+    { "name": "one over the cap splits", "count": 101, "max": 100, "sizes": [100, 1] },
+    { "name": "a large index chunks evenly", "count": 250, "max": 100, "sizes": [100, 100, 50] },
+    { "name": "empty produces no transactions", "count": 0, "max": 100, "sizes": [] },
+    { "name": "a nonsense chunk size falls back to the default rather than looping forever", "count": 5, "max": 0, "sizes": [5] }
+  ]
+}

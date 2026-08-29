@@ -108,7 +108,16 @@ function findAll(re: RegExp, s: string): RegExpExecArray[] {
   return out;
 }
 
-export const JSERegex = {
+type JSERegexApi = {
+  test(s: string, regex: unknown): boolean;
+  match(s: string, regex: unknown): unknown;
+  matchAll(s: string, regex: unknown): unknown[];
+  search(s: string, regex: unknown): number;
+  replace(s: string, pattern: unknown, template: string, all: boolean): string;
+  split(s: string, pattern: unknown, limit: number): unknown[];
+};
+
+const JSE_REGEX_FULL: JSERegexApi = {
   test(s: string, regex: unknown): boolean {
     const c = compiled(regex);
     if (!c) return false;
@@ -193,6 +202,38 @@ export const JSERegex = {
     return parts;
   },
 };
+
+/** The engine-less twin (the `__DSX_OPTIONAL_JS_GLOBALS__` precedent in core.ts): a build
+ *  whose closed slice can never MINT a regex value (no `/…/` literal, no `RegExp`/`regex`
+ *  name, no foreign payload — embed-entry.ts `registryUsesRegex`) folds the compiler,
+ *  the reDoS guard and the template expander away. The literal string-pattern halves of
+ *  `replace`/`split` keep their exact reference semantics: those take plain strings, which
+ *  every slice can mint. A regex-typed argument cannot exist in such a build, so the
+ *  regex-only entries answer exactly like FULL answers a non-regex argument. */
+const JSE_REGEX_ABSENT: JSERegexApi = {
+  test: () => false,
+  match: () => null,
+  matchAll: () => [],
+  search: () => -1,
+  replace(s: string, pattern: unknown, template: string, all: boolean): string {
+    const find = jseString(pattern);
+    if (find.length === 0) return s;
+    if (all) return s.split(find).join(template);
+    const r = s.indexOf(find);
+    if (r < 0) return s;
+    return s.substring(0, r) + template + s.substring(r + find.length);
+  },
+  split(s: string, pattern: unknown, limit: number): unknown[] {
+    const sep = jseString(pattern);
+    let parts: string[] = sep.length === 0 ? graphemes(s) : s.split(sep);
+    if (limit > 0 && parts.length > limit) parts = parts.slice(0, limit);
+    return parts;
+  },
+};
+
+export const JSERegex: JSERegexApi =
+  (globalThis as typeof globalThis & { __DSX_OPTIONAL_REGEX__?: boolean })
+    .__DSX_OPTIONAL_REGEX__ !== false ? JSE_REGEX_FULL : JSE_REGEX_ABSENT;
 
 /** NSRegularExpression's template semantics: `$0…$n` group refs (longest valid digit
  *  run), `\$` a literal dollar, `\\` a literal backslash; unmatched/out-of-range

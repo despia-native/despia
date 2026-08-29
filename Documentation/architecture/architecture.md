@@ -121,12 +121,12 @@ Plus `dsx.events` / `dsx.broadcast` — the in-process event bus that mirrors `w
 ## The web host as a node
 
 The web view itself is a global component, `DSXWebView`
-(`ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/DSXWebView`).
+(`ClosedSource/DSX/Modules/Core/Dom/Components/Views/DSXWebView`).
 It hosts the Dom module's web surface, publishes its `WKWebView` as the `"web"` shared handle,
 and re-broadcasts its lifecycle. WebKit lives ONLY here (the Dom module + its DSXWebView component) —
 every other module reaches the surface via `dsx.module.dom.*`. The ongoing work to keep the web
 host a thin shell (features → modules) is tracked in
-[EXTRACTION.md](../../../DSX/Modules/Mandatory/Foundation/Components/Views/DSXWebView/EXTRACTION.md).
+[EXTRACTION.md](../../../DSX/Modules/Core/Dom/Components/Views/DSXWebView/EXTRACTION.md).
 
 ## Cross-platform
 

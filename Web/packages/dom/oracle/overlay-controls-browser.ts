@@ -14,7 +14,7 @@ const markup = String.raw`<vstack class="overlay-harness">
     <variable as="dismissals">return 0</variable>
     <variable as="items">return [
       { title: "Edit" },
-      { title: "More", items: [{ title: "Duplicate", action: "overlaytest.select", args: { id: 7 } }] },
+      { title: "More", items: [{ title: "Duplicate", shortcut: "cmd+d", action: "overlaytest.select", args: { id: 7 } }] },
       { separator: true },
       { title: "Delete", role: "destructive" }
     ]</variable>
@@ -125,6 +125,23 @@ try {
     errors.push(`modal portal did not clear route chrome stacking (${sheetState.overlayZ} <= ${sheetState.routeZ})`);
   }
 
+  // The grabber is a SLIDER (discrete detents with a current value): the role that
+  // legitimizes its aria-value* state, keeping the detent keyboard contract intact.
+  const grabber = page.locator(".dsx-sheet-grabber");
+  if (await grabber.getAttribute("role") !== "slider" || await grabber.getAttribute("aria-orientation") !== "vertical"
+      || await grabber.getAttribute("aria-valuemin") !== "1" || await grabber.getAttribute("aria-valuemax") !== "3"
+      || await grabber.getAttribute("aria-valuenow") !== "1" || await grabber.getAttribute("aria-valuetext") !== "content") {
+    errors.push("sheet grabber does not carry honest slider semantics for its detent value");
+  }
+  await grabber.focus();
+  await grabber.press("ArrowUp");
+  if (await grabber.getAttribute("aria-valuenow") !== "2" || await grabber.getAttribute("aria-valuetext") !== "half"
+      || await sheet.getAttribute("data-dsx-detent") !== "half") {
+    errors.push("grabber slider keyboard detent step regressed");
+  }
+  await grabber.press("Home");
+  if (await grabber.getAttribute("aria-valuenow") !== "1") errors.push("grabber Home did not return to the first detent");
+
   const lastSheetControl = page.locator(".dsx-sheet-action");
   await lastSheetControl.focus();
   await lastSheetControl.press("Tab");
@@ -165,6 +182,9 @@ try {
   await set("showConfirm", true);
   const confirm = page.locator(".dsx-confirm-panel");
   await confirm.waitFor({ state: "visible" });
+  // Measure at rest: mid-zoom the panel's translate(-50%,-50%) is composed after the
+  // animated scale property, so the geometric center only settles with the animation.
+  await confirm.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
   const confirmBox = await confirm.boundingBox();
   if (confirmBox === null || Math.abs(confirmBox.y + confirmBox.height / 2 - 450) > 3) {
     errors.push("tablet/desktop confirmDialog is not vertically centered");
@@ -206,7 +226,38 @@ try {
   if (await page.evaluate(() => document.activeElement?.getAttribute("role")) !== "menuitem") errors.push("menu did not focus its first item");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowRight");
-  if (await page.evaluate(() => document.activeElement?.textContent?.trim()) !== "Duplicate") errors.push("submenu keyboard traversal failed");
+  if (await page.evaluate(() => document.activeElement?.textContent?.trim()?.startsWith("Duplicate")) !== true) {
+    errors.push("submenu keyboard traversal failed");
+  }
+  const duplicateHint = await page.evaluate(() => {
+    const item = document.activeElement as HTMLElement | null;
+    const hint = item?.querySelector<HTMLElement>(".dsx-menu-item-shortcut");
+    return {
+      keyshortcuts: item?.getAttribute("aria-keyshortcuts") ?? "",
+      hintText: hint?.textContent ?? "",
+      hintHidden: hint?.getAttribute("aria-hidden"),
+    };
+  });
+  if (!/^(Meta|Control)\+D$/.test(duplicateHint.keyshortcuts) || duplicateHint.hintText.length === 0
+      || duplicateHint.hintHidden !== "true") {
+    errors.push(`menu shortcut hint plane is wrong (${JSON.stringify(duplicateHint)})`);
+  }
+  // Escape WALKS UP: the deepest submenu closes back to its parent row while the
+  // menu itself stays open; only the next Escape dismisses the surface.
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(20);
+  const walked = await page.evaluate(() => ({
+    focused: document.activeElement?.textContent?.trim(),
+    submenuOpen: document.querySelector(".dsx-submenu:not([hidden])") !== null,
+  }));
+  if (walked.focused?.startsWith("More") !== true || walked.submenuOpen) {
+    errors.push(`menu Escape did not walk up one submenu level (${JSON.stringify(walked)})`);
+  }
+  if (!await menu.isVisible()) errors.push("submenu Escape closed the whole menu platter");
+  await page.keyboard.press("ArrowRight");
+  if (await page.evaluate(() => document.activeElement?.textContent?.trim()?.startsWith("Duplicate")) !== true) {
+    errors.push("submenu did not reopen after its Escape walk");
+  }
   await page.keyboard.press("Enter");
   await page.waitForTimeout(20);
   if (await menu.isVisible()) errors.push("menu selection did not close the platter");

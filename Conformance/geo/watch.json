@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "_note": "THE STREAM CONTRACT: accuracy vocabulary, the distance/interval filter, and the shape of a position (parity/F09-geo.md). BATTERY IS THE ACCEPTANCE CRITERION NOBODY TESTS. A location module that accepts `distanceFilter` and then delivers every fix anyway is a battery bug shipped to every user, and it passes any test that only checks that positions arrive. So the suppression decision is a pure function judged by this corpus on all three renderers: given the last delivered fix and a new one, does this fix go to the caller. `mocked` rides on every position because a fraud-sensitive app has to be able to see it and the platforms both offer it for free.",
+
+  "_note_accuracy": "Five words, exact case. Each maps to a real constant on each platform - never a number the module invented - and `meters` is the horizontal accuracy the word is asking for, used by the web twin (which has only a boolean enableHighAccuracy) and by the default distance filter.",
+  "accuracy": [
+    { "word": "navigation", "ios": "kCLLocationAccuracyBestForNavigation", "android": "PRIORITY_HIGH_ACCURACY", "web": "high", "meters": 0 },
+    { "word": "best", "ios": "kCLLocationAccuracyBest", "android": "PRIORITY_HIGH_ACCURACY", "web": "high", "meters": 0 },
+    { "word": "balanced", "ios": "kCLLocationAccuracyNearestTenMeters", "android": "PRIORITY_BALANCED_POWER_ACCURACY", "web": "low", "meters": 10 },
+    { "word": "low", "ios": "kCLLocationAccuracyHundredMeters", "android": "PRIORITY_LOW_POWER", "web": "low", "meters": 100 },
+    { "word": "passive", "ios": "kCLLocationAccuracyThreeKilometers", "android": "PRIORITY_PASSIVE", "web": "low", "meters": 3000 }
+  ],
+  "defaultAccuracy": "balanced",
+
+  "accuracyFold": [
+    { "name": "an absent accuracy takes the balanced default", "word": null, "expect": { "word": "balanced" } },
+    { "name": "an empty accuracy takes the balanced default", "word": "", "expect": { "word": "balanced" } },
+    { "name": "whitespace is trimmed", "word": "  navigation  ", "expect": { "word": "navigation" } },
+    { "name": "the vocabulary is exact case", "word": "Best", "expect": { "error": "invalid_argument" } },
+    { "name": "an unrecognised word is refused, never silently downgraded", "word": "medium", "expect": { "error": "invalid_argument" } }
+  ],
+
+  "_note_distance": "The great-circle distance between two fixes, pinned so the filter means the same thing on three runtimes. Earth radius 6371008.8 m (the IUGG mean radius), haversine. Asserted within a tolerance because three languages will not agree on the last float bit and pretending otherwise makes a green suite that fails on a device.",
+  "distance": [
+    { "name": "the same point is zero", "from": { "lat": 37.7749, "lon": -122.4194 }, "to": { "lat": 37.7749, "lon": -122.4194 }, "expectMeters": 0.0, "toleranceMeters": 0.01 },
+    { "name": "one ten-thousandth of a degree of latitude is about eleven metres", "from": { "lat": 37.7749, "lon": -122.4194 }, "to": { "lat": 37.775, "lon": -122.4194 }, "expectMeters": 11.12, "toleranceMeters": 0.5 },
+    { "name": "a bit over a hundred metres", "from": { "lat": 37.7749, "lon": -122.4194 }, "to": { "lat": 37.776, "lon": -122.4194 }, "expectMeters": 122.315, "toleranceMeters": 0.5 },
+    { "name": "a kilometre north", "from": { "lat": 37.7749, "lon": -122.4194 }, "to": { "lat": 37.7849, "lon": -122.4194 }, "expectMeters": 1111.951, "toleranceMeters": 1.0 },
+    { "name": "a degree of longitude at the equator", "from": { "lat": 0, "lon": 0 }, "to": { "lat": 0, "lon": 1 }, "expectMeters": 111195.08, "toleranceMeters": 5.0 }
+  ],
+
+  "_note_filter": "distanceFilter is metres, interval is milliseconds; either alone suppresses, and a fix must satisfy BOTH to be delivered when both are set. The first fix of a session always goes out - a filter that swallows the opening position is how a map renders in the middle of the ocean.",
+  "filter": [
+    { "name": "the first fix of a session is always delivered",
+      "last": null, "next": { "lat": 37.7749, "lon": -122.4194, "at": 1000 },
+      "distanceFilter": 100, "interval": 60000, "expect": { "deliver": true } },
+
+    { "name": "no filter at all delivers everything",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 1000 }, "next": { "lat": 37.7749, "lon": -122.4194, "at": 1100 },
+      "distanceFilter": 0, "interval": 0, "expect": { "deliver": true } },
+
+    { "name": "A FIX INSIDE THE DISTANCE FILTER IS SUPPRESSED - this is the battery bug",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 1000 }, "next": { "lat": 37.775, "lon": -122.4194, "at": 2000 },
+      "distanceFilter": 100, "interval": 0, "expect": { "deliver": false, "reason": "distance" } },
+
+    { "name": "a fix past the distance filter is delivered",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 1000 }, "next": { "lat": 37.776, "lon": -122.4194, "at": 2000 },
+      "distanceFilter": 100, "interval": 0, "expect": { "deliver": true } },
+
+    { "name": "a kilometre of movement clears a one-kilometre filter",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 1000 }, "next": { "lat": 37.7849, "lon": -122.4194, "at": 2000 },
+      "distanceFilter": 1000, "interval": 0, "expect": { "deliver": true } },
+
+    { "name": "the interval boundary delivers, so an interval of N means at least N",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 1000 }, "next": { "lat": 37.7749, "lon": -122.4194, "at": 61000 },
+      "distanceFilter": 0, "interval": 60000, "expect": { "deliver": true } },
+
+    { "name": "a fix inside the interval is suppressed",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 1000 }, "next": { "lat": 37.8849, "lon": -122.4194, "at": 5000 },
+      "distanceFilter": 0, "interval": 60000, "expect": { "deliver": false, "reason": "interval" } },
+
+    { "name": "a fix past the interval is delivered",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 1000 }, "next": { "lat": 37.7749, "lon": -122.4194, "at": 91000 },
+      "distanceFilter": 0, "interval": 60000, "expect": { "deliver": true } },
+
+    { "name": "both filters set means both must pass - far enough but too soon is suppressed",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 1000 }, "next": { "lat": 37.8849, "lon": -122.4194, "at": 5000 },
+      "distanceFilter": 100, "interval": 60000, "expect": { "deliver": false, "reason": "interval" } },
+
+    { "name": "both filters set - long enough but not far enough is suppressed",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 1000 }, "next": { "lat": 37.775, "lon": -122.4194, "at": 91000 },
+      "distanceFilter": 100, "interval": 60000, "expect": { "deliver": false, "reason": "distance" } },
+
+    { "name": "both filters satisfied delivers",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 1000 }, "next": { "lat": 37.8849, "lon": -122.4194, "at": 91000 },
+      "distanceFilter": 100, "interval": 60000, "expect": { "deliver": true } },
+
+    { "name": "a clock that went backwards does not permanently wedge the stream",
+      "_note": "A device clock change or a queued fix arriving late must not make `next.at - last.at` negative forever. Treated as a fresh interval so the stream recovers.",
+      "last": { "lat": 37.7749, "lon": -122.4194, "at": 91000 }, "next": { "lat": 37.8849, "lon": -122.4194, "at": 1000 },
+      "distanceFilter": 0, "interval": 60000, "expect": { "deliver": true } }
+  ],
+
+  "_note_position": "The position payload every renderer emits. `mocked` is a first-class field, not an extra: a delivery or wagering app has to be able to refuse a spoofed fix, iOS exposes it as CLLocation.sourceInformation.isSimulatedBySoftware and Android as Location.isMock, and surfacing it costs nothing.",
+  "position": {
+    "lat": 37.7749, "lon": -122.4194, "altitude": 12.5, "accuracy": 5.0,
+    "altitudeAccuracy": 8.0, "heading": 92.5, "speed": 1.4,
+    "timestamp": 1700000000000, "mocked": false
+  },
+
+  "_note_maxage": "`last({ maxAge })` answers from the cached fix WITHOUT waking the radio, which is the entire point: a screen that only needs a rough position must never cost a GPS lock. A cache older than maxAge is a typed absence, not a stale fix returned as if it were current.",
+  "maxAge": [
+    { "name": "a fresh cached fix is served", "ageMs": 5000, "maxAgeMs": 60000, "expect": { "serve": true } },
+    { "name": "the boundary serves", "ageMs": 60000, "maxAgeMs": 60000, "expect": { "serve": true } },
+    { "name": "a stale cached fix is refused rather than passed off as current", "ageMs": 60001, "maxAgeMs": 60000, "expect": { "serve": false, "error": "timeout" } },
+    { "name": "no maxAge means any cached fix is acceptable", "ageMs": 8640000, "maxAgeMs": 0, "expect": { "serve": true } }
+  ]
+}

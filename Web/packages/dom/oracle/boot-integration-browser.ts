@@ -28,7 +28,7 @@ const source = String.raw`
   // "as never" cast can typecheck while mount() immediately dereferences missing fields.
   const comp = (name) => ({
     name, scheme: "demo", reactive: false,
-    head: { attributes: [], apis: [], expects: [], events: [], inputs: [], variables: [],
+    head: { attributes: [], overrides: [], apis: [], expects: [], events: [], inputs: [], tools: [], variables: [],
             formulas: [], actions: [], watches: [], scripts: [], globalScripts: [] },
     root: { tag: "stack", attrs: {}, children: [], text: "" },
   });

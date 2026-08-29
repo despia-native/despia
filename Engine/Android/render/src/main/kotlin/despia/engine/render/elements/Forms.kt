@@ -16,13 +16,14 @@
 //  once TOUCHED (focused-then-blurred) or after a form submit. State it maintains
 //  (dot-accessible, byte-identical paths): form.values.<name> · form.fields.<name>.
 //  {touched,dirty,error} · form.valid · form.fieldOrder / form.focus (Return advances).
-//  Text entry is the real Material 3 `OutlinedTextField`: the label and placeholder use its
-//  native slots, focus/IME behavior stays on the existing form namespace, and a revealed
-//  validation error sets the control's native error state. `validate="required,email,minLength:8"` runs the ENGINE validator builtins through
+//  Text entry is the real Material 3 FILLED `TextField` (the library-grade default — the
+//  2026-08-20 ruling, system-defaults.md amendment): the label floats and the placeholder
+//  rides its native slots, focus/IME behavior stays on the existing form namespace, and a
+//  revealed validation error sets the control's native error state. `validate="required,email,minLength:8"` runs the ENGINE validator builtins through
 //  JSE.eval exactly like iOS (`required(path)` / `minLength(path, n)`); regex/pattern
 //  matches natively against `pattern=`; `message=` overrides. `type` picks the input:
 //  text/email/number/phone/url (keyboard) · secure · toggle (the real M3 Switch — the
-//  Field.swift native-Toggle twin; StackSystemControls.kt systemSwitchColors) ·
+//  Field.swift native-Toggle twin; StackSystemControls.kt SystemSwitch) ·
 //  picker (options CSV / optionsKey + valueField/labelField, default id/label — a menu).
 //
 //  SEARCHBAR (SearchBar.swift, 1:1): HStack(spacing 6) — magnifyingglass (secondary) ·
@@ -61,8 +62,8 @@
 //      values — the thing the law forbids. (The unstyled `<list>` earns grouped chrome because
 //      the law's Android row NAMES `ListItem`; it names nothing for forms.)
 //    – M3's actual form guidance IS a column of full-width text fields separated by standard
-//      spacing, which is what this element renders: text entry uses the real
-//      `OutlinedTextField`, and `type="toggle"` uses the real `Switch`. So the M3-correct
+//      spacing, which is what this element renders: text entry uses the real filled
+//      `TextField`, and `type="toggle"` uses the real `Switch`. So the M3-correct
 //      rendering needs no new container.
 //  RESULT: no attribute allowlist / `unstyled` gate exists in this file, deliberately — with
 //  no system container to switch INTO, a gate would guard nothing. If M3 ever ships a grouped
@@ -91,6 +92,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -103,9 +105,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -153,10 +154,10 @@ import despia.engine.render.ComposeStackComponents
 import despia.engine.render.ElementDefaults
 import despia.engine.render.StackIcon
 import despia.engine.render.StackStyle
+import despia.engine.render.SystemSwitch
 import despia.engine.render.dsxAccessibleActivation
 import despia.engine.render.dsxAccessibleSelectable
 import despia.engine.render.m3TextInputColors
-import despia.engine.render.systemSwitchColors
 import despia.engine.setPath
 
 internal fun registerFormElements() {
@@ -296,7 +297,11 @@ private fun FieldElement(ctx: ComposeStackComponentContext) {
         val ok = fields.values.all { ((it as? Map<*, *>)?.get("error") as? String ?: "").isEmpty() }
         store.setPath("$ns.valid", ok)
     }
+    // disabled= / disabled-if= (W9): the write seam gates (controlled inputs go inert)
+    // and the whole field block dims — the web root-stamp twin.
+    val fieldDisabled = SelectionControl.isDisabled(ctx.interp("disabled"), ctx.interp("disabled-if"))
     fun write(v: Any) {
+        if (fieldDisabled) return
         store.setPath(valuePath, v)
         store.setPath("$metaPath.dirty", true)
         validate()
@@ -312,7 +317,8 @@ private fun FieldElement(ctx: ComposeStackComponentContext) {
     val submitted = JSE.truthy(store.getPath("$ns.submitted"))
     val error = JSE.string(store.getPath("$metaPath.error") ?: "")
     val showError = (touched || submitted) && error.isNotEmpty()
-    Column(Modifier.elementStyle(el), verticalArrangement = Arrangement.spacedBy(ElementDefaults.FIELD_STACK_SPACING.dp),
+    Column(Modifier.elementStyle(el).alpha(if (fieldDisabled) 0.5f else 1f),
+           verticalArrangement = Arrangement.spacedBy(ElementDefaults.FIELD_STACK_SPACING.dp),
            horizontalAlignment = Alignment.Start) {
         when (type) {
             "toggle" -> FieldToggleRow(el.str("label"), JSE.truthy(store.getPath(valuePath))) { on ->
@@ -361,7 +367,7 @@ private fun FieldTextInput(el: El, ns: String, name: String, type: String, value
     }
     val label = el.ctl.interp("label")
     val placeholder = el.ctl.interp("placeholder")
-    OutlinedTextField(
+    TextField(
         value = value,
         onValueChange = onWrite,
         modifier = Modifier.fillMaxWidth().focusRequester(requester).onFocusChanged { f ->
@@ -382,7 +388,7 @@ private fun FieldTextInput(el: El, ns: String, name: String, type: String, value
         colors = m3TextInputColors(el.ctl.interp("color")),
     )
     // Keep the focus-owning node first and slot-stable. Inserting the conditional Popup
-    // before OutlinedTextField disposes/recreates the field when `focused` flips true,
+    // before the TextField disposes/recreates the field when `focused` flips true,
     // immediately losing the focus we just requested and incorrectly marking it touched.
     if (focused) {
         KeyboardAccessoryBar(prevField = prevField, nextField = nextField,
@@ -492,13 +498,14 @@ private fun AccessoryChevron(
 /// The inline-labelled switch row — label + the REAL M3 `Switch` (the iOS Field.swift
 /// toggleRow renders the native SwiftUI Toggle; the M3-identity wave makes this row the
 /// Android twin). The switch half is form chrome the author never styles, so it follows
-/// the unstyled-toggle system rule unconditionally — same explicit role colors as the
-/// `<toggle>` element (StackSystemControls.kt systemSwitchColors — one source, no drift).
+/// the unstyled-toggle system rule unconditionally — the shared `SystemSwitch` mount
+/// (StackSystemControls.kt: one source for the role colors AND the checked mirror that
+/// keeps the tap on material3's animated branch — no drift with `<toggle>`).
 @Composable
 private fun FieldToggleRow(label: String, on: Boolean, onFlip: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         BasicText(label, Modifier.weight(1f), style = TextStyle(color = StackStyle.color("label"), fontSize = 17.sp))
-        Switch(checked = on, onCheckedChange = onFlip, colors = systemSwitchColors())
+        SystemSwitch(checked = on, onCheckedChange = onFlip)
     }
 }
 
@@ -567,6 +574,9 @@ private fun SearchBarElement(ctx: ComposeStackComponentContext) {
         Modifier.elementStyle(el).then(Modifier.fillMaxWidth())
             .background(StackStyle.material("regular"), RoundedCornerShape(50))    // the material capsule …
             .background(StackStyle.color("fill"), RoundedCornerShape(50))          // … under secondarySystemFill
+            // The whole-capsule coarse-pointer floor (SearchBar.swift minHeight 44, 1:1) —
+            // inside the backgrounds so the capsule itself paints the floored box.
+            .heightIn(min = 44.dp)
             .padding(horizontal = ElementDefaults.SEARCHBAR_PAD_H.dp, vertical = ElementDefaults.SEARCHBAR_PAD_V.dp),
         horizontalArrangement = Arrangement.spacedBy(ElementDefaults.SEARCHBAR_SPACING.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -576,6 +586,7 @@ private fun SearchBarElement(ctx: ComposeStackComponentContext) {
             value = text,
             onValueChange = { if (key.isNotEmpty()) el.ctl.setBound(key, it) },    // on:change via the setBound seam
             modifier = Modifier.weight(1f),
+            enabled = !SelectionControl.isDisabled(ctx.interp("disabled"), ctx.interp("disabled-if")),   // W9
             textStyle = style,
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

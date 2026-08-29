@@ -256,19 +256,27 @@ export async function runDeclaredCommand(
   // Every action in the document is a sibling: a command body may call another action the
   // same way a screen does, which is what makes a CLI decomposable instead of one long body.
   //
-  // `inputs` stays EMPTY here, and that is load-bearing rather than lazy. The runner treats
-  // decl.inputs as expressions evaluated in the CALLER's scope, and a top-level command has
-  // no caller — so mapping the declared names onto themselves would evaluate each against an
-  // empty scope and overwrite the dispatched value with the absent marker. The declared
-  // `inputs="…"` list is the body's contract (the reader checks it against the command's
-  // flags and positionals), and the values arrive as the payload below. The server does
-  // exactly this for the same reason.
+  // The declared `inputs` are kept. They used to be stripped here, because the runner applied
+  // ONE input rule — evaluate each expression in the caller's scope — and a top-level command
+  // has no caller, so mapping the declared names onto themselves overwrote every dispatched
+  // value with the absent marker. Stripping dodged that, at the cost of the contract: a command
+  // body got whatever the payload happened to carry, and a declared default could not exist.
+  //
+  // The runner now models the two kinds of call (`CallActionOptions.entry`), so the declaration
+  // survives to the body and a command invocation says what it is.
   for (const [name, decl] of document.actions) {
-    env.actions.set(name, { body: decl.body, inputs: {} as Dict });
+    // A `<cli>` input is a NAME (`inputs="project, out"`), so it maps to itself: at an entry
+    // that names the payload key, and a name the payload omits reads as absent rather than as
+    // an unbound variable.
+    env.actions.set(name, {
+      body: decl.body,
+      inputs: Object.fromEntries(decl.inputs.map((n) => [n, n])) as Dict,
+    });
   }
 
   const runner = new ActionRunner(env);
-  const value = await runner.callAction(action.name, {}, null, inputs as Dict);
+  // An ENTRY call: argv became the payload, and there is no caller scope.
+  const value = await runner.callAction(action.name, {}, null, inputs as Dict, { entry: true });
 
   // A BLOWN BUDGET IS A FAILURE, NOT A SHORTER ANSWER. The runner contains a runaway loop and
   // the body runs on, so without this check a command answers exit 0 with half its output.

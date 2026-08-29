@@ -126,11 +126,52 @@ exists to prevent, and the attribute in question is usually `auth`.
 | `<action>` | head | `as` · `inputs` (`"a, b"` or `"id: item.id"`); body is RAW code |
 | `<route>` | body | `as` · `method` · `path` · `action` \| (`entity` + `op`) · `auth` · `rate` · `schedule` · `body` · `reach` |
 | `<worker>` | body | `as` · `queue` · `action` · `path` · `schedule` · `idempotencyKey` · `rate` |
+| `<webhook>` | body | `as` · `queue` · `secret` (one or more env names) · `path` · `idField` · `signatureHeader` · `timestampHeader` · `tolerance` (seconds) · `rate` |
 
 `as` on a route is optional: the key derives from method+path (`POST /orders` → `post-orders`),
 and a collision is the existing uniqueness gate's to report. A `<worker>` fills in the whole
 drain shape — POST, auth required, `reach: []` — because none of those is a decision an author
 should be able to get wrong.
+
+### `<webhook>` — the inbound edge
+
+A receiver is a PUBLIC, unauthenticated POST that a stranger can call as often as they like, and
+whose only credential is a signature over bytes. Every way it goes wrong is silent: comparing the
+signature with `===`, verifying the re-serialised body, no clock window, a window with no nonce,
+doing the work inline so the sender's timeout decides whether the write is retried. So the shape
+is DECLARED and the receiver is generated, exactly as declared CRUD is:
+
+```xml
+<secret as="ORDERS_WEBHOOK_SECRET" env="ORDERS_WEBHOOK_SECRET"/>
+<secret as="ORDERS_WEBHOOK_SECRET_NEXT" env="ORDERS_WEBHOOK_SECRET_NEXT"/>
+...
+<webhook as="orders" queue="platform_events" path="/events/orders"
+         secret="ORDERS_WEBHOOK_SECRET, ORDERS_WEBHOOK_SECRET_NEXT" idField="id" rate="600/m"/>
+<worker as="drain-events" queue="platform_events" action="drainEvents" schedule="*/2 * * * *"
+        idempotencyKey="external_id"/>
+```
+
+What the row fixes rather than asks: POST, `body: "raw"` (the signature is over bytes a parse
+destroys), NO `auth` (a sender holds no account, so the signature IS the credential — and `auth`
+on a receiver 401s every delivery while the endpoint looks healthy), and a `rate`, always,
+defaulting to `600/m`.
+
+What the author decides: the source name (it namespaces the idempotency key, so two senders
+cannot collide), the queue, which secrets sign it, and where it listens. `secret` is a LIST,
+most-current first, because that is the only way to rotate without dropping deliveries: both
+verify during the overlap, then the old one comes out of the environment. `idField` is a dotted
+path to the sender's own event id, so a retry the sender re-signed collapses to one delivery
+rather than deduplicating only exact byte replays.
+
+Three build-time refusals, each for a failure that otherwise looks like a working deployment:
+a secret name no `<secret>` declares (404 on every delivery, nothing says why), a queue no
+`<worker>` drains (deliveries verify, enqueue, answer 200, and sit there forever while the
+sender's dashboard shows everything delivered), and a bare `facets.api` row naming a source —
+a manifest cannot declare one, so the route would dispatch to a handler nothing generated.
+
+The signing secrets travel by env NAME into the generated file and are read from `ctx.env` at
+dispatch. A generated artifact is committed and mirrored, so a secret resolved at emit time
+would be a secret in git; and rotation has to be re-readable per request anyway.
 
 ## 3 · What a body can reach, and nothing else
 
@@ -138,6 +179,7 @@ should be able to get wrong.
 |---|---|
 | `dsx.module.data.<entity>.{create,get,list,update,delete}` | the repository, scoped to the VERIFIED caller (RLS as the user) |
 | `dsx.module.queue.<name>.push({ key, payload })` | enqueue; `key` is required because idempotency is a UNIQUE column, not a convention |
+| `dsx.module.queue.<name>.drain({ action, limit })` | claim and process — `action` names a sibling that runs once per message (return ⇒ ack, throw ⇒ retry, then dead-letter with the reason) |
 | `dsx.module.secret.read({ name })` | only the names this document declared; an undeclared name is `forbidden`, an unconfigured one is `unavailable` |
 | `dsx.module.<scheme>.<action>` | a declared package (§5) or another module |
 | `fetch(...)` | HTTPS only, and only to a declared `<egress>` host |

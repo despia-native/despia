@@ -1,0 +1,11 @@
+<vstack style="padding: 20px">
+  <head>
+    <!-- NEGATIVE FIXTURE: an <api> with no sample=. In sample mode this must FAIL AT PLAN
+         TIME, naming the block, rather than rendering a spinner or an empty list. -->
+    <api as="orders" url="/api/orders"/>
+  </head>
+  <text value="Orders" type="title1"/>
+  <list bind="orders.data" key="id">
+    <text value="{{ item.title }}"/>
+  </list>
+</vstack>

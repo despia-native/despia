@@ -1,0 +1,44 @@
+<scroll style="background: background">
+<head>
+  <!--
+    Parity fixture: the LIST FEED. The starter's Notes pane (Notes.dsx) with the
+    backend removed: baseline-aligned header with the count readout, the compose
+    form, and the keyed <list> of pressable rows - title + tertiary date, hairline
+    separators, chevron affordance. Five static rows keep the keyed-row path and
+    the row-template scope on the measured plane.
+  -->
+  <variable as="notes">return [
+    { id: 1, title: "Sketch the parity contract", created_at: "2026-08-14" },
+    { id: 2, title: "Grouped lists want inset separators", created_at: "2026-08-13" },
+    { id: 3, title: "Springs on transform only", created_at: "2026-08-12" },
+    { id: 4, title: "Tab bars are app chrome", created_at: "2026-08-10" },
+    { id: 5, title: "Ship the reference plane", created_at: "2026-08-09" }
+  ]</variable>
+</head>
+<stack style="gap: 0; padding: 0 1.5rem 2rem; max-width: 64rem; align-self: center; width: 100%">
+
+  <hstack style="align-items: baseline; padding: 2rem 0 1.25rem">
+    <text value="Notes" style="font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em"/>
+    <spacer/>
+    <text value="{{ dsx.variable.notes.length + ' notes' }}" style="color: tertiary; font-size: 0.875rem"/>
+  </hstack>
+
+  <form as="compose" submit="Add" style="width: 100%">
+    <field name="title" placeholder="What did you notice today?"/>
+  </form>
+
+  <stack style="gap: 0; margin-top: 1rem">
+    <list bind="dsx.variable.notes" key="id" spacing="0" appearance="custom">
+      <row>
+        <hstack style="gap: 0.75rem; align-items: center; padding: 0.9375rem 0.25rem; border-bottom: 1px solid separator">
+          <stack style="gap: 0.125rem; flex: 1">
+            <text bind="item.title" style="font-weight: 600"/>
+            <text bind="item.created_at" style="color: tertiary; font-size: 0.8125rem"/>
+          </stack>
+          <image icon="chevron.right" style="color: tertiary; width: 1rem; height: 1rem"/>
+        </hstack>
+      </row>
+    </list>
+  </stack>
+</stack>
+</scroll>

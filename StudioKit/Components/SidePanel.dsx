@@ -1,0 +1,31 @@
+<!-- SidePanel — THE DEFAULT SHAPE OF A DESPIA APP (studio-apps.md §4.1). A docked column
+     beside the live preview and the agent, not a window that takes the screen: the work an
+     app does is beside the work you are doing. Header, scrolling body, optional footer for
+     the one commit. The host draws the provenance strip and the expand control above this;
+     an app cannot draw over either. -->
+<vstack class="sk-panel" grow="true" style="gap: 0rem; min-width: 0; min-height: 0">
+  <head>
+    <attribute as="title"/>
+    <attribute as="subtitle" default=""/>
+    <attribute as="footer" default=""/>
+  </head>
+  <hstack class="sk-panel-head" grow="width" style="align-items: center">
+    <hstack class="sk-measure" grow="width" style="align-items: center; gap: 0.5rem">
+      <vstack grow="width" style="gap: 0.125rem; min-width: 0">
+        <text value="{{ dsx.attribute.title }}" class="sk-panel-title" lineLimit="1"/>
+        <text value="{{ dsx.attribute.subtitle }}" class="sk-panel-subtitle" lineLimit="1"
+              visible-if="dsx.attribute.subtitle != ''"/>
+      </vstack>
+      <slot name="actions"/>
+    </hstack>
+  </hstack>
+  <scroll grow="true" class="sk-panel-body">
+    <slot/>
+  </scroll>
+  <hstack class="sk-panel-foot" grow="width" style="align-items: center"
+          visible-if="dsx.attribute.footer != ''">
+    <hstack class="sk-measure" grow="width" style="align-items: center; gap: 0.5rem">
+      <slot name="footer"/>
+    </hstack>
+  </hstack>
+</vstack>

@@ -6,8 +6,14 @@
  * The release builder bundles this small adapter and its kernel dependencies into
  * `canonical-jse.js`; Canvas then consumes it in both Node and its file:// page.
  */
-import { JSE, JSESeams, StackStore } from "../../Web/packages/kernel/src/jse/jse.ts";
-import { NSNull } from "../../Web/packages/kernel/src/jse/values.ts";
+// THE PACKAGE, NOT THE SOURCE PATH. These four used to be imported by deep relative
+// path into packages/kernel/src, which resolves to a DIFFERENT module than the
+// `@despia/kernel` entry every other consumer takes. Inside the standalone IIFE that
+// costs nothing - it is the only thing in the bundle - but the StackEditor element
+// links the kernel too, so the deep path put TWO copies of the interpreter in one
+// artifact: ~82 KB of duplicate, and two evaluators that could in principle disagree
+// about the same expression. The package specifier dedupes against everything else.
+import { JSE, JSESeams, StackStore, NSNull } from "@despia/kernel";
 
 type Dict = Record<string, unknown>;
 type CanvasScope = {

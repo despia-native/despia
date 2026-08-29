@@ -1,0 +1,509 @@
+{
+  "schema": "dsx-w17-desktop-capture-stamps-v1",
+  "_note": "Sidecar for the integrator. The Compose Desktop parity capture is the FIRST executed cross-renderer fidelity measurement in this project. It exercises the Compose element layer and :core resolution on the JVM. IT IS NOT AN ANDROID DEVICE CAPTURE AND NOT AN iOS CAPTURE: no `ios` or `android` cell of OpenSource/Conformance/library/matrix.json may be flipped from this evidence, in either direction. Every row below proposes a stamp in a SEPARATE `desktop` column that matrix.json does not yet have; adding that column is the integrator's call, and until it exists these rows are evidence only. Nothing here was written into matrix.json or generate_library_matrix.rb by the capture lane.",
+  "generatedBy": "W17 desktop parity capture lane",
+  "generatedOn": "2026-08-19",
+  "capture": {
+    "plane": "OpenSource/Conformance/parity/reference/desktop",
+    "renderer": "desktop",
+    "engine": "compose-desktop",
+    "host": "Linux x86_64, JDK 21, Compose Multiplatform 1.10.3, offscreen Skia under Xvfb",
+    "harness": "OpenSource/Engine/Android/desktop/src/test/kotlin/despia/engine/desktop/DesktopParityCaptureTest.kt",
+    "seam": "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopParityCapture.kt",
+    "diff": "ClosedSource/scripts/parity_native_diff.rb (report-first, exit 0)",
+    "fixtures": 10,
+    "captures": 20,
+    "capturedNodes": 532,
+    "pairedWithWebHost": 528,
+    "schemeLawBreaches": 0,
+    "breaches": 825,
+    "reportRows": 2458
+  },
+  "notElevated": "No component below is claimed VERIFIED. Every proposed value is \"review\": the capture proves the element composes and lays out on Compose Desktop and records how far its settled boxes sit from the web plane, not that the presentation is correct.",
+  "components": {
+    "Table": {
+      "authoredTag": "Table",
+      "instancesCaptured": 2,
+      "boxAxesCompared": 8,
+      "boxAxesWithinNativeBudget": 3,
+      "boxAxesWithinNativeBudgetPct": 37.5,
+      "captures": [
+        "dashboard.w1366",
+        "dashboard.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 2 instance(s), 8 box axes compared, 37.5% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "button": {
+      "authoredTag": "button",
+      "instancesCaptured": 28,
+      "boxAxesCompared": 112,
+      "boxAxesWithinNativeBudget": 54,
+      "boxAxesWithinNativeBudgetPct": 48.2,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "dashboard.w1366",
+        "dashboard.w390",
+        "form-screen.w1366",
+        "form-screen.w390",
+        "landing-hero.w1366",
+        "landing-hero.w390",
+        "overlay-sheet.w1366",
+        "overlay-sheet.w390",
+        "split-screen.w1366",
+        "split-screen.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 28 instance(s), 112 box axes compared, 48.2% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "divider": {
+      "authoredTag": "divider",
+      "instancesCaptured": 2,
+      "boxAxesCompared": 8,
+      "boxAxesWithinNativeBudget": 5,
+      "boxAxesWithinNativeBudgetPct": 62.5,
+      "captures": [
+        "type-ramp.w1366",
+        "type-ramp.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 2 instance(s), 8 box axes compared, 62.5% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "field": {
+      "authoredTag": "field",
+      "instancesCaptured": 16,
+      "boxAxesCompared": 64,
+      "boxAxesWithinNativeBudget": 37,
+      "boxAxesWithinNativeBudgetPct": 57.8,
+      "captures": [
+        "form-screen.w1366",
+        "form-screen.w390",
+        "list-feed.w1366",
+        "list-feed.w390",
+        "overlay-sheet.w1366",
+        "overlay-sheet.w390",
+        "split-screen.w1366",
+        "split-screen.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 16 instance(s), 64 box axes compared, 57.8% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "form": {
+      "authoredTag": "form",
+      "instancesCaptured": 10,
+      "boxAxesCompared": 40,
+      "boxAxesWithinNativeBudget": 19,
+      "boxAxesWithinNativeBudgetPct": 47.5,
+      "captures": [
+        "form-screen.w1366",
+        "form-screen.w390",
+        "list-feed.w1366",
+        "list-feed.w390",
+        "overlay-sheet.w1366",
+        "overlay-sheet.w390",
+        "split-screen.w1366",
+        "split-screen.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 10 instance(s), 40 box axes compared, 47.5% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "grid": {
+      "authoredTag": "grid",
+      "instancesCaptured": 4,
+      "boxAxesCompared": 16,
+      "boxAxesWithinNativeBudget": 10,
+      "boxAxesWithinNativeBudgetPct": 62.5,
+      "captures": [
+        "dashboard.w1366",
+        "dashboard.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 4 instance(s), 16 box axes compared, 62.5% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "hstack": {
+      "authoredTag": "hstack",
+      "instancesCaptured": 56,
+      "boxAxesCompared": 224,
+      "boxAxesWithinNativeBudget": 130,
+      "boxAxesWithinNativeBudgetPct": 58.0,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "dashboard.w1366",
+        "dashboard.w390",
+        "form-screen.w1366",
+        "form-screen.w390",
+        "landing-hero.w1366",
+        "landing-hero.w390",
+        "list-feed.w1366",
+        "list-feed.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "split-screen.w1366",
+        "split-screen.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 56 instance(s), 224 box axes compared, 58.0% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "image": {
+      "authoredTag": "image",
+      "instancesCaptured": 14,
+      "boxAxesCompared": 56,
+      "boxAxesWithinNativeBudget": 40,
+      "boxAxesWithinNativeBudgetPct": 71.4,
+      "captures": [
+        "list-feed.w1366",
+        "list-feed.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 14 instance(s), 56 box axes compared, 71.4% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "list": {
+      "authoredTag": "list",
+      "instancesCaptured": 4,
+      "boxAxesCompared": 16,
+      "boxAxesWithinNativeBudget": 9,
+      "boxAxesWithinNativeBudgetPct": 56.2,
+      "captures": [
+        "list-feed.w1366",
+        "list-feed.w390",
+        "split-screen.w1366",
+        "split-screen.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 4 instance(s), 16 box axes compared, 56.2% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "progress": {
+      "authoredTag": "progress",
+      "instancesCaptured": 2,
+      "boxAxesCompared": 8,
+      "boxAxesWithinNativeBudget": 4,
+      "boxAxesWithinNativeBudgetPct": 50.0,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 2 instance(s), 8 box axes compared, 50.0% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "pressable": {
+      "authoredTag": "row",
+      "instancesCaptured": 20,
+      "boxAxesCompared": 64,
+      "boxAxesWithinNativeBudget": 8,
+      "boxAxesWithinNativeBudgetPct": 12.5,
+      "captures": [
+        "list-feed.w1366",
+        "list-feed.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "split-screen.w1366",
+        "split-screen.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 20 instance(s), 64 box axes compared, 12.5% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "scroll": {
+      "authoredTag": "scroll",
+      "instancesCaptured": 14,
+      "boxAxesCompared": 56,
+      "boxAxesWithinNativeBudget": 46,
+      "boxAxesWithinNativeBudgetPct": 82.1,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "dashboard.w1366",
+        "dashboard.w390",
+        "form-screen.w1366",
+        "form-screen.w390",
+        "landing-hero.w1366",
+        "landing-hero.w390",
+        "list-feed.w1366",
+        "list-feed.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "type-ramp.w1366",
+        "type-ramp.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 14 instance(s), 56 box axes compared, 82.1% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "segmented": {
+      "authoredTag": "segmented",
+      "instancesCaptured": 2,
+      "boxAxesCompared": 8,
+      "boxAxesWithinNativeBudget": 4,
+      "boxAxesWithinNativeBudgetPct": 50.0,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 2 instance(s), 8 box axes compared, 50.0% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "slider": {
+      "authoredTag": "slider",
+      "instancesCaptured": 2,
+      "boxAxesCompared": 8,
+      "boxAxesWithinNativeBudget": 5,
+      "boxAxesWithinNativeBudgetPct": 62.5,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 2 instance(s), 8 box axes compared, 62.5% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "spinner": {
+      "authoredTag": "spinner",
+      "instancesCaptured": 2,
+      "boxAxesCompared": 8,
+      "boxAxesWithinNativeBudget": 5,
+      "boxAxesWithinNativeBudgetPct": 62.5,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 2 instance(s), 8 box axes compared, 62.5% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "split": {
+      "authoredTag": "split",
+      "instancesCaptured": 2,
+      "boxAxesCompared": 8,
+      "boxAxesWithinNativeBudget": 8,
+      "boxAxesWithinNativeBudgetPct": 100.0,
+      "captures": [
+        "split-screen.w1366",
+        "split-screen.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 2 instance(s), 8 box axes compared, 100.0% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "stack": {
+      "authoredTag": "stack",
+      "instancesCaptured": 132,
+      "boxAxesCompared": 528,
+      "boxAxesWithinNativeBudget": 331,
+      "boxAxesWithinNativeBudgetPct": 62.7,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "dashboard.w1366",
+        "dashboard.w390",
+        "form-screen.w1366",
+        "form-screen.w390",
+        "landing-hero.w1366",
+        "landing-hero.w390",
+        "list-feed.w1366",
+        "list-feed.w390",
+        "overlay-sheet.w1366",
+        "overlay-sheet.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "split-screen.w1366",
+        "split-screen.w390",
+        "type-ramp.w1366",
+        "type-ramp.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 132 instance(s), 528 box axes compared, 62.7% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "stepper": {
+      "authoredTag": "stepper",
+      "instancesCaptured": 2,
+      "boxAxesCompared": 8,
+      "boxAxesWithinNativeBudget": 3,
+      "boxAxesWithinNativeBudgetPct": 37.5,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 2 instance(s), 8 box axes compared, 37.5% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "tabs": {
+      "authoredTag": "tabs",
+      "instancesCaptured": 2,
+      "boxAxesCompared": 8,
+      "boxAxesWithinNativeBudget": 6,
+      "boxAxesWithinNativeBudgetPct": 75.0,
+      "captures": [
+        "tab-shell.w1366",
+        "tab-shell.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 2 instance(s), 8 box axes compared, 75.0% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "text": {
+      "authoredTag": "text",
+      "instancesCaptured": 208,
+      "boxAxesCompared": 832,
+      "boxAxesWithinNativeBudget": 599,
+      "boxAxesWithinNativeBudgetPct": 72.0,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "dashboard.w1366",
+        "dashboard.w390",
+        "form-screen.w1366",
+        "form-screen.w390",
+        "landing-hero.w1366",
+        "landing-hero.w390",
+        "list-feed.w1366",
+        "list-feed.w390",
+        "overlay-sheet.w1366",
+        "overlay-sheet.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "split-screen.w1366",
+        "split-screen.w390",
+        "type-ramp.w1366",
+        "type-ramp.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 208 instance(s), 832 box axes compared, 72.0% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "textfield": {
+      "authoredTag": "textfield",
+      "instancesCaptured": 2,
+      "boxAxesCompared": 8,
+      "boxAxesWithinNativeBudget": 2,
+      "boxAxesWithinNativeBudgetPct": 25.0,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 2 instance(s), 8 box axes compared, 25.0% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    },
+    "toggle": {
+      "authoredTag": "toggle",
+      "instancesCaptured": 6,
+      "boxAxesCompared": 24,
+      "boxAxesWithinNativeBudget": 11,
+      "boxAxesWithinNativeBudgetPct": 45.8,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390"
+      ],
+      "proposedStamp": {
+        "column": "desktop",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-19",
+        "evidence": "W17 Compose Desktop parity capture 2026-08-19: this element composed and was measured offscreen on the JVM/Skia desktop renderer at both locked planes in both schemes, and its settled boxes were diffed against reference/web/ by ClosedSource/scripts/parity_native_diff.rb (report-first). Capture: OpenSource/Conformance/parity/reference/desktop/*.json (Compose Desktop capture, DesktopParityCaptureTest, 10 fixtures x w390+w1366 x light+dark). 6 instance(s), 24 box axes compared, 45.8% within max(8px, 2% of the plane dimension). This is Compose Desktop, NOT an Android device and NOT iOS."
+      }
+    }
+  }
+}

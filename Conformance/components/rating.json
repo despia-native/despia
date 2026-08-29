@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "component": "Rating",
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Rating.dsx",
+  "_note": "<Rating> — the labelled, accessible, adjustable star row (U11). ONE ADJUSTABLE ELEMENT, not five buttons: the glyphs are a11yHidden and the row announces '3 of 5 stars' through a11yValue, because a screen reader walking five identical star buttons learns nothing. HALF STEPS ARE DISPLAY-AND-ADJUST ONLY — a tap always lands on a whole star, since there is no sub-glyph hit target that behaves the same under a mouse, a finger and a D-pad — and a non-star `icon` has no half glyph in the system symbol set, so it rounds up rather than drawing the wrong shape. The per-glyph decision is `fill = clamp(score - (n - 1), 0, 1)`. THE FORMULA INPUT IS `score`, NEVER `value`: `value` is a reserved formula-input name on the web compiler and is dropped there while the native readers keep it, so a formula naming it reads null on web and the right number on iOS and Android — every glyph drew empty on the web renderer until this corpus pinned it.",
+  "cases": [
+    {
+      "name": "the defaults: five stars, zero score, not read-only, whole steps",
+      "attributes": {},
+      "expect": [
+        { "expr": "dsx.variable.ratingMax", "value": 5 },
+        { "expr": "dsx.variable.ratingValue", "value": 0 },
+        { "expr": "dsx.variable.ratingReadOnly", "value": false },
+        { "expr": "dsx.variable.ratingHalf", "value": false },
+        { "expr": "dsx.variable.ratingUtterance", "value": "0 of 5 stars" }
+      ],
+      "root": [
+        { "attr": "a11yLabel", "value": "Rating" },
+        { "attr": "a11yValue", "value": "0 of 5 stars" }
+      ]
+    },
+    {
+      "name": "the announced value is the whole contract: '3 of 5 stars'",
+      "attributes": { "value": "3" },
+      "root": [{ "attr": "a11yValue", "value": "3 of 5 stars" }]
+    },
+    {
+      "name": "a score past the top clamps rather than announcing '9 of 5'",
+      "attributes": { "value": "9" },
+      "expect": [{ "expr": "dsx.variable.ratingValue", "value": 5 }]
+    },
+    {
+      "name": "a negative score clamps to zero",
+      "attributes": { "value": "-2" },
+      "expect": [{ "expr": "dsx.variable.ratingValue", "value": 0 }]
+    },
+    {
+      "name": "a score that is not a number is zero, not NaN in the utterance",
+      "attributes": { "value": "many" },
+      "expect": [
+        { "expr": "dsx.variable.ratingValue", "value": 0 },
+        { "expr": "dsx.variable.ratingUtterance", "value": "0 of 5 stars" }
+      ]
+    },
+    {
+      "name": "`bind` is the accepted alias of `value`",
+      "attributes": { "bind": "4" },
+      "expect": [{ "expr": "dsx.variable.ratingValue", "value": 4 }]
+    },
+    {
+      "name": "max clamps to at least one glyph and rounds to a whole number of them",
+      "attributes": { "max": "0" },
+      "expect": [{ "expr": "dsx.variable.ratingMax", "value": 1 }]
+    },
+    {
+      "name": "the glyph row is one cell per star, keyed positionally",
+      "attributes": { "max": "3" },
+      "expect": [{ "expr": "dsx.variable.ratingCells", "value": [
+        { "key": "g0", "n": 1 }, { "key": "g1", "n": 2 }, { "key": "g2", "n": 3 }
+      ] }]
+    },
+    {
+      "name": "an earned star is filled and tinted",
+      "attributes": { "value": "3.4", "half": "true" },
+      "item": { "n": 3 },
+      "expect": [
+        { "expr": "dsx.formula.ratingGlyph", "value": "star.fill" },
+        { "expr": "dsx.formula.ratingGlyphTint", "value": "accent" }
+      ]
+    },
+    {
+      "name": "a partly earned star draws the HALF glyph when half=\"true\"",
+      "attributes": { "value": "3.4", "half": "true" },
+      "item": { "n": 4 },
+      "expect": [
+        { "expr": "dsx.variable.ratingHalfIcon", "value": "star.leadinghalf.filled" },
+        { "expr": "dsx.formula.ratingGlyph", "value": "star.leadinghalf.filled" }
+      ]
+    },
+    {
+      "name": "the same partly earned star is EMPTY when half steps are off",
+      "attributes": { "value": "3.4" },
+      "item": { "n": 4 },
+      "expect": [{ "expr": "dsx.formula.ratingGlyph", "value": "star" }]
+    },
+    {
+      "name": "a three-quarter fill rounds UP to a whole star, halves or not",
+      "attributes": { "value": "3.8", "half": "true" },
+      "item": { "n": 4 },
+      "expect": [{ "expr": "dsx.formula.ratingGlyph", "value": "star.fill" }]
+    },
+    {
+      "name": "an unearned star is untinted, so colour is not the only signal of the boundary",
+      "attributes": { "value": "3.4", "half": "true" },
+      "item": { "n": 5 },
+      "expect": [
+        { "expr": "dsx.formula.ratingGlyph", "value": "star" },
+        { "expr": "dsx.formula.ratingGlyphTint", "value": "tertiary" }
+      ]
+    },
+    {
+      "name": "a non-star icon has no half glyph, so it rounds up rather than drawing a wrong shape",
+      "attributes": { "value": "3.4", "half": "true", "icon": "heart" },
+      "item": { "n": 4 },
+      "expect": [
+        { "expr": "dsx.variable.ratingHalfIcon", "value": "heart.fill" },
+        { "expr": "dsx.formula.ratingGlyph", "value": "heart.fill" }
+      ]
+    },
+    {
+      "name": "a non-star icon drops the noun from the announcement rather than saying 'hearts stars'",
+      "attributes": { "value": "3", "icon": "heart" },
+      "expect": [{ "expr": "dsx.variable.ratingUtterance", "value": "3 of 5" }]
+    },
+    {
+      "name": "the earned tint is caller-set and applies to earned glyphs only",
+      "attributes": { "value": "2", "color": "destructive" },
+      "item": { "n": 1 },
+      "expect": [{ "expr": "dsx.formula.ratingGlyphTint", "value": "destructive" }]
+    },
+    {
+      "name": "readOnly is a declared display mode, so adjust and tap can both refuse",
+      "attributes": { "value": "4", "readOnly": "true" },
+      "expect": [{ "expr": "dsx.variable.ratingReadOnly", "value": true }]
+    },
+    {
+      "name": "the control's own name is caller-replaceable and never collides with its value",
+      "attributes": { "value": "4.5", "half": "true", "a11yLabel": "Average rating" },
+      "root": [
+        { "attr": "a11yLabel", "value": "Average rating" },
+        { "attr": "a11yValue", "value": "4.5 of 5 stars" }
+      ]
+    }
+  ]
+}

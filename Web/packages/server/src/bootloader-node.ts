@@ -15,9 +15,11 @@ import { createHost, DEFAULT_MAX_BODY_BYTES } from "./host.ts";
 import { stripMountPrefix } from "./bootloader-deno.ts";
 import { createIdentityResolver } from "./identity.ts";
 import { installConfiguredDataProvider, loadGenerated } from "./generated-loader.ts";
-import { INTERNAL_KEY_ENV, assertConfigured, configuredEnv, hostOptions } from "./config.ts";
+import { INTERNAL_KEY_ENV, assertConfigured, configuredEnv, eventRetentionHours, hostOptions } from "./config.ts";
+import { createMcpFace } from "./mcp-face.ts";
 import { createSiteHandler } from "./site-node.ts";
 import { sweepEvents, sweepRateCounters } from "./postgres.ts";
+import { flushSpendIfDue } from "./spend.ts";
 
 const DEFAULT_PORT = 8787;
 
@@ -126,6 +128,10 @@ export async function serve(
   // already applies to the route table it validates at handler-creation time.
   const siteDir = opts.site ?? platformEnv("DSX_SITE_DIR");
   const site = siteDir === undefined || siteDir === "" ? null : await createSiteFromDir(siteDir);
+  // The MCP face (W3): declared tools served at /mcp, same identity boundary, same handlers.
+  const mcp = generated.mcpTools.length > 0
+    ? createMcpFace({ tools: generated.mcpTools, handlers: generated.handlers, buildInfo: generated.buildInfo })
+    : null;
   // THE CAP MUST LIVE HERE, not only in the host.
   //
   // `host.ts` enforces `maxBodyBytes` against the stream — but this bootloader used to buffer
@@ -169,7 +175,20 @@ export async function serve(
           return;
         }
       }
-      const webRes = await host.handle(webReq, { identity: await resolveIdentity(webReq), env });
+      const identity = await resolveIdentity(webReq);
+      if (mcp !== null) {
+        const served = await mcp(webReq, { identity, env });
+        if (served !== null) {
+          // A face-served answer bypasses host.handle's flush hook, and the MCP face charges
+          // the spend plane — flush here so a tool-driven trip's event and counters land
+          // without waiting for the next API request. The retention interval remains the
+          // quiet-tail backstop.
+          void flushSpendIfDue(env)?.catch(reportSweepFailure);
+          await writeWebResponse(served, res);
+          return;
+        }
+      }
+      const webRes = await host.handle(webReq, { identity, env });
       await writeWebResponse(webRes, res);
     })().catch((e: unknown) => {
       // Transport-level failure only — the host answers its own. Same wire shape as host.ts:
@@ -219,6 +238,10 @@ export async function serve(
   const retention = setInterval(() => {
     void sweepRateCounters().catch(reportSweepFailure);
     void sweepEvents(eventRetentionHours(generated.config)).catch(reportSweepFailure);
+    // The spend plane's idle flush: a server whose traffic just stopped still lands its last
+    // local counters (and any waiting transition) without waiting for the next request. On the
+    // request path the flush already rides handle(); this is only the quiet-tail case.
+    void flushSpendIfDue(env)?.catch(reportSweepFailure);
   }, RETENTION_INTERVAL_MS);
   retention.unref();
 
@@ -238,14 +261,6 @@ export async function serve(
 /** Often enough that a busy deployment never accumulates a day of expired windows, rarely enough
  *  that it is invisible against request traffic. */
 const RETENTION_INTERVAL_MS = 10 * 60 * 1000;
-
-/** The declared history window (Core/Server config `event_retention_hours`), which is the bound on
- *  the "a disconnected subscriber misses nothing" promise. */
-function eventRetentionHours(config: unknown): number {
-  const declared = (config as { values?: Record<string, unknown> } | undefined)?.values?.["event_retention_hours"];
-  const hours = Number(declared);
-  return Number.isFinite(hours) && hours > 0 ? Math.trunc(hours) : 24;
-}
 
 function reportSweepFailure(e: unknown): void {
   // Retention failing is not a reason to take the process down, and it is not a reason to stay

@@ -63,6 +63,8 @@
 //  about who may drain a queue is a second place for that answer to be wrong.
 //
 
+import { queueDepthCeiling } from "./spend.ts";
+
 /** One claimed message. The payload is the enqueuer's, verbatim; everything else is the queue's. */
 export interface QueueMessage {
   /** the queue row id — the handle `ack`/`release` name */
@@ -98,6 +100,17 @@ export interface QueueEnqueueRequest {
   key: string;
   /** the message body, stored verbatim */
   payload: Record<string, unknown>;
+  /**
+   * The declared outstanding-message ceiling (the spend plane's `queue:<name>` `depth` —
+   * cost-guardrails.md backpressure). At or past it the enqueue is refused `saturated`, the
+   * transient code a caller may retry — which is the honest answer to a producer outrunning its
+   * consumer, and the second half of what bounds a re-enqueue cycle (the first is the window
+   * ceiling charged at the push seam). Absent = unbounded, exactly as before the plane existed.
+   * Enforced in the SAME statement as the insert, so the check and the write cannot race apart;
+   * the count is read before the insert, so concurrent pushes can overshoot by at most the
+   * concurrency width — a ceiling, not an invoice (the spend plane's own honesty rule).
+   */
+  maxPending?: number;
 }
 
 export interface QueueEnqueueResult {
@@ -238,7 +251,11 @@ export async function enqueueMessage(
   if (new TextEncoder().encode(key).length > MAX_KEY_BYTES) {
     throw new QueueError(`the idempotency key exceeds ${MAX_KEY_BYTES} bytes`, "bad_request");
   }
-  return requireTransport().enqueue({ queue, key, payload });
+  // The declaration lives on the spend plane (`<budget of="queue:…" depth="…">`); the
+  // enforcement lives in the transport's insert statement. Read here, once per push, so a
+  // provider never learns where ceilings come from.
+  const depth = queueDepthCeiling(queue);
+  return requireTransport().enqueue({ queue, key, payload, ...(depth !== null ? { maxPending: depth } : {}) });
 }
 
 /** Hard ceiling on one dead-letter listing — the same reasoning as QUEUE_CLAIM_LIMIT. */

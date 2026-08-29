@@ -1,0 +1,68 @@
+<stack style="gap: 0; align-items: stretch; background: background">
+<head>
+  <!--
+    Parity fixture: the SPLIT SCREEN. The starter's notes shape on the pane
+    primitive (component-library.md W9): <split> owns the two panes - paneRole
+    content = the list column (baseline header with the count, compose form, the
+    keyed <list> of pressable rows with the selected-row wash breathing into the
+    pane gutter), paneRole detail = the boxless editor with its Delete/Save row.
+    Selection is the split's value, preset in the head, so the desktop plane pins
+    the pinned pair with its divider and the phone plane pins the pushed detail
+    with the Back affordance. The pane owns the clip (the W10 wash-clip fix), so
+    the selected pill's corners stay round at the pane edge. Static data, no
+    network, no routes, no motion attributes.
+  -->
+  <variable as="notes">return [
+    { id: 'a', title: 'Sketch the parity contract', created_at: '2026-08-14' },
+    { id: 'b', title: 'Walked by the harbour, edited', created_at: '2026-08-13' },
+    { id: 'c', title: 'Springs on transform only', created_at: '2026-08-12' }
+  ]</variable>
+  <variable as="selected">return 'b'</variable>
+</head>
+
+  <split value="dsx.variable.selected" style="flex: 1">
+
+    <stack paneRole="content" style="gap: 0; align-items: stretch; padding: 0 1.5rem 2.5rem">
+      <hstack style="align-items: baseline; gap: 0.75rem; padding: 2rem 0 1.25rem">
+        <text value="Notes" style="font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em"/>
+        <text value="{{ dsx.variable.notes.length + ' notes' }}" style="color: tertiary; font-size: 0.875rem"/>
+      </hstack>
+
+      <form as="compose" style="width: 100%">
+        <stack style="gap: 0.5rem; align-items: stretch; width: 100%">
+          <field name="title" placeholder="What did you notice?" style="width: 100%"/>
+          <button label="Add" style="background: accent; color: background; font-weight: 600; border-radius: 10px; padding: 0.5625rem 1.375rem"/>
+        </stack>
+      </form>
+
+      <stack style="gap: 0; margin-top: 1.5rem">
+        <list bind="dsx.variable.notes" key="id" spacing="0" appearance="custom" style="width: 100%; align-items: stretch">
+          <row on:tap="dsx.variable.selected = item.id">
+            <stack style="gap: 0; width: 100%; align-items: stretch; border-bottom: 1px solid separator">
+              <stack style="gap: 0.1875rem; padding: 0.9375rem 0.5rem; margin: 0 -0.5rem; border-radius: 10px; background: {{ dsx.variable.selected === item.id ? 'fill' : 'transparent' }}">
+                <text bind="item.title" style="font-weight: 600; font-size: 1.0625rem"/>
+                <text bind="item.created_at" style="color: tertiary; font-size: 0.8125rem"/>
+              </stack>
+            </stack>
+          </row>
+        </list>
+      </stack>
+    </stack>
+
+    <stack paneRole="detail" style="gap: 0; align-items: stretch; padding: 0 1.5rem 2.5rem">
+      <stack style="gap: 1rem; width: 100%; max-width: 40rem; padding-top: 2rem">
+        <text value="2026-08-13" style="color: tertiary; font-size: 0.8125rem"/>
+        <form as="editor" style="width: 100%">
+          <field name="title" label="Title" style="width: 100%"/>
+          <field name="body" label="Note" multiline="true" style="width: 100%"/>
+        </form>
+        <hstack style="align-items: center; gap: 1rem; margin-top: 0.375rem; width: 100%">
+          <button label="Delete" role="destructive" on:tap="dsx.variable.selected = ''" style="font-size: 0.9375rem; font-weight: 500; padding: 0.375rem 0"/>
+          <spacer/>
+          <button label="Save" on:tap="dsx.variable.selected = 'b'" style="background: label; color: background; font-weight: 600; border-radius: 10px; padding: 0.5625rem 1.25rem"/>
+        </hstack>
+      </stack>
+    </stack>
+
+  </split>
+</stack>

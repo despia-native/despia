@@ -9,9 +9,10 @@ import { number } from "@despia/kernel";
 import type { XmlNode } from "@despia/compiler/xml";
 import type { MountCtx } from "./mount.ts";
 import { ELEMENTS, createMarquee, iconSvg, type ElementApi, type ElementFactory } from "./elements.ts";
+import { split, SPLIT_CSS } from "./split.ts";
 
 export const STRUCTURAL_CONTROL_TAGS: ReadonlySet<string> = new Set([
-  "flow", "toolbar", "list", "grid", "pager", "tabs", "tabview", "carousel",
+  "flow", "toolbar", "list", "grid", "pager", "tabs", "tabview", "carousel", "split",
 ]);
 export const STRUCTURAL_CHILD_LIMIT = 1_000;
 
@@ -58,7 +59,10 @@ export function normalizeStructuralGap(value: unknown, fallback: number): number
   return Math.min(Math.max(finite(value, fallback), 0), 16_384);
 }
 
-function bindLength(
+/** Exported for the BOUND `<flow>` in mount.ts: a repeating wrap takes the same two spacing
+ *  properties the static one does, and one spelling of "a gap attribute becomes a custom
+ *  property" is the whole point of it living here. */
+export function bindLength(
   node: XmlNode,
   api: ElementApi,
   name: string,
@@ -90,7 +94,11 @@ export const toolbar: ElementFactory = (node, _ctx, api) => {
   const root = el("div", "dsx-toolbar");
   root.setAttribute("role", "toolbar");
   root.setAttribute("aria-orientation", "horizontal");
-  if (node.attrs["a11yLabel"] === undefined && node.attrs["aria-label"] === undefined) {
+  if (node.attrs["a11yLabel"] !== undefined) {
+    api.bindText(node.attrs["a11yLabel"], (value) => root.setAttribute("aria-label", value || "Toolbar"));
+  } else if (node.attrs["aria-label"] !== undefined) {
+    api.bindText(node.attrs["aria-label"], (value) => root.setAttribute("aria-label", value || "Toolbar"));
+  } else {
     root.setAttribute("aria-label", "Toolbar");
   }
   bindLength(node, api, "spacing", 12, root, "--dsx-toolbar-spacing");
@@ -169,12 +177,17 @@ function collection(node: XmlNode, api: ElementApi, kind: "list" | "grid"): HTML
   api.bindText(node.attrs["scroll"] ?? "true", (value) => {
     root.setAttribute("data-dsx-scroll", enabledUnlessFalse(value) ? "true" : "false");
   });
-  api.bindText(node.attrs["align"] ?? "leading", (value) => {
-    root.setAttribute(
-      "data-dsx-align",
-      value === "center" || value === "trailing" ? value : "leading",
-    );
-  });
+  // Unset align means STRETCH — the base .dsx-list rule applies, so stamp NOTHING
+  // (wave-7 F3: stamping "leading" made every list hug). Authored values keep their
+  // meaning; an unrecognized authored word still falls to "leading".
+  if (node.attrs["align"] !== undefined) {
+    api.bindText(node.attrs["align"], (value) => {
+      root.setAttribute(
+        "data-dsx-align",
+        value === "center" || value === "trailing" ? value : "leading",
+      );
+    });
+  }
   if (kind === "grid") {
     root.setAttribute("aria-colcount", "3");
     if (node.attrs["columns"] !== undefined) {
@@ -208,13 +221,26 @@ function addTabIcon(host: HTMLElement, expression: string, api: ElementApi): voi
   });
 }
 
-export const tabs: ElementFactory = (node, _ctx, api) => {
+/** The desktop step. At this width the dock re-places (CSS grid, same DOM) as a
+ * leading sidebar rail, mirroring iPadOS/macOS which adapt tab bars into top
+ * bars/sidebars natively on regular widths: iPad landscape (1366) qualifies,
+ * iPad portrait (1024) keeps the owner-approved bottom dock. One string drives
+ * the skin's media block and the factory's matchMedia so the rendered
+ * orientation and the ARIA/arrow-key orientation cannot drift. */
+export const TABS_WIDE_MEDIA = "(min-width: 69rem)";
+
+export const tabs: ElementFactory = (node, ctx, api) => {
   const root = el("div", "dsx-tabs");
   const panels = el("div", "dsx-tab-panels");
   const tablist = el("div", "dsx-tablist");
   const instance = ++structuralSequence;
   tablist.setAttribute("role", "tablist");
   tablist.setAttribute("aria-label", node.attrs["a11yLabel"] ?? "Tabs");
+  const wide = typeof matchMedia === "function" ? matchMedia(TABS_WIDE_MEDIA) : null;
+  const vertical = (): boolean => wide?.matches === true;
+  const reflectOrientation = (): void => {
+    tablist.setAttribute("aria-orientation", vertical() ? "vertical" : "horizontal");
+  };
 
   const buttons: HTMLButtonElement[] = [];
   const panelElements: HTMLElement[] = [];
@@ -288,10 +314,13 @@ export const tabs: ElementFactory = (node, _ctx, api) => {
   buttons.forEach((button, index) => {
     button.addEventListener("click", () => select(index, true));
     button.addEventListener("keydown", (event) => {
+      // WAI-ARIA tabs: the arrow axis follows the RENDERED orientation.
+      const forward = vertical() ? "ArrowDown" : "ArrowRight";
+      const backward = vertical() ? "ArrowUp" : "ArrowLeft";
       const next = event.key === "Home" ? 0
         : event.key === "End" ? buttons.length - 1
-        : event.key === "ArrowRight" ? (index + 1) % buttons.length
-        : event.key === "ArrowLeft" ? (index - 1 + buttons.length) % buttons.length
+        : event.key === forward ? (index + 1) % buttons.length
+        : event.key === backward ? (index - 1 + buttons.length) % buttons.length
         : null;
       if (next === null) return;
       event.preventDefault();
@@ -300,6 +329,11 @@ export const tabs: ElementFactory = (node, _ctx, api) => {
     });
   });
   if (node.attrs["value"] !== undefined) api.bindValue(node.attrs["value"], (value) => select(value, false));
+  reflectOrientation();
+  if (wide !== null) {
+    wide.addEventListener("change", reflectOrientation);
+    ctx.disposers.push(() => wide.removeEventListener("change", reflectOrientation));
+  }
   reflect();
   return root;
 };
@@ -441,6 +475,7 @@ export const STRUCTURAL_CONTROL_ELEMENTS: Readonly<Record<string, ElementFactory
   tabs,
   tabview: tabs,
   carousel,
+  split,
 };
 
 export function registerStructuralControls(): void {
@@ -462,14 +497,15 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     gap: var(--dsx-toolbar-spacing, 12px);
     min-width: 0;
     min-height: 44px;
-    padding: 10px max(16px, env(safe-area-inset-left));
+    padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
     color: var(--dsx-label);
     background: color-mix(in srgb, var(--dsx-background) 86%, transparent);
+    box-shadow: var(--dsx-shadow-xs);
     -webkit-backdrop-filter: blur(18px) saturate(1.2);
     backdrop-filter: blur(18px) saturate(1.2);
   }
-  .dsx-toolbar[data-dsx-position="bottom"] { border-top: 1px solid var(--dsx-separator); }
-  .dsx-toolbar[data-dsx-position="top"] { border-bottom: 1px solid var(--dsx-separator); }
+  .dsx-toolbar[data-dsx-position="bottom"] { border-top: var(--dsx-hairline) solid var(--dsx-separator); }
+  .dsx-toolbar[data-dsx-position="top"] { border-bottom: var(--dsx-hairline) solid var(--dsx-separator); }
 
   .dsx-list {
     display: flex;
@@ -493,6 +529,22 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
   .dsx-list[data-dsx-align="trailing"] { align-items: flex-end; }
   .dsx-list > .dsx-row { min-width: 0; }
   .dsx-list[data-dsx-axis="horizontal"] > .dsx-row, .dsx-scroll-x > .dsx-row { flex: 0 0 auto; }
+  ` +
+// ...unless the ITEM asked to grow. A horizontal list is usually a scroller, so content
+// sizing is the right default - but grow="width" on the row's own content is an author
+// saying "these are columns, divide the width", and the list was answering "no" on their
+// behalf (runtime-pressure R17).
+// The declaration lands on the ITEM, not on .dsx-row: a collection row is display:contents,
+// so its own flex is inert and the item is the list's real flex child. In a row container
+// width is the MAIN axis, so grow="width" has to mean flex-grow - the generic
+// .dsx-row > [data-dsx-grow] rule reads it as a cross-axis stretch, which is right under a
+// vertical list and a no-op under a horizontal one.
+`  .dsx-list[data-dsx-axis="horizontal"] > .dsx-row > [data-dsx-grow="width"],
+  .dsx-list[data-dsx-axis="horizontal"] > .dsx-row > [data-dsx-grow="true"],
+  .dsx-scroll-x > .dsx-row > [data-dsx-grow="width"],
+  .dsx-scroll-x > .dsx-row > [data-dsx-grow="true"] {
+    align-self: auto; flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0;
+  }
   .dsx-list[data-dsx-axis="vertical"][data-dsx-appearance="grouped"],
   .dsx-list[data-dsx-axis="vertical"][data-dsx-appearance="automatic"][class="dsx-list"]:not([style]),
   .dsx-list[data-dsx-axis="vertical"][data-dsx-appearance="automatic"]:has(> .dsx-row > .dsx-settings-row) {
@@ -500,7 +552,14 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     --dsx-list-padding-inline: 16px;
     --dsx-list-separator-inset: 16px;
     overflow: hidden auto;
-    border-radius: var(--dsx-radius-lg);
+    ` +
+// the CARD does not pre-reserve a scrollbar gutter: the base .dsx-list "stable"
+// reservation leaves a dead band inside the card's trailing edge on classic-bar
+// platforms, so row washes and separators stop short of the edge (the wave-7
+// trailing-edge nit). A card that truly scrolls consumes a thin bar instead.
+`    scrollbar-gutter: auto;
+    scrollbar-width: thin;
+    border-radius: var(--dsx-radius-card);
     background: var(--dsx-surface-raised);
     box-shadow:
       inset 0 0 0 var(--dsx-hairline) var(--dsx-outline-soft),
@@ -551,6 +610,13 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     padding-inline: var(--dsx-list-padding-inline);
     border-radius: 0;
   }
+  /* the card clips its rows (overflow + radius), so a focused row keeps the ONE
+     recipe's width as an INSET ring instead of the outward outline */
+  .dsx-list[data-dsx-axis="vertical"][data-dsx-appearance="grouped"] > .dsx-row > .dsx-pressable:focus-visible,
+  .dsx-list[data-dsx-axis="vertical"][data-dsx-appearance="automatic"][class="dsx-list"]:not([style]) > .dsx-row > .dsx-pressable:focus-visible {
+    outline: none;
+    box-shadow: inset var(--dsx-focus-ring);
+  }
   .dsx-list[data-dsx-axis="vertical"][data-dsx-appearance="grouped"] > .dsx-row > :not(.dsx-pressable) {
     width: 100%;
     padding: 0.625rem var(--dsx-list-padding-inline);
@@ -558,6 +624,30 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
   .dsx-list[data-dsx-axis="vertical"][data-dsx-appearance="automatic"][class="dsx-list"]:not([style]) > .dsx-row > :not(.dsx-pressable) {
     width: 100%;
     padding: 0.625rem var(--dsx-list-padding-inline);
+  }
+  ` +
+// THE SELECTION WASH (component-fidelity, wave 7): a selected grouped/list row - the
+// split-view master row included - washes as an INSET pill with the control radius
+// and a breathing trailing edge, never a hard-edged full-bleed band. The inline
+// padding re-balances by the same inset so the content column does not shift;
+// logical properties keep the RTL mirror free.
+`  .dsx-list[data-dsx-axis="vertical"][data-dsx-appearance="grouped"] > .dsx-row > .dsx-pressable:not(.dsx-settings-row):is([aria-current="page"], [aria-selected="true"], [aria-pressed="true"]),
+  .dsx-list[data-dsx-axis="vertical"][data-dsx-appearance="automatic"][class="dsx-list"]:not([style]) > .dsx-row > .dsx-pressable:not(.dsx-settings-row):is([aria-current="page"], [aria-selected="true"], [aria-pressed="true"]) {
+    width: calc(100% - 2 * var(--dsx-list-wash-inset, 6px));
+    margin-inline: var(--dsx-list-wash-inset, 6px);
+    padding-inline: calc(var(--dsx-list-padding-inline) - var(--dsx-list-wash-inset, 6px));
+    border-radius: var(--dsx-radius-control);
+  }
+  ` +
+// The wash at a SPLIT PANE edge (the W9 2px-clip nit): inside a split pane the PANE
+// is the declared scroll container (SPLIT_CSS overflow: hidden auto), so a STYLED
+// master list must not open its own clip - it sliced a row wash that breathes into
+// the pane gutter flat mid-corner (a 2px arc remnant at the pane edge) and its
+// stable scrollbar gutter stole the wash's trailing inset. The list stays visible
+// and the pane owns the clip; the grouped CARD variants above keep their own
+// rounded clip - the :not() arms negate exactly the card discriminators.
+`  .dsx-split-pane .dsx-list[data-dsx-axis="vertical"][data-dsx-appearance="automatic"]:not([class="dsx-list"]:not([style])):not(:has(> .dsx-row > .dsx-settings-row)) {
+    overflow: visible;
   }
   /* the LIST CONSTRUCTS — sections (group_by), the swipe rails, the reorder handle */
   .dsx-list-section { display: flex; flex-direction: column; min-width: 0; }
@@ -570,8 +660,9 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     background: color-mix(in srgb, var(--dsx-background) 92%, transparent);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
-    font-size: .8125rem;
-    font-weight: 600;
+    font-size: var(--dsx-type-footnote-size);
+    font-weight: var(--dsx-type-headline-weight);
+    letter-spacing: var(--dsx-type-footnote-tracking);
     text-transform: none;
   }
   .dsx-list-section-header:empty { display: none; }
@@ -592,7 +683,7 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     background: inherit;
     touch-action: pan-y;
     transform: translateX(var(--dsx-swipe-offset, 0px));
-    transition: transform 180ms ease;
+    transition: transform var(--dsx-dur-base) var(--dsx-ease);
   }
   .dsx-list-row[data-dsx-swipe="dragging"] > .dsx-list-row-content { transition: none; }
   .dsx-list-actions {
@@ -615,13 +706,16 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     padding: 0 14px;
     border: 0;
     color: var(--dsx-background);
-    background: var(--dsx-list-action-tint, var(--dsx-fill-strong, var(--dsx-secondary-label)));
+    background: var(--dsx-list-action-tint, var(--dsx-label));
     font: inherit;
-    font-weight: 600;
+    font-size: var(--dsx-type-callout-size);
+    font-weight: var(--dsx-type-headline-weight);
     cursor: pointer;
+    transition: filter var(--dsx-dur-fast) var(--dsx-ease);
   }
-  .dsx-list-action[data-dsx-role="destructive"] { background: var(--dsx-list-action-tint, var(--dsx-destructive)); }
-  .dsx-list-action:focus-visible { outline: 2px solid currentColor; outline-offset: -3px; }
+  .dsx-list-action[data-dsx-role="destructive"] { color: var(--dsx-on-destructive); background: var(--dsx-list-action-tint, var(--dsx-destructive)); }
+  .dsx-list-action:active { filter: brightness(.92); }
+  .dsx-list-action:focus-visible { outline: var(--dsx-focus-ring-width) solid currentColor; outline-offset: -3px; box-shadow: none; }
   .dsx-list-reorder {
     appearance: none;
     flex: none;
@@ -633,6 +727,7 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     background: transparent;
     cursor: grab;
     touch-action: none;
+    transition: color var(--dsx-dur-fast) var(--dsx-ease);
   }
   .dsx-list-reorder[hidden] { display: none; }
   .dsx-list-reorder::before {
@@ -643,7 +738,8 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     margin: 0 auto;
     border-block: 2px solid currentColor;
   }
-  .dsx-list-reorder:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+  .dsx-list-reorder:active { cursor: grabbing; }
+  .dsx-list-reorder:focus-visible { outline: none; box-shadow: inset var(--dsx-focus-ring); }
   .dsx-row-constructs[data-dsx-dragging="true"] { opacity: .6; }
   .dsx-list[data-dsx-reordering="true"] { cursor: grabbing; }
   .dsx-list[data-dsx-autoscroll]:not([data-dsx-autoscroll="false"]) { scrollbar-width: none; }
@@ -660,6 +756,10 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     grid-template-columns: repeat(var(--dsx-grid-columns, 3), minmax(0, 1fr));
     width: 100%;
     gap: var(--dsx-collection-spacing, 10px);
+    /* the LazyVGrid analogue: offscreen rows skip render work inside a scrolling
+       viewport; auto retains each row's real size once seen so scrollbars hold */
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 240px;
   }
   .dsx-grid > .dsx-grid-aria-row > .dsx-row { min-width: 0; }
 
@@ -672,19 +772,40 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     background: var(--dsx-background);
   }
   .dsx-tab-panels { min-width: 0; min-height: 0; overflow: auto; color: var(--dsx-label); }
+  /* a visible pane is an APP SCREEN: it fills the frame so a pane root (scroll,
+     stack) can paint its background edge to edge - the grouped-page idiom needs it */
   .dsx-tab-panel { min-width: 0; min-height: 0; }
+  .dsx-tab-panel:not([hidden]) { display: flex; flex-direction: column; min-height: 100%; animation: dsx-tab-pane-in var(--dsx-dur-base) var(--dsx-ease-spring-soft); }
+  .dsx-tab-panel:not([hidden]) > * { flex: 1 0 auto; }
+  .dsx-tab-panel:not([hidden]) > * > .dsx-scroll:only-child { flex: 1 0 auto; }
   .dsx-tab-panel[hidden] { display: none; }
-  .dsx-tablist {
+  @keyframes dsx-tab-pane-in { from { opacity: 0; transform: translateY(6px); } }
+  ` +
+// THE COMPACT TAB BAR (owner rulings 2026-08-19): native-grade app chrome, never a
+// floating web widget, and the platform tab-bar idiom is the DEFAULT REFERENCE for
+// PWA system chrome. Edge-to-edge translucent material (blur over a 90% background
+// mix, honest opaque fallback below), a top hairline, and a 3.25rem content band
+// anchored above env(safe-area-inset-bottom). SELECTION IS CARRIED BY TINT ALONE:
+// the active item's icon and label take the accent, resting items stay tertiary,
+// and nothing is drawn behind an item - no indicator, no persistent transforms.
+// (A filled-glyph active variant waits on authored filled paths; the icon table is
+// a stroke-tier set, so a .fill name swap would render another outline, not the cue.)
+// This is the one presentation at every width below TABS_WIDE_MEDIA - the former
+// >=48rem floating shadow-card dock is retired grammar.
+`  .dsx-tablist {
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(0, 1fr);
     align-items: stretch;
     min-width: 0;
-    padding: 6px max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
-    border-top: 1px solid var(--dsx-separator);
-    background: color-mix(in srgb, var(--dsx-background) 88%, transparent);
-    -webkit-backdrop-filter: blur(20px) saturate(1.25);
-    backdrop-filter: blur(20px) saturate(1.25);
+    padding: 0 max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
+    border-top: var(--dsx-hairline) solid var(--dsx-separator);
+    background: color-mix(in srgb, var(--dsx-background) 90%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(1.1);
+    backdrop-filter: blur(20px) saturate(1.1);
+  }
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .dsx-tablist { background: var(--dsx-background); }
   }
   .dsx-tab {
     appearance: none;
@@ -693,30 +814,49 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     grid-template-columns: 1fr auto 1fr;
     place-items: center;
     align-content: center;
+    row-gap: 3px;
     min-width: 0;
-    min-height: 48px;
-    padding: 5px 8px;
+    min-height: 3.25rem;
+    padding: 5px 4px 6px;
     border: 0;
     border-radius: var(--dsx-radius-sm);
-    color: var(--dsx-secondary-label);
+    color: var(--dsx-tertiary-label);
     background: transparent;
     font: inherit;
     cursor: pointer;
-    transition: color 150ms ease, background-color 150ms ease, transform 100ms ease;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--dsx-dur-base) var(--dsx-ease), background-color var(--dsx-dur-fast) var(--dsx-ease), transform var(--dsx-dur-slow) var(--dsx-ease-spring);
   }
-  .dsx-tab[data-dsx-selected="true"] { color: currentColor; background: var(--dsx-fill); }
-  .dsx-tab:active { transform: scale(.98); }
-  .dsx-tab:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; box-shadow: var(--dsx-focus-ring); }
-  .dsx-tab-icon { grid-column: 2; display: inline-flex; width: 20px; height: 20px; }
+  .dsx-tab[data-dsx-selected="true"] { color: var(--dsx-accent); }
+  .dsx-tab:active {
+    transform: scale(.98);
+    transition: color var(--dsx-dur-fast) var(--dsx-ease), background-color var(--dsx-dur-fast) var(--dsx-ease), transform var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-tab:focus-visible {
+    outline: var(--dsx-focus-ring-width) solid var(--dsx-accent);
+    outline-offset: var(--dsx-focus-ring-offset);
+    z-index: 1;
+  }
+  .dsx-tab-icon {
+    grid-column: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+  }
+  .dsx-tab-icon svg { width: 100%; height: 100%; }
   .dsx-tab-label {
     grid-column: 1 / -1;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: .75rem;
-    font-weight: 600;
-    line-height: 1.2;
+    font-size: var(--dsx-type-caption2-size);
+    font-weight: var(--dsx-type-label-weight);
+    letter-spacing: var(--dsx-type-label-tracking);
+    line-height: var(--dsx-type-title1-leading);
   }
   .dsx-tab-badge {
     grid-column: 3;
@@ -726,13 +866,13 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     max-width: 3.5rem;
     padding: 1px 5px;
     overflow: hidden;
-    border-radius: 999px;
-    color: var(--dsx-background);
+    border-radius: var(--dsx-radius-full);
+    color: var(--dsx-on-destructive);
     background: var(--dsx-destructive);
     text-overflow: ellipsis;
-    font-size: .6875rem;
-    font-weight: 700;
-    line-height: 16px;
+    font-size: var(--dsx-type-caption2-size);
+    font-weight: var(--dsx-type-display-weight);
+    line-height: var(--dsx-type-leading-none);
   }
 
   .dsx-paged {
@@ -771,38 +911,54 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 7px;
+    gap: 0;
     min-height: 30px;
-    padding: 7px 12px;
+    padding: var(--dsx-space-1) var(--dsx-space-3);
   }
   .dsx-paged-dots[hidden] { display: none; }
   .dsx-paged-dot {
     appearance: none;
+    box-sizing: content-box;
     width: 8px;
     height: 8px;
-    padding: 0;
+    padding: 18px 10px;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--dsx-radius-full);
     background: currentColor;
+    background-clip: content-box;
     opacity: .28;
     cursor: pointer;
-    transition: width 150ms ease, opacity 150ms ease, transform 100ms ease;
+    transition: width var(--dsx-dur-fast) var(--dsx-ease), opacity var(--dsx-dur-fast) var(--dsx-ease), transform var(--dsx-dur-fast) var(--dsx-ease);
   }
   .dsx-paged-dot[data-dsx-selected="true"] { width: 20px; opacity: 1; }
-  .dsx-paged-dot:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  .dsx-paged-dot:focus-visible {
+    outline: var(--dsx-focus-ring-width) solid var(--dsx-accent);
+    outline-offset: var(--dsx-focus-ring-offset);
+    z-index: 1;
+  }
   .dsx-paged-dot:active { transform: scale(.9); }
 
+  @media (hover: hover) and (pointer: fine) {
+    .dsx-tab:hover:not(:disabled) { background: var(--dsx-fill); }
+    .dsx-paged-dot:hover { opacity: .55; }
+    .dsx-paged-dot[data-dsx-selected="true"]:hover { opacity: 1; }
+    .dsx-paged-dots { gap: var(--dsx-space-1); }
+    .dsx-paged-dot { padding: 6px; }
+    .dsx-list-action:hover { filter: brightness(1.06); }
+    .dsx-list-reorder:hover { color: var(--dsx-label); }
+  }
+
+  @media (pointer: coarse) {
+    .dsx-list-reorder { width: 44px; }
+  }
+
   @media (min-width: 48rem) {
-    .dsx-tablist {
-      width: min(calc(100% - 32px), 44rem);
-      justify-self: center;
-      margin: 0 16px max(12px, env(safe-area-inset-bottom));
-      padding: 6px;
-      border: 1px solid var(--dsx-separator);
-      border-radius: var(--dsx-radius-lg);
-      box-shadow: 0 12px 32px color-mix(in srgb, var(--dsx-label) 10%, transparent);
-    }
-    .dsx-paged-dots { gap: 8px; }
+    ` +
+// wider-but-still-compact surfaces (tablet portrait and up): the SAME
+// edge-to-edge bar - items cluster into a centered group instead of stretching
+// across the full width, the way native tablet bottom bars keep their items
+// reachable. Never a floating card (owner ruling 2026-08-19).
+`    .dsx-tablist { grid-auto-columns: minmax(0, 7.5rem); justify-content: center; }
   }
 
   @media (min-width: 64rem) and (hover: hover) and (pointer: fine) {
@@ -814,19 +970,87 @@ export const STRUCTURAL_CONTROLS_CSS = `@layer dsx-elements {
       --dsx-list-separator-inset: 12px;
     }
     .dsx-toolbar { min-height: 40px; padding-block: 7px; }
-    .dsx-tab { min-height: 42px; grid-template-rows: auto; grid-template-columns: auto auto auto; gap: 7px; }
+    /* the precision-pointer strip re-lays each item as an icon+label ROW; the
+       the classic fill wash carries selection on the stacked presentation */
+    .dsx-tablist { grid-auto-columns: max-content; }
+    .dsx-tab { min-height: 42px; grid-template-rows: auto; grid-template-columns: auto auto auto; gap: 7px; padding: 5px 12px; color: var(--dsx-secondary-label); }
     .dsx-tab-icon, .dsx-tab-label, .dsx-tab-badge { grid-row: 1; grid-column: auto; }
-    .dsx-tab-label { font-size: .8125rem; }
-    .dsx-paged-dot:hover, .dsx-tab:hover { opacity: 1; background-color: var(--dsx-fill); }
+    .dsx-tab-icon { width: 18px; height: 18px; }
+    .dsx-tab[data-dsx-selected="true"] { background: var(--dsx-fill); }
+    .dsx-tab-label { font-size: var(--dsx-type-footnote-size); letter-spacing: 0; line-height: var(--dsx-type-title2-leading); }
+  }
+
+  ` +
+// THE DESKTOP STEP (TABS_WIDE_MEDIA): the SAME tabs DOM re-places on the
+// grid as a leading sidebar rail, the web mirror of iPadOS/macOS adapting tab
+// bars into sidebars on regular widths. Flat premium surface: opaque
+// secondaryBackground behind a hairline trailing separator, no glass. Below
+// this step the owner-approved bottom dock above renders unchanged.
+`  @media ${TABS_WIDE_MEDIA} {
+    .dsx-tabs {
+      --dsx-tabs-rail: 15rem;
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-columns: var(--dsx-tabs-rail) minmax(0, 1fr);
+    }
+    .dsx-tab-panels { grid-row: 1; grid-column: 2; }
+    .dsx-tablist {
+      grid-row: 1;
+      grid-column: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 2px;
+      min-height: 0;
+      justify-self: stretch;
+      padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+      overflow: hidden auto;
+      border: 0;
+      border-inline-end: var(--dsx-hairline) solid var(--dsx-separator);
+      background: var(--dsx-secondary-background);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    /* the rail predates the compact bar's tertiary ink and 11px label metrics: its
+       resting look is re-pinned here so the desktop face stays exactly as approved */
+    .dsx-tab {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      min-height: 40px;
+      padding: 8px 12px;
+      border-radius: var(--dsx-radius-control);
+      color: var(--dsx-secondary-label);
+      text-align: start;
+    }
+    .dsx-tab-icon { width: 20px; height: 20px; }
+    /* the accent tint composed OPAQUELY on the card surface: translucent accent-muted
+       over the rail's grouped background lands accent text at ~4.25:1 (AA fail); the
+       same 10% tint anchored on secondaryGroupedBackground is the system's passing pair */
+    .dsx-tab[data-dsx-selected="true"] {
+      color: var(--dsx-accent);
+      background: color-mix(in srgb, var(--dsx-accent) 10%, var(--dsx-secondary-grouped-background));
+    }
+    .dsx-tab-label { flex: 1 1 auto; min-width: 0; font-size: var(--dsx-type-callout-size); letter-spacing: 0; line-height: var(--dsx-type-title2-leading); }
+  }
+
+  @media ${TABS_WIDE_MEDIA} and (hover: hover) {
+    .dsx-tab:hover:not(:disabled) { background: var(--dsx-fill); }
+    .dsx-tab[data-dsx-selected="true"]:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--dsx-accent) 16%, transparent);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .dsx-tab, .dsx-paged-dot, .dsx-list-row-content { transition-duration: 0s; }
+    .dsx-tab, .dsx-tab-icon, .dsx-tab-label, .dsx-paged-dot, .dsx-list-row-content, .dsx-list-action, .dsx-list-reorder { transition-duration: 0s; }
+    .dsx-tab-panel:not([hidden]) { animation: none; }
   }
 
   @media (forced-colors: active) {
     .dsx-toolbar, .dsx-tablist { border-color: CanvasText; background: Canvas; }
     .dsx-tab[data-dsx-selected="true"], .dsx-paged-dot[data-dsx-selected="true"] { forced-color-adjust: none; color: Highlight; }
-    .dsx-tab:focus-visible, .dsx-paged-dot:focus-visible { outline-color: Highlight; box-shadow: none; }
+    .dsx-tab:focus-visible, .dsx-paged-dot:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; box-shadow: none; }
+    .dsx-list-action:focus-visible, .dsx-list-reorder:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; box-shadow: none; }
   }
-}`;
+}
+${SPLIT_CSS}`;

@@ -1,0 +1,12 @@
+<stack style="position: relative; width: 100%; height: 100%; background: #8f94a3">
+  <head>
+    <!-- The frame under test, alone on a neutral mid-grey. A device frame can only be judged
+         against a ground that is neither its highlight nor its shadow; on a dark gradient
+         every chassis looks convincing. -->
+    <attribute as="screen" sample="&quot;01-orders.png&quot;"/>
+  </head>
+  <stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 60px 40px;
+                justify-content: center; display: flex">
+    <ShotFrame screen="{{ dsx.attribute.screen }}" width="86%" lift="0.5"/>
+  </stack>
+</stack>

@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "_note": "Core/Device (parity/F06-device.md), the LAUNCH FOLD: the pure function behind `isFirstLaunch` and `previousVersion`, which are the two values every onboarding flow and every what's-new sheet needs and which existed nowhere in the framework before. Inputs are the version this build reports and the two values persisted from earlier launches; outputs are what to report and what to write back. Keeping it pure is what makes \"true exactly once per install\" testable without an install. THE RULES: (1) nothing stored at all means a brand new install, so isFirstLaunch is true, previousVersion is absent, and the current version is recorded; (2) the stored version matching the current one is an ordinary relaunch, which reports the previousVersion it already had and WRITES NOTHING (so a second call in the same session cannot change the answer); (3) a differing stored version is an upgrade or a downgrade: it becomes previousVersion, and both keys are rewritten; (4) isFirstLaunch is never true twice, because case 1 writes the version that turns every later launch into case 2 or 3.",
+  "_runner": "No runner is wired yet (registration is in the F06 handoff). Implemented identically as Device.foldLaunch in swift/, kotlin/ and web/.",
+
+  "fold": [
+    { "name": "the very first launch after install",
+      "given": { "current": "2.0.0", "stored": null, "storedPrevious": null },
+      "expect": { "isFirstLaunch": true, "previousVersion": null, "writeVersion": "2.0.0", "writePrevious": null } },
+
+    { "name": "the second launch of the same version is not a first launch, and writes nothing",
+      "given": { "current": "2.0.0", "stored": "2.0.0", "storedPrevious": null },
+      "expect": { "isFirstLaunch": false, "previousVersion": null, "writeVersion": null, "writePrevious": null } },
+
+    { "name": "the first launch after an upgrade reports what was there before",
+      "given": { "current": "2.0.0", "stored": "1.4.0", "storedPrevious": null },
+      "expect": { "isFirstLaunch": false, "previousVersion": "1.4.0", "writeVersion": "2.0.0", "writePrevious": "1.4.0" } },
+
+    { "name": "previousVersion survives later launches of the upgraded version",
+      "given": { "current": "2.0.0", "stored": "2.0.0", "storedPrevious": "1.4.0" },
+      "expect": { "isFirstLaunch": false, "previousVersion": "1.4.0", "writeVersion": null, "writePrevious": null } },
+
+    { "name": "a second upgrade replaces previousVersion rather than chaining it",
+      "given": { "current": "3.0.0", "stored": "2.0.0", "storedPrevious": "1.4.0" },
+      "expect": { "isFirstLaunch": false, "previousVersion": "2.0.0", "writeVersion": "3.0.0", "writePrevious": "2.0.0" } },
+
+    { "name": "a downgrade is an upgrade backwards, not a first launch",
+      "given": { "current": "1.9.0", "stored": "2.0.0", "storedPrevious": "1.4.0" },
+      "expect": { "isFirstLaunch": false, "previousVersion": "2.0.0", "writeVersion": "1.9.0", "writePrevious": "2.0.0" } },
+
+    { "name": "an empty stored version is a value, not an absence: it is a change, not a first launch",
+      "given": { "current": "2.0.0", "stored": "", "storedPrevious": null },
+      "expect": { "isFirstLaunch": false, "previousVersion": "", "writeVersion": "2.0.0", "writePrevious": "" } },
+
+    { "name": "a build with no declared version still folds, and reports one first launch",
+      "given": { "current": "", "stored": null, "storedPrevious": null },
+      "expect": { "isFirstLaunch": true, "previousVersion": null, "writeVersion": "", "writePrevious": null } }
+  ],
+
+  "sequences": [
+    { "name": "isFirstLaunch is true exactly once across install, relaunch, upgrade, relaunch",
+      "launches": ["2.0.0", "2.0.0", "2.1.0", "2.1.0"],
+      "expect": [
+        { "isFirstLaunch": true,  "previousVersion": null },
+        { "isFirstLaunch": false, "previousVersion": null },
+        { "isFirstLaunch": false, "previousVersion": "2.0.0" },
+        { "isFirstLaunch": false, "previousVersion": "2.0.0" }
+      ] }
+  ]
+}

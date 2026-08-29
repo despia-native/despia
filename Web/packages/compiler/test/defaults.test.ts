@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 
 import { compileComponent } from "../src/component.ts";
 import { CssCollector, extractComponentCss } from "../src/css.ts";
-import { LAYER_STATEMENT, mapStyleValue } from "../src/cssmap.ts";
+import { LAYER_STATEMENT, legacyAttrToDecls, mapStyleValue } from "../src/cssmap.ts";
 import { TOKENS_CSS, ELEMENTS_CSS } from "../../dom/src/theme.ts";
 
 const corpus = JSON.parse(
@@ -106,4 +106,18 @@ test("the pre-corpus aliases stay pinned where the families diverge (the cssmap 
   assert.equal(mapStyleValue("background", "accent"), "var(--dsx-accent)");
   assert.equal(mapStyleValue("color", "fill"), "var(--dsx-fill)");
   assert.equal(mapStyleValue("color", "separator"), "var(--dsx-separator)");
+});
+
+test("the two vocabulary words a gradient needs resolve, because one unmapped stop kills the whole gradient", () => {
+  // `gradient="a|b"` folds to ONE `linear-gradient()` declaration, so an unmapped stop does not
+  // degrade that stop - it invalidates the declaration and the browser drops it in silence. Both
+  // of these are in the catalogue (stack-style-properties.json: `systemBackground` is the listed
+  // alias of `background`, `clear` is #00000000), and neither was in the table.
+  assert.equal(mapStyleValue("background", "systemBackground"), "var(--dsx-background)");
+  assert.equal(mapStyleValue("background", "background"), "var(--dsx-background)");
+  assert.equal(mapStyleValue("background", "clear"), "transparent");
+  assert.deepEqual(
+    legacyAttrToDecls("gradient", "systemBackground|clear"),
+    [["background", "linear-gradient(180deg, var(--dsx-background), transparent)"]],
+  );
 });

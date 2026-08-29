@@ -168,6 +168,10 @@ function mountKeep(inner: XmlNode, ctx: MountCtx, parent: ParentNode, expr: stri
       el.style.opacity = on ? "" : "0";
       el.style.pointerEvents = on ? "" : "none";
       el.setAttribute("aria-hidden", on ? "false" : "true");
+      // `aria-hidden` alone hides the subtree from the accessibility tree and leaves every
+      // control in it FOCUSABLE, so a hidden keep= mints phantom tab stops that a sighted
+      // keyboard user lands on with nothing on screen. `inert` is the half that removes them.
+      el.inert = !on;
     }
     first = false;
   };

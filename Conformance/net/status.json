@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "_note": "Core/Net (parity/F05-net.md), the CLASSIFICATION fold: a raw platform path snapshot in, the five reported facts out. Kept pure so all three renderers can be judged by the same cases; the platform reads that feed it (NWPath, NetworkCapabilities, navigator.connection) are per-renderer plumbing and are not pinned here. THE RULES THIS PINS: (1) VPN wins over the transport underneath, because a tunnel rides on top of wifi or cellular and reporting the carrier would hide the thing the app asked about; (2) an unsatisfied path is `none` and nothing else is inspected; (3) `expensive` is the METERED flag, never `type == cellular` (a personal hotspot over wifi is metered, and unlimited cellular is not); (4) `constrained` is the user's data-saving setting and is independent of everything else; (5) `online` is `reachable` AND the last probe verdict, which is the entire reason the two fields exist separately (an interface can be up while a captive portal eats every request); (6) `generation` is empty unless the link is cellular AND the platform volunteered the radio family without a permission prompt.",
+  "_runner": "Runners: TS (@despia/kernel net-core.ts, packages/kernel/test/net-conformance.test.ts), Kotlin (:core NetCore/NetDebounce, NetConformanceTest), Swift (Engine/iOS/NetCore.swift, NetConformance in the record lane). All three read THIS file, and Core/Net calls the same core rather than a parallel copy.",
+
+  "classify": [
+    { "name": "satisfied wifi, unmetered",
+      "given": { "satisfied": true, "interfaces": ["en0"], "transports": ["wifi"], "metered": false, "dataSaver": false },
+      "expect": { "reachable": true, "type": "wifi", "expensive": false, "constrained": false } },
+
+    { "name": "satisfied cellular is metered",
+      "given": { "satisfied": true, "interfaces": ["pdp_ip0"], "transports": ["cellular"], "metered": true, "dataSaver": false },
+      "expect": { "reachable": true, "type": "cellular", "expensive": true, "constrained": false } },
+
+    { "name": "a personal hotspot is wifi AND metered, which is why expensive is not a type test",
+      "given": { "satisfied": true, "interfaces": ["en0"], "transports": ["wifi"], "metered": true, "dataSaver": false },
+      "expect": { "reachable": true, "type": "wifi", "expensive": true, "constrained": false } },
+
+    { "name": "unlimited cellular is cellular and NOT expensive",
+      "given": { "satisfied": true, "interfaces": ["pdp_ip0"], "transports": ["cellular"], "metered": false, "dataSaver": false },
+      "expect": { "reachable": true, "type": "cellular", "expensive": false, "constrained": false } },
+
+    { "name": "a tunnel over wifi reports vpn, not wifi",
+      "given": { "satisfied": true, "interfaces": ["utun3", "en0"], "transports": ["wifi"], "metered": false, "dataSaver": false },
+      "expect": { "reachable": true, "type": "vpn", "expensive": false, "constrained": false } },
+
+    { "name": "a tunnel over cellular still reports vpn, and stays metered",
+      "given": { "satisfied": true, "interfaces": ["ipsec0", "pdp_ip0"], "transports": ["cellular"], "metered": true, "dataSaver": false },
+      "expect": { "reachable": true, "type": "vpn", "expensive": true, "constrained": false } },
+
+    { "name": "wired ethernet",
+      "given": { "satisfied": true, "interfaces": ["en5"], "transports": ["ethernet"], "metered": false, "dataSaver": false },
+      "expect": { "reachable": true, "type": "ethernet", "expensive": false, "constrained": false } },
+
+    { "name": "a transport nobody named is other, never a guess",
+      "given": { "satisfied": true, "interfaces": ["bt0"], "transports": ["bluetooth"], "metered": false, "dataSaver": false },
+      "expect": { "reachable": true, "type": "other", "expensive": false, "constrained": false } },
+
+    { "name": "an unsatisfied path is none and nothing else is inspected",
+      "given": { "satisfied": false, "interfaces": ["en0"], "transports": ["wifi"], "metered": false, "dataSaver": false },
+      "expect": { "reachable": false, "type": "none", "expensive": false, "constrained": false } },
+
+    { "name": "data saving is independent of the link",
+      "given": { "satisfied": true, "interfaces": ["en0"], "transports": ["wifi"], "metered": false, "dataSaver": true },
+      "expect": { "reachable": true, "type": "wifi", "expensive": false, "constrained": true } }
+  ],
+
+  "online": [
+    { "name": "reachable with no probe yet is online",
+      "given": { "reachable": true, "probeFailed": false },
+      "expect": { "online": true } },
+    { "name": "reachable with a failed probe is OFFLINE, which is the captive-portal case",
+      "given": { "reachable": true, "probeFailed": true },
+      "expect": { "online": false } },
+    { "name": "unreachable is offline whatever the probe said",
+      "given": { "reachable": false, "probeFailed": false },
+      "expect": { "online": false } }
+  ],
+
+  "generation": [
+    { "name": "lte on a cellular link is 4g", "given": { "type": "cellular", "radio": "lte" }, "expect": { "generation": "4g" } },
+    { "name": "nr is 5g", "given": { "type": "cellular", "radio": "nr" }, "expect": { "generation": "5g" } },
+    { "name": "hspa is 3g", "given": { "type": "cellular", "radio": "hspa" }, "expect": { "generation": "3g" } },
+    { "name": "edge is 2g", "given": { "type": "cellular", "radio": "edge" }, "expect": { "generation": "2g" } },
+    { "name": "a radio family on a wifi link is not reported", "given": { "type": "wifi", "radio": "lte" }, "expect": { "generation": "" } },
+    { "name": "a withheld radio family is empty, never a guess", "given": { "type": "cellular", "radio": null }, "expect": { "generation": "" } }
+  ],
+
+  "probe": {
+    "_note": "The reachability verdict from one completed request. Redirects are never followed, so the response IS the 3xx and its Location is readable: a redirect to ANOTHER host is the captive-portal signature, while a same-host redirect (an http to https upgrade) is a normal, reachable answer.",
+    "cases": [
+      { "name": "200 is reachable", "given": { "status": 200, "requestHost": "app.example.com" }, "expect": { "reachable": true } },
+      { "name": "204 is reachable", "given": { "status": 204, "requestHost": "app.example.com" }, "expect": { "reachable": true } },
+      { "name": "a same-host redirect is reachable",
+        "given": { "status": 301, "requestHost": "app.example.com", "location": "https://app.example.com/health" },
+        "expect": { "reachable": true } },
+      { "name": "a cross-host redirect is a captive portal",
+        "given": { "status": 302, "requestHost": "app.example.com", "location": "http://login.hotelwifi.net/portal" },
+        "expect": { "reachable": false } },
+      { "name": "a redirect with no Location is not reachable",
+        "given": { "status": 302, "requestHost": "app.example.com", "location": null },
+        "expect": { "reachable": false } },
+      { "name": "404 reached a server but not the app", "given": { "status": 404, "requestHost": "app.example.com" }, "expect": { "reachable": false } },
+      { "name": "503 is not reachable", "given": { "status": 503, "requestHost": "app.example.com" }, "expect": { "reachable": false } },
+      { "name": "a dead transport resolves rather than throwing", "given": { "status": 0, "requestHost": "app.example.com" }, "expect": { "reachable": false } }
+    ]
+  }
+}

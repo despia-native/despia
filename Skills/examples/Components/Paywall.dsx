@@ -1,0 +1,64 @@
+<!-- The paywall, after the aha moment and never a wall: dismissable from the first
+     pixel, price stated plainly, the free path visible. Plan selection is a value the
+     screen owns; each PlanCard raises `choose` and the screen writes the state. -->
+<scroll background="background">
+  <head>
+    <expects variable="nav"/>   <!-- the runtime's navigation state: canPop, depth -->
+
+    <variable as="plan">return 'annual'</variable>
+
+    <!-- close = pop when pushed here, replace when deep-linked; never href (href pushes) -->
+    <action as="close">
+      if (dsx.variable.nav.canPop) { dsx.module.route.pop() }
+      else { dsx.module.route.replace({ path: '/' }) }
+    </action>
+    <action as="choose" inputs="id">
+      dsx.variable.plan = id
+    </action>
+
+    <style as="perk" fontSize="15"/>
+  </head>
+
+  <vstack padding="24" spacing="16">
+    <hstack>
+      <spacer/>
+      <button icon="xmark" on:tap="dsx.action.close()" a11yLabel="Close"/>
+    </hstack>
+
+    <vstack spacing="8" align="center">
+      <image icon="sparkles" iconSize="34" color="accent" a11yHidden="true"/>
+      <text value="Trails Pro" fontSize="24" fontWeight="bold" a11yTrait="header"/>
+      <text value="Every trail, offline, on every device." fontSize="15" color="secondary"/>
+    </vstack>
+
+    <vstack spacing="8" padding="16" background="fill" radius="16">
+      <hstack spacing="8">
+        <image icon="checkmark" iconSize="15" color="accent"/>
+        <text value="Offline maps for every trail" class="perk"/>
+      </hstack>
+      <hstack spacing="8">
+        <image icon="checkmark" iconSize="15" color="accent"/>
+        <text value="Pro trails and seasonal routes" class="perk"/>
+      </hstack>
+      <hstack spacing="8">
+        <image icon="checkmark" iconSize="15" color="accent"/>
+        <text value="Hike history across devices" class="perk"/>
+      </hstack>
+    </vstack>
+
+    <vstack spacing="8">
+      <PlanCard id="annual" name="Annual" price="$29.99 / year" note="Two months free" selected="{{ dsx.variable.plan == 'annual' }}" on:choose="dsx.action.choose({ id: 'annual' })"/>
+      <PlanCard id="monthly" name="Monthly" price="$2.99 / month" note="Cancel anytime" selected="{{ dsx.variable.plan == 'monthly' }}" on:choose="dsx.action.choose({ id: 'monthly' })"/>
+    </vstack>
+
+    <button label="Continue" variant="prominent" on:tap="dsx.action.close()"/>
+
+    <hstack spacing="16">
+      <spacer/>
+      <text value="Restore purchase" fontSize="13" color="tertiary"/>
+      <text value="Terms" fontSize="13" color="tertiary"/>
+      <spacer/>
+    </hstack>
+    <text value="The free plan keeps every nearby trail and hike logging." fontSize="13" color="tertiary" align="center"/>
+  </vstack>
+</scroll>

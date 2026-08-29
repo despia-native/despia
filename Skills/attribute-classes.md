@@ -1,4 +1,4 @@
-# Attribute classes — one classification for every DSX block
+# Attribute classes: one classification for every DSX block
 
 **Foundational grammar law.** Every attribute in DSX markup belongs to exactly one class, and the
 class is visible in the spelling. A reader — human, agent, linter, or visual editor — can tell what
@@ -120,6 +120,19 @@ A formula that reads ambient state instead of declaring it **silently loses its 
 nothing declared the dependency, so nothing recomputes. Inputs matter more here, not less.
 
 ### `<api>` — a request, with a sample per status
+
+**`ssr=` — whether this request runs during the server render.** Defaults to `true` on a
+GET and `false` otherwise, and it takes a boolean LITERAL (`ssr="true"` / `ssr="false"`),
+never a reactive expression, because the decision is made before there is a store to read.
+
+It is the attribute that decides whether a crawler sees your data. With `ssr` on, the
+request resolves during `executeApiForSSR` and the first paint already carries the rows;
+with it off, the page ships empty and fills in on the client. Turn it off for anything
+per-user, expensive, or irrelevant to a first paint; leave it on for the content a search
+engine should index.
+
+Web-only by construction: the native runtimes are async by default and ignore it, which is
+why it carries no cross-platform corpus fixture.
 
 An `<api>` needs no events (it is a request, not a stream), but it does need **the shape of each
 outcome**. This is OpenAPI's responses-by-status, inline where the screen is written:

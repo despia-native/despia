@@ -1,4 +1,4 @@
-# Module context — `dsx.module.<scheme>.context.*`
+# Module context: `dsx.module.<scheme>.context.*`
 
 > Audience: module authors. How a module **publishes typed, declared variables** that other
 > modules read — the structured replacement for stringly-typed `dsx.values("a.b")` coordination.

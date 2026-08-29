@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 
 /**
  * The desktop input grammar conformance runner — executes
- * OpenSource/Conformance/input/{shortcut,focusOrder}.json through THIS runtime's
+ * OpenSource/Conformance/input/{shortcut,focusOrder,multiline-submit}.json through THIS runtime's
  * StackDesktopInput. The TS twin (@despia/dom matchShortcut/resolveFocusOrder) and the Swift
  * reference (StackDesktopInput + the record lane) run the SAME files; the shared matcher is
  * what the Compose Desktop renderer binds its key events to, so the accelerators can't drift.
@@ -48,6 +48,32 @@ class DesktopInputConformanceTest {
                 editable = event["editable"] as? Boolean ?: false,
             )
             assertEquals(case["fires"] as Boolean, got, "shortcut/$name")
+        }
+    }
+
+    @Test
+    @Suppress("UNCHECKED_CAST")
+    fun multilineReturnAgreesWithCorpus() {
+        val root = json(corpusFile("multiline-submit.json").readText())
+            .foundationValue as Map<String, Any?>
+        assertEquals(
+            (root["returnKeys"] as List<*>).map { it.toString() }.toSet(),
+            StackDesktopInput.RETURN_KEYS,
+            "the Return spellings are a shared fact, not a per-toolkit guess",
+        )
+        for (case in cases("multiline-submit.json")) {
+            val name = case["name"] as? String ?: "?"
+            val event = case["event"] as Map<String, Any?>
+            val got = StackDesktopInput.multilineReturn(
+                key = event["key"] as? String ?: "",
+                shift = event["shift"] as? Boolean ?: false,
+                meta = event["meta"] as? Boolean ?: false,
+                ctrl = event["ctrl"] as? Boolean ?: false,
+                alt = event["alt"] as? Boolean ?: false,
+                submitOnEnter = case["submitOnEnter"] as? Boolean ?: false,
+                hasSubmit = case["hasSubmit"] as? Boolean ?: false,
+            )
+            assertEquals(case["expect"] as String, got, "multiline-submit/$name")
         }
     }
 

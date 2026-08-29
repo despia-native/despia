@@ -1,5 +1,6 @@
 package despia.engine.desktop
 
+import androidx.compose.ui.graphics.toArgb
 import java.util.Base64
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -9,6 +10,27 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DesktopMediaRendererTest {
+    @Test
+    fun hexMediaColorsPackAsSrgbAndSurviveDraw() {
+        // Regression: the ULong Color overload is the PACKED form (low 6 bits = colorspace
+        // id). Raw ARGB fed to it made #FF3B30 (id 48) throw at first paint, killing any
+        // surface with a hex-tinted icon — the Studio editor's record dot among them.
+        val record = parseDesktopColor("#FF3B30")
+        assertNotNull(record)
+        assertEquals(0xFFFF3B30.toInt(), record.toArgbSafely())
+        val alpha = parseDesktopColor("#803B30FF")
+        assertNotNull(alpha)
+        assertEquals(0x803B30FF.toInt(), alpha.toArgbSafely())
+        val short = parseDesktopColor("#F00")
+        assertNotNull(short)
+        assertEquals(0xFFFF0000.toInt(), short.toArgbSafely())
+        assertNull(parseDesktopColor("#GGGGGG"))
+        assertNull(parseDesktopColor("34C759"))
+    }
+
+    /** toArgb() itself walks the colorspace table, so a mis-packed color throws here too. */
+    private fun androidx.compose.ui.graphics.Color.toArgbSafely(): Int = toArgb()
+
     @Test
     fun mediaSourcePolicyIsTlsFirstLoopbackOnlyAndDiagnosticSafe() {
         val accepted = desktopMediaSourceStatus("https://cdn.example.com/private/cover.png?token=secret#fragment")

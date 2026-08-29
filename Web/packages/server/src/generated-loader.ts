@@ -13,6 +13,7 @@ import type { HostConfig, ServerRoute } from "./host.ts";
 import { installEntities, type EntitySpec } from "./repo.ts";
 import { NO_CONFIG, readServerConfig, type ServerConfig } from "./config.ts";
 import { installPackages, type PackageModule } from "./packages.ts";
+import type { McpToolRow } from "./mcp-face.ts";
 
 export interface DataProvider {
   backend: string;
@@ -29,9 +30,14 @@ export interface GeneratedArtifacts {
   backendSetting: string | null;
   /** enabled provider residences, keyed by backend scheme (generated/providers.ts) */
   dataProviders: DataProvider[];
+  /** declared MCP tools (generated/mcp-tools.json) — empty when the tree declares none (W3) */
+  mcpTools: McpToolRow[];
 }
 
-const EMIT = "run `ruby ClosedSource/scripts/prepare_server.rb` to emit the server artifacts";
+//  The instruction a CONSUMER can act on. This used to name a build script from the
+//  commercial layer, which a consumer of the published package does not have — a broken
+//  promise in the open drop rather than an internal note (plan E1, defect D2).
+const EMIT = "run `despia build` to emit the server artifacts from your `server/*.dsx` documents";
 
 const ROUTE_FIELDS = ["key", "chain", "action", "method", "path"] as const;
 
@@ -134,6 +140,17 @@ export async function loadGenerated(dir?: string): Promise<GeneratedArtifacts> {
     }
     installPackages(doc.packageModules as PackageModule[]);
   }
+  // THE MCP TOOL TABLE (W3). Optional like entities/config: a tree declaring no `<tool>`
+  // rows emits an empty table and the bootloader mounts no /mcp face.
+  const mcpPath = join(base, "mcp-tools.json");
+  let mcpTools: McpToolRow[] = [];
+  if (existsSync(mcpPath)) {
+    const doc = readJson(mcpPath) as { tools?: unknown };
+    if (!Array.isArray(doc?.tools)) {
+      throw new Error(`@despia/server: ${mcpPath} must carry a tools array — ${EMIT}.`);
+    }
+    mcpTools = doc.tools as McpToolRow[];
+  }
   return {
     routes,
     buildInfo: buildInfo as Record<string, unknown>,
@@ -141,6 +158,7 @@ export async function loadGenerated(dir?: string): Promise<GeneratedArtifacts> {
     config,
     backendSetting,
     dataProviders,
+    mcpTools,
   };
 }
 

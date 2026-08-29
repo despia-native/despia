@@ -75,6 +75,14 @@ test("picker normalization accepts scalar/object rows and enforces allocation li
   assert.equal(many.length, FORM_LIMITS.maxOptions);
 });
 
+test("the multiline well keeps a three-line floor and grows (wave-7 F5)", () => {
+  assert.match(
+    FORM_ELEMENTS_CSS,
+    /\.dsx-field-multiline\s*\{[^}]*min-height:\s*calc\(3lh \+ 1\.25rem \+ 2px\);[^}]*resize:\s*vertical;[^}]*field-sizing:\s*content;/s,
+    "textarea rides the same well with a 3-line minimum, autogrow enhancement and a vertical handle",
+  );
+});
+
 test("form defaults stay in the weak element layer and expose override handles", () => {
   assert.ok(FORM_ELEMENTS_CSS.startsWith("@layer dsx-elements {"));
   for (const handle of [".dsx-form", ".dsx-field", ".dsx-field-control", ".dsx-form-submit"]) {

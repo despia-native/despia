@@ -1,0 +1,28 @@
+<text value="{{ dsx.attribute.part.t }}"
+      style="font-size: {{ dsx.attribute.size }};
+             font-weight: {{ dsx.attribute.part.weight ? dsx.attribute.part.weight : '800' }};
+             letter-spacing: -0.038em; line-height: 1.04;
+             font-style: {{ dsx.attribute.part.italic ? 'italic' : 'normal' }};
+             color: {{ inkColour }};
+             background: {{ dsx.attribute.part.box ? dsx.attribute.accent : 'none' }};
+             padding: {{ dsx.attribute.part.box ? '0.04em 0.20em' : '0' }};
+             border-radius: {{ dsx.attribute.part.box ? '0.16em' : '0' }}">
+  <head>
+    <!-- One word or phrase of a headline. Three treatments: ink (default), accent ink, or a
+         filled highlight box. Kept as its own component so the slots in ShotHeadline are
+         one-line invocations rather than copies of this expression block. -->
+    <attribute as="part"/>
+    <attribute as="ink" default="'#0d0f14'"/>
+    <attribute as="accent" default="'#22c55e'"/>
+    <attribute as="size" default="'42px'"/>
+
+    <!-- A boxed part reverses out to white; an accent part takes the accent; everything else
+         is ink. Computed here because the three-way choice is a nested ternary inline, which
+         the linter refuses on style grounds and which is genuinely harder to read. -->
+    <variable as="inkColour" computed="true">
+      if (dsx.attribute.part.box) { return '#ffffff' }
+      if (dsx.attribute.part.accent) { return dsx.attribute.accent }
+      return dsx.attribute.ink
+    </variable>
+  </head>
+</text>

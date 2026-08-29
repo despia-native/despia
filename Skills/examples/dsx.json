@@ -1,0 +1,6 @@
+{
+  "name": "trails-example",
+  "scheme": "trails",
+  "version": "0.1.0",
+  "platforms": ["phone", "desktop"]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Shots",
+  "scheme": "shots",
+  "version": "0.1.0",
+  "_note": "The store-screenshot slide library: the card, the two-tone headline, the device frame, the flow chips and the decoration kinds - authored entirely in DSX so the SAME components render the marketing image in three places that must never disagree. `despia shot` captures them headlessly for the store, the Studio's Distribution board edits them live, and a project can compose them itself. A slide is a THEME plus a HEADLINE plus a DEVICE plus DECORATIONS, and all four are data, which is why an agent composes a set by writing values and never markup. The device art the frame composites is PROJECT-supplied by design (the default names a file the project owns): shipping photoreal licensed bezels to every consumer is exposure the library refuses to take on their behalf."
+}

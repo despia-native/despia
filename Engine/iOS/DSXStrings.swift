@@ -40,21 +40,42 @@ public enum DSXStrings {
     public static func localize(_ s: String) -> String {
         guard !s.isEmpty else { return s }
         let lang = resolvedLang()
-        let version = (DSX.state.getPath("strings.version").map { "\($0)" }) ?? ""
+        let version = (statePath("strings.version").map { "\($0)" }) ?? ""
         if lang != loadedLang || version != loadedVersion { load(lang, version: version) }
         guard !table.isEmpty else { return s }
         return table[s] ?? s
     }
 
+    /// Seam: the BUNDLE tier — `Strings.<tag>.json`'s TEXT for a candidate tag, or nil. The
+    /// default reads the app bundle; the conformance runner (and a host wanting explicit
+    /// control) swaps it — the same seam the Kotlin twin carries, so all three runtimes can
+    /// execute the shared corpus (OpenSource/Conformance/strings/cases.json).
+    static var loader: (String) -> String? = { candidate in
+        guard let url = Bundle.main.url(forResource: "Strings.\(candidate)", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// Seam: the app-wide reactive store (`global.*`); the default is the live store.
+    static var statePath: (String) -> Any? = { DSX.state.getPath($0) }
+
     /// The device's preferred language, read ONCE — `Locale.preferredLanguages` goes through
     /// UserDefaults, far too heavy per localized string per render. A device-language change
-    /// relaunches the app; IN-APP switching goes through `global.locale`, which stays live below.
-    private static let deviceLang = (Locale.preferredLanguages.first ?? "en").lowercased()
+    /// relaunches the app; IN-APP switching goes through `global.locale`, which stays live
+    /// below. Settable (a var) for the conformance runner only.
+    static var deviceLang = (Locale.preferredLanguages.first ?? "en").lowercased()
 
     /// `global.locale` (an in-app switcher's write) → the device's preferred language → "en".
     private static func resolvedLang() -> String {
-        if let o = DSX.state.getPath("locale") as? String, !o.isEmpty { return o.lowercased() }
+        if let o = statePath("locale") as? String, !o.isEmpty { return o.lowercased() }
         return deviceLang
+    }
+
+    /// Drop the cached table (the conformance runner between cases; never called in-app).
+    static func resetForConformance() {
+        table = [:]
+        loadedLang = "__none"
+        loadedVersion = ""
     }
 
     /// (Re)load the table for `lang`: the bundle tier under the runtime tier, full tag then bare
@@ -66,12 +87,12 @@ public enum DSXStrings {
         let bare = String(lang.prefix(while: { $0 != "-" && $0 != "_" }))
         for candidate in [lang, bare] where !candidate.isEmpty && candidate != "en" {
             var merged: [String: String] = [:]
-            if let url = Bundle.main.url(forResource: "Strings.\(candidate)", withExtension: "json"),
-               let data = try? Data(contentsOf: url),
+            if let text = loader(candidate),
+               let data = text.data(using: .utf8),
                let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
                 for (k, v) in obj { if let s = v as? String { merged[k] = s } }
             }
-            if let runtime = DSX.state.getPath("strings.\(candidate)") as? [String: Any] {
+            if let runtime = statePath("strings.\(candidate)") as? [String: Any] {
                 for (k, v) in runtime { if let s = v as? String { merged[k] = s } }   // runtime tier wins
             }
             if !merged.isEmpty { table = merged; return }

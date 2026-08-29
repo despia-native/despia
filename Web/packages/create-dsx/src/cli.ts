@@ -1,5 +1,5 @@
 //
-//  cli.ts — argument handling for `npm create dsx <dir>`. Returns an exit code and never
+//  cli.ts — argument handling for `npm create despia <dir>`. Returns an exit code and never
 //  calls process.exit, so the whole surface is drivable from a test.
 //
 
@@ -9,11 +9,11 @@ import { scaffold, ScaffoldError, TEMPLATES, type ScaffoldOptions, type Template
 
 export const VERSION = "0.1.0";
 
-export const USAGE = `create-dsx — scaffold a DSX project
+export const USAGE = `create-despia — scaffold a DSX project
 
 Usage
-  npm create dsx <directory> [options]
-  create-dsx <directory> [options]
+  npm create despia <directory> [options]
+  create-despia <directory> [options]
 
 Options
   --name <name>        package + app name (default: the directory's basename)
@@ -52,7 +52,7 @@ export function runCreate(argv: readonly string[], io: Io = consoleIo, cwd = pro
   if (flags["help"] === true) { io.out(USAGE); return 0; }
   const directory = positional[0];
   if (directory === undefined) {
-    io.err("create-dsx: name the directory to create");
+    io.err("create-despia: name the directory to create");
     io.out(USAGE);
     return 1;
   }
@@ -69,7 +69,7 @@ export function runCreate(argv: readonly string[], io: Io = consoleIo, cwd = pro
   try {
     const result = scaffold(options);
     const where = relative(cwd, result.root) || ".";
-    io.out(`create-dsx: scaffolded ${result.name} (${result.template}, scheme "${result.scheme}") in ${where}`);
+    io.out(`create-despia: scaffolded ${result.name} (${result.template}, scheme "${result.scheme}") in ${where}`);
     for (const file of result.files) io.out(`  ${file}`);
     io.out("");
     io.out(`  cd ${where}`);
@@ -77,7 +77,7 @@ export function runCreate(argv: readonly string[], io: Io = consoleIo, cwd = pro
     io.out("  npm run dev");
     return 0;
   } catch (e) {
-    io.err(`create-dsx: ${e instanceof ScaffoldError ? e.message : e instanceof Error ? e.message : String(e)}`);
+    io.err(`create-despia: ${e instanceof ScaffoldError ? e.message : e instanceof Error ? e.message : String(e)}`);
     return 1;
   }
 }

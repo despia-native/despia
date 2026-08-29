@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "component": "Diff",
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Diff.dsx",
+  "_note": "<Diff> — the before/after line comparison (U11). THE ALGORITHM IS DELIBERATELY SMALL: a common-prefix and common-suffix trim, with the remaining middle reported as removed-then-added. It is NOT a minimal edit script; a Foundation component draws a diff, it does not compute one, and being exact, cheap and identical on three renderers matters more than being tight. The trim is an indexOf over a mapped equality array rather than a while loop, because a computed value has no loop grammar - the loop spelling left head and tail at zero and reported every line as changed. ADDED AND REMOVED LINES CARRY A TEXT MARKER AND AN ANNOUNCED WORD, never colour alone: '-' / '+' in the gutter, 'removed:' / 'added:' / 'unchanged:' in the utterance. Empty and identical inputs are the pinned edges, because that is where a trim algorithm goes wrong.",
+  "cases": [
+    {
+      "name": "one changed line in the middle: the prefix and suffix survive untouched",
+      "attributes": { "before": "a\nb\nc", "after": "a\nX\nc" },
+      "expect": [
+        { "expr": "dsx.variable.diffParts", "value": {
+          "head": ["a"], "removed": ["b"], "added": ["X"], "tail": ["c"], "headCount": 1
+        } },
+        { "expr": "dsx.variable.diffRows", "value": [
+          { "id": "r0", "kind": "same", "mark": " ", "text": "a" },
+          { "id": "r1", "kind": "del", "mark": "-", "text": "b" },
+          { "id": "r2", "kind": "add", "mark": "+", "text": "X" },
+          { "id": "r3", "kind": "same", "mark": " ", "text": "c" }
+        ] }
+      ],
+      "root": [{ "attr": "role", "value": "list" }, { "attr": "a11yLabel", "value": "Differences" }]
+    },
+    {
+      "name": "IDENTICAL: nothing removed, nothing added, every line unchanged",
+      "attributes": { "before": "a\nb", "after": "a\nb" },
+      "expect": [
+        { "expr": "dsx.variable.diffParts.removed", "value": [] },
+        { "expr": "dsx.variable.diffParts.added", "value": [] },
+        { "expr": "dsx.variable.diffRows.length", "value": 2 },
+        { "expr": "dsx.variable.diffRows[1].kind", "value": "same" }
+      ]
+    },
+    {
+      "name": "EMPTY: two empty texts are one unchanged empty line, not zero rows",
+      "attributes": { "before": "", "after": "" },
+      "expect": [
+        { "expr": "dsx.variable.diffRows", "value": [{ "id": "r0", "kind": "same", "mark": " ", "text": "" }] }
+      ]
+    },
+    {
+      "name": "missing attributes read as empty text rather than the word null",
+      "attributes": {},
+      "expect": [{ "expr": "dsx.variable.diffRows.length", "value": 1 }]
+    },
+    {
+      "name": "a pure insertion removes nothing",
+      "attributes": { "before": "a\nc", "after": "a\nb\nc" },
+      "expect": [
+        { "expr": "dsx.variable.diffParts", "value": {
+          "head": ["a"], "removed": [], "added": ["b"], "tail": ["c"], "headCount": 1
+        } },
+        { "expr": "dsx.variable.diffRows.length", "value": 3 }
+      ]
+    },
+    {
+      "name": "a pure deletion adds nothing",
+      "attributes": { "before": "a\nb\nc", "after": "a\nc" },
+      "expect": [
+        { "expr": "dsx.variable.diffParts.removed", "value": ["b"] },
+        { "expr": "dsx.variable.diffParts.added", "value": [] }
+      ]
+    },
+    {
+      "name": "a wholly different text has no prefix and no suffix to keep",
+      "attributes": { "before": "x\ny", "after": "p\nq" },
+      "expect": [
+        { "expr": "dsx.variable.diffParts", "value": {
+          "head": [], "removed": ["x", "y"], "added": ["p", "q"], "tail": [], "headCount": 0
+        } }
+      ]
+    },
+    {
+      "name": "a repeated line does not let the suffix trim eat into the prefix",
+      "attributes": { "before": "a", "after": "a\na" },
+      "expect": [
+        { "expr": "dsx.variable.diffParts.head", "value": ["a"] },
+        { "expr": "dsx.variable.diffParts.removed", "value": [] },
+        { "expr": "dsx.variable.diffParts.added", "value": ["a"] },
+        { "expr": "dsx.variable.diffParts.tail", "value": [] }
+      ]
+    },
+    {
+      "name": "the removed row announces the word, never only the colour",
+      "attributes": { "before": "a\nb", "after": "a\nX" },
+      "item": { "kind": "del", "text": "b" },
+      "expect": [
+        { "expr": "dsx.formula.diffUtterance", "value": "removed: b" },
+        { "expr": "dsx.formula.diffTint", "value": "destructive" },
+        { "expr": "dsx.formula.diffRowText", "value": "b" }
+      ]
+    },
+    {
+      "name": "the added row announces the word too",
+      "attributes": { "before": "a\nb", "after": "a\nX" },
+      "item": { "kind": "add", "text": "X" },
+      "expect": [
+        { "expr": "dsx.formula.diffUtterance", "value": "added: X" },
+        { "expr": "dsx.formula.diffTint", "value": "accent" }
+      ]
+    },
+    {
+      "name": "an unchanged row says so rather than reading as a bare line of text",
+      "attributes": { "before": "a", "after": "a" },
+      "item": { "kind": "same", "text": "a" },
+      "expect": [
+        { "expr": "dsx.formula.diffUtterance", "value": "unchanged: a" },
+        { "expr": "dsx.formula.diffTint", "value": "label" }
+      ]
+    },
+    {
+      "name": "an empty line renders a space so the row keeps its height",
+      "attributes": { "before": "", "after": "" },
+      "item": { "kind": "same", "text": "" },
+      "expect": [{ "expr": "dsx.formula.diffRowText", "value": " " }]
+    },
+    {
+      "name": "SPLIT: the two columns stay aligned, padded on the shorter side",
+      "attributes": { "before": "a\nb\nc\nz", "after": "a\nX\nz", "mode": "split" },
+      "expect": [
+        { "expr": "dsx.variable.diffSplit", "value": true },
+        { "expr": "dsx.variable.diffPairs", "value": [
+          { "id": "p0", "left": "a", "right": "a", "leftKind": "same", "rightKind": "same" },
+          { "id": "p1", "left": "b", "right": "X", "leftKind": "del", "rightKind": "add" },
+          { "id": "p2", "left": "c", "right": "", "leftKind": "del", "rightKind": "none" },
+          { "id": "p3", "left": "z", "right": "z", "leftKind": "same", "rightKind": "same" }
+        ] }
+      ]
+    },
+    {
+      "name": "the split gutter carries the marker in the text itself, both sides",
+      "attributes": { "before": "b", "after": "X", "mode": "split" },
+      "item": { "leftKind": "del", "left": "b", "rightKind": "add", "right": "X" },
+      "expect": [
+        { "expr": "dsx.formula.diffLeftText", "value": "- b" },
+        { "expr": "dsx.formula.diffRightText", "value": "+ X" },
+        { "expr": "dsx.formula.diffPairUtterance", "value": "removed: b, added: X" }
+      ]
+    },
+    {
+      "name": "a padded split row announces only the side that exists",
+      "attributes": { "before": "b\nc", "after": "X", "mode": "split" },
+      "item": { "leftKind": "del", "left": "c", "rightKind": "none", "right": "" },
+      "expect": [
+        { "expr": "dsx.formula.diffPairUtterance", "value": "removed: c" },
+        { "expr": "dsx.formula.diffRightText", "value": "   " }
+      ]
+    },
+    {
+      "name": "the block's own name is caller-replaceable",
+      "attributes": { "before": "a", "after": "a", "a11yLabel": "Config changes" },
+      "root": [{ "attr": "a11yLabel", "value": "Config changes" }]
+    }
+  ]
+}

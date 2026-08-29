@@ -46,7 +46,7 @@ export const PACKAGE_SPECS: Record<string, { name: string; files: string[] }> = 
   // compiled output), so the file set is unchanged — the command surface travels with the
   // code that reads it rather than as a second shipped directory.
   cli: { name: "@despia/cli", files: ["LICENSE", "README.md", "dist"] },
-  "create-dsx": { name: "create-dsx", files: ["LICENSE", "README.md", "dist"] },
+  "create-dsx": { name: "create-despia", files: ["LICENSE", "README.md", "dist"] },  // dir stays create-dsx; the published name is the brand
   "vite-plugin": { name: "@despia/vite-plugin", files: ["LICENSE", "README.md", "dist"] },
 };
 
@@ -342,7 +342,7 @@ function exportTargets(value: unknown): string[] {
 
 function expectedTarball(identity: PackageIdentity): string {
   // npm pack derives the filename from the NAME, not the directory: @despia/dom ->
-  // despia-dom-<v>.tgz, and the unscoped create-dsx -> create-dsx-<v>.tgz.
+  // despia-dom-<v>.tgz, and the unscoped create-despia -> create-despia-<v>.tgz.
   const slug = identity.name.replace(/^@/, "").replace(/\//g, "-");
   return `${slug}-${identity.version}.tgz`;
 }

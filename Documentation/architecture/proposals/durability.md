@@ -116,7 +116,7 @@ Core/Health/Modules/ECG   chain health.ecg   EXCLUDED
   ✗ rescue suppressed: cascade WINS over dependency rescue (facet-contracts §nested)
   → facet folders gone inert: ios/watch (word "watch" still registered by Core/Extensions/Watch)
 
-Mandatory/Dom             chain dom          INCLUDED (Mandatory tier)
+Core/Dom             chain dom          INCLUDED (Mandatory tier)
 Core/Store                chain store        RESCUED  ← required by Custom/VerticalPlayerStack
 ```
 
@@ -239,7 +239,7 @@ them early:
 |---|---|
 | Renderer-neutral UI-IR + a `render/tree` interface | a **second, externally-owned renderer** becomes a goal. Until then `.dsx` + the corpus IS the neutral representation, with three first-party consumers proving it |
 | Provider solver (candidates, ranking, backtracking) | the first need with **two providers in one build**. Today every requirement has ≤1 candidate and `claim` decides roles; a solver would have nothing to solve |
-| Signed descriptors + authority manifests | third-party modules ship as **artifacts** (a marketplace). The OTA trust chain already exists for content (`../remote-bundle-signing.md`) — data, not code |
+| Signed descriptors + authority manifests | third-party modules ship as **artifacts** (a marketplace). The OTA trust chain already exists for content (`../remote-bundle-signing.md`) — data, not code. **WOKE 2026-08-28**: the apps shelf is this trigger firing — `studio-apps.md` §2; the Ed25519 approval over `(coordinate, version, treeHash, grants)` is the signed descriptor, landing in its T5 |
 | Dynamic resolution | never, for native code on iOS — the platform forbids executable code outside the signed bundle. The dynamic plane is the **content plane** (`../content-plane.md`), and it landed |
 | Version adapters | the first breaking interface migration with **external consumers**. Today `Core/Legacy` is the adapter, and it is one excludable module (`legacy-package.md`) |
 | `ClosedSource/DSX/Modules` → `ClosedSource/Modules` rename | a quiet week and one mechanical PR — pure path churn, never bundled with semantic change |

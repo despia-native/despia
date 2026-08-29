@@ -1,0 +1,46 @@
+<stack id="shot-card"
+       style="position: relative; width: 100%; height: 100%; overflow: hidden; background: #07041a">
+  <head>
+    <!-- TEMPLATE 1 - HERO. The headline carries the slide and the device BLEEDS off the
+         bottom edge. That bleed is the difference between an ad and documentation: the frame
+         becomes texture under the promise instead of the subject of the photograph, and the
+         eye lands on the words first, which is the one-second thumbnail test.
+
+         A `.dsx-zstack` centers its children on one grid cell, so a layer that must fill the
+         slide says width/height 100% explicitly rather than trusting the default. -->
+    <attribute as="caption" sample="&quot;Every order,\nin one place&quot;"/>
+    <attribute as="subcaption" sample="&quot;Track every purchase the moment it ships.&quot;"/>
+    <attribute as="screen" sample="&quot;01-orders.png&quot;"/>
+    <attribute as="tone" sample="&quot;#6d5efc&quot;"/>
+    <attribute as="tone2" sample="&quot;#f0a6ff&quot;"/>
+  </head>
+
+  <!-- LAYERS, NOT A GRID. A template root is a positioned box and every layer is absolutely
+       placed inside it. `.dsx-zstack` is display:grid with justify-items:center and an
+       auto-sized column (theme.ts), so a child asking for width:100% contributes 0 to the
+       column's max-content and the whole layer collapses to zero width - which rendered a
+       Play feature graphic as a flat rectangle of background colour that passed every guard.
+       Positioned layers have no such circularity. -->
+
+  <stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0">
+    <ShotGlow a="{{ dsx.attribute.tone }}" b="{{ dsx.attribute.tone2 }}"/>
+  </stack>
+
+  <!-- The content layer is POSITIONED on purpose. ShotGlow is `position: relative`, and a
+       positioned element paints above an unpositioned sibling regardless of DOM order - which
+       silently swallowed this entire headline the first time. A z-index makes the intent
+       explicit rather than leaving it to paint-order trivia. -->
+  <vstack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;
+                 padding: 84px 40px 0 40px; gap: 0rem">
+    <text value="{{ dsx.attribute.caption }}"
+          style="color: #ffffff; text-align: center; font-size: 42px; font-weight: 800;
+                 letter-spacing: -0.038em; line-height: 1.02; white-space: pre-wrap"/>
+    <text value="{{ dsx.attribute.subcaption }}"
+          style="margin-top: 16px; color: rgba(255,255,255,0.64); text-align: center;
+                 font-size: 15px; font-weight: 450; line-height: 1.4"/>
+    <stack style="margin-top: 44px; width: 100%">
+      <ShotFrame screen="{{ dsx.attribute.screen }}" label="{{ dsx.attribute.caption }}"
+                 width="88%" radius="40px" lift="0.6"/>
+    </stack>
+  </vstack>
+</stack>

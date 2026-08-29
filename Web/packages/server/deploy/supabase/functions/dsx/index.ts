@@ -15,6 +15,7 @@ import { backendSetting, dataProviders } from "../../../../generated/providers.t
 import { installPackages } from "../../../../src/packages.ts";
 import { packageModules } from "../../../../generated/packages.ts";
 import { entities } from "../../../../generated/entities.ts";
+import { mcpTools } from "../../../../generated/mcp-tools.ts";
 
 //  PLATFORM ENV → DECLARED ENV. This wrapper is the Supabase ADAPTER, so mapping Supabase's
 //  own variables onto the names the declaration uses belongs here and nowhere else — the host
@@ -88,7 +89,9 @@ await installDataBackend(
     routes: routes as unknown as import("../../../../src/host.ts").ServerRoute[],
     handlers: handlers as never,
     buildInfo,
-  }, serverConfig as unknown as import("../../../../src/config.ts").ServerConfig);
+  }, serverConfig as unknown as import("../../../../src/config.ts").ServerConfig, {
+    mcpTools: mcpTools as unknown as import("../../../../src/mcp-face.ts").McpToolRow[],
+  });
 } catch (e) {
   const detail = e instanceof Error ? `${e.message}${e.stack === undefined ? "" : `
 ${e.stack}`}` : String(e);

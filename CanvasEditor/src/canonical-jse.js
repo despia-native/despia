@@ -1,5 +1,5 @@
 (() => {
-  // packages/kernel/src/jse/values.ts
+  // packages/kernel/dist/jse/values.js
   var NSNull = {
     __nsnull: true,
     toString() {
@@ -13,22 +13,27 @@
     return typeof v === "object" && v !== null && v.__lambda === true;
   }
   function isWhitespaceOnly(c) {
-    if (c === "	") return true;
+    if (c === "	")
+      return true;
     return /^\p{Zs}$/u.test(c);
   }
   function trimWhitespaceOnly(s) {
     let start = 0;
     let end = s.length;
-    while (start < end && isWhitespaceOnly(s[start])) start += 1;
-    while (end > start && isWhitespaceOnly(s[end - 1])) end -= 1;
+    while (start < end && isWhitespaceOnly(s[start]))
+      start += 1;
+    while (end > start && isWhitespaceOnly(s[end - 1]))
+      end -= 1;
     return s.substring(start, end);
   }
   var segmenter = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter(void 0, { granularity: "grapheme" }) : null;
   function graphemes(s) {
-    if (s.length === 0) return [];
+    if (s.length === 0)
+      return [];
     if (segmenter) {
       const out = [];
-      for (const seg of segmenter.segment(s)) out.push(seg.segment);
+      for (const seg of segmenter.segment(s))
+        out.push(seg.segment);
       return out;
     }
     return Array.from(s);
@@ -41,18 +46,24 @@
         break;
       }
     }
-    if (simple) return s.length;
+    if (simple)
+      return s.length;
     return graphemes(s).length;
   }
   function swiftDouble(s) {
-    if (s.length === 0) return null;
-    if (/\s/.test(s[0]) || /\s/.test(s[s.length - 1])) return null;
+    if (s.length === 0)
+      return null;
+    if (/\s/.test(s[0]) || /\s/.test(s[s.length - 1]))
+      return null;
     const neg = s.startsWith("-");
     const body = s.startsWith("+") || neg ? s.substring(1) : s;
-    if (body.length === 0) return null;
+    if (body.length === 0)
+      return null;
     const lower = body.toLowerCase();
-    if (lower === "inf" || lower === "infinity") return neg ? -Infinity : Infinity;
-    if (lower === "nan") return NaN;
+    if (lower === "inf" || lower === "infinity")
+      return neg ? -Infinity : Infinity;
+    if (lower === "nan")
+      return NaN;
     if (lower.startsWith("0x")) {
       if (/^0x[0-9a-f]+$/.test(lower)) {
         const v2 = parseInt(lower, 16);
@@ -62,9 +73,11 @@
         const m = /^0x([0-9a-f]*)(?:\.([0-9a-f]*))?p([+-]?[0-9]+)$/.exec(lower);
         const intPart = m[1] ?? "";
         const fracPart = m[2] ?? "";
-        if (intPart.length === 0 && fracPart.length === 0) return null;
+        if (intPart.length === 0 && fracPart.length === 0)
+          return null;
         let mant = 0;
-        for (const c of intPart) mant = mant * 16 + parseInt(c, 16);
+        for (const c of intPart)
+          mant = mant * 16 + parseInt(c, 16);
         let scale = 1 / 16;
         for (const c of fracPart) {
           mant += parseInt(c, 16) * scale;
@@ -76,16 +89,22 @@
       return null;
     }
     const last = body[body.length - 1].toLowerCase();
-    if (last === "f" || last === "d") return null;
-    if (!/^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(body)) return null;
+    if (last === "f" || last === "d")
+      return null;
+    if (!/^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(body))
+      return null;
     const v = Number(body);
-    if (Number.isNaN(v)) return null;
+    if (Number.isNaN(v))
+      return null;
     return neg ? -v : v;
   }
   function number(v) {
-    if (typeof v === "number") return v;
-    if (typeof v === "boolean") return v ? 1 : 0;
-    if (typeof v === "string") return swiftDouble(v);
+    if (typeof v === "number")
+      return v;
+    if (typeof v === "boolean")
+      return v ? 1 : 0;
+    if (typeof v === "string")
+      return swiftDouble(v);
     if (isDict(v)) {
       const d = v["__date"];
       return typeof d === "number" ? d : null;
@@ -99,58 +118,93 @@
   function string(v) {
     if (isDict(v) && stringCoerceHook) {
       const c = stringCoerceHook(v);
-      if (c !== null) return c;
+      if (c !== null)
+        return c;
     }
-    if (typeof v === "string") return v;
-    if (typeof v === "boolean") return v ? "1" : "0";
+    if (typeof v === "string")
+      return v;
+    if (typeof v === "boolean")
+      return v ? "1" : "0";
     if (typeof v === "number") {
-      if (Number.isNaN(v)) return "nan";
-      if (v === Infinity) return "inf";
-      if (v === -Infinity) return "-inf";
+      if (Number.isNaN(v))
+        return "nan";
+      if (v === Infinity)
+        return "inf";
+      if (v === -Infinity)
+        return "-inf";
       if (Number.isFinite(v) && Math.floor(v) === v) {
-        if (Math.abs(v) < 1e21) return String(v);
+        if (Math.abs(v) < 1e21)
+          return String(v);
         return String(BigInt(Math.min(Math.max(v, -9e18), 9e18)));
       }
       return String(v);
     }
-    if (v === null || v === void 0) return "";
+    if (v === null || v === void 0)
+      return "";
     return String(v);
   }
   function truthy(v) {
-    if (typeof v === "boolean") return v;
-    if (typeof v === "string") return v.length > 0;
-    if (typeof v === "number") return v !== 0;
-    if (v === null || v === void 0) return false;
+    if (typeof v === "boolean")
+      return v;
+    if (typeof v === "string")
+      return v.length > 0;
+    if (typeof v === "number")
+      return v !== 0;
+    if (v === null || v === void 0)
+      return false;
     return true;
   }
   function asArray(v) {
     return Array.isArray(v) ? v : [];
   }
   function asRows(v) {
-    if (!Array.isArray(v)) return [];
+    if (!Array.isArray(v))
+      return [];
     return v.filter((e) => isDict(e));
   }
-  function watchKey(v) {
-    if (v === null || v === void 0 || v === NSNull) return "\u2205";
-    if (typeof v === "string") return "s" + v;
-    if (typeof v === "boolean") return v ? "b1" : "b0";
-    if (typeof v === "number") return "n" + string(v);
-    if (Array.isArray(v)) return "[" + v.map(watchKey).join("") + "]";
-    if (isDict(v)) {
+  function watchKey(v, seen) {
+    if (v === null || v === void 0 || v === NSNull)
+      return "\u2205";
+    if (typeof v === "string")
+      return "s" + v;
+    if (typeof v === "boolean")
+      return v ? "b1" : "b0";
+    if (typeof v === "number")
+      return "n" + string(v);
+    const nested = Array.isArray(v) || isDict(v);
+    if (!nested)
+      return "x" + String(v);
+    const path = seen ?? /* @__PURE__ */ new Set();
+    if (path.has(v))
+      return "\u21BA";
+    path.add(v);
+    try {
+      if (Array.isArray(v))
+        return "[" + v.map((e) => watchKey(e, path)).join("") + "]";
       const d = v;
-      return "{" + Object.keys(d).sort().map((k) => `${k}=` + watchKey(d[k])).join("") + "}";
+      return "{" + Object.keys(d).sort().map((k) => `${k}=` + watchKey(d[k], path)).join("") + "}";
+    } finally {
+      path.delete(v);
     }
-    return "x" + String(v);
   }
   function jseEquals(a, b) {
+    if (a === NSNull || a === void 0)
+      a = null;
+    if (b === NSNull || b === void 0)
+      b = null;
+    if (a === null || b === null)
+      return a === b;
     const x = number(a);
     const y = number(b);
-    if (x !== null && y !== null) return x === y;
+    if (x !== null && y !== null)
+      return x === y;
     const structural = (v) => {
-      if (isDict(v)) return stringCoerceHook === null || stringCoerceHook(v) === null;
+      if (isDict(v))
+        return stringCoerceHook === null || stringCoerceHook(v) === null;
       return Array.isArray(v);
     };
-    if (structural(a) || structural(b)) return watchKey(a) === watchKey(b);
+    if (structural(a) || structural(b))
+      return watchKey(a) === watchKey(b);
     return string(a) === string(b);
   }
   function compare(a, b, o) {
@@ -183,7 +237,8 @@
     if (o === "+") {
       const x2 = number(a);
       const y2 = number(b);
-      if (x2 !== null && y2 !== null) return x2 + y2;
+      if (x2 !== null && y2 !== null)
+        return x2 + y2;
       return string(a) + string(b);
     }
     const x = number(a) ?? 0;
@@ -208,17 +263,22 @@
   }
   function toInt32(v) {
     let n = number(v) ?? 0;
-    if (!Number.isFinite(n)) return 0;
+    if (!Number.isFinite(n))
+      return 0;
     n = Math.trunc(n) % 4294967296;
-    if (n >= 2147483648) n -= 4294967296;
-    else if (n < -2147483648) n += 4294967296;
+    if (n >= 2147483648)
+      n -= 4294967296;
+    else if (n < -2147483648)
+      n += 4294967296;
     return n;
   }
   function toUint32(v) {
     let n = number(v) ?? 0;
-    if (!Number.isFinite(n)) return 0;
+    if (!Number.isFinite(n))
+      return 0;
     n = Math.trunc(n) % 4294967296;
-    if (n < 0) n += 4294967296;
+    if (n < 0)
+      n += 4294967296;
     return n;
   }
   function bitOp(a, b, o) {
@@ -247,19 +307,26 @@
     return Math.pow(number(a) ?? 0, number(b) ?? 0);
   }
   function typeofString(v) {
-    if (v === null || v === void 0 || v === NSNull) return "undefined";
-    if (typeof v === "string") return "string";
-    if (typeof v === "boolean") return "boolean";
-    if (typeof v === "number") return "number";
-    if (isLambda(v)) return "function";
+    if (v === null || v === void 0 || v === NSNull)
+      return "undefined";
+    if (typeof v === "string")
+      return "string";
+    if (typeof v === "boolean")
+      return "boolean";
+    if (typeof v === "number")
+      return "number";
+    if (isLambda(v))
+      return "function";
     return "object";
   }
   function safeInt(d) {
-    if (Number.isNaN(d)) return 0;
+    if (Number.isNaN(d))
+      return 0;
     return Math.trunc(Math.min(Math.max(d, -9e18), 9e18));
   }
   function roundedAwayFromZero(x) {
-    if (Number.isNaN(x) || !Number.isFinite(x)) return x;
+    if (Number.isNaN(x) || !Number.isFinite(x))
+      return x;
     const a = Math.abs(x);
     const f = Math.floor(a);
     const r = a - f >= 0.5 ? f + 1 : f;
@@ -292,13 +359,15 @@
   }
   function member(base, m) {
     if (m === "length") {
-      if (typeof base === "string") return charCount(base);
-      if (Array.isArray(base)) return base.length;
+      if (typeof base === "string")
+        return charCount(base);
+      if (Array.isArray(base))
+        return base.length;
     }
     return isDict(base) ? base[m] ?? null : null;
   }
 
-  // packages/kernel/src/jse/tokens.ts
+  // packages/kernel/dist/jse/tokens.js
   var threeCharOps = ["===", "!==", ">>>", "**=", "..."];
   var twoCharOps = [
     "==",
@@ -334,20 +403,24 @@
     return isLetter(c) || isDigit(c) || c === "_";
   }
   function charAllowsRegex(prev) {
-    if (prev === null) return true;
-    if (isWordChar(prev)) return false;
+    if (prev === null)
+      return true;
+    if (isWordChar(prev))
+      return false;
     return prev !== ")" && prev !== "]" && prev !== "'" && prev !== '"' && prev !== "`";
   }
   var regexKeywords = /* @__PURE__ */ new Set(["return", "case", "typeof", "in", "of", "do", "else", "throw"]);
   function regexAfterKeyword(out) {
     let t = out.length - 1;
-    while (t >= 0 && /\s/.test(out[t])) t -= 1;
+    while (t >= 0 && /\s/.test(out[t]))
+      t -= 1;
     let w = "";
     while (t >= 0 && isWordChar(out[t]) && w.length <= 8) {
       w = out[t] + w;
       t -= 1;
     }
-    if (t >= 0 && isWordChar(out[t])) return false;
+    if (t >= 0 && isWordChar(out[t]))
+      return false;
     return regexKeywords.has(w);
   }
   function scanRegexEnd(c, i) {
@@ -360,18 +433,23 @@
         j += 2;
         continue;
       }
-      if (rc === "[") inClass = true;
-      if (rc === "]") inClass = false;
+      if (rc === "[")
+        inClass = true;
+      if (rc === "]")
+        inClass = false;
       if (rc === "/" && !inClass) {
         closed = true;
         j += 1;
         break;
       }
-      if (rc === "\n") break;
+      if (rc === "\n")
+        break;
       j += 1;
     }
-    if (!closed || j === i + 1) return -1;
-    while (j < c.length && isLetter(c[j])) j += 1;
+    if (!closed || j === i + 1)
+      return -1;
+    while (j < c.length && isLetter(c[j]))
+      j += 1;
     return j;
   }
   function copyQuoted(c, i, out) {
@@ -387,7 +465,8 @@
       }
       out.push(ch);
       j += 1;
-      if (ch === q) break;
+      if (ch === q)
+        break;
     }
     return j;
   }
@@ -421,15 +500,18 @@
         j += 2;
         continue;
       }
-      if (hole > 0 && ch === "{") hole += 1;
-      if (hole > 0 && ch === "}") hole -= 1;
+      if (hole > 0 && ch === "{")
+        hole += 1;
+      if (hole > 0 && ch === "}")
+        hole -= 1;
       out.push(ch);
       j += 1;
     }
     return j;
   }
   function stripComments(s) {
-    if (!s.includes("//") && !s.includes("/*")) return s;
+    if (!s.includes("//") && !s.includes("/*"))
+      return s;
     const c = Array.from(s);
     const out = [];
     let i = 0;
@@ -447,50 +529,107 @@
         continue;
       }
       if (ch === "/" && i + 1 < c.length && c[i + 1] === "/" && prevSig !== ":") {
-        while (i < c.length && c[i] !== "\n") i += 1;
+        while (i < c.length && c[i] !== "\n")
+          i += 1;
         continue;
       }
       if (ch === "/" && i + 1 < c.length && c[i + 1] === "*") {
         i += 2;
-        while (i + 1 < c.length && !(c[i] === "*" && c[i + 1] === "/")) i += 1;
+        while (i + 1 < c.length && !(c[i] === "*" && c[i + 1] === "/"))
+          i += 1;
         i = Math.min(i + 2, c.length);
         out.push(" ");
         continue;
       }
-      if (ch === "/" && (charAllowsRegex(prevSig) || prevSig !== null && isWordChar(prevSig) && regexAfterKeyword(out))) {
+      if (globalThis.__DSX_OPTIONAL_REGEX__ !== false && ch === "/" && (charAllowsRegex(prevSig) || prevSig !== null && isWordChar(prevSig) && regexAfterKeyword(out))) {
         const end = scanRegexEnd(c, i);
         if (end > 0) {
-          for (let k = i; k < end; k++) out.push(c[k]);
+          for (let k = i; k < end; k++)
+            out.push(c[k]);
           i = end;
           prevSig = c[end - 1];
           continue;
         }
       }
       out.push(ch);
-      if (!/\s/.test(ch)) prevSig = ch;
+      if (!/\s/.test(ch))
+        prevSig = ch;
+      i += 1;
+    }
+    return out.join("");
+  }
+  function decodeOperatorEntities(s) {
+    if (!s.includes("&amp;") && !s.includes("&lt;") && !s.includes("&gt;"))
+      return s;
+    const c = Array.from(s);
+    const out = [];
+    let i = 0;
+    let prevSig = null;
+    while (i < c.length) {
+      const ch = c[i];
+      if (ch === "'" || ch === '"') {
+        i = copyQuoted(c, i, out);
+        prevSig = ch;
+        continue;
+      }
+      if (ch === "`") {
+        i = copyTemplate(c, i, out);
+        prevSig = "`";
+        continue;
+      }
+      if (globalThis.__DSX_OPTIONAL_REGEX__ !== false && ch === "/" && (charAllowsRegex(prevSig) || prevSig !== null && isWordChar(prevSig) && regexAfterKeyword(out))) {
+        const end = scanRegexEnd(c, i);
+        if (end > 0) {
+          for (let k = i; k < end; k++)
+            out.push(c[k]);
+          i = end;
+          prevSig = c[end - 1];
+          continue;
+        }
+      }
+      if (ch === "&") {
+        const rest = c.slice(i + 1, i + 5).join("");
+        const op = rest.startsWith("amp;") ? "&" : rest.startsWith("lt;") ? "<" : rest.startsWith("gt;") ? ">" : null;
+        if (op !== null) {
+          out.push(op);
+          prevSig = op;
+          i += op === "&" ? 5 : 4;
+          continue;
+        }
+      }
+      out.push(ch);
+      if (!/\s/.test(ch))
+        prevSig = ch;
       i += 1;
     }
     return out.join("");
   }
   function lineContinues(out, c, after) {
     let t = out.length - 1;
-    while (t >= 0 && (out[t] === " " || out[t] === "	" || out[t] === "\r")) t -= 1;
+    while (t >= 0 && (out[t] === " " || out[t] === "	" || out[t] === "\r"))
+      t -= 1;
     if (t >= 0) {
       const last = out[t];
       const isIncDec = (last === "+" || last === "-") && t >= 1 && out[t - 1] === last;
-      if (!isIncDec && "+-*/%&|<>=!?:,.".includes(last)) return true;
+      if (!isIncDec && "+-*/%&|<>=!?:,.".includes(last))
+        return true;
     }
     let j = after + 1;
-    while (j < c.length && /\s/.test(c[j])) j += 1;
-    if (j >= c.length) return false;
+    while (j < c.length && /\s/.test(c[j]))
+      j += 1;
+    if (j >= c.length)
+      return false;
     const ch = c[j];
-    if (ch === "." || ch === "?" || ch === ":") return true;
-    if ((ch === "&" || ch === "|") && j + 1 < c.length && c[j + 1] === ch) return true;
+    if (ch === "." || ch === "?" || ch === ":")
+      return true;
+    if ((ch === "&" || ch === "|") && j + 1 < c.length && c[j + 1] === ch)
+      return true;
     return false;
   }
   function nextWord(c, after) {
     let j = after + 1;
-    while (j < c.length && /\s/.test(c[j])) j += 1;
+    while (j < c.length && /\s/.test(c[j]))
+      j += 1;
     let w = "";
     while (j < c.length && isWordChar(c[j]) && w.length <= 8) {
       w += c[j];
@@ -500,18 +639,23 @@
   }
   function braceOpensDo(out) {
     let t = out.length - 1;
-    while (t >= 0 && /\s/.test(out[t])) t -= 1;
-    if (t < 1 || out[t] !== "o" || out[t - 1] !== "d") return false;
+    while (t >= 0 && /\s/.test(out[t]))
+      t -= 1;
+    if (t < 1 || out[t] !== "o" || out[t - 1] !== "d")
+      return false;
     return t - 2 < 0 || !isWordChar(out[t - 2]);
   }
   function keywordJoinsBlock(c, after, prevSig, closedDo) {
-    if (prevSig !== "}") return false;
+    if (prevSig !== "}")
+      return false;
     const w = nextWord(c, after);
-    if (w === "else" || w === "catch" || w === "finally") return true;
+    if (w === "else" || w === "catch" || w === "finally")
+      return true;
     return w === "while" && closedDo;
   }
   function asiSemicolons(s) {
-    if (!s.includes("\n")) return s;
+    if (!s.includes("\n"))
+      return s;
     const c = Array.from(s);
     const out = [];
     const stack = [];
@@ -532,10 +676,11 @@
         justClosedDo = false;
         continue;
       }
-      if (ch === "/" && (charAllowsRegex(prevSig) || prevSig !== null && isWordChar(prevSig) && regexAfterKeyword(out))) {
+      if (globalThis.__DSX_OPTIONAL_REGEX__ !== false && ch === "/" && (charAllowsRegex(prevSig) || prevSig !== null && isWordChar(prevSig) && regexAfterKeyword(out))) {
         const end = scanRegexEnd(c, i);
         if (end > 0) {
-          for (let k = i; k < end; k++) out.push(c[k]);
+          for (let k = i; k < end; k++)
+            out.push(c[k]);
           prevSig = c[end - 1];
           justClosedDo = false;
           i = end;
@@ -543,7 +688,8 @@
         }
       }
       let closesDo = false;
-      if (ch === "(" || ch === "[" || ch === "{") stack.push(ch === "{" && braceOpensDo(out) ? "D" : ch);
+      if (ch === "(" || ch === "[" || ch === "{")
+        stack.push(ch === "{" && braceOpensDo(out) ? "D" : ch);
       else if (ch === ")" || ch === "]" || ch === "}") {
         const p = stack.pop();
         closesDo = ch === "}" && p === "D";
@@ -566,7 +712,7 @@
   }
   function preprocessSource(s) {
     const normalized = s.includes("\r") ? s.replace(/\r(?!\n)/g, "\n") : s;
-    return asiSemicolons(stripComments(normalized));
+    return asiSemicolons(stripComments(decodeOperatorEntities(normalized)));
   }
   function unescapeInto(str, c, j) {
     const e = c[j];
@@ -635,7 +781,8 @@
   }
   function scanNumber(c, i) {
     const radix = (pfx, digit, base) => {
-      if (!(c[i] === "0" && i + 1 < c.length && (c[i + 1] === pfx || c[i + 1] === pfx.toUpperCase()))) return null;
+      if (!(c[i] === "0" && i + 1 < c.length && (c[i + 1] === pfx || c[i + 1] === pfx.toUpperCase())))
+        return null;
       let j2 = i + 2;
       let any = false;
       let v = 0;
@@ -653,15 +800,19 @@
         }
         break;
       }
-      if (!any) return null;
+      if (!any)
+        return null;
       return [v, j2];
     };
     const hex = radix("x", isHexDigit, 16);
-    if (hex) return hex;
+    if (hex)
+      return hex;
     const bin = radix("b", (ch) => ch === "0" || ch === "1", 2);
-    if (bin) return bin;
+    if (bin)
+      return bin;
     const oct = radix("o", (ch) => ch >= "0" && ch <= "7", 8);
-    if (oct) return oct;
+    if (oct)
+      return oct;
     let j = i;
     let n = "";
     let seenDot = false;
@@ -692,7 +843,8 @@
     }
     if (j < c.length && (c[j] === "e" || c[j] === "E")) {
       let k = j + 1;
-      if (k < c.length && (c[k] === "+" || c[k] === "-")) k += 1;
+      if (k < c.length && (c[k] === "+" || c[k] === "-"))
+        k += 1;
       if (k < c.length && isDigit(c[k])) {
         let exp = c[j];
         let m = j + 1;
@@ -731,7 +883,8 @@
           str.push(c[i]);
           i += 1;
         }
-        if (i < c.length) i += 1;
+        if (i < c.length)
+          i += 1;
         toks.push({ kind: "str", v: str.join("") });
         continue;
       }
@@ -762,7 +915,8 @@
                 i = copyTemplate(c, i, src);
                 continue;
               }
-              if (hc === "{") depth += 1;
+              if (hc === "{")
+                depth += 1;
               else if (hc === "}") {
                 depth -= 1;
                 if (depth === 0) {
@@ -773,15 +927,19 @@
               src.push(hc);
               i += 1;
             }
-            if (holeDepth < 32) parts.push({ toks: tokenizeRaw(src.join(""), holeDepth + 1) });
-            else parts.push({ s: src.join("") });
+            if (holeDepth < 32)
+              parts.push({ toks: tokenizeRaw(src.join(""), holeDepth + 1) });
+            else
+              parts.push({ s: src.join("") });
             continue;
           }
           lit.push(c[i]);
           i += 1;
         }
-        if (i < c.length) i += 1;
-        if (lit.length > 0) parts.push({ s: lit.join("") });
+        if (i < c.length)
+          i += 1;
+        if (lit.length > 0)
+          parts.push({ s: lit.join("") });
         toks.push({ kind: "template", parts });
         continue;
       }
@@ -800,7 +958,7 @@
         toks.push({ kind: "ident", v: id });
         continue;
       }
-      if (ch === "/") {
+      if (globalThis.__DSX_OPTIONAL_REGEX__ !== false && ch === "/") {
         const last = toks.length > 0 ? toks[toks.length - 1] : null;
         const prevAllowsRegex = last === null || last.kind === "op" && last.v !== ")" && last.v !== "]" && last.v !== "++" && last.v !== "--" || last.kind === "ident" && regexKeywords.has(last.v);
         if (prevAllowsRegex && i + 1 < c.length && c[i + 1] !== "/" && c[i + 1] !== "*") {
@@ -815,14 +973,17 @@
               j += 2;
               continue;
             }
-            if (rc === "[") inClass = true;
-            if (rc === "]") inClass = false;
+            if (rc === "[")
+              inClass = true;
+            if (rc === "]")
+              inClass = false;
             if (rc === "/" && !inClass) {
               closed = true;
               j += 1;
               break;
             }
-            if (rc === "\n") break;
+            if (rc === "\n")
+              break;
             pat += rc;
             j += 1;
           }
@@ -863,22 +1024,327 @@
   var tokenCache = /* @__PURE__ */ new Map();
   function cachedTokens(s) {
     const hit = tokenCache.get(s);
-    if (hit) return hit;
+    if (hit)
+      return hit;
     const toks = tokenize(s);
-    if (tokenCache.size > 512) tokenCache.clear();
+    if (tokenCache.size > 512)
+      tokenCache.clear();
     tokenCache.set(s, toks);
     return toks;
   }
 
-  // packages/kernel/src/jse/regex.ts
+  // packages/kernel/dist/jse/highlight.js
+  var KEYWORDS = /* @__PURE__ */ new Set([
+    "const",
+    "let",
+    "var",
+    "function",
+    "return",
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "break",
+    "continue",
+    "switch",
+    "case",
+    "default",
+    "try",
+    "catch",
+    "finally",
+    "throw",
+    "new",
+    "typeof",
+    "instanceof",
+    "in",
+    "of",
+    "delete",
+    "void",
+    "await",
+    "async",
+    "yield",
+    "this"
+  ]);
+  var LITERALS = /* @__PURE__ */ new Set(["true", "false", "null", "undefined"]);
+  var PUNCT = /* @__PURE__ */ new Set(["(", ")", "[", "]", "{", "}", ",", ";"]);
+  var OPERATOR = new Set("+-*/%=<>!&|^~?:.".split(""));
+  function isDigit2(c) {
+    return c >= "0" && c <= "9";
+  }
+  function isWordStart(c) {
+    return /[\p{L}_$]/u.test(c);
+  }
+  function isWordChar2(c) {
+    return /[\p{L}\p{N}_$]/u.test(c);
+  }
+  function opensRegex(src, at) {
+    let i = at - 1;
+    while (i >= 0 && /\s/.test(src[i]))
+      i--;
+    if (i < 0)
+      return true;
+    const prev = src[i];
+    if (prev === ")" || prev === "]" || prev === "'" || prev === '"' || prev === "`")
+      return false;
+    if (!isWordChar2(prev))
+      return true;
+    let j = i;
+    while (j >= 0 && isWordChar2(src[j]))
+      j--;
+    const word = src.slice(j + 1, i + 1);
+    return KEYWORDS.has(word) && word !== "this";
+  }
+  function endOfRegex(src, at) {
+    let i = at + 1;
+    let inClass = false;
+    while (i < src.length) {
+      const c = src[i];
+      if (c === "\\") {
+        i = Math.min(i + 2, src.length);
+        continue;
+      }
+      if (c === "\n")
+        return i;
+      if (c === "[") {
+        inClass = true;
+        i++;
+        continue;
+      }
+      if (c === "]") {
+        inClass = false;
+        i++;
+        continue;
+      }
+      if (c === "/" && !inClass) {
+        i++;
+        break;
+      }
+      i++;
+    }
+    while (i < src.length && /[a-z]/.test(src[i]))
+      i++;
+    return i;
+  }
+  function endOfNumber(src, at) {
+    let i = at;
+    if (src[i] === "0" && i + 1 < src.length && /[xXbBoO]/.test(src[i + 1])) {
+      i += 2;
+      while (i < src.length && /[0-9a-fA-F_]/.test(src[i]))
+        i++;
+      return i;
+    }
+    while (i < src.length && (isDigit2(src[i]) || src[i] === "_"))
+      i++;
+    if (src[i] === "." && isDigit2(src[i + 1] ?? "")) {
+      i++;
+      while (i < src.length && (isDigit2(src[i]) || src[i] === "_"))
+        i++;
+    }
+    if (i < src.length && (src[i] === "e" || src[i] === "E")) {
+      let k = i + 1;
+      if (src[k] === "+" || src[k] === "-")
+        k++;
+      if (isDigit2(src[k] ?? "")) {
+        k++;
+        while (k < src.length && isDigit2(src[k]))
+          k++;
+        i = k;
+      }
+    }
+    return i;
+  }
+  function highlight(source) {
+    const out = [];
+    const push = (start, end, kind) => {
+      if (end <= start)
+        return;
+      const last = out[out.length - 1];
+      if (last !== void 0 && last.kind === kind && last.end === start) {
+        last.end = end;
+        return;
+      }
+      out.push({ start, end, kind });
+    };
+    const holes = [];
+    let depth = 0;
+    let i = 0;
+    while (i < source.length) {
+      const c = source[i];
+      if (/\s/.test(c)) {
+        const s = i;
+        while (i < source.length && /\s/.test(source[i]))
+          i++;
+        push(s, i, "plain");
+        continue;
+      }
+      if (c === "/" && source[i + 1] === "/") {
+        const s = i;
+        while (i < source.length && source[i] !== "\n")
+          i++;
+        push(s, i, "comment");
+        continue;
+      }
+      if (c === "/" && source[i + 1] === "*") {
+        const s = i;
+        const close = source.indexOf("*/", i + 2);
+        i = close < 0 ? source.length : close + 2;
+        push(s, i, "comment");
+        continue;
+      }
+      if (c === "/" && opensRegex(source, i)) {
+        const s = i;
+        i = endOfRegex(source, i);
+        push(s, i, "regex");
+        continue;
+      }
+      if (c === "'" || c === '"') {
+        const s = i;
+        const quote = c;
+        i++;
+        while (i < source.length) {
+          if (source[i] === "\\") {
+            i = Math.min(i + 2, source.length);
+            continue;
+          }
+          if (source[i] === quote) {
+            i++;
+            break;
+          }
+          if (source[i] === "\n")
+            break;
+          i++;
+        }
+        push(s, i, "string");
+        continue;
+      }
+      if (c === "`") {
+        const s = i;
+        i++;
+        while (i < source.length) {
+          if (source[i] === "\\") {
+            i = Math.min(i + 2, source.length);
+            continue;
+          }
+          if (source[i] === "`") {
+            i++;
+            break;
+          }
+          if (source[i] === "$" && source[i + 1] === "{")
+            break;
+          i++;
+        }
+        push(s, i, "string");
+        if (source[i] === "$" && source[i + 1] === "{") {
+          push(i, i + 2, "operator");
+          i += 2;
+          holes.push(depth);
+          depth = 0;
+        }
+        continue;
+      }
+      if (isDigit2(c) || c === "." && isDigit2(source[i + 1] ?? "")) {
+        const s = i;
+        i = endOfNumber(source, i);
+        push(s, i, "number");
+        continue;
+      }
+      if (isWordStart(c)) {
+        const s = i;
+        while (i < source.length && isWordChar2(source[i]))
+          i++;
+        const word = source.slice(s, i);
+        let j = i;
+        while (j < source.length && /[ \t]/.test(source[j]))
+          j++;
+        let k = s - 1;
+        while (k >= 0 && /[ \t]/.test(source[k]))
+          k--;
+        const kind = KEYWORDS.has(word) ? "keyword" : LITERALS.has(word) ? "literal" : source[j] === "(" ? "call" : k >= 0 && source[k] === "." && source[k - 1] !== "." ? "property" : "ident";
+        push(s, i, kind);
+        continue;
+      }
+      if (c === "}" && holes.length > 0 && depth === 0) {
+        push(i, i + 1, "operator");
+        i++;
+        depth = holes.pop();
+        const s = i;
+        while (i < source.length) {
+          if (source[i] === "\\") {
+            i = Math.min(i + 2, source.length);
+            continue;
+          }
+          if (source[i] === "`") {
+            i++;
+            break;
+          }
+          if (source[i] === "$" && source[i + 1] === "{")
+            break;
+          i++;
+        }
+        push(s, i, "string");
+        if (source[i] === "$" && source[i + 1] === "{") {
+          push(i, i + 2, "operator");
+          i += 2;
+          holes.push(depth);
+          depth = 0;
+        }
+        continue;
+      }
+      if (PUNCT.has(c)) {
+        if (c === "{" || c === "[" || c === "(")
+          depth++;
+        else if (c === "}" || c === "]" || c === ")")
+          depth = Math.max(0, depth - 1);
+        push(i, i + 1, "punct");
+        i++;
+        continue;
+      }
+      if (OPERATOR.has(c)) {
+        const s = i;
+        while (i < source.length && OPERATOR.has(source[i]))
+          i++;
+        push(s, i, "operator");
+        continue;
+      }
+      push(i, i + 1, "plain");
+      i++;
+    }
+    return out;
+  }
+  function highlightLines(source) {
+    const out = [{ line: 1, spans: [] }];
+    for (const tok of highlight(source)) {
+      const parts = source.slice(tok.start, tok.end).split("\n");
+      for (const [i, part] of parts.entries()) {
+        if (i > 0)
+          out.push({ line: out.length + 1, spans: [] });
+        if (part === "")
+          continue;
+        const row = out[out.length - 1];
+        const last = row.spans[row.spans.length - 1];
+        if (last !== void 0 && last.kind === tok.kind) {
+          last.text += part;
+          continue;
+        }
+        row.spans.push({ text: part, kind: tok.kind });
+      }
+    }
+    return out;
+  }
+
+  // packages/kernel/dist/jse/regex.js
   var cache = /* @__PURE__ */ new Map();
   function unboundedQuantAt(source, i) {
     const ch = source[i];
-    if (ch === "*" || ch === "+") return source[i + 1] === "?" ? i + 2 : i + 1;
+    if (ch === "*" || ch === "+")
+      return source[i + 1] === "?" ? i + 2 : i + 1;
     if (ch === "{") {
       const close = source.indexOf("}", i);
-      if (close < 0) return -1;
-      if (/^\d+,$/.test(source.substring(i + 1, close))) return source[close + 1] === "?" ? close + 2 : close + 1;
+      if (close < 0)
+        return -1;
+      if (/^\d+,$/.test(source.substring(i + 1, close)))
+        return source[close + 1] === "?" ? close + 2 : close + 1;
     }
     return -1;
   }
@@ -894,7 +1360,8 @@
         continue;
       }
       if (inClass) {
-        if (ch === "]") inClass = false;
+        if (ch === "]")
+          inClass = false;
         i += 1;
         continue;
       }
@@ -912,8 +1379,10 @@
         const inner = bodyUnbounded.pop() ?? false;
         const q2 = unboundedQuantAt(source, i + 1);
         if (q2 >= 0) {
-          if (inner) return true;
-          if (bodyUnbounded.length > 0) bodyUnbounded[bodyUnbounded.length - 1] = true;
+          if (inner)
+            return true;
+          if (bodyUnbounded.length > 0)
+            bodyUnbounded[bodyUnbounded.length - 1] = true;
           i = q2;
           continue;
         }
@@ -922,7 +1391,8 @@
       }
       const q = unboundedQuantAt(source, i);
       if (q >= 0) {
-        if (bodyUnbounded.length > 0) bodyUnbounded[bodyUnbounded.length - 1] = true;
+        if (bodyUnbounded.length > 0)
+          bodyUnbounded[bodyUnbounded.length - 1] = true;
         i = q;
         continue;
       }
@@ -931,23 +1401,30 @@
     return false;
   }
   function compiled(v) {
-    if (!isDict(v)) return null;
+    if (!isDict(v))
+      return null;
     const d = v;
-    if (!d["__regex"]) return null;
+    if (!d["__regex"])
+      return null;
     const pattern = string(d["source"]);
     const flags = string(d["flags"]);
     const key = flags + "" + pattern;
     const hit = cache.get(key);
-    if (hit) return hit;
+    if (hit)
+      return hit;
     if (reDoSProne(pattern)) {
       console.warn(`[JSE regex] rejected a potentially-catastrophic pattern (nested unbounded quantifier): /${pattern}/${flags}`);
       return null;
     }
     let opts = "";
-    if (flags.includes("i")) opts += "i";
-    if (flags.includes("m")) opts += "m";
-    if (flags.includes("s")) opts += "s";
-    if (flags.includes("u")) opts += "u";
+    if (flags.includes("i"))
+      opts += "i";
+    if (flags.includes("m"))
+      opts += "m";
+    if (flags.includes("s"))
+      opts += "s";
+    if (flags.includes("u"))
+      opts += "u";
     let re;
     try {
       re = new RegExp(pattern, opts + "g");
@@ -956,7 +1433,8 @@
       return null;
     }
     const c = { re, global: flags.includes("g") };
-    if (cache.size > 128) cache.clear();
+    if (cache.size > 128)
+      cache.clear();
     cache.set(key, c);
     return c;
   }
@@ -966,45 +1444,54 @@
     let m;
     while ((m = re.exec(s)) !== null) {
       out.push(m);
-      if (m[0].length === 0) re.lastIndex += 1;
+      if (m[0].length === 0)
+        re.lastIndex += 1;
     }
     return out;
   }
-  var JSERegex = {
+  var JSE_REGEX_FULL = {
     test(s, regex) {
       const c = compiled(regex);
-      if (!c) return false;
+      if (!c)
+        return false;
       c.re.lastIndex = 0;
       return c.re.test(s);
     },
     match(s, regex) {
       const c = compiled(regex);
-      if (!c) return null;
+      if (!c)
+        return null;
       const all = findAll(c.re, s);
       if (c.global) {
-        if (all.length === 0) return null;
+        if (all.length === 0)
+          return null;
         return all.map((m2) => m2[0]);
       }
       const m = all[0];
-      if (!m) return null;
+      if (!m)
+        return null;
       const out = [];
-      for (let i = 0; i < m.length; i++) out.push(m[i] ?? NSNull);
+      for (let i = 0; i < m.length; i++)
+        out.push(m[i] ?? NSNull);
       return out;
     },
     /** Every match as a match ARRAY ([full, g1, …] — unmatched group → NSNull), always
      *  global semantics (the JS matchAll contract; the `g` flag is implied). */
     matchAll(s, regex) {
       const c = compiled(regex);
-      if (!c) return [];
+      if (!c)
+        return [];
       return findAll(c.re, s).map((m) => {
         const out = [];
-        for (let i = 0; i < m.length; i++) out.push(m[i] ?? NSNull);
+        for (let i = 0; i < m.length; i++)
+          out.push(m[i] ?? NSNull);
         return out;
       });
     },
     search(s, regex) {
       const c = compiled(regex);
-      if (!c) return -1;
+      if (!c)
+        return -1;
       c.re.lastIndex = 0;
       const m = c.re.exec(s);
       return m ? m.index : -1;
@@ -1017,16 +1504,20 @@
         for (const m of findAll(c.re, s)) {
           out += s.substring(last, m.index) + expand(template, m);
           last = m.index + m[0].length;
-          if (!(all || c.global)) break;
+          if (!(all || c.global))
+            break;
         }
         out += s.substring(last);
         return out;
       }
       const find = string(pattern);
-      if (find.length === 0) return s;
-      if (all) return s.split(find).join(template);
+      if (find.length === 0)
+        return s;
+      if (all)
+        return s.split(find).join(template);
       const r = s.indexOf(find);
-      if (r < 0) return s;
+      if (r < 0)
+        return s;
       return s.substring(0, r) + template + s.substring(r + find.length);
     },
     split(s, pattern, limit) {
@@ -1045,10 +1536,36 @@
         const sep = string(pattern);
         parts = sep.length === 0 ? graphemes(s) : s.split(sep);
       }
-      if (limit > 0 && parts.length > limit) parts = parts.slice(0, limit);
+      if (limit > 0 && parts.length > limit)
+        parts = parts.slice(0, limit);
       return parts;
     }
   };
+  var JSE_REGEX_ABSENT = {
+    test: () => false,
+    match: () => null,
+    matchAll: () => [],
+    search: () => -1,
+    replace(s, pattern, template, all) {
+      const find = string(pattern);
+      if (find.length === 0)
+        return s;
+      if (all)
+        return s.split(find).join(template);
+      const r = s.indexOf(find);
+      if (r < 0)
+        return s;
+      return s.substring(0, r) + template + s.substring(r + find.length);
+    },
+    split(s, pattern, limit) {
+      const sep = string(pattern);
+      let parts = sep.length === 0 ? graphemes(s) : s.split(sep);
+      if (limit > 0 && parts.length > limit)
+        parts = parts.slice(0, limit);
+      return parts;
+    }
+  };
+  var JSERegex = globalThis.__DSX_OPTIONAL_REGEX__ !== false ? JSE_REGEX_FULL : JSE_REGEX_ABSENT;
   function expand(template, m) {
     const groupCount = m.length - 1;
     let out = "";
@@ -1066,11 +1583,13 @@
         j += 1;
         while (j < template.length && template[j] >= "0" && template[j] <= "9") {
           const cand = g * 10 + (template.charCodeAt(j) - 48);
-          if (cand > groupCount) break;
+          if (cand > groupCount)
+            break;
           g = cand;
           j += 1;
         }
-        if (g <= groupCount) out += m[g] ?? "";
+        if (g <= groupCount)
+          out += m[g] ?? "";
         i = j;
         continue;
       }
@@ -1080,7 +1599,7 @@
     return out;
   }
 
-  // packages/kernel/src/jse/pathmatch.ts
+  // packages/kernel/dist/jse/pathmatch.js
   function normalize(s) {
     const q = s.indexOf("?");
     const h = s.indexOf("#");
@@ -1096,7 +1615,8 @@
     match(path, pattern) {
       const p = normalize(path);
       const pat = normalize(pattern);
-      if (pat === "*" || pat === "/*" || pat.length === 0) return {};
+      if (pat === "*" || pat === "/*" || pat.length === 0)
+        return {};
       const ps = segments(p);
       const pats = segments(pat);
       const params = {};
@@ -1104,12 +1624,15 @@
       while (i < pats.length) {
         const seg = pats[i];
         if (seg === "*") {
-          if (i === pats.length - 1) return params;
-          if (i >= ps.length) return null;
+          if (i === pats.length - 1)
+            return params;
+          if (i >= ps.length)
+            return null;
           i += 1;
           continue;
         }
-        if (i >= ps.length) return null;
+        if (i >= ps.length)
+          return null;
         if (seg.length >= 2 && seg.startsWith("{") && seg.endsWith("}")) {
           params[seg.substring(1, seg.length - 1)] = ps[i];
         } else if (seg.startsWith(":")) {
@@ -1127,7 +1650,7 @@
     }
   };
 
-  // packages/kernel/src/logs.ts
+  // packages/kernel/dist/logs.js
   var DSXLogBufferImpl = class _DSXLogBufferImpl {
     static cap = 500;
     entries = [];
@@ -1176,7 +1699,8 @@
       return this.sensitive.some((s) => k === s || k.endsWith("_" + s) || k.endsWith(s) && s.length > 5);
     },
     mask(v) {
-      if (Array.isArray(v)) return v.map((e) => this.mask(e));
+      if (Array.isArray(v))
+        return v.map((e) => this.mask(e));
       if (isDict(v)) {
         const out = {};
         for (const [k, val] of Object.entries(v)) {
@@ -1188,7 +1712,7 @@
     }
   };
 
-  // packages/kernel/src/jse/core.ts
+  // packages/kernel/dist/jse/core.js
   function formatLogValue(x) {
     if (isDict(x) || Array.isArray(x)) {
       return jsonStringify(JSERedact.mask(x), null) ?? string(x);
@@ -1216,7 +1740,8 @@
   }
   function dateSet(ms, m, a) {
     const nn = (i) => i < a.length ? number(a[i]) : null;
-    if (m === "setTime") return nn(0) ?? 0;
+    if (m === "setTime")
+      return nn(0) ?? 0;
     const dt = new Date(ms);
     switch (m) {
       case "setFullYear":
@@ -1244,7 +1769,8 @@
     return dt.getTime();
   }
   function toISO(ms) {
-    if (Number.isNaN(ms)) return "";
+    if (Number.isNaN(ms))
+      return "";
     const d = new Date(ms);
     return d.getUTCFullYear().toString().padStart(4, "0") + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate()) + "T" + pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes()) + ":" + pad2(d.getUTCSeconds()) + "." + pad3(d.getUTCMilliseconds()) + "Z";
   }
@@ -1257,7 +1783,8 @@
   function parseQuery(q) {
     const out = [];
     for (const part of q.replace(/^\?/, "").split("&")) {
-      if (part.length === 0) continue;
+      if (part.length === 0)
+        continue;
       const eq = part.indexOf("=");
       const k = eq >= 0 ? part.substring(0, eq) : part;
       const v = eq >= 0 ? part.substring(eq + 1) : "";
@@ -1277,11 +1804,13 @@
   }
   function paramsPairs(d) {
     const raw = d["__params"];
-    if (!Array.isArray(raw)) return [];
+    if (!Array.isArray(raw))
+      return [];
     return raw.map((p) => [string(p[0]), string(p[1])]);
   }
   function makeURL(href, base) {
-    if (/[\s\x00-\x1f]/.test(href)) return null;
+    if (/[\s\x00-\x1f]/.test(href))
+      return null;
     let u;
     try {
       u = base !== void 0 ? new URL(href, base) : new URL(href);
@@ -1309,16 +1838,21 @@
     let bytes = 0;
     for (let index2 = 0; index2 < value.length; index2 += 1) {
       const code = value.charCodeAt(index2);
-      if (code <= 127) bytes += 1;
-      else if (code <= 2047) bytes += 2;
+      if (code <= 127)
+        bytes += 1;
+      else if (code <= 2047)
+        bytes += 2;
       else if (code >= 55296 && code <= 56319) {
         const low = value.charCodeAt(index2 + 1);
         if (low >= 56320 && low <= 57343) {
           bytes += 4;
           index2 += 1;
-        } else bytes += 3;
-      } else bytes += 3;
-      if (bytes > limit) return bytes;
+        } else
+          bytes += 3;
+      } else
+        bytes += 3;
+      if (bytes > limit)
+        return bytes;
     }
     return bytes;
   }
@@ -1326,19 +1860,27 @@
     let bytes = 2;
     for (let index2 = 0; index2 < value.length; index2 += 1) {
       const code = value.charCodeAt(index2);
-      if (code === 34 || code === 92 || code === 47) bytes += 2;
-      else if (code <= 31) bytes += 6;
-      else if (code <= 127) bytes += 1;
-      else if (code <= 2047) bytes += 2;
+      if (code === 34 || code === 92 || code === 47)
+        bytes += 2;
+      else if (code <= 31)
+        bytes += 6;
+      else if (code <= 127)
+        bytes += 1;
+      else if (code <= 2047)
+        bytes += 2;
       else if (code >= 55296 && code <= 56319) {
         const low = value.charCodeAt(index2 + 1);
         if (low >= 56320 && low <= 57343) {
           bytes += 4;
           index2 += 1;
-        } else bytes += 6;
-      } else if (code >= 56320 && code <= 57343) bytes += 6;
-      else bytes += 3;
-      if (bytes > limit) return bytes;
+        } else
+          bytes += 6;
+      } else if (code >= 56320 && code <= 57343)
+        bytes += 6;
+      else
+        bytes += 3;
+      if (bytes > limit)
+        return bytes;
     }
     return bytes;
   }
@@ -1358,59 +1900,77 @@
         continue;
       }
       nodes += 1;
-      if (nodes > MAX_JSE_JSON_NODES || frame.depth > MAX_JSE_JSON_DEPTH) return false;
+      if (nodes > MAX_JSE_JSON_NODES || frame.depth > MAX_JSE_JSON_DEPTH)
+        return false;
       const next = frame.value;
       if (next === null || next === void 0 || next === NSNull || isLambda(next)) {
-        if (!add(4)) return false;
+        if (!add(4))
+          return false;
       } else if (typeof next === "boolean") {
-        if (!add(next ? 4 : 5)) return false;
+        if (!add(next ? 4 : 5))
+          return false;
       } else if (typeof next === "number") {
-        if (!add(Number.isFinite(next) ? String(next).length : 4)) return false;
+        if (!add(Number.isFinite(next) ? String(next).length : 4))
+          return false;
       } else if (typeof next === "string") {
         const cost = escapedJsonBytes(next, MAX_JSE_JSON_BYTES - bytes);
-        if (!add(cost)) return false;
+        if (!add(cost))
+          return false;
       } else if (Array.isArray(next)) {
-        if (ancestors.has(next)) return false;
+        if (ancestors.has(next))
+          return false;
         ancestors.add(next);
         const count = next.length;
         if (indent === 0) {
-          if (!add(2 + Math.max(0, count - 1))) return false;
-        } else if (!add(count === 0 ? 2 : 4 + count * indent * (frame.depth + 1) + (count - 1) * 2 + indent * frame.depth)) return false;
+          if (!add(2 + Math.max(0, count - 1)))
+            return false;
+        } else if (!add(count === 0 ? 2 : 4 + count * indent * (frame.depth + 1) + (count - 1) * 2 + indent * frame.depth))
+          return false;
         stack.push({ depth: frame.depth, exit: next });
         for (let index2 = count - 1; index2 >= 0; index2 -= 1) {
           stack.push({ value: next[index2], depth: frame.depth + 1 });
         }
       } else if (isDict(next)) {
-        if (ancestors.has(next)) return false;
+        if (ancestors.has(next))
+          return false;
         ancestors.add(next);
         const entries = Object.entries(next);
         const count = entries.length;
         if (indent === 0) {
-          if (!add(2 + Math.max(0, count - 1))) return false;
-        } else if (!add(count === 0 ? 2 : 4 + count * indent * (frame.depth + 1) + (count - 1) * 2 + indent * frame.depth)) return false;
+          if (!add(2 + Math.max(0, count - 1)))
+            return false;
+        } else if (!add(count === 0 ? 2 : 4 + count * indent * (frame.depth + 1) + (count - 1) * 2 + indent * frame.depth))
+          return false;
         stack.push({ depth: frame.depth, exit: next });
         for (let index2 = count - 1; index2 >= 0; index2 -= 1) {
           const [key, entryValue] = entries[index2];
           const keyCost = escapedJsonBytes(key, MAX_JSE_JSON_BYTES - bytes);
-          if (!add(keyCost + (indent > 0 ? 2 : 1))) return false;
+          if (!add(keyCost + (indent > 0 ? 2 : 1)))
+            return false;
           stack.push({ value: entryValue, depth: frame.depth + 1 });
         }
       } else {
         const cost = escapedJsonBytes(String(next), MAX_JSE_JSON_BYTES - bytes);
-        if (!add(cost)) return false;
+        if (!add(cost))
+          return false;
       }
     }
     return true;
   }
   function jsonStringify(v, space) {
     const indent = typeof space === "number" ? Math.max(0, Math.min(10, Math.trunc(space))) : 0;
-    if (!jsonStringifyAllowed(v, indent)) return null;
+    if (!jsonStringifyAllowed(v, indent))
+      return null;
     const enc = (x, depth) => {
-      if (x === null || x === void 0 || x === NSNull) return "null";
-      if (typeof x === "boolean") return x ? "true" : "false";
+      if (x === null || x === void 0 || x === NSNull)
+        return "null";
+      if (typeof x === "boolean")
+        return x ? "true" : "false";
       if (typeof x === "number") {
-        if (!Number.isFinite(x)) return "null";
-        if (Math.floor(x) === x && Math.abs(x) < 1e15) return String(x);
+        if (!Number.isFinite(x))
+          return "null";
+        if (Math.floor(x) === x && Math.abs(x) < 1e15)
+          return String(x);
         return String(x);
       }
       if (typeof x === "string") {
@@ -1418,7 +1978,8 @@
       }
       if (Array.isArray(x)) {
         const parts = x.map((e) => enc(e, depth + 1) ?? "null");
-        if (indent === 0) return "[" + parts.join(",") + "]";
+        if (indent === 0)
+          return "[" + parts.join(",") + "]";
         const pad = " ".repeat(indent * (depth + 1));
         const end = " ".repeat(indent * depth);
         return parts.length === 0 ? "[]" : "[\n" + parts.map((p) => pad + p).join(",\n") + "\n" + end + "]";
@@ -1430,26 +1991,32 @@
           const kk = JSON.stringify(k).replace(/\//g, "\\/");
           return `${kk}:${indent > 0 ? " " : ""}${enc(d[k], depth + 1) ?? "null"}`;
         });
-        if (indent === 0) return "{" + parts.join(",") + "}";
+        if (indent === 0)
+          return "{" + parts.join(",") + "}";
         const pad = " ".repeat(indent * (depth + 1));
         const end = " ".repeat(indent * depth);
         return parts.length === 0 ? "{}" : "{\n" + parts.map((p) => pad + p).join(",\n") + "\n" + end + "}";
       }
-      if (isLambda(x)) return null;
+      if (isLambda(x))
+        return null;
       return JSON.stringify(String(x));
     };
     return enc(v, 0);
   }
   function jsonParse(s) {
-    if (s.length > MAX_JSE_JSON_BYTES || boundedUtf8Bytes(s, MAX_JSE_JSON_BYTES) > MAX_JSE_JSON_BYTES) return null;
+    if (s.length > MAX_JSE_JSON_BYTES || boundedUtf8Bytes(s, MAX_JSE_JSON_BYTES) > MAX_JSE_JSON_BYTES)
+      return null;
     try {
       const raw = JSON.parse(s);
       let nodes = 0;
       const map = (x, depth) => {
         nodes += 1;
-        if (nodes > MAX_JSE_JSON_NODES || depth > MAX_JSE_JSON_DEPTH) throw new Error("json_too_complex");
-        if (x === null) return NSNull;
-        if (Array.isArray(x)) return x.map((entry) => map(entry, depth + 1));
+        if (nodes > MAX_JSE_JSON_NODES || depth > MAX_JSE_JSON_DEPTH)
+          throw new Error("json_too_complex");
+        if (x === null)
+          return NSNull;
+        if (Array.isArray(x))
+          return x.map((entry) => map(entry, depth + 1));
         if (typeof x === "object") {
           const out = {};
           for (const [k, v] of Object.entries(x)) {
@@ -1484,7 +2051,8 @@
   }
   function base64Decode(s) {
     const clean = s.replace(/[\r\n\s]/g, "");
-    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean) || clean.length % 4 === 1) return null;
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean) || clean.length % 4 === 1)
+      return null;
     const body = clean.replace(/=+$/, "");
     const out = [];
     let buffer = 0;
@@ -1506,12 +2074,14 @@
         const d = new Uint8Array(v.length);
         for (let i = 0; i < v.length; i++) {
           const n = number(v[i]);
-          if (n === null) return null;
+          if (n === null)
+            return null;
           d[i] = safeInt(n) & 255;
         }
         return d;
       }
-      if (typeof v === "string") return new TextEncoder().encode(v);
+      if (typeof v === "string")
+        return new TextEncoder().encode(v);
       return null;
     },
     /** Uint8Array → the JSE byte array ([number] 0–255) every result travels as. */
@@ -1526,7 +2096,8 @@
         case "Uint8Array": {
           const arg = a[0];
           const n = number(arg);
-          if (n !== null && !Array.isArray(arg)) return new Array(Math.max(0, Math.min(safeInt(n), 1e7))).fill(0);
+          if (n !== null && !Array.isArray(arg))
+            return new Array(Math.max(0, Math.min(safeInt(n), 1e7))).fill(0);
           const d = JSECrypto.data(arg);
           return d ? JSECrypto.bytes(d) : [];
         }
@@ -1541,14 +2112,17 @@
         case "btoa": {
           const s = string(a[0]);
           const bytes = new Uint8Array(s.length);
-          for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i) & 255;
+          for (let i = 0; i < s.length; i++)
+            bytes[i] = s.charCodeAt(i) & 255;
           return base64Encode(bytes);
         }
         case "atob": {
           const d = base64Decode(string(a[0]));
-          if (!d) return null;
+          if (!d)
+            return null;
           let out = "";
-          for (const b of d) out += String.fromCharCode(b);
+          for (const b of d)
+            out += String.fromCharCode(b);
           return out;
         }
         case "crypto.randomUUID":
@@ -1577,11 +2151,13 @@
   var JSECrypto = globalThis.__DSX_OPTIONAL_JS_GLOBALS__ !== false ? JSE_CRYPTO_FULL : JSE_CRYPTO_ABSENT;
   function subtleCall(method, a) {
     const subtle = globalThis.crypto?.subtle;
-    if (!subtle) return null;
+    if (!subtle)
+      return null;
     if (method === "digest") {
       const alg = string(a[0]);
       const d = JSECrypto.data(a[1]);
-      if (!d) return null;
+      if (!d)
+        return null;
       return subtle.digest(alg, d).then((buf) => JSECrypto.bytes(new Uint8Array(buf)));
     }
     console.warn(`[JSE crypto] subtle.${method} pending on this runtime`);
@@ -1589,7 +2165,8 @@
   }
   var JSE_CORE_FULL = {
     handles(name) {
-      if (name.startsWith("Math.") || name.startsWith("Intl.") || name.startsWith("JSON.") || name.startsWith("Date.") || name.startsWith("Promise.") || name.startsWith("Object.") || name.startsWith("console.") || name.startsWith("performance.")) return true;
+      if (name.startsWith("Math.") || name.startsWith("Intl.") || name.startsWith("JSON.") || name.startsWith("Date.") || name.startsWith("Promise.") || name.startsWith("Object.") || name.startsWith("console.") || name.startsWith("performance."))
+        return true;
       switch (name) {
         case "URL":
         case "URLSearchParams":
@@ -1608,6 +2185,7 @@
         case "parseInt":
         case "parseFloat":
         case "isNaN":
+        case "isFinite":
         case "Number":
         case "String":
         case "Boolean":
@@ -1622,10 +2200,13 @@
       }
     },
     call(name, a) {
-      if (name.startsWith("Math.")) return coreMath(name.substring(5), a);
+      if (name.startsWith("Math."))
+        return coreMath(name.substring(5), a);
       if (name.startsWith("JSON.")) {
-        if (name === "JSON.stringify") return jsonStringify(a[0], number(a[2]) ?? (typeof a[1] === "number" ? a[1] : null));
-        if (name === "JSON.parse") return jsonParse(string(a[0]));
+        if (name === "JSON.stringify")
+          return jsonStringify(a[0], number(a[2]) ?? (typeof a[1] === "number" ? a[1] : null));
+        if (name === "JSON.parse")
+          return jsonParse(string(a[0]));
         return null;
       }
       if (name.startsWith("Object.")) {
@@ -1640,7 +2221,9 @@
             return d ? Object.entries(d).map(([k, v]) => [k, v]) : [];
           case "assign": {
             const out = {};
-            for (const arg of a) if (isDict(arg)) Object.assign(out, arg);
+            for (const arg of a)
+              if (isDict(arg))
+                Object.assign(out, arg);
             return out;
           }
           case "hasOwn": {
@@ -1650,7 +2233,8 @@
           case "fromEntries": {
             const out = {};
             for (const e of a[0] && Array.isArray(a[0]) ? a[0] : []) {
-              if (Array.isArray(e) && e.length >= 1) out[string(e[0])] = e.length > 1 ? e[1] : NSNull;
+              if (Array.isArray(e) && e.length >= 1)
+                out[string(e[0])] = e.length > 1 ? e[1] : NSNull;
             }
             return out;
           }
@@ -1662,28 +2246,25 @@
         const level = name.substring(8);
         const msg = formatLogArgs(a);
         DSXLogs.append({ scheme: "console", level, message: msg, at: Date.now() });
-        if (level === "error") console.error("[dsx]", msg);
-        else if (level === "warn") console.warn("[dsx]", msg);
-        else console.log("[dsx]", msg);
+        if (level === "error")
+          console.error("[dsx]", msg);
+        else if (level === "warn")
+          console.warn("[dsx]", msg);
+        else
+          console.log("[dsx]", msg);
         return null;
       }
       if (name.startsWith("performance.")) {
-        if (name === "performance.now") return globalThis.performance?.now?.() ?? Date.now();
+        if (name === "performance.now")
+          return globalThis.performance?.now?.() ?? Date.now();
         return null;
       }
       if (name.startsWith("Date.")) {
-        if (name === "Date.now") return Date.now();
+        if (name === "Date.now")
+          return Date.now();
         if (name === "Date.UTC") {
           const nn = (i) => i < a.length ? number(a[i]) ?? 0 : 0;
-          const ms = Date.UTC(
-            nn(0),
-            a.length > 1 ? nn(1) : 0,
-            a.length > 2 ? nn(2) : 1,
-            nn(3),
-            nn(4),
-            nn(5),
-            nn(6)
-          );
+          const ms = Date.UTC(nn(0), a.length > 1 ? nn(1) : 0, a.length > 2 ? nn(2) : 1, nn(3), nn(4), nn(5), nn(6));
           return Number.isNaN(ms) ? null : ms;
         }
         if (name === "Date.parse") {
@@ -1692,8 +2273,10 @@
         }
         return null;
       }
-      if (name.startsWith("Intl.")) return intlCall(name.substring(5), a);
-      if (name.startsWith("Promise.")) return promiseCall(name.substring(8), a);
+      if (name.startsWith("Intl."))
+        return intlCall(name.substring(5), a);
+      if (name.startsWith("Promise."))
+        return promiseCall(name.substring(8), a);
       switch (name) {
         case "URL": {
           const base = a.length > 1 ? string(a[1]) : void 0;
@@ -1701,7 +2284,8 @@
         }
         case "URLSearchParams": {
           const init = a[0];
-          if (typeof init === "string") return paramsShape(parseQuery(init));
+          if (typeof init === "string")
+            return paramsShape(parseQuery(init));
           if (isDict(init)) {
             if (isDict(init["__params"]) || Array.isArray(init["__params"])) {
               return paramsShape(paramsPairs(init));
@@ -1716,7 +2300,8 @@
         case "Headers": {
           const init = isDict(a[0]) ? a[0] : {};
           const entries = {};
-          for (const [k, v] of Object.entries(init)) entries[k.toLowerCase()] = string(v);
+          for (const [k, v] of Object.entries(init))
+            entries[k.toLowerCase()] = string(v);
           return { __headers: true, ...entries };
         }
         case "Request":
@@ -1745,20 +2330,25 @@
         case "FormData":
           return { __formData: true, entries: [] };
         case "Date": {
-          if (a.length === 0) return dateShape(Date.now());
+          if (a.length === 0)
+            return dateShape(Date.now());
           if (a.length >= 2) {
             const nn = (i, def) => i < a.length ? number(a[i]) ?? NaN : def;
             const y = nn(0, 1970);
             const parts = [y, nn(1, 0), nn(2, 1), nn(3, 0), nn(4, 0), nn(5, 0), nn(6, 0)];
-            if (parts.some((p) => !Number.isFinite(p))) return dateShape(NaN);
+            if (parts.some((p) => !Number.isFinite(p)))
+              return dateShape(NaN);
             const dt = new Date(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6]);
-            if (y >= 0 && y <= 99) dt.setFullYear(y);
+            if (y >= 0 && y <= 99)
+              dt.setFullYear(y);
             return dateShape(dt.getTime());
           }
           const v = a[0];
-          if (isDict(v) && isDateShape(v)) return dateShape(v["__date"]);
+          if (isDict(v) && isDateShape(v))
+            return dateShape(v["__date"]);
           const n = typeof v === "number" ? v : null;
-          if (n !== null) return dateShape(n);
+          if (n !== null)
+            return dateShape(n);
           const parsed = Date.parse(string(v));
           return dateShape(parsed);
         }
@@ -1792,18 +2382,22 @@
           if (body.startsWith("-")) {
             sign = -1;
             body = body.substring(1);
-          } else if (body.startsWith("+")) body = body.substring(1);
+          } else if (body.startsWith("+"))
+            body = body.substring(1);
           if ((radix === 0 || radix === 16) && /^0x/i.test(body)) {
             radix = 16;
             body = body.substring(2);
           }
-          if (radix === 0) radix = 10;
-          if (radix < 2 || radix > 36) return NaN;
+          if (radix === 0)
+            radix = 10;
+          if (radix < 2 || radix > 36)
+            return NaN;
           let out = 0;
           let any = false;
           for (const c of body) {
             const d = parseInt(c, 36);
-            if (Number.isNaN(d) || d >= radix) break;
+            if (Number.isNaN(d) || d >= radix)
+              break;
             out = out * radix + d;
             any = true;
           }
@@ -1817,6 +2411,12 @@
           const n = number(a[0]);
           return n === null || Number.isNaN(n);
         }
+        // The twin of isNaN, which shipped without it: an author reaching for one reaches for
+        // the other, and a missing global reads as `null` — silently falsy — not as an error.
+        case "isFinite": {
+          const n = number(a[0]);
+          return n !== null && Number.isFinite(n);
+        }
         case "Number":
           return number(a[0]) ?? NaN;
         case "String":
@@ -1826,14 +2426,18 @@
         case "Map": {
           const entries = [];
           if (Array.isArray(a[0])) {
-            for (const e of a[0]) if (Array.isArray(e)) entries.push([e[0], e.length > 1 ? e[1] : NSNull]);
+            for (const e of a[0])
+              if (Array.isArray(e))
+                entries.push([e[0], e.length > 1 ? e[1] : NSNull]);
           }
           return { __map: entries, size: entries.length };
         }
         case "Set": {
           const values = [];
           if (Array.isArray(a[0])) {
-            for (const v of a[0]) if (!values.some((x) => jseEquals(x, v))) values.push(v);
+            for (const v of a[0])
+              if (!values.some((x) => jseEquals(x, v)))
+                values.push(v);
           }
           return { __set: values, size: values.length };
         }
@@ -1873,7 +2477,8 @@
     /** applyMethod's first stop — claims the call only for ITS dict shapes.
      *  Returns null = "not mine"; { value } = handled (value may be null). */
     method(m, base, a) {
-      if (!isDict(base)) return null;
+      if (!isDict(base))
+        return null;
       const d = base;
       if (d["__regex"] !== void 0 && d["__regex"] !== null && m === "test") {
         return { value: regexTest(string(a[0]), d) };
@@ -2083,7 +2688,8 @@
       }
       if (d["__abortController"] !== void 0 && m === "abort") {
         const sig = d["signal"];
-        if (isDict(sig)) sig["aborted"] = true;
+        if (isDict(sig))
+          sig["aborted"] = true;
         return { value: null };
       }
       if (d["__intlNumber"] !== void 0 && m === "format") {
@@ -2116,10 +2722,14 @@
     },
     /** `'' + date` / `{{ url }}` string coercion for the core shapes. null = no coercion. */
     stringCoerce(d) {
-      if (isDateShape(d)) return toISO(d["__date"]);
-      if (d["__url"] !== void 0) return string(d["href"]);
-      if (d["__params"] !== void 0) return paramsToString(paramsPairs(d));
-      if (d["__error"] !== void 0) return string(d["name"] ?? "Error") + ": " + string(d["message"]);
+      if (isDateShape(d))
+        return toISO(d["__date"]);
+      if (d["__url"] !== void 0)
+        return string(d["href"]);
+      if (d["__params"] !== void 0)
+        return paramsToString(paramsPairs(d));
+      if (d["__error"] !== void 0)
+        return string(d["name"] ?? "Error") + ": " + string(d["message"]);
       return null;
     }
   };
@@ -2128,7 +2738,8 @@
     call: () => null,
     constant: () => null,
     method(m, base, a) {
-      if (!isDict(base)) return null;
+      if (!isDict(base))
+        return null;
       const d = base;
       if (d["__regex"] !== void 0 && d["__regex"] !== null && m === "test") {
         return { value: regexTest(string(a[0]), d) };
@@ -2136,7 +2747,8 @@
       return null;
     },
     stringCoerce(d) {
-      if (d["__error"] !== void 0) return string(d["name"] ?? "Error") + ": " + string(d["message"]);
+      if (d["__error"] !== void 0)
+        return string(d["name"] ?? "Error") + ": " + string(d["message"]);
       return null;
     }
   };
@@ -2145,9 +2757,12 @@
     try {
       let flags = "";
       const f = string(d["flags"]);
-      if (f.includes("i")) flags += "i";
-      if (f.includes("m")) flags += "m";
-      if (f.includes("s")) flags += "s";
+      if (f.includes("i"))
+        flags += "i";
+      if (f.includes("m"))
+        flags += "m";
+      if (f.includes("s"))
+        flags += "s";
       return new RegExp(string(d["source"]), flags).test(s);
     } catch {
       return false;
@@ -2276,65 +2891,19 @@
     }
   }
   function structuredCloneValue(v) {
-    if (Array.isArray(v)) return v.map(structuredCloneValue);
+    if (Array.isArray(v))
+      return v.map(structuredCloneValue);
     if (isDict(v)) {
       const out = {};
-      for (const [k, val] of Object.entries(v)) out[k] = structuredCloneValue(val);
+      for (const [k, val] of Object.entries(v))
+        out[k] = structuredCloneValue(val);
       return out;
     }
     return v;
   }
   setStringCoerce((d) => JSECore.stringCoerce(d));
 
-  // packages/kernel/src/jse/jse.ts
-  var StackStore = class {
-    vars = /* @__PURE__ */ new Map();
-    // live surface state (NSNull marks present-null)
-    computed = /* @__PURE__ */ new Map();
-    // reactive formulas: <variable computed="true">
-    computedDepth = 0;
-    // guards self-referential computed values
-    initials = /* @__PURE__ */ new Map();
-    // declared defaults: <variable as="x">expr</variable>
-    formulas = /* @__PURE__ */ new Map();
-    // parameterized reactive formulas: <formula>
-    functions = /* @__PURE__ */ new Map();
-    // user functions: function name(args){…}
-    fnDepth = 0;
-    // guards user-function recursion (capped at 32)
-    evalDepth = 0;
-    // guards expression-evaluator recursion (capped at 64)
-    attrDefaults = /* @__PURE__ */ new Map();
-    // declared prop defaults: <attribute as="x" default="…"/>
-    /** signal read hook — store.ts wires this so `lookup` reads track dependencies. */
-    onVarRead = null;
-  };
-  var JSESeams = {
-    /** DSX.state.vars — the app-wide reactive store (`global.*` / `route.*` / `env`). */
-    stateVars: () => ({}),
-    /** the live cookie jar (`cookie.*`). */
-    cookieJar: () => ({}),
-    /** environment channel — detection fails CLOSED to "appstore". */
-    appEnvironment: () => "appstore",
-    /** ModuleRegistry availability — the `has(scheme)` capability check. */
-    moduleAvailable: (_scheme) => false,
-    /** next-tick hop for reactive author logic (the render-safe invariant). */
-    afterRenderDispatch: (work) => {
-      queueMicrotask(work);
-    },
-    /** `os` / `platform` resolve to "web" on this renderer BY DESIGN — the same markup
-     *  reads "ios" / "android" / "macos" / "windows" / "linux" on the native kernels
-     *  (/web/14; desktop-platforms.md). */
-    platformOS: "web",
-    /** third-party web-component embed vs in-app surface (/web/14). */
-    platformEmbed: false,
-    /** dependency tracking for `global.*` / `route.*` / `env` reads (store.ts wires it). */
-    onGlobalRead: null
-  };
-  var DESKTOP_OSES = ["macos", "windows", "linux"];
-  function isDesktopOS(os) {
-    return DESKTOP_OSES.includes(os);
-  }
+  // packages/kernel/dist/jse/dispatch.js
   var higherOrderFns = /* @__PURE__ */ new Set([
     "filter",
     "reject",
@@ -2440,17 +3009,70 @@
     "toReversed",
     "with",
     "toSpliced",
+    "pop",
+    "shift",
     "entries",
     "keys",
     "values",
     "toFixed"
   ]);
+
+  // packages/kernel/dist/jse/jse.js
+  var StackStore = class {
+    vars = /* @__PURE__ */ new Map();
+    // live surface state (NSNull marks present-null)
+    computed = /* @__PURE__ */ new Map();
+    // reactive formulas: <variable computed="true">
+    computedDepth = 0;
+    // guards self-referential computed values
+    initials = /* @__PURE__ */ new Map();
+    // declared defaults: <variable as="x">expr</variable>
+    formulas = /* @__PURE__ */ new Map();
+    // parameterized reactive formulas: <formula>
+    functions = /* @__PURE__ */ new Map();
+    // user functions: function name(args){…}
+    fnDepth = 0;
+    // guards user-function recursion (capped at 32)
+    evalDepth = 0;
+    // guards expression-evaluator recursion (capped at 64)
+    attrDefaults = /* @__PURE__ */ new Map();
+    // declared prop defaults: <attribute as="x" default="…"/>
+    /** signal read hook — store.ts wires this so `lookup` reads track dependencies. */
+    onVarRead = null;
+  };
+  var JSESeams = {
+    /** DSX.state.vars — the app-wide reactive store (`global.*` / `route.*` / `env`). */
+    stateVars: () => ({}),
+    /** the live cookie jar (`cookie.*`). */
+    cookieJar: () => ({}),
+    /** environment channel — detection fails CLOSED to "appstore". */
+    appEnvironment: () => "appstore",
+    /** ModuleRegistry availability — the `has(scheme)` capability check. */
+    moduleAvailable: (_scheme) => false,
+    /** next-tick hop for reactive author logic (the render-safe invariant). */
+    afterRenderDispatch: (work) => {
+      queueMicrotask(work);
+    },
+    /** `os` / `platform` resolve to "web" on this renderer BY DESIGN — the same markup
+     *  reads "ios" / "android" / "macos" / "windows" / "linux" on the native kernels
+     *  (/web/14; desktop-platforms.md). */
+    platformOS: "web",
+    /** third-party web-component embed vs in-app surface (/web/14). */
+    platformEmbed: false,
+    /** dependency tracking for `global.*` / `route.*` / `env` reads (store.ts wires it). */
+    onGlobalRead: null
+  };
+  var DESKTOP_OSES = ["macos", "windows", "linux"];
+  function isDesktopOS(os) {
+    return DESKTOP_OSES.includes(os);
+  }
   function makeLambda(params, body, block, captured) {
     return { __lambda: true, params, body, block, captured };
   }
   var globalFunctions = /* @__PURE__ */ new Map();
   function scanFunctions(body, register) {
-    if (!body.includes("function")) return;
+    if (!body.includes("function"))
+      return;
     const s = Array.from(body);
     let i = 0;
     const kw = "function";
@@ -2463,13 +3085,15 @@
         continue;
       }
       let j = i + kw.length;
-      while (j < s.length && /\s/.test(s[j])) j += 1;
+      while (j < s.length && /\s/.test(s[j]))
+        j += 1;
       let name = "";
       while (j < s.length && isWord(s[j])) {
         name += s[j];
         j += 1;
       }
-      while (j < s.length && /\s/.test(s[j])) j += 1;
+      while (j < s.length && /\s/.test(s[j]))
+        j += 1;
       if (j >= s.length || s[j] !== "(") {
         i += 1;
         continue;
@@ -2495,7 +3119,8 @@
         paramStr += ch;
         j += 1;
       }
-      while (j < s.length && /\s/.test(s[j])) j += 1;
+      while (j < s.length && /\s/.test(s[j]))
+        j += 1;
       if (j >= s.length || s[j] !== "{") {
         i = j;
         continue;
@@ -2522,28 +3147,42 @@
         j += 1;
       }
       const params = paramStr.split(",").map((p) => ({ name: trimWhitespaceOnly(p), keys: [] })).filter((p) => (p.name ?? "").length > 0);
-      if (name.length > 0) register(name, makeLambda(params, tokenize(bodyStr), true, {}));
+      if (name.length > 0)
+        register(name, makeLambda(params, tokenize(bodyStr), true, {}));
       i = j;
     }
   }
   function spreadValues(v) {
-    if (Array.isArray(v)) return v;
-    if (typeof v === "string") return graphemes(v);
+    if (Array.isArray(v))
+      return v;
+    if (typeof v === "string")
+      return graphemes(v);
     if (isDict(v)) {
       const d = v;
-      if (Array.isArray(d["__set"])) return d["__set"];
-      if (Array.isArray(d["__map"])) return d["__map"];
+      if (Array.isArray(d["__set"]))
+        return d["__set"];
+      if (Array.isArray(d["__map"]))
+        return d["__map"];
     }
+    return [];
+  }
+  function forInKeys(v) {
+    if (Array.isArray(v))
+      return v.map((_, i) => i);
+    if (isDict(v))
+      return Object.keys(v).filter((k) => !k.startsWith("__"));
     return [];
   }
   function inOp(l, r) {
     if (Array.isArray(r)) {
       const n = number(l);
-      if (n === null) return false;
+      if (n === null)
+        return false;
       const i = safeInt(n);
       return i >= 0 && i < r.length;
     }
-    if (isDict(r)) return Object.prototype.hasOwnProperty.call(r, string(l));
+    if (isDict(r))
+      return Object.prototype.hasOwnProperty.call(r, string(l));
     return false;
   }
   function parseDeclarators(toks) {
@@ -2560,11 +3199,14 @@
       while (i < toks.length) {
         const tk = toks[i];
         if (tk.kind === "op") {
-          if (tk.v === "(" || tk.v === "[" || tk.v === "{") d += 1;
+          if (tk.v === "(" || tk.v === "[" || tk.v === "{")
+            d += 1;
           else if (tk.v === ")" || tk.v === "]" || tk.v === "}") {
-            if (d === 0 && stops.includes(tk.v)) break;
+            if (d === 0 && stops.includes(tk.v))
+              break;
             d -= 1;
-          } else if (d === 0 && stops.includes(tk.v)) break;
+          } else if (d === 0 && stops.includes(tk.v))
+            break;
         }
         acc.push(tk);
         i += 1;
@@ -2589,7 +3231,8 @@
               rest = rt.v;
               i += 1;
             }
-            if (isOp(",")) i += 1;
+            if (isOp(","))
+              i += 1;
             continue;
           }
           const kt = cur();
@@ -2608,12 +3251,15 @@
           if (isOp("=")) {
             i += 1;
             const d = captureUntil([",", "}"]);
-            if (d.length > 0) def = d;
+            if (d.length > 0)
+              def = d;
           }
           entries.push(def === void 0 ? { key, value } : { key, value, def });
-          if (isOp(",")) i += 1;
+          if (isOp(","))
+            i += 1;
         }
-        if (isOp("}")) i += 1;
+        if (isOp("}"))
+          i += 1;
         return rest === void 0 ? { kind: "object", entries } : { kind: "object", entries, rest };
       }
       if (isOp("[")) {
@@ -2623,7 +3269,8 @@
         let expectItem = true;
         while (cur() !== null && !isOp("]")) {
           if (isOp(",")) {
-            if (expectItem) items.push(null);
+            if (expectItem)
+              items.push(null);
             expectItem = true;
             i += 1;
             continue;
@@ -2647,12 +3294,14 @@
           if (isOp("=")) {
             i += 1;
             const d = captureUntil([",", "]"]);
-            if (d.length > 0) def = d;
+            if (d.length > 0)
+              def = d;
           }
           items.push(def === void 0 ? { value } : { value, def });
           expectItem = false;
         }
-        if (isOp("]")) i += 1;
+        if (isOp("]"))
+          i += 1;
         return rest === void 0 ? { kind: "array", items } : { kind: "array", items, rest };
       }
       return null;
@@ -2669,7 +3318,8 @@
         expr = captureUntil([","]);
       }
       out.push({ pattern, expr });
-      if (isOp(",")) i += 1;
+      if (isOp(","))
+        i += 1;
     }
     return out;
   }
@@ -2687,14 +3337,18 @@
       let d = 0;
       for (; ; ) {
         const tk = cur();
-        if (tk === null) break;
+        if (tk === null)
+          break;
         if (tk.kind === "op") {
-          if (tk.v === "{" || tk.v === "[" || tk.v === "(") d += 1;
-          else if (tk.v === "}" || tk.v === "]" || tk.v === ")") d -= 1;
+          if (tk.v === "{" || tk.v === "[" || tk.v === "(")
+            d += 1;
+          else if (tk.v === "}" || tk.v === "]" || tk.v === ")")
+            d -= 1;
         }
         out.push(tk);
         i += 1;
-        if (d === 0) break;
+        if (d === 0)
+          break;
       }
       return out;
     };
@@ -2703,13 +3357,17 @@
       let d = 0;
       for (; ; ) {
         const tk = cur();
-        if (tk === null) break;
+        if (tk === null)
+          break;
         if (tk.kind === "op") {
-          if (tk.v === "(" || tk.v === "[" || tk.v === "{") d += 1;
+          if (tk.v === "(" || tk.v === "[" || tk.v === "{")
+            d += 1;
           else if (tk.v === ")" || tk.v === "]" || tk.v === "}") {
-            if (d === 0) break;
+            if (d === 0)
+              break;
             d -= 1;
-          } else if (tk.v === "," && d === 0) break;
+          } else if (tk.v === "," && d === 0)
+            break;
         }
         out.push(tk);
         i += 1;
@@ -2729,7 +3387,8 @@
           i += 1;
           params.push({ name: nt.v, keys: [], rest: true });
           defaults.push(null);
-        } else i += 1;
+        } else
+          i += 1;
       } else {
         const nt = cur();
         if (nt !== null && nt.kind === "ident") {
@@ -2738,18 +3397,23 @@
           if (isOp("=")) {
             i += 1;
             defaults.push(defaultTokens());
-          } else defaults.push(null);
+          } else
+            defaults.push(null);
           params.push(param);
-        } else i += 1;
+        } else
+          i += 1;
       }
-      if (isOp(",")) i += 1;
+      if (isOp(","))
+        i += 1;
     }
-    if (isOp(")")) i += 1;
+    if (isOp(")"))
+      i += 1;
     return { params, defaults, next: i };
   }
   function bindPattern(p, value, bind, evalDefault) {
     const withDefault = (v, def) => {
-      if (def === void 0 || evalDefault === void 0) return v;
+      if (def === void 0 || evalDefault === void 0)
+        return v;
       return v === null || v === void 0 || v === NSNull ? evalDefault(def) : v;
     };
     if (p.kind === "ident") {
@@ -2765,14 +3429,17 @@
       if (p.rest !== void 0) {
         const out = {};
         if (isDict(value)) {
-          for (const [k, v] of Object.entries(value)) if (!taken.has(k)) out[k] = v;
+          for (const [k, v] of Object.entries(value))
+            if (!taken.has(k))
+              out[k] = v;
         }
         bind(p.rest, out);
       }
       return;
     }
     p.items.forEach((item, index2) => {
-      if (item === null) return;
+      if (item === null)
+        return;
       bindPattern(item.value, withDefault(index(value, index2), item.def), bind, evalDefault);
     });
     if (p.rest !== void 0) {
@@ -2780,14 +3447,38 @@
       bind(p.rest, src.slice(p.items.length));
     }
   }
+  function attributeBinding(template) {
+    if (!template.includes("{{"))
+      return { kind: "static" };
+    const t = template.trim();
+    if (!t.startsWith("{{"))
+      return { kind: "text" };
+    const close = t.indexOf("}}", 2);
+    if (close < 0 || close !== t.length - 2)
+      return { kind: "text" };
+    return { kind: "value", expr: t.substring(2, close) };
+  }
   var JSE = {
+    attributeBinding,
+    /** Resolve one consumer attribute to the value it should carry: typed when the template
+     *  is a sole hole, its own text when it has none, the interpolated sentence otherwise. */
+    bindAttribute(template, store, item) {
+      const b = attributeBinding(template);
+      if (b.kind === "static")
+        return template;
+      if (b.kind === "value")
+        return JSE.eval(b.expr, store, item);
+      return JSE.interpolate(template, store, item);
+    },
     interpolate(s, store, item) {
-      if (!s.includes("{{")) return s;
+      if (!s.includes("{{"))
+        return s;
       let out = "";
       let idx = 0;
       for (; ; ) {
         const open = s.indexOf("{{", idx);
-        if (open < 0) break;
+        if (open < 0)
+          break;
         out += s.substring(idx, open);
         const close = s.indexOf("}}", open + 2);
         if (close < 0) {
@@ -2803,7 +3494,8 @@
     },
     eval(raw, store, item) {
       const e = trimWhitespaceOnly(raw);
-      if (e.length === 0) return null;
+      if (e.length === 0)
+        return null;
       if (store.evalDepth >= 64) {
         console.warn(`[JSE] eval recursion budget (64) exceeded \u2014 expression cycle; returning nil: ${e.slice(0, 80)}`);
         return null;
@@ -2821,10 +3513,12 @@
     },
     /** Evaluate a `<variable>`/function body as a VALUE — a **bounded-JS** block.
      *  PURE: `const`/`let`/`x = e` write a throwaway local scope, never the store.
-     *  Branches only — no `for`/`while` — so it always terminates. */
+     *  The full statement grammar incl. BUDGETED loops (10000 iterations per evaluation,
+     *  corpus core-004) — so it always terminates. */
     evalBlock(body, store, item) {
       const trimmed = body.trim();
-      if (trimmed.length === 0) return null;
+      if (trimmed.length === 0)
+        return null;
       if (!trimmed.includes(";") && !trimmed.includes("\n") && !trimmed.includes("{") && !trimmed.startsWith("return") && !trimmed.startsWith("const ") && !trimmed.startsWith("let ") && !trimmed.startsWith("if ") && !trimmed.startsWith("if(") && !trimmed.startsWith("function")) {
         return JSE.eval(trimmed, store, item);
       }
@@ -2864,7 +3558,8 @@
      *  ITSELF (`const f = n => … f(n - 1)`: f is not in its own creation snapshot, so the
      *  caller's live scope supplies it). */
     callLambda(f, args, store, base = null) {
-      if (f.native) return f.native(args, base);
+      if (f.native)
+        return f.native(args, base);
       const scope = base ? { ...base } : {};
       Object.assign(scope, f.captured);
       f.params.forEach((p2, k) => {
@@ -2880,17 +3575,13 @@
             scope[p2.name] = a ?? NSNull;
           }
         } else if (p2.pattern !== void 0) {
-          bindPattern(
-            p2.pattern,
-            a,
-            (n, v) => {
-              scope[n] = v ?? NSNull;
-            },
-            (toks) => new Parser(toks, store, scope).expression()
-          );
+          bindPattern(p2.pattern, a, (n, v) => {
+            scope[n] = v ?? NSNull;
+          }, (toks) => new Parser(toks, store, scope).expression());
         } else {
           const d = isDict(a) ? a : {};
-          for (const key of p2.keys) scope[key] = d[key] ?? NSNull;
+          for (const key of p2.keys)
+            scope[key] = d[key] ?? NSNull;
         }
       });
       if (f.block) {
@@ -2906,11 +3597,22 @@
       const s = (i) => i < a.length ? string(a[i]) : "";
       const n = (i) => i < a.length ? number(a[i]) ?? 0 : 0;
       if (name.startsWith("crypto.") || name === "Uint8Array" || name.startsWith("Uint8Array.") || name === "TextEncoder" || name === "TextDecoder" || name === "Array.from" || name === "btoa" || name === "atob") {
-        if (name === "Array.from") return arrayFrom(a, store);
+        if (name === "Array.from")
+          return arrayFrom(a, store);
         return JSECrypto.call(name, a);
       }
-      if (JSECore.handles(name)) return JSECore.call(name, a);
+      if (JSECore.handles(name))
+        return JSECore.call(name, a);
       switch (name) {
+        // SOURCE, DRAWN. The `<code>` surface needs token spans in markup, and a page cannot
+        // reach the scanner any other way - so the kernel exposes it instead of every caller
+        // shipping a fourth tokenizer. Pure: text in, rows of {text, kind} out.
+        //
+        // An OPTIONAL PLANE, like the regex engine beside it: almost no document draws source,
+        // and a self-contained embed has a byte budget that a scanner nobody called would eat.
+        // The define folds the branch, and the import goes with it.
+        case "highlight":
+          return globalThis.__DSX_OPTIONAL_HIGHLIGHT__ !== false ? highlightLines(s(0)) : [];
         case "upper":
           return s(0).toUpperCase();
         case "lower":
@@ -2923,7 +3625,8 @@
         case "len":
         case "count": {
           const f = a[0];
-          if (Array.isArray(f)) return f.length;
+          if (Array.isArray(f))
+            return f.length;
           return charCount(s(0));
         }
         case "abs":
@@ -2944,7 +3647,8 @@
         case "pad": {
           const width = Math.min(Math.max(safeInt(n(1)), 0), 64);
           const value = safeInt(n(0));
-          if (width === 0) return String(value);
+          if (width === 0)
+            return String(value);
           const neg = value < 0;
           const digits = String(Math.abs(value));
           const padded = digits.padStart(neg ? width - 1 : width, "0");
@@ -2971,8 +3675,10 @@
             lo = n(0);
             hi = n(1);
           }
-          if (a.length >= 3) step = n(2);
-          if (step === 0 || !Number.isFinite(lo) || !Number.isFinite(hi) || !Number.isFinite(step)) return [];
+          if (a.length >= 3)
+            step = n(2);
+          if (step === 0 || !Number.isFinite(lo) || !Number.isFinite(hi) || !Number.isFinite(step))
+            return [];
           const ladder = [];
           let v = lo;
           while ((step > 0 ? v < hi : v > hi) && ladder.length < 1e4) {
@@ -2985,7 +3691,8 @@
           let out = "";
           for (const c of a) {
             const code = safeInt(number(c) ?? 0);
-            if (code >= 0 && code <= 1114111) out += String.fromCharCode(code);
+            if (code >= 0 && code <= 1114111)
+              out += String.fromCharCode(code);
           }
           return out;
         }
@@ -3029,8 +3736,10 @@
         // ── form validators (pure predicates) ──
         case "required": {
           const v = a[0];
-          if (Array.isArray(v)) return v.length > 0;
-          if (typeof v === "string") return trimWhitespaceOnly(v).length > 0;
+          if (Array.isArray(v))
+            return v.length > 0;
+          if (typeof v === "string")
+            return trimWhitespaceOnly(v).length > 0;
           return truthy(v);
         }
         case "minLength":
@@ -3038,6 +3747,8 @@
         case "maxLength":
           return (Array.isArray(a[0]) ? a[0].length : charCount(s(0))) <= safeInt(n(1));
         case "regex": {
+          if (globalThis.__DSX_OPTIONAL_REGEX__ === false)
+            return false;
           const pat = s(1);
           if (reDoSProne(pat)) {
             console.warn(`[JSE] regex() rejected a potentially-catastrophic pattern: /${pat}/`);
@@ -3068,26 +3779,31 @@
     /** JS array/string methods called method-style. */
     applyMethod(m, base, a) {
       const handled = JSECore.method(m, base, a);
-      if (handled !== null) return handled.value;
+      if (handled !== null)
+        return handled.value;
       switch (m) {
         case "includes": {
-          if (asArray(base).some((x) => jseEquals(x, a[0]))) return true;
+          if (asArray(base).some((x) => jseEquals(x, a[0])))
+            return true;
           const needle = string(a[0]);
           return needle.length > 0 && string(base).includes(needle);
         }
         case "indexOf": {
           if (typeof base === "string") {
             const needle = string(a[0]);
-            if (needle.length === 0) return 0;
+            if (needle.length === 0)
+              return 0;
             const h = graphemes(base);
             const nd = graphemes(needle);
             for (let i2 = 0; i2 <= h.length - nd.length; i2++) {
               let ok = true;
-              for (let j = 0; j < nd.length; j++) if (h[i2 + j] !== nd[j]) {
-                ok = false;
-                break;
-              }
-              if (ok) return i2;
+              for (let j = 0; j < nd.length; j++)
+                if (h[i2 + j] !== nd[j]) {
+                  ok = false;
+                  break;
+                }
+              if (ok)
+                return i2;
             }
             return -1;
           }
@@ -3111,7 +3827,8 @@
           return [...asArray(base)].reverse();
         case "slice": {
           const bound = (v, len, def) => {
-            if (v === null || !Number.isFinite(v)) return def;
+            if (v === null || !Number.isFinite(v))
+              return def;
             const i = Math.trunc(Math.min(Math.max(v, -9e15), 9e15));
             return i < 0 ? Math.max(len + i, 0) : Math.min(i, len);
           };
@@ -3141,8 +3858,10 @@
         case "concat": {
           const out = [...asArray(base)];
           for (const v of a) {
-            if (Array.isArray(v)) out.push(...v);
-            else if (v !== null && v !== void 0) out.push(v);
+            if (Array.isArray(v))
+              out.push(...v);
+            else if (v !== null && v !== void 0)
+              out.push(v);
           }
           return out;
         }
@@ -3175,7 +3894,8 @@
             const r = Math.trunc(radix);
             if (r >= 2 && r <= 36 && r !== 10) {
               const v = number(base);
-              if (v !== null) return safeInt(v).toString(r);
+              if (v !== null)
+                return safeInt(v).toString(r);
             }
           }
           return string(base);
@@ -3186,9 +3906,11 @@
           const pad = a.length > 1 ? string(a[1]) : " ";
           const str = string(base);
           const strG = graphemes(str);
-          if (pad.length === 0 || strG.length >= len) return str;
+          if (pad.length === 0 || strG.length >= len)
+            return str;
           const fill = [];
-          while (fill.length + strG.length < len) fill.push(...graphemes(pad));
+          while (fill.length + strG.length < len)
+            fill.push(...graphemes(pad));
           const f = fill.slice(0, len - strG.length).join("");
           return m === "padStart" ? f + str : str + f;
         }
@@ -3217,13 +3939,15 @@
           const n = Math.min(Math.max(safeInt(number(a[0]) ?? 0), 0), 1e4);
           let out = "";
           const s = string(base);
-          for (let i = 0; i < n; i++) out += s;
+          for (let i = 0; i < n; i++)
+            out += s;
           return out;
         }
         case "substring": {
           const chars = graphemes(string(base));
           const clamp = (v) => {
-            if (v === null || Number.isNaN(v)) return 0;
+            if (v === null || Number.isNaN(v))
+              return 0;
             return Math.min(Math.max(safeInt(v), 0), chars.length);
           };
           let lo = clamp(number(a[0]));
@@ -3239,31 +3963,38 @@
           if (typeof base === "string") {
             const h = graphemes(base);
             const nd = graphemes(string(a[0]));
-            if (nd.length === 0) return h.length;
+            if (nd.length === 0)
+              return h.length;
             for (let i = h.length - nd.length; i >= 0; i--) {
               let ok = true;
-              for (let j = 0; j < nd.length; j++) if (h[i + j] !== nd[j]) {
-                ok = false;
-                break;
-              }
-              if (ok) return i;
+              for (let j = 0; j < nd.length; j++)
+                if (h[i + j] !== nd[j]) {
+                  ok = false;
+                  break;
+                }
+              if (ok)
+                return i;
             }
             return -1;
           }
           const arr = asArray(base);
-          for (let i = arr.length - 1; i >= 0; i--) if (jseEquals(arr[i], a[0])) return i;
+          for (let i = arr.length - 1; i >= 0; i--)
+            if (jseEquals(arr[i], a[0]))
+              return i;
           return -1;
         }
         case "trimStart": {
           const s = string(base);
           let start = 0;
-          while (start < s.length && isWhitespaceOnly(s[start])) start += 1;
+          while (start < s.length && isWhitespaceOnly(s[start]))
+            start += 1;
           return s.substring(start);
         }
         case "trimEnd": {
           const s = string(base);
           let end = s.length;
-          while (end > 0 && isWhitespaceOnly(s[end - 1])) end -= 1;
+          while (end > 0 && isWhitespaceOnly(s[end - 1]))
+            end -= 1;
           return s.substring(0, end);
         }
         case "charAt": {
@@ -3275,12 +4006,14 @@
         case "codePointAt": {
           const chars = graphemes(string(base));
           const i = safeInt(number(a[0]) ?? 0);
-          if (i < 0 || i >= chars.length) return null;
+          if (i < 0 || i >= chars.length)
+            return null;
           return chars[i].codePointAt(0) ?? null;
         }
         case "normalize": {
           const form = a.length > 0 ? string(a[0]) : "NFC";
-          if (form !== "NFC" && form !== "NFD" && form !== "NFKC" && form !== "NFKD") return string(base);
+          if (form !== "NFC" && form !== "NFD" && form !== "NFKC" && form !== "NFKD")
+            return string(base);
           return string(base).normalize(form);
         }
         case "matchAll":
@@ -3288,23 +4021,34 @@
         case "fill": {
           const arr = [...asArray(base)];
           const bound = (v2, def) => {
-            if (v2 === null || !Number.isFinite(v2)) return def;
+            if (v2 === null || !Number.isFinite(v2))
+              return def;
             const i = safeInt(v2);
             return i < 0 ? Math.max(arr.length + i, 0) : Math.min(i, arr.length);
           };
           const v = a.length > 0 ? a[0] ?? NSNull : NSNull;
           const lo = bound(a.length > 1 ? number(a[1]) : null, 0);
           const hi = bound(a.length > 2 ? number(a[2]) : null, arr.length);
-          for (let i = lo; i < hi; i++) arr[i] = v;
+          for (let i = lo; i < hi; i++)
+            arr[i] = v;
           return arr;
         }
         case "toReversed":
           return [...asArray(base)].reverse();
+        // JS pop()/shift() mutate; JSE values are value-typed on the native runtimes, so
+        // the JSE spelling is the PURE read (the toReversed/toSpliced family's law): last/
+        // first element out, receiver untouched. Corpus: stdlib-002.
+        case "pop":
+          return asArray(base).at(-1) ?? null;
+        case "shift":
+          return asArray(base).at(0) ?? null;
         case "with": {
           const arr = [...asArray(base)];
           let i = safeInt(number(a[0]) ?? 0);
-          if (i < 0) i += arr.length;
-          if (i >= 0 && i < arr.length) arr[i] = a[1] ?? NSNull;
+          if (i < 0)
+            i += arr.length;
+          if (i >= 0 && i < arr.length)
+            arr[i] = a[1] ?? NSNull;
           return arr;
         }
         case "toSpliced": {
@@ -3320,10 +4064,21 @@
           return asArray(base).map((_, i) => i);
         case "values":
           return [...asArray(base)];
+        case "toLocaleString": {
+          const v = number(base);
+          if (v === null || isDict(base))
+            break;
+          const txt = string(v);
+          const dot = txt.indexOf(".");
+          const whole = dot < 0 ? txt : txt.substring(0, dot);
+          return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (dot < 0 ? "" : txt.substring(dot));
+        }
         case "toFixed": {
           const v = number(base);
-          if (v === null || !Number.isFinite(v)) return string(base);
-          if (Math.abs(v) >= 9007199254740992) return string(v);
+          if (v === null || !Number.isFinite(v))
+            return string(base);
+          if (Math.abs(v) >= 9007199254740992)
+            return string(v);
           const d = Math.min(Math.max(safeInt(number(a[0]) ?? 0), 0), 100);
           const shift = Math.pow(10, d);
           const r = roundedAwayFromZero(Math.abs(v) * shift);
@@ -3370,7 +4125,8 @@
             const nx = number(x);
             const ny = number(y);
             let cmp;
-            if (nx !== null && ny !== null) cmp = nx < ny ? -1 : ny < nx ? 1 : 0;
+            if (nx !== null && ny !== null)
+              cmp = nx < ny ? -1 : ny < nx ? 1 : 0;
             else {
               const sx = string(x);
               const sy = string(y);
@@ -3416,11 +4172,15 @@
           return i < 0 ? -1 : i;
         }
         case "findLast": {
-          for (let i = arr.length - 1; i >= 0; i--) if (truthy(call([arr[i], i]))) return arr[i] ?? null;
+          for (let i = arr.length - 1; i >= 0; i--)
+            if (truthy(call([arr[i], i])))
+              return arr[i] ?? null;
           return null;
         }
         case "findLastIndex": {
-          for (let i = arr.length - 1; i >= 0; i--) if (truthy(call([arr[i], i]))) return i;
+          for (let i = arr.length - 1; i >= 0; i--)
+            if (truthy(call([arr[i], i])))
+              return i;
           return -1;
         }
         case "reduceRight": {
@@ -3455,7 +4215,8 @@
     },
     /** Normalize an explicit `dsx.`-namespace prefix to its canonical scope path. */
     normalizeScope(path) {
-      if (!path.startsWith("dsx.")) return path;
+      if (!path.startsWith("dsx."))
+        return path;
       const body = path.substring(4);
       const dot = body.indexOf(".");
       const head = dot >= 0 ? body.substring(0, dot) : body;
@@ -3510,13 +4271,19 @@
       const path = JSE.normalizeScope(rawPath);
       const parts = path.split(".").filter((p) => p.length > 0);
       const first = parts[0];
-      if (first === void 0) return null;
-      if (parts.length === 1 && (first === "os" || first === "platform")) return JSESeams.platformOS;
+      if (first === void 0)
+        return null;
+      if (parts.length === 1 && (first === "os" || first === "platform"))
+        return JSESeams.platformOS;
       if (first === "platform" && parts.length === 2) {
-        if (parts[1] === "os") return JSESeams.platformOS;
-        if (parts[1] === "native") return JSESeams.platformOS !== "web";
-        if (parts[1] === "desktop") return isDesktopOS(JSESeams.platformOS);
-        if (parts[1] === "embed") return JSESeams.platformEmbed;
+        if (parts[1] === "os")
+          return JSESeams.platformOS;
+        if (parts[1] === "native")
+          return JSESeams.platformOS !== "web";
+        if (parts[1] === "desktop")
+          return isDesktopOS(JSESeams.platformOS);
+        if (parts[1] === "embed")
+          return JSESeams.platformEmbed;
       }
       if (parts.length === 1 && !explicitStore && first === "env") {
         JSESeams.onGlobalRead?.("app");
@@ -3542,12 +4309,14 @@
           const av = store.vars.get("dsx.attribute");
           if (isDict(av)) {
             const runtime = walk(parts.slice(1), av);
-            if (runtime !== null) return runtime;
+            if (runtime !== null)
+              return runtime;
           }
         }
         if (v === null && first === "attribute" && parts.length === 2) {
           const def = store.attrDefaults.get(parts[1]);
-          if (def !== void 0) return JSE.eval(def, store, item);
+          if (def !== void 0)
+            return JSE.eval(def, store, item);
         }
         return v;
       }
@@ -3573,7 +4342,8 @@
         if (f !== void 0 && store.computedDepth < 32) {
           store.computedDepth += 1;
           const scope = {};
-          for (const [k, e] of Object.entries(f.inputs)) scope[k] = JSE.evalBlock(e, store, item) ?? NSNull;
+          for (const [k, e] of Object.entries(f.inputs))
+            scope[k] = JSE.evalBlock(e, store, item) ?? NSNull;
           const v = JSE.evalBlock(f.body, store, scope);
           store.computedDepth -= 1;
           return parts.length === 1 ? v : walk(parts.slice(1), v);
@@ -3635,15 +4405,19 @@
   function arrayFrom(a, store) {
     const src = a[0];
     let items;
-    if (Array.isArray(src)) items = src;
+    if (Array.isArray(src))
+      items = src;
     else if (isDict(src) && Object.keys(src).length === 1) {
       const len = number(src["length"]);
-      if (len === null || !Number.isFinite(len)) return JSECrypto.call("Array.from", a);
+      if (len === null || !Number.isFinite(len))
+        return JSECrypto.call("Array.from", a);
       const nn = Math.max(0, Math.min(Math.trunc(len), 1e4));
       items = new Array(nn).fill(NSNull);
-    } else return JSECrypto.call("Array.from", a);
+    } else
+      return JSECrypto.call("Array.from", a);
     const fn = a[1];
-    if (!isLambda(fn)) return items;
+    if (!isLambda(fn))
+      return items;
     return items.map((e, i) => JSE.callLambda(fn, [e, i], store) ?? NSNull);
   }
   var Parser = class _Parser {
@@ -3673,8 +4447,10 @@
       return t !== null && t.kind === "op" && list.includes(t.v) ? t.v : null;
     }
     expression() {
-      while (this.op(";")) this.advance();
-      if (this.depth >= 200) return null;
+      while (this.op(";"))
+        this.advance();
+      if (this.depth >= 200)
+        return null;
       this.depth += 1;
       const v = this.ternary();
       this.depth -= 1;
@@ -3682,10 +4458,12 @@
     }
     ternary() {
       const cond = this.nullish();
-      if (!this.op("?")) return cond;
+      if (!this.op("?"))
+        return cond;
       this.advance();
       const a = this.expression();
-      if (this.op(":")) this.advance();
+      if (this.op(":"))
+        this.advance();
       const b = this.expression();
       return truthy(cond) ? a : b;
     }
@@ -3744,7 +4522,8 @@
       let l = this.comparison();
       for (; ; ) {
         const o = this.anyOp(["===", "!==", "==", "!="]);
-        if (o === null) break;
+        if (o === null)
+          break;
         this.advance();
         const r = this.comparison();
         const eq = jseEquals(l, r);
@@ -3775,7 +4554,8 @@
       let l = this.additive();
       for (; ; ) {
         const o = this.anyOp(["<<", ">>", ">>>"]);
-        if (o === null) break;
+        if (o === null)
+          break;
         this.advance();
         l = bitOp(l, this.additive(), o);
       }
@@ -3785,7 +4565,8 @@
       let l = this.multiplicative();
       for (; ; ) {
         const o = this.anyOp(["+", "-"]);
-        if (o === null) break;
+        if (o === null)
+          break;
         this.advance();
         l = arith(l, this.multiplicative(), o);
       }
@@ -3795,7 +4576,8 @@
       let l = this.power();
       for (; ; ) {
         const o = this.anyOp(["*", "/", "%"]);
-        if (o === null) break;
+        if (o === null)
+          break;
         this.advance();
         l = arith(l, this.power(), o);
       }
@@ -3803,7 +4585,8 @@
     }
     power() {
       const l = this.unary();
-      if (!this.op("**")) return l;
+      if (!this.op("**"))
+        return l;
       this.advance();
       return powOp(l, this.power());
     }
@@ -3837,13 +4620,15 @@
         if (this.op("[")) {
           this.advance();
           const idx = this.expression();
-          if (this.op("]")) this.advance();
+          if (this.op("]"))
+            this.advance();
           base = index(base, idx);
         } else if (this.op(".") || this.op("?.")) {
           const optional = this.op("?.");
           this.advance();
           if (optional && this.op("(")) {
-            if (isLambda(base)) continue;
+            if (isLambda(base))
+              continue;
             this.skipBalanced("(", ")");
             base = null;
             continue;
@@ -3851,18 +4636,21 @@
           if (optional && this.op("[")) {
             this.advance();
             const idx = this.expression();
-            if (this.op("]")) this.advance();
+            if (this.op("]"))
+              this.advance();
             base = index(base, idx);
             continue;
           }
           const mt = this.peek();
-          if (mt === null || mt.kind !== "ident") break;
+          if (mt === null || mt.kind !== "ident")
+            break;
           let m = mt.v;
           this.advance();
           if (this.op("(")) {
             if (m.includes(".")) {
               const dot = m.lastIndexOf(".");
-              for (const seg of m.substring(0, dot).split(".")) base = member(base, seg);
+              for (const seg of m.substring(0, dot).split("."))
+                base = member(base, seg);
               m = m.substring(dot + 1);
             }
             this.advance();
@@ -3876,7 +4664,8 @@
                   hasInit = true;
                 }
               }
-              if (this.op(")")) this.advance();
+              if (this.op(")"))
+                this.advance();
               base = JSE.higherOrder(m, base, isLambda(fn) ? fn : null, this.store, initVal, hasInit);
             } else {
               const args = [];
@@ -3887,11 +4676,13 @@
                   this.pushArg(args);
                 }
               }
-              if (this.op(")")) this.advance();
+              if (this.op(")"))
+                this.advance();
               base = JSE.applyMethod(m, base, args);
             }
           } else if (m.includes(".")) {
-            for (const seg of m.split(".")) base = member(base, seg);
+            for (const seg of m.split("."))
+              base = member(base, seg);
           } else {
             base = member(base, m);
           }
@@ -3905,7 +4696,8 @@
               this.pushArg(args);
             }
           }
-          if (this.op(")")) this.advance();
+          if (this.op(")"))
+            this.advance();
           if (this.store.fnDepth >= 32) {
             base = null;
             continue;
@@ -3913,7 +4705,8 @@
           this.store.fnDepth += 1;
           base = JSE.callLambda(base, args, this.store);
           this.store.fnDepth -= 1;
-        } else break;
+        } else
+          break;
       }
       return base;
     }
@@ -3929,7 +4722,8 @@
     }
     primaryBase() {
       const t = this.peek();
-      if (t === null) return null;
+      if (t === null)
+        return null;
       if (t.kind === "num") {
         this.advance();
         return t.v;
@@ -3940,21 +4734,24 @@
       }
       if (t.kind === "regex") {
         this.advance();
-        return { __regex: true, source: t.pattern, flags: t.flags };
+        return globalThis.__DSX_OPTIONAL_REGEX__ !== false ? { __regex: true, source: t.pattern, flags: t.flags } : null;
       }
       if (t.kind === "template") {
         this.advance();
         let out = "";
         for (const part of t.parts) {
-          if ("s" in part) out += part.s;
-          else out += string(new _Parser(part.toks, this.store, this.item).expression());
+          if ("s" in part)
+            out += part.s;
+          else
+            out += string(new _Parser(part.toks, this.store, this.item).expression());
         }
         return out;
       }
       if (t.kind === "ident") {
         const id = t.v;
         this.advance();
-        if (id === "new") return this.primaryBase();
+        if (id === "new")
+          return this.primaryBase();
         if (id === "await") {
           const v = this.primaryBase();
           return v instanceof Promise ? null : v;
@@ -3974,7 +4771,8 @@
                 this.pushArg(args2);
               }
             }
-            if (this.op(")")) this.advance();
+            if (this.op(")"))
+              this.advance();
             if (id === "Object.groupBy") {
               const fn = args2[1];
               return JSE.higherOrder("groupBy", args2[0] ?? null, isLambda(fn) ? fn : null, this.store);
@@ -3997,7 +4795,8 @@
                     hasInit = true;
                   }
                 }
-                if (this.op(")")) this.advance();
+                if (this.op(")"))
+                  this.advance();
                 return JSE.higherOrder(method, baseVal, isLambda(fn) ? fn : null, this.store, initVal, hasInit);
               }
               const args2 = [];
@@ -4008,7 +4807,8 @@
                   this.pushArg(args2);
                 }
               }
-              if (this.op(")")) this.advance();
+              if (this.op(")"))
+                this.advance();
               return JSE.applyMethod(method, baseVal, args2);
             }
           }
@@ -4025,7 +4825,8 @@
               initVal = this.expression();
               hasInit = true;
             }
-            if (this.op(")")) this.advance();
+            if (this.op(")"))
+              this.advance();
             return JSE.higherOrder(id, coll, isLambda(fn) ? fn : null, this.store, initVal, hasInit);
           }
           const scopeFn = JSE.lookup(id, this.store, this.item);
@@ -4041,8 +4842,10 @@
                 this.pushArg(args2);
               }
             }
-            if (this.op(")")) this.advance();
-            if (this.store.fnDepth >= 32) return null;
+            if (this.op(")"))
+              this.advance();
+            if (this.store.fnDepth >= 32)
+              return null;
             this.store.fnDepth += 1;
             const v = JSE.callLambda(any, args2, this.store, fromScope ? this.item : null);
             this.store.fnDepth -= 1;
@@ -4057,7 +4860,8 @@
               this.pushArg(args);
             }
           }
-          if (this.op(")")) this.advance();
+          if (this.op(")"))
+            this.advance();
           return JSE.apply(id, args, this.store);
         }
         switch (id) {
@@ -4083,9 +4887,11 @@
           } else {
             arr.push(this.expression() ?? NSNull);
           }
-          if (this.op(",")) this.advance();
+          if (this.op(","))
+            this.advance();
         }
-        if (this.op("]")) this.advance();
+        if (this.op("]"))
+          this.advance();
         return arr;
       }
       if (t.v === "{") {
@@ -4095,8 +4901,10 @@
           if (this.op("...")) {
             this.advance();
             const src = this.expression();
-            if (isDict(src)) Object.assign(obj, src);
-            if (this.op(",")) this.advance();
+            if (isDict(src))
+              Object.assign(obj, src);
+            if (this.op(","))
+              this.advance();
             continue;
           }
           const kt = this.peek();
@@ -4105,7 +4913,8 @@
           if (this.op("[")) {
             this.advance();
             key = string(this.expression());
-            if (this.op("]")) this.advance();
+            if (this.op("]"))
+              this.advance();
             computed = true;
           } else if (kt !== null && kt.kind === "ident") {
             key = kt.v;
@@ -4123,19 +4932,25 @@
           if (this.op(":")) {
             this.advance();
             obj[key] = this.expression() ?? NSNull;
-          } else if (computed) obj[key] = NSNull;
-          else obj[key] = JSE.lookup(key, this.store, this.item) ?? NSNull;
-          if (this.op(",")) this.advance();
+          } else if (computed)
+            obj[key] = NSNull;
+          else
+            obj[key] = JSE.lookup(key, this.store, this.item) ?? NSNull;
+          if (this.op(","))
+            this.advance();
         }
-        if (this.op("}")) this.advance();
+        if (this.op("}"))
+          this.advance();
         return obj;
       }
       if (t.v === "(") {
         const lam = this.tryArrow();
-        if (lam !== null) return lam;
+        if (lam !== null)
+          return lam;
         this.advance();
         const v = this.expression();
-        if (this.op(")")) this.advance();
+        if (this.op(")"))
+          this.advance();
         return v;
       }
       this.advance();
@@ -4149,35 +4964,43 @@
       let j = this.pos;
       while (j < this.tokens.length) {
         const tk = this.tokens[j];
-        if (tk.kind === "op" && tk.v === "(") d += 1;
+        if (tk.kind === "op" && tk.v === "(")
+          d += 1;
         else if (tk.kind === "op" && tk.v === ")") {
           d -= 1;
-          if (d === 0) break;
+          if (d === 0)
+            break;
         }
         j += 1;
       }
       const after = j + 1 < this.tokens.length ? this.tokens[j + 1] : null;
-      if (!(after !== null && after.kind === "op" && after.v === "=>")) return null;
+      if (!(after !== null && after.kind === "op" && after.v === "=>"))
+        return null;
       this.advance();
       const scan = parseArrowParams(this.tokens, this.pos);
       this.pos = scan.next;
       const params = scan.params;
       scan.defaults.forEach((def, k) => {
-        if (def !== null && params[k] !== void 0) params[k].def = def;
+        if (def !== null && params[k] !== void 0)
+          params[k].def = def;
       });
-      if (this.op("=>")) this.advance();
+      if (this.op("=>"))
+        this.advance();
       return this.arrowBody(params);
     }
     /** Skip past one balanced group WITHOUT evaluating anything inside — the optional-call
      *  short-circuit, where JS specifies the arguments are never evaluated. */
     skipBalanced(open, close) {
-      if (!this.op(open)) return;
+      if (!this.op(open))
+        return;
       let d = 0;
       for (; ; ) {
         const tk = this.peek();
-        if (tk === null) return;
+        if (tk === null)
+          return;
         if (tk.kind === "op") {
-          if (tk.v === open) d += 1;
+          if (tk.v === open)
+            d += 1;
           else if (tk.v === close) {
             d -= 1;
             if (d === 0) {
@@ -4196,14 +5019,18 @@
       let d = 0;
       for (; ; ) {
         const tk = this.peek();
-        if (tk === null) break;
+        if (tk === null)
+          break;
         if (tk.kind === "op") {
-          if (tk.v === "{" || tk.v === "[" || tk.v === "(") d += 1;
-          else if (tk.v === "}" || tk.v === "]" || tk.v === ")") d -= 1;
+          if (tk.v === "{" || tk.v === "[" || tk.v === "(")
+            d += 1;
+          else if (tk.v === "}" || tk.v === "]" || tk.v === ")")
+            d -= 1;
         }
         out.push(tk);
         this.advance();
-        if (d === 0) break;
+        if (d === 0)
+          break;
       }
       return out;
     }
@@ -4214,14 +5041,18 @@
       let d = 0;
       for (; ; ) {
         const tk = this.peek();
-        if (tk === null) break;
+        if (tk === null)
+          break;
         if (tk.kind === "op") {
           const o = tk.v;
-          if (o === "(" || o === "[" || o === "{") d += 1;
+          if (o === "(" || o === "[" || o === "{")
+            d += 1;
           else if (o === ")" || o === "]" || o === "}") {
-            if (d === 0) break;
+            if (d === 0)
+              break;
             d -= 1;
-          } else if (d === 0 && o === ",") break;
+          } else if (d === 0 && o === ",")
+            break;
         }
         body.push(tk);
         this.advance();
@@ -4236,8 +5067,10 @@
         let d2 = 1;
         for (; ; ) {
           const tk = this.peek();
-          if (tk === null) break;
-          if (tk.kind === "op" && tk.v === "{") d2 += 1;
+          if (tk === null)
+            break;
+          if (tk.kind === "op" && tk.v === "{")
+            d2 += 1;
           else if (tk.kind === "op" && tk.v === "}") {
             d2 -= 1;
             if (d2 === 0) {
@@ -4254,14 +5087,18 @@
       let d = 0;
       for (; ; ) {
         const tk = this.peek();
-        if (tk === null) break;
+        if (tk === null)
+          break;
         if (tk.kind === "op") {
           const o = tk.v;
-          if (o === "(" || o === "[" || o === "{") d += 1;
+          if (o === "(" || o === "[" || o === "{")
+            d += 1;
           else if (o === ")" || o === "]" || o === "}") {
-            if (d === 0) break;
+            if (d === 0)
+              break;
             d -= 1;
-          } else if (d === 0 && o === ",") break;
+          } else if (d === 0 && o === ",")
+            break;
         }
         body.push(tk);
         this.advance();
@@ -4269,17 +5106,384 @@
       return makeLambda(params, body, false, { ...this.item ?? {} });
     }
   };
+  function splitTopLevel(toks) {
+    const out = [];
+    let cur = [];
+    let d = 0;
+    for (const tk of toks) {
+      if (tk.kind === "op") {
+        if (tk.v === "(" || tk.v === "[" || tk.v === "{")
+          d += 1;
+        else if (tk.v === ")" || tk.v === "]" || tk.v === "}")
+          d -= 1;
+        else if (d === 0 && tk.v === ",") {
+          out.push(cur);
+          cur = [];
+          continue;
+        }
+      }
+      cur.push(tk);
+    }
+    out.push(cur);
+    return out;
+  }
+  function setInLocal(container, parts, value) {
+    if (parts.length === 0)
+      return value;
+    const head = parts[0];
+    const rest = parts.slice(1);
+    if (Array.isArray(container)) {
+      const idx = number(head);
+      if (idx !== null) {
+        const i = Math.trunc(idx);
+        const copy = [...container];
+        if (i >= 0 && i < copy.length)
+          copy[i] = setInLocal(copy[i], rest, value);
+        else if (i === copy.length)
+          copy.push(setInLocal(null, rest, value));
+        return copy;
+      }
+    }
+    const d = isDict(container) ? { ...container } : {};
+    const key = string(head);
+    d[key] = setInLocal(d[key] ?? null, rest, value);
+    return d;
+  }
+  function getInLocal(container, parts) {
+    let cur = container;
+    for (const p of parts) {
+      if (Array.isArray(cur)) {
+        const idx = number(p);
+        cur = idx !== null && idx >= 0 && idx < cur.length ? cur[Math.trunc(idx)] : null;
+      } else if (isDict(cur)) {
+        cur = cur[string(p)] ?? null;
+      } else {
+        return null;
+      }
+    }
+    return cur ?? null;
+  }
+  function loopStep(e) {
+    const b = e.budget ??= { used: 0 };
+    b.used += 1;
+    return b.used <= 1e4;
+  }
+  function runCaptured(e, body) {
+    const sub = new JSEval(body, e.store, e.scope, true);
+    sub.budget = e.budget ??= { used: 0 };
+    sub.runBlock();
+    if (sub.done) {
+      e.result = sub.result;
+      e.done = true;
+    }
+    e.flow = sub.flow;
+  }
+  function captureBranchTokens(e) {
+    if (e.isOp("{")) {
+      e.i += 1;
+      const out2 = [];
+      let d = 1;
+      for (; ; ) {
+        const tk = e.cur();
+        if (tk === null)
+          break;
+        if (tk.kind === "op" && tk.v === "{")
+          d += 1;
+        else if (tk.kind === "op" && tk.v === "}") {
+          d -= 1;
+          if (d === 0) {
+            e.i += 1;
+            break;
+          }
+        }
+        out2.push(tk);
+        e.i += 1;
+      }
+      return out2;
+    }
+    const out = e.capture(/* @__PURE__ */ new Set([";"]));
+    if (e.isOp(";"))
+      e.i += 1;
+    return out;
+  }
+  function splitOnSemis(toks) {
+    const out = [];
+    let cur = [];
+    let d = 0;
+    for (const tk of toks) {
+      if (tk.kind === "op") {
+        if (tk.v === "(" || tk.v === "[" || tk.v === "{")
+          d += 1;
+        else if (tk.v === ")" || tk.v === "]" || tk.v === "}")
+          d -= 1;
+        else if (d === 0 && tk.v === ";") {
+          out.push(cur);
+          cur = [];
+          continue;
+        }
+      }
+      cur.push(tk);
+    }
+    out.push(cur);
+    return out;
+  }
+  function baseFor(e, name) {
+    return Object.prototype.hasOwnProperty.call(e.scope, name) ? e.scope[name] : e.evalExpr([{ kind: "ident", v: name }]);
+  }
+  function evalSegs(e, segs) {
+    return segs.map((s) => typeof s === "string" ? s : e.evalExpr(s));
+  }
+  function readAt(e, name, parts) {
+    return getInLocal(baseFor(e, name), parts);
+  }
+  function mutation(e, toks) {
+    const t0 = toks[0];
+    if (toks.length < 2 || t0 === void 0 || t0.kind !== "ident")
+      return false;
+    const head = t0.v.split(".");
+    const name = head[0];
+    if (name.length === 0 || name === "dsx" || name === "global" || name === "route" || name === "cookie")
+      return false;
+    const segs = head.slice(1);
+    let j = 1;
+    for (; ; ) {
+      const a = toks[j];
+      const b = toks[j + 1];
+      if (a !== void 0 && a.kind === "op" && a.v === "." && b !== void 0 && b.kind === "ident") {
+        for (const part of b.v.split("."))
+          segs.push(part);
+        j += 2;
+        continue;
+      }
+      if (a !== void 0 && a.kind === "op" && a.v === "[") {
+        const inner = [];
+        let d = 1;
+        let k = j + 1;
+        while (k < toks.length) {
+          const tk = toks[k];
+          if (tk.kind === "op" && (tk.v === "[" || tk.v === "(" || tk.v === "{"))
+            d += 1;
+          if (tk.kind === "op" && (tk.v === "]" || tk.v === ")" || tk.v === "}")) {
+            d -= 1;
+            if (d === 0)
+              break;
+          }
+          inner.push(tk);
+          k += 1;
+        }
+        if (k >= toks.length)
+          return false;
+        segs.push(inner);
+        j = k + 1;
+        continue;
+      }
+      break;
+    }
+    const bump = toks[j];
+    if (bump !== void 0 && bump.kind === "op" && (bump.v === "++" || bump.v === "--") && j === toks.length - 1) {
+      const parts2 = evalSegs(e, segs);
+      const value2 = arith(readAt(e, name, parts2), 1, bump.v === "++" ? "+" : "-");
+      if (parts2.length === 0)
+        e.scope[name] = value2 ?? NSNull;
+      else
+        e.scope[name] = setInLocal(baseFor(e, name), parts2, value2 ?? NSNull);
+      return true;
+    }
+    const last = segs.length > 0 ? segs[segs.length - 1] : void 0;
+    const after = toks[j];
+    if (last === "push" && after !== void 0 && after.kind === "op" && after.v === "(") {
+      let d = 1;
+      let k = j + 1;
+      const inner = [];
+      while (k < toks.length) {
+        const tk = toks[k];
+        if (tk.kind === "op" && (tk.v === "(" || tk.v === "[" || tk.v === "{"))
+          d += 1;
+        if (tk.kind === "op" && (tk.v === ")" || tk.v === "]" || tk.v === "}")) {
+          d -= 1;
+          if (d === 0)
+            break;
+        }
+        inner.push(tk);
+        k += 1;
+      }
+      if (d !== 0 || k !== toks.length - 1)
+        return false;
+      segs.pop();
+      const parts2 = evalSegs(e, segs);
+      const arr = [...asArray(readAt(e, name, parts2))];
+      for (const argToks of splitTopLevel(inner))
+        if (argToks.length > 0)
+          arr.push(e.evalExpr(argToks) ?? NSNull);
+      e.scope[name] = setInLocal(baseFor(e, name), parts2, arr);
+      return true;
+    }
+    const op = toks[j];
+    if (op === void 0 || op.kind !== "op")
+      return false;
+    if (op.v !== "=" && op.v !== "+=" && op.v !== "-=" && op.v !== "*=" && op.v !== "/=" && op.v !== "%=")
+      return false;
+    const rhsToks = toks.slice(j + 1);
+    if (rhsToks.length === 0)
+      return false;
+    const rhs = e.evalExpr(rhsToks);
+    const parts = evalSegs(e, segs);
+    const value = op.v === "=" ? rhs : arith(readAt(e, name, parts), rhs, op.v.substring(0, 1));
+    if (parts.length === 0) {
+      e.scope[name] = value ?? NSNull;
+      return true;
+    }
+    e.scope[name] = setInLocal(baseFor(e, name), parts, value ?? NSNull);
+    return true;
+  }
+  function forStmt(e, execute) {
+    e.i += 1;
+    const head = e.captureParen();
+    const body = captureBranchTokens(e);
+    if (!execute)
+      return;
+    const parts = splitOnSemis(head);
+    if (parts.length === 3) {
+      runCaptured(e, parts[0]);
+      if (e.done)
+        return;
+      e.flow = void 0;
+      for (; ; ) {
+        if (parts[1].length > 0 && !truthy(e.evalExpr(parts[1])))
+          break;
+        if (!loopStep(e))
+          break;
+        runCaptured(e, body);
+        if (e.done)
+          return;
+        if (e.flow === "break") {
+          e.flow = void 0;
+          break;
+        }
+        e.flow = void 0;
+        runCaptured(e, parts[2]);
+        if (e.done)
+          return;
+        e.flow = void 0;
+      }
+      return;
+    }
+    let p = 0;
+    const first = head[p];
+    if (first !== void 0 && first.kind === "ident" && (first.v === "const" || first.v === "let" || first.v === "var"))
+      p += 1;
+    let kwAt = -1;
+    let kind = null;
+    let d = 0;
+    for (let k = p; k < head.length; k += 1) {
+      const tk = head[k];
+      if (tk.kind === "op") {
+        if (tk.v === "(" || tk.v === "[" || tk.v === "{")
+          d += 1;
+        else if (tk.v === ")" || tk.v === "]" || tk.v === "}")
+          d -= 1;
+      }
+      if (d === 0 && tk.kind === "ident" && (tk.v === "of" || tk.v === "in")) {
+        kwAt = k;
+        kind = tk.v;
+        break;
+      }
+    }
+    if (kwAt < 0 || kind === null)
+      return;
+    const patToks = head.slice(p, kwAt);
+    const exprToks = head.slice(kwAt + 1);
+    const decls = parseDeclarators([...patToks, { kind: "op", v: "=" }, { kind: "num", v: 0 }]);
+    if (decls.length !== 1)
+      return;
+    const pattern = decls[0].pattern;
+    const seq = kind === "of" ? spreadValues(e.evalExpr(exprToks)) : forInKeys(e.evalExpr(exprToks));
+    for (const el of seq) {
+      if (!loopStep(e))
+        break;
+      bindPattern(pattern, el, (n, v) => {
+        e.scope[n] = v ?? NSNull;
+      }, (dts) => e.evalExpr(dts));
+      runCaptured(e, body);
+      if (e.done)
+        return;
+      if (e.flow === "break") {
+        e.flow = void 0;
+        break;
+      }
+      e.flow = void 0;
+    }
+  }
+  function whileStmt(e, execute) {
+    e.i += 1;
+    const cond = e.captureParen();
+    const body = captureBranchTokens(e);
+    if (!execute)
+      return;
+    while (truthy(e.evalExpr(cond))) {
+      if (!loopStep(e))
+        break;
+      runCaptured(e, body);
+      if (e.done)
+        return;
+      if (e.flow === "break") {
+        e.flow = void 0;
+        break;
+      }
+      e.flow = void 0;
+    }
+  }
+  function doStmt(e, execute) {
+    e.i += 1;
+    const body = captureBranchTokens(e);
+    let cond = [];
+    if (e.isKw("while")) {
+      e.i += 1;
+      cond = e.captureParen();
+      if (e.isOp(";"))
+        e.i += 1;
+    }
+    if (!execute)
+      return;
+    do {
+      if (!loopStep(e))
+        break;
+      runCaptured(e, body);
+      if (e.done)
+        return;
+      if (e.flow === "break") {
+        e.flow = void 0;
+        break;
+      }
+      e.flow = void 0;
+    } while (truthy(e.evalExpr(cond)));
+  }
+  var BLOCK_ITERATION_IMPL = {
+    loop(e, kind, execute) {
+      if (kind === "for")
+        forStmt(e, execute);
+      else if (kind === "while")
+        whileStmt(e, execute);
+      else
+        doStmt(e, execute);
+    },
+    mutation
+  };
   var JSEval = class {
     i = 0;
     scope;
     result = null;
     done = false;
+    flow;
+    // loop control in flight (consumed by its loop; absent = none)
+    budget;
+    // iteration ledger, created lazily by the impl (10k, the runner's law)
     t;
     store;
-    constructor(t, store, scope) {
+    constructor(t, store, scope, share = false) {
       this.t = t;
       this.store = store;
-      this.scope = { ...scope };
+      this.scope = share ? scope : { ...scope };
     }
     cur() {
       return this.i < this.t.length ? this.t[this.i] : null;
@@ -4293,17 +5497,20 @@
       return tk !== null && tk.kind === "ident" && tk.v === s;
     }
     runBlock() {
-      while (!this.done) {
+      while (!this.done && (!(globalThis.__DSX_OPTIONAL_BLOCK_ITERATION__ !== false) || this.flow === void 0)) {
         const tk = this.cur();
-        if (tk === null) return;
-        if (tk.kind === "op" && tk.v === "}") return;
+        if (tk === null)
+          return;
+        if (tk.kind === "op" && tk.v === "}")
+          return;
         if (tk.kind === "op" && tk.v === ";") {
           this.i += 1;
           continue;
         }
         const before = this.i;
         this.statement(true);
-        if (this.i === before) this.i += 1;
+        if (this.i === before)
+          this.i += 1;
       }
     }
     skipBranch() {
@@ -4311,12 +5518,15 @@
         let d = 0;
         for (; ; ) {
           const tk = this.cur();
-          if (tk === null) return;
-          if (tk.kind === "op" && tk.v === "{") d += 1;
+          if (tk === null)
+            return;
+          if (tk.kind === "op" && tk.v === "{")
+            d += 1;
           else if (tk.kind === "op" && tk.v === "}") {
             d -= 1;
             this.i += 1;
-            if (d === 0) return;
+            if (d === 0)
+              return;
             continue;
           }
           this.i += 1;
@@ -4324,12 +5534,14 @@
       } else {
         for (; ; ) {
           const tk = this.cur();
-          if (tk === null) return;
+          if (tk === null)
+            return;
           if (tk.kind === "op" && tk.v === ";") {
             this.i += 1;
             return;
           }
-          if (tk.kind === "op" && tk.v === "}") return;
+          if (tk.kind === "op" && tk.v === "}")
+            return;
           this.i += 1;
         }
       }
@@ -4342,8 +5554,10 @@
       if (this.isOp("{")) {
         this.i += 1;
         this.runBlock();
-        if (this.isOp("}")) this.i += 1;
-      } else this.statement(true);
+        if (this.isOp("}"))
+          this.i += 1;
+      } else
+        this.statement(true);
     }
     statement(execute) {
       if (this.isKw("function")) {
@@ -4352,6 +5566,20 @@
       }
       if (this.isKw("if")) {
         this.ifStmt(execute);
+        return;
+      }
+      if (globalThis.__DSX_OPTIONAL_BLOCK_ITERATION__ !== false && (this.isKw("for") || this.isKw("while") || this.isKw("do"))) {
+        const kind = this.isKw("for") ? "for" : this.isKw("while") ? "while" : "do";
+        BLOCK_ITERATION_IMPL.loop(this, kind, execute);
+        return;
+      }
+      if (globalThis.__DSX_OPTIONAL_BLOCK_ITERATION__ !== false && (this.isKw("break") || this.isKw("continue"))) {
+        const f = this.isKw("break") ? "break" : "continue";
+        this.i += 1;
+        if (this.isOp(";"))
+          this.i += 1;
+        if (execute)
+          this.flow = f;
         return;
       }
       if (this.isKw("const") || this.isKw("let") || this.isKw("var")) {
@@ -4363,42 +5591,45 @@
         return;
       }
       const toks = this.capture(/* @__PURE__ */ new Set([";"]));
-      if (this.isOp(";")) this.i += 1;
-      if (execute && !this.done) this.exprStatement(toks);
+      if (this.isOp(";"))
+        this.i += 1;
+      if (execute && !this.done)
+        this.exprStatement(toks);
     }
     ifStmt(execute) {
       this.i += 1;
       let cond = false;
       const c = this.captureParen();
-      if (execute) cond = truthy(this.evalExpr(c));
+      if (execute)
+        cond = truthy(this.evalExpr(c));
       this.branch(execute && cond);
       if (this.isKw("else")) {
         this.i += 1;
-        if (this.isKw("if")) this.ifStmt(execute && !cond);
-        else this.branch(execute && !cond);
+        if (this.isKw("if"))
+          this.ifStmt(execute && !cond);
+        else
+          this.branch(execute && !cond);
       }
     }
     declStmt(execute) {
       this.i += 1;
       const toks = this.capture(/* @__PURE__ */ new Set([";"]));
-      if (this.isOp(";")) this.i += 1;
-      if (!execute) return;
+      if (this.isOp(";"))
+        this.i += 1;
+      if (!execute)
+        return;
       for (const d of parseDeclarators(toks)) {
         const v = d.expr.length === 0 ? null : this.evalExpr(d.expr);
-        bindPattern(
-          d.pattern,
-          v,
-          (n, val) => {
-            this.scope[n] = val ?? NSNull;
-          },
-          (toks2) => this.evalExpr(toks2)
-        );
+        bindPattern(d.pattern, v, (n, val) => {
+          this.scope[n] = val ?? NSNull;
+        }, (toks2) => this.evalExpr(toks2));
       }
     }
     returnStmt(execute) {
       this.i += 1;
       const toks = this.capture(/* @__PURE__ */ new Set([";"]));
-      if (this.isOp(";")) this.i += 1;
+      if (this.isOp(";"))
+        this.i += 1;
       if (execute) {
         this.result = toks.length === 0 ? null : this.evalExpr(toks);
         this.done = true;
@@ -4407,8 +5638,10 @@
     skipFunction() {
       for (; ; ) {
         const tk = this.cur();
-        if (tk === null) break;
-        if (tk.kind === "op" && tk.v === "{") break;
+        if (tk === null)
+          break;
+        if (tk.kind === "op" && tk.v === "{")
+          break;
         this.i += 1;
       }
       this.skipBranch();
@@ -4419,24 +5652,28 @@
         const d0 = decls.length === 1 ? decls[0] : null;
         if (d0 !== null && d0.pattern.kind === "array" && d0.expr.length > 0 && (d0.pattern.items.some((it) => it !== null) || d0.pattern.rest !== void 0)) {
           const v = this.evalExpr(d0.expr);
-          bindPattern(
-            d0.pattern,
-            v,
-            (n, val) => {
-              this.scope[n] = val ?? NSNull;
-            },
-            (dts) => this.evalExpr(dts)
-          );
+          bindPattern(d0.pattern, v, (n, val) => {
+            this.scope[n] = val ?? NSNull;
+          }, (dts) => this.evalExpr(dts));
           return;
         }
       }
       if (toks.length >= 2) {
         const t0 = toks[0];
         const t1 = toks[1];
-        if (t0.kind === "ident" && t1.kind === "op" && t1.v === "=") {
+        if (t0.kind === "ident" && (!(globalThis.__DSX_OPTIONAL_BLOCK_ITERATION__ !== false) || !t0.v.includes(".")) && t1.kind === "op" && t1.v === "=") {
           this.scope[t0.v] = this.evalExpr(toks.slice(2)) ?? NSNull;
           return;
         }
+      }
+      if (globalThis.__DSX_OPTIONAL_BLOCK_ITERATION__ !== false) {
+        const lead = toks[0];
+        if (lead !== void 0 && lead.kind === "op" && (lead.v === "++" || lead.v === "--")) {
+          if (BLOCK_ITERATION_IMPL.mutation(this, [...toks.slice(1), lead]))
+            return;
+        }
+        if (BLOCK_ITERATION_IMPL.mutation(this, toks))
+          return;
       }
       this.result = this.evalExpr(toks);
     }
@@ -4445,7 +5682,8 @@
       let d = 0;
       for (; ; ) {
         const tk = this.cur();
-        if (tk === null) break;
+        if (tk === null)
+          break;
         if (tk.kind === "op") {
           const o = tk.v;
           if (o === "(" || o === "[" || o === "{") {
@@ -4455,13 +5693,15 @@
             continue;
           }
           if (o === ")" || o === "]" || o === "}") {
-            if (d === 0) break;
+            if (d === 0)
+              break;
             d -= 1;
             out.push(tk);
             this.i += 1;
             continue;
           }
-          if (d === 0 && stops.has(o)) break;
+          if (d === 0 && stops.has(o))
+            break;
         }
         out.push(tk);
         this.i += 1;
@@ -4470,13 +5710,16 @@
     }
     captureParen() {
       const out = [];
-      if (!this.isOp("(")) return out;
+      if (!this.isOp("("))
+        return out;
       this.i += 1;
       let d = 1;
       for (; ; ) {
         const tk = this.cur();
-        if (tk === null) break;
-        if (tk.kind === "op" && tk.v === "(") d += 1;
+        if (tk === null)
+          break;
+        if (tk.kind === "op" && tk.v === "(")
+          d += 1;
         else if (tk.kind === "op" && tk.v === ")") {
           d -= 1;
           if (d === 0) {

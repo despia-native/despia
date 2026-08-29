@@ -1,5 +1,5 @@
 //
-//  lint.test.ts — `dsx lint` rule by rule. Every rule is asserted from a SOURCE STRING
+//  lint.test.ts — `despia lint` rule by rule. Every rule is asserted from a SOURCE STRING
 //  through the same entry the CLI uses, so a finding cannot pass here and miss on disk.
 //  The rules are ports of ClosedSource/scripts/lint_dsx.rb; where a rule is deliberately
 //  softened (the scheme universe), the test pins BOTH severities and the reason.
@@ -20,6 +20,7 @@ function context(over: Partial<LintContext> = {}): LintContext {
     schemes: new Set(["self", "route", "demo", "toast"]),
     schemeOf: () => "demo",
     styleEjects: new Set<string>(),
+    census: null,
     schemesComplete: true,
     ...over,
   };
@@ -140,6 +141,8 @@ test("component resolution: package-local, global pool, qualified, and unresolve
     lint(`<stack><head><component as="Local"><text value="a"/></component></head><Local/></stack>`),
     "error", "unresolved component",
   ));
+  // capitalized kernel GLOBAL ELEMENTS resolve with no package component (facts.json globalElementTags)
+  assert.deepEqual(messages(lint(`<stack><Table bind="dsx.variable.rows" columns="A,B"/><RadioGroup bind="dsx.variable.pick" options="a,b"/></stack>`)), []);
 });
 
 test("an unknown lowercase tag warns", () => {
@@ -166,6 +169,23 @@ test("unknown dsx.* namespaces warn", () => {
     lint(`<stack><head><action as="go">dsx.nothere.x = 1</action></head></stack>`),
     "warning", "unknown namespace 'dsx.nothere'",
   ));
+});
+
+test("visible-if with {{ }} braces is an error (dict literal — always truthy)", () => {
+  assert.ok(has(
+    lint(`<stack><text visible-if="{{ dsx.source.online === false }}" value="x"/></stack>`),
+    "error", "visible-if: drop the '{{ }}' braces",
+  ));
+  const bare = lint(`<stack><text visible-if="dsx.source.online === false" value="x"/></stack>`);
+  assert.ok(!bare.some((f) => f.message.includes("drop the '{{ }}' braces")));
+});
+
+test("store-alias roots the JSE resolver ships are accepted in action bodies", () => {
+  const findings = lint(
+    `<stack><head><action as="go">if (dsx.source.online === false) { return }\n` +
+    `const u = dsx.const.api_url; const j = dsx.input.jump</action></head></stack>`,
+  );
+  assert.ok(!findings.some((f) => f.message.includes("unknown namespace")));
 });
 
 test("dsx.module.<scheme> is an ERROR when the universe is proven, a WARNING when it is not", () => {
@@ -288,4 +308,67 @@ test("the ported helpers behave like their Ruby originals", () => {
     "<action as=\"g\">     </action>",
     "code bodies blank out, line numbers survive",
   );
+});
+
+test("string DATA inside a code body is never read as code (the docs-payload law)", () => {
+  // A page carrying markdown as a JSE string literal: escaped quotes, braces, phantom
+  // namespaces, a quoted dsx.event call, a commented <action> example — all DATA.
+  const payload = JSON.stringify(
+    "# Title\n\nUse `dsx.variable.count` and dsx.nonsense.stuff here { unbalanced [\n" +
+    "call dsx.event('phantom') and <!-- <action as=\"x\"> --> \"quoted\"",
+  );
+  const findings = lint(`<stack><head><variable as="body">return ${payload}</variable></head><markdown bind="dsx.variable.body"/></stack>`);
+  assert.deepEqual(findings, [], `data was read as code: ${findings.map((f) => f.message).join(" | ")}`);
+  // …while the SAME constructs OUTSIDE a string still report.
+  assert.ok(has(
+    lint(`<stack><head><variable as="n">return dsx.nonsense.stuff</variable></head></stack>`),
+    "warning", "unknown namespace 'dsx.nonsense'",
+  ));
+  assert.ok(has(
+    lint(`<stack><head><variable as="n">return dsx.variable.ghost</variable></head></stack>`),
+    "warning", "dsx.variable.ghost is not declared",
+  ));
+  // and a REAL escaped-quote string stays balanced.
+  assert.deepEqual(
+    lint(`<stack><head><variable as="s">return "a \\" quote { and half a brace"</variable></head></stack>`),
+    [],
+  );
+});
+
+// ── the three SILENT drops ────────────────────────────────────────────────────────────
+//
+//  Each of these parses, renders, and reports nothing while doing nothing. All three were
+//  found the only way they can be found without a rule: by building a real screen on them
+//  and watching it come out subtly empty.
+
+test("a loop in a <variable> body is LEGAL — expression blocks run the budgeted loop grammar (core-004)", () => {
+  const findings = lint(
+    `<stack><head><variable as="n" computed="true">let c = 0\n` +
+    `for (const x of rows) { c = c + 1 }\nreturn c</variable></head></stack>`,
+  );
+  assert.ok(!has(findings, "error", "never runs"), JSON.stringify(findings));
+  // An <action> body keeps its loop grammar too, unchanged.
+  assert.ok(!has(
+    lint(`<stack><head><action as="go">for (const x of rows) { total = total + 1 }</action></head></stack>`),
+    "error", "never runs",
+  ));
+});
+
+test("a {{ }} wrapper on a bare-expression attribute is an error", () => {
+  for (const attr of ["commands", "bind", "a11yChildren"]) {
+    const findings = lint(`<stack><canvas ${attr}="{{ rows }}" a11yLabel="x"/></stack>`);
+    assert.ok(has(findings, "error", "drop the '{{ }}' braces"), `${attr}: ${JSON.stringify(findings)}`);
+  }
+  // The bare spelling is the right one and stays quiet.
+  assert.ok(!has(lint(`<stack><canvas commands="rows" a11yLabel="x"/></stack>`), "error", "braces"));
+});
+
+test("an authored data- attribute is an error — no renderer forwards it", () => {
+  const findings = lint(`<stack><text value="x" data-selected="{{ on }}"/></stack>`);
+  assert.ok(has(findings, "error", "dropped by every renderer"), JSON.stringify(findings));
+  // The class formula is the spelling that works, and must not be flagged.
+  assert.ok(!has(
+    lint(`<stack><text value="x" class="row {{ on ? 'row-on' : 'row-off' }}"/></stack>`),
+    "error", "dropped by every renderer",
+  ));
 });

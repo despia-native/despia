@@ -209,3 +209,19 @@ test("hardening/lone-cr-line-endings", async () => {
   assert.equal(s.jse.vars.get("x"), 1);
   assert.equal(s.jse.vars.get("y"), 2);
 });
+
+test("an attribute declared `default=\"\"` reads as the empty string, not as absent", () => {
+  //  27 attributes in this tree are declared that way, the Studio's own surfaces included.
+  //  An empty expression evaluated to null, so `dsx.attribute.x != ''` was TRUE for an
+  //  attribute nobody set - which is how an EmptyState rendered a button with no label.
+  const store = new ReactiveStore();
+  store.jse.attrDefaults.set("action", "");
+  store.jse.attrDefaults.set("title", "'Untitled'");
+  store.jse.vars.set("dsx.attribute", {});
+  assert.equal(JSE.eval("dsx.attribute.action", store.jse, null), "");
+  assert.equal(JSE.eval("dsx.attribute.title", store.jse, null), "Untitled");
+  assert.equal(JSE.eval("dsx.attribute.action != ''", store.jse, null), false);
+  // a SUPPLIED value still wins over the default
+  store.jse.vars.set("dsx.attribute", { action: "Browse" });
+  assert.equal(JSE.eval("dsx.attribute.action", store.jse, null), "Browse");
+});

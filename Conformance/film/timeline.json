@@ -1,0 +1,953 @@
+{
+  "version": 1,
+  "_note": "The FILM TIMELINE corpus (12-marketing-video.md Phase 1). Pins the laws a marketing film's determinism rests on: scene selection at boundaries, the contiguity/duration validation (a gap is a black hole in the advertisement), camera hold-then-move composition, single-frame tap attribution, the cut law (the INCOMING scene's cut owns the boundary, both edges), state-write sampling (sets are single-frame like taps; a tween emits its exact end value exactly once), and the exact frame count. Interpolation pins use LINEAR easing so every expected number is exact hand arithmetic; eased moves are pinned only at their endpoints, because the curve itself is already pinned by Conformance/motion and a second set of bezier expectations here would be a second opinion about it. Every expected value was derived by hand from the laws, never by the kernel under test.",
+  "film": {
+    "id": "corpus",
+    "durationMs": 6000,
+    "fps": 30,
+    "format": {
+      "width": 1080,
+      "height": 1920
+    },
+    "theme": {
+      "bg": "#000000",
+      "ink": "#ffffff",
+      "accent": "#34d399",
+      "font": ""
+    },
+    "states": [],
+    "scenes": [
+      {
+        "atMs": 0,
+        "forMs": 2000,
+        "document": "",
+        "state": "",
+        "deviceWidth": 0,
+        "texts": [
+          {
+            "role": "hook",
+            "text": "Hello",
+            "accent": "Hello"
+          }
+        ],
+        "captions": [],
+        "camera": [],
+        "taps": [],
+        "poses": [],
+        "float": false,
+        "glow": "none",
+        "cut": "fade",
+        "frame": "device",
+        "sets": [],
+        "tweens": [],
+        "focus": [],
+        "morph": null,
+        "frames": []
+      },
+      {
+        "atMs": 2000,
+        "forMs": 3000,
+        "document": "Dash",
+        "state": "demo",
+        "deviceWidth": 0.8,
+        "texts": [],
+        "captions": [
+          {
+            "text": "cap",
+            "atMs": 500,
+            "forMs": 2000
+          }
+        ],
+        "camera": [],
+        "taps": [
+          {
+            "atMs": 1500,
+            "target": "#btn"
+          }
+        ],
+        "poses": [],
+        "float": false,
+        "glow": "none",
+        "cut": "fade",
+        "frame": "device",
+        "sets": [],
+        "tweens": [],
+        "focus": [],
+        "morph": null,
+        "frames": []
+      },
+      {
+        "atMs": 5000,
+        "forMs": 1000,
+        "document": "",
+        "state": "",
+        "deviceWidth": 0,
+        "texts": [
+          {
+            "role": "cta",
+            "text": "Go",
+            "accent": ""
+          }
+        ],
+        "captions": [],
+        "camera": [],
+        "taps": [],
+        "poses": [],
+        "float": false,
+        "glow": "none",
+        "cut": "fade",
+        "frame": "device",
+        "sets": [],
+        "tweens": [],
+        "focus": [],
+        "morph": null,
+        "frames": []
+      }
+    ]
+  },
+  "frameCount": 180,
+  "sceneIndex": [
+    {
+      "name": "t=0 is scene 0",
+      "tMs": 0,
+      "expect": 0
+    },
+    {
+      "name": "the boundary belongs to the NEXT scene (inclusive start)",
+      "tMs": 2000,
+      "expect": 1
+    },
+    {
+      "name": "one ms before the boundary is still the previous scene",
+      "tMs": 1999,
+      "expect": 0
+    },
+    {
+      "name": "the last instant belongs to the last scene",
+      "tMs": 5999,
+      "expect": 2
+    }
+  ],
+  "sceneAlpha": [
+    {
+      "name": "the first scene never fades IN (there is nothing to fade from)",
+      "tMs": 0,
+      "expect": 1
+    },
+    {
+      "name": "a scene fades in over SCENE_FADE_MS: halfway at 160ms after entry",
+      "tMs": 2160,
+      "expect": 0.5
+    },
+    {
+      "name": "fully entered after 320ms",
+      "tMs": 2320,
+      "expect": 1
+    },
+    {
+      "name": "a scene fades out over the last 320ms: halfway at 160 before the end",
+      "tMs": 4840,
+      "expect": 0.5
+    },
+    {
+      "name": "the LAST scene never fades out (the encoder ends the film, not a fade)",
+      "tMs": 5999,
+      "expect": 1
+    }
+  ],
+  "tapAttribution": {
+    "_note": "fps 30 means frameMs = 33.333...; the tap at scene-local 1500ms (absolute 3500ms) belongs to exactly one frame: the frame whose window [local, local+frameMs) contains 1500.",
+    "frameMs": 33.333333333333336,
+    "cases": [
+      {
+        "name": "the frame starting at local 1466.67 does not carry it",
+        "tMs": 3466.6666666666665,
+        "expectTaps": 0
+      },
+      {
+        "name": "the frame starting at local 1500 carries it",
+        "tMs": 3500,
+        "expectTaps": 1
+      },
+      {
+        "name": "the next frame does not carry it again",
+        "tMs": 3533.3333333333335,
+        "expectTaps": 0
+      }
+    ]
+  },
+  "camera": {
+    "_note": "Concrete moves, LINEAR ease. Home is {x:540, y:960, scale:1}. Move 1: at 200ms for 400ms to {x:300,y:500,scale:2}. Move 2: at 1000ms for 500ms back to home. Holds are exact; mid-move values are exact linear arithmetic.",
+    "home": {
+      "x": 540,
+      "y": 960,
+      "scale": 1
+    },
+    "moves": [
+      {
+        "atMs": 200,
+        "forMs": 400,
+        "toX": 300,
+        "toY": 500,
+        "toScale": 2,
+        "ease": "linear"
+      },
+      {
+        "atMs": 1000,
+        "forMs": 500,
+        "toX": 540,
+        "toY": 960,
+        "toScale": 1,
+        "ease": "linear"
+      }
+    ],
+    "cases": [
+      {
+        "name": "before the first move the camera is home",
+        "tMs": 0,
+        "expect": {
+          "x": 540,
+          "y": 960,
+          "scale": 1
+        }
+      },
+      {
+        "name": "halfway through move 1: exact midpoint",
+        "tMs": 400,
+        "expect": {
+          "x": 420,
+          "y": 730,
+          "scale": 1.5
+        }
+      },
+      {
+        "name": "after move 1 the camera HOLDS its target",
+        "tMs": 800,
+        "expect": {
+          "x": 300,
+          "y": 500,
+          "scale": 2
+        }
+      },
+      {
+        "name": "move 2 starts FROM the held state: 40% back",
+        "tMs": 1200,
+        "expect": {
+          "x": 396,
+          "y": 684,
+          "scale": 1.6
+        }
+      },
+      {
+        "name": "after every move the camera rests where the last one ended",
+        "tMs": 9999,
+        "expect": {
+          "x": 540,
+          "y": 960,
+          "scale": 1
+        }
+      }
+    ],
+    "easedEndpoints": {
+      "_note": "an easeInOut move is pinned only at its endpoints; the curve between them is Conformance/motion's law, not this corpus's.",
+      "move": {
+        "atMs": 0,
+        "forMs": 600,
+        "toX": 100,
+        "toY": 100,
+        "toScale": 3,
+        "ease": "easeInOut"
+      },
+      "atStart": {
+        "x": 540,
+        "y": 960,
+        "scale": 1
+      },
+      "atEnd": {
+        "x": 100,
+        "y": 100,
+        "scale": 3
+      }
+    }
+  },
+  "validation": [
+    {
+      "name": "the corpus film itself is lawful",
+      "mutate": null,
+      "expectCodes": []
+    },
+    {
+      "name": "a gap between scenes refuses (and the NEXT scene now also mismatches the cursor)",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "atMs": 2500
+        }
+      },
+      "expectCodes": [
+        "gap",
+        "gap"
+      ]
+    },
+    {
+      "name": "scenes that end short of the declared duration refuse",
+      "mutate": {
+        "scene": 2,
+        "set": {
+          "forMs": 500
+        }
+      },
+      "expectCodes": [
+        "duration"
+      ]
+    },
+    {
+      "name": "a scene with no document and no words is G-static",
+      "mutate": {
+        "scene": 0,
+        "set": {
+          "texts": []
+        }
+      },
+      "expectCodes": [
+        "static"
+      ]
+    },
+    {
+      "name": "a camera move that outlives its scene refuses",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "camera": [
+            {
+              "atMs": 2800,
+              "forMs": 500,
+              "target": "#x",
+              "zoom": 2,
+              "ease": "linear"
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "camera-overrun"
+      ]
+    },
+    {
+      "name": "a 31s film refuses the app-store-preview slot (G-overrun)",
+      "slot": "app-store-preview",
+      "stretch": {
+        "durationMs": 31000,
+        "lastSceneForMs": 26000
+      },
+      "expectCodes": [
+        "overrun"
+      ]
+    },
+    {
+      "name": "a pose move that outlives its scene refuses",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "poses": [
+            {
+              "atMs": 2900,
+              "forMs": 400,
+              "to": {
+                "turn": 10,
+                "tilt": 0,
+                "roll": 0,
+                "x": 0,
+                "y": 0,
+                "scale": 1
+              },
+              "ease": "linear"
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "pose-overrun"
+      ]
+    },
+    {
+      "name": "a tween that outlives its scene refuses",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "tweens": [
+            {
+              "atMs": 2800,
+              "forMs": 400,
+              "name": "x",
+              "from": 0,
+              "to": 1,
+              "ease": "linear",
+              "round": false
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "write-overrun"
+      ]
+    },
+    {
+      "name": "a set at or past the scene's end refuses",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "sets": [
+            {
+              "atMs": 3000,
+              "name": "x",
+              "value": 1
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "write-overrun"
+      ]
+    },
+    {
+      "name": "state writes need a mounted app",
+      "mutate": {
+        "scene": 0,
+        "set": {
+          "sets": [
+            {
+              "atMs": 100,
+              "name": "x",
+              "value": 1
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "write-orphan"
+      ]
+    },
+    {
+      "name": "a frameless scene needs a document to be the product of",
+      "mutate": {
+        "scene": 0,
+        "set": {
+          "frame": "none"
+        }
+      },
+      "expectCodes": [
+        "frame"
+      ]
+    },
+    {
+      "name": "a spotlight without a mounted document refuses",
+      "mutate": {
+        "scene": 0,
+        "set": {
+          "focus": [
+            {
+              "atMs": 100,
+              "forMs": 500,
+              "target": "#x"
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "focus"
+      ]
+    },
+    {
+      "name": "a spotlight that outlives its scene refuses",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "focus": [
+            {
+              "atMs": 2800,
+              "forMs": 400,
+              "target": "#x"
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "focus-overrun"
+      ]
+    },
+    {
+      "name": "a morph into the FIRST scene refuses (nothing precedes it)",
+      "mutate": {
+        "scene": 0,
+        "set": {
+          "morph": {
+            "target": "#x",
+            "forMs": 500,
+            "ease": "linear"
+          },
+          "document": "Dash"
+        }
+      },
+      "expectCodes": [
+        "morph"
+      ]
+    },
+    {
+      "name": "a morph into a documentless scene refuses",
+      "mutate": {
+        "scene": 2,
+        "set": {
+          "morph": {
+            "target": "#x",
+            "forMs": 500,
+            "ease": "linear"
+          }
+        }
+      },
+      "expectCodes": [
+        "morph"
+      ]
+    },
+    {
+      "name": "a morph that outlives its scene refuses",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "morph": {
+            "target": "#x",
+            "forMs": 3500,
+            "ease": "linear"
+          }
+        }
+      },
+      "expectCodes": [
+        "morph-overrun"
+      ]
+    },
+    {
+      "name": "a supporting frame names its own document",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "frames": [
+            {
+              "document": "",
+              "state": "",
+              "width": 0.34,
+              "x": 0.2,
+              "y": 0.4,
+              "depth": -1
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "support-frame"
+      ]
+    },
+    {
+      "name": "a supporting frame stays on the stage",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "frames": [
+            {
+              "document": "Screens/Home",
+              "state": "",
+              "width": 0.34,
+              "x": 1.4,
+              "y": 0.4,
+              "depth": -1
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "support-frame"
+      ]
+    },
+    {
+      "name": "a supporting frame supports a primary mount",
+      "mutate": {
+        "scene": 0,
+        "set": {
+          "frames": [
+            {
+              "document": "Screens/Home",
+              "state": "",
+              "width": 0.34,
+              "x": 0.2,
+              "y": 0.4,
+              "depth": 0
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "support-frame"
+      ]
+    },
+    {
+      "name": "a supporting frame is sized by a real stage fraction",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "frames": [
+            {
+              "document": "Screens/Home",
+              "state": "",
+              "width": 0,
+              "x": 0.5,
+              "y": 0.5,
+              "depth": -1
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "support-frame"
+      ]
+    },
+    {
+      "name": "a supporting frame depth stays in [-1, 1]",
+      "mutate": {
+        "scene": 1,
+        "set": {
+          "frames": [
+            {
+              "document": "Screens/Home",
+              "state": "",
+              "width": 0.3,
+              "x": 0.5,
+              "y": 0.5,
+              "depth": 2
+            }
+          ]
+        }
+      },
+      "expectCodes": [
+        "support-frame"
+      ]
+    }
+  ],
+  "pose": {
+    "_note": "The device pose track obeys cameraAt's hold-then-move law over six axes, LINEAR pins exact by hand. Home is the zero pose. Move 1: at 100ms for 400ms to turn 20, tilt -8, roll 0, x 0.1, y -0.05, scale 0.9. Move 2: at 800ms for 200ms back to zero/1.",
+    "moves": [
+      {
+        "atMs": 100,
+        "forMs": 400,
+        "to": {
+          "turn": 20,
+          "tilt": -8,
+          "roll": 0,
+          "x": 0.1,
+          "y": -0.05,
+          "scale": 0.9
+        },
+        "ease": "linear"
+      },
+      {
+        "atMs": 800,
+        "forMs": 200,
+        "to": {
+          "turn": 0,
+          "tilt": 0,
+          "roll": 0,
+          "x": 0,
+          "y": 0,
+          "scale": 1
+        },
+        "ease": "linear"
+      }
+    ],
+    "cases": [
+      {
+        "name": "before the first move: home",
+        "tMs": 0,
+        "expect": {
+          "turn": 0,
+          "tilt": 0,
+          "roll": 0,
+          "x": 0,
+          "y": 0,
+          "scale": 1
+        }
+      },
+      {
+        "name": "halfway through move 1: exact midpoints on every axis",
+        "tMs": 300,
+        "expect": {
+          "turn": 10,
+          "tilt": -4,
+          "roll": 0,
+          "x": 0.05,
+          "y": -0.025,
+          "scale": 0.95
+        }
+      },
+      {
+        "name": "held between moves",
+        "tMs": 700,
+        "expect": {
+          "turn": 20,
+          "tilt": -8,
+          "roll": 0,
+          "x": 0.1,
+          "y": -0.05,
+          "scale": 0.9
+        }
+      },
+      {
+        "name": "halfway back: the move starts FROM the held pose",
+        "tMs": 900,
+        "expect": {
+          "turn": 10,
+          "tilt": -4,
+          "roll": 0,
+          "x": 0.05,
+          "y": -0.025,
+          "scale": 0.95
+        }
+      }
+    ]
+  },
+  "float": {
+    "_note": "floatAt is a pure function of time: y = 0.004 sin(2 pi t/5.3), turn = 1.6 sin(2 pi t/7.1), tilt = 0.9 sin(2 pi t/6.2 + 1). Pinned at t=0 and at each track's quarter period, where the sine is exactly 0 or 1. Tolerance 1e-9.",
+    "cases": [
+      {
+        "name": "t=0",
+        "tMs": 0,
+        "expect": {
+          "y": 0,
+          "turnIsZero": true,
+          "tiltIsZero": false
+        }
+      },
+      {
+        "name": "a quarter of the y period: y at its full amplitude",
+        "tMs": 1325,
+        "expectY": 0.004
+      },
+      {
+        "name": "a quarter of the turn period: turn at its full amplitude",
+        "tMs": 1775,
+        "expectTurn": 1.6
+      },
+      {
+        "name": "half the y period: y back through zero",
+        "tMs": 2650,
+        "expectYZero": true
+      }
+    ]
+  },
+  "cut": {
+    "_note": "The CUT LAW: cut lives on the INCOMING scene and owns BOTH edges of its boundary - its own enter fade and the outgoing scene's leave fade - so one word cuts the whole edit. With scene 1 set to cut=hard, the scene 0 -> 1 boundary is a hard cut in both directions while the scene 1 -> 2 boundary stays a fade (scene 2 is fade). Alpha values are exact hand arithmetic against SCENE_FADE_MS=320.",
+    "mutate": {
+      "scene": 1,
+      "set": {
+        "cut": "hard"
+      }
+    },
+    "cases": [
+      {
+        "name": "the outgoing scene does NOT fade out into a hard cut (would be 0.5 under fade)",
+        "tMs": 1840,
+        "expect": 1
+      },
+      {
+        "name": "a hard-cut scene does NOT fade in (would be 0.5 under fade)",
+        "tMs": 2160,
+        "expect": 1
+      },
+      {
+        "name": "the hard scene still fades OUT into a fade successor",
+        "tMs": 4840,
+        "expect": 0.5
+      },
+      {
+        "name": "the fade successor still fades IN",
+        "tMs": 5160,
+        "expect": 0.5
+      }
+    ]
+  },
+  "writes": {
+    "_note": "State-write sampling at frameMs=100 (10fps keeps every number exact hand arithmetic). Scene 1 (starts 2000ms) gains one set (locked=true at local 200ms) and two LINEAR tweens over local 500..1500ms: calories 0->101 rounded, ratio 0->1 unrounded. A set is attributed to exactly one frame like a tap. A tween emits every frame while live, and the frame at/past its end emits the EXACT to (never the eased approximation) exactly once - the frame after that emits nothing, because the store already holds it.",
+    "frameMs": 100,
+    "mutate": {
+      "scene": 1,
+      "set": {
+        "sets": [
+          {
+            "atMs": 200,
+            "name": "locked",
+            "value": true
+          }
+        ],
+        "tweens": [
+          {
+            "atMs": 500,
+            "forMs": 1000,
+            "name": "calories",
+            "from": 0,
+            "to": 101,
+            "ease": "linear",
+            "round": true
+          },
+          {
+            "atMs": 500,
+            "forMs": 1000,
+            "name": "ratio",
+            "from": 0,
+            "to": 1,
+            "ease": "linear",
+            "round": false
+          }
+        ]
+      }
+    },
+    "cases": [
+      {
+        "name": "the frame before the set carries nothing",
+        "tMs": 2100,
+        "expect": []
+      },
+      {
+        "name": "the set's frame carries it once",
+        "tMs": 2200,
+        "expect": [
+          {
+            "name": "locked",
+            "value": true
+          }
+        ]
+      },
+      {
+        "name": "the tweens' first frame emits their from values",
+        "tMs": 2500,
+        "expect": [
+          {
+            "name": "calories",
+            "value": 0
+          },
+          {
+            "name": "ratio",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "name": "40% through: round bites the counter, not the ratio (40.4 -> 40)",
+        "tMs": 2900,
+        "expect": [
+          {
+            "name": "calories",
+            "value": 40
+          },
+          {
+            "name": "ratio",
+            "value": 0.4
+          }
+        ]
+      },
+      {
+        "name": "the end frame emits the exact to, once",
+        "tMs": 3500,
+        "expect": [
+          {
+            "name": "calories",
+            "value": 101
+          },
+          {
+            "name": "ratio",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "name": "the frame after the end writes nothing",
+        "tMs": 3600,
+        "expect": []
+      }
+    ]
+  },
+  "focus": {
+    "_note": "The SPOTLIGHT window follows the caption envelope exactly (easeOut 300ms in, linear 240ms out, min of both), so the two chrome layers breathe identically. Scene 1 (starts 2000ms, 3000ms long) gains one focus row at local 500ms for 2000ms on #btn. Pins avoid the eased mid-curve (Conformance/motion's law): fully entered at/after 300ms into the window, the linear out ramp at exact arithmetic, outside the window null.",
+    "mutate": {
+      "scene": 1,
+      "set": {
+        "focus": [
+          {
+            "atMs": 500,
+            "forMs": 2000,
+            "target": "#btn"
+          }
+        ]
+      }
+    },
+    "cases": [
+      {
+        "name": "before the window there is no spotlight",
+        "tMs": 2400,
+        "expectNull": true
+      },
+      {
+        "name": "fully entered 300ms into the window",
+        "tMs": 2800,
+        "expectAlpha": 1,
+        "expectTarget": "#btn"
+      },
+      {
+        "name": "the linear out ramp: 120ms before the end is half gone",
+        "tMs": 4380,
+        "expectAlpha": 0.5
+      },
+      {
+        "name": "at the window's end the spotlight is gone",
+        "tMs": 4500,
+        "expectNull": true
+      }
+    ]
+  },
+  "morph": {
+    "_note": "The HERO transition runs from the scene's first instant for forMs, LINEAR pins exact. Scene 1 gains morph {#btn, 1000ms}. p is the eased progress; after forMs the morph is null - the component has landed and the scene owns it. A MORPH IMPLIES THE HARD BOUNDARY: the hero transition is the edit, so with scene 1 keeping cut=fade the enter edge and the predecessor's leave edge both hold alpha 1 - a crossfade veil over the flight would dim the very layers the morph exists to show.",
+    "mutate": {
+      "scene": 1,
+      "set": {
+        "morph": {
+          "target": "#btn",
+          "forMs": 1000,
+          "ease": "linear"
+        }
+      }
+    },
+    "cases": [
+      {
+        "name": "the boundary instant is progress zero",
+        "tMs": 2000,
+        "expectP": 0
+      },
+      {
+        "name": "halfway: exact linear midpoint",
+        "tMs": 2500,
+        "expectP": 0.5
+      },
+      {
+        "name": "at forMs the morph is over",
+        "tMs": 3000,
+        "expectNull": true
+      },
+      {
+        "name": "the predecessor does not fade out into a morph (would be 0.5 under fade)",
+        "tMs": 1840,
+        "expectAlpha": 1
+      },
+      {
+        "name": "a morph scene does not fade in even with cut=fade (would be 0.5)",
+        "tMs": 2160,
+        "expectAlpha": 1
+      }
+    ]
+  }
+}

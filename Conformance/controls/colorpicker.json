@@ -1,0 +1,434 @@
+{
+  "version": 1,
+  "_schema": "despia-colorpicker-resolution-v1",
+  "_note": "The U07 <colorpicker> pure core: the hex round-trip (3/4/6/8 digits in, #RRGGBB or #RRGGBBAA out), swatch normalisation, the mode default, and THE NAME TABLE \u2014 the picker announces the selected colour by NAME, not just by hex, because '#0A84FF' read aloud is not a colour. Nearest name is squared sRGB distance with ties broken by table order, pinned so three renderers announce the same word.",
+  "modes": [
+    "wheel",
+    "sliders",
+    "swatches"
+  ],
+  "names": [
+    {
+      "name": "black",
+      "hex": "#000000"
+    },
+    {
+      "name": "white",
+      "hex": "#FFFFFF"
+    },
+    {
+      "name": "gray",
+      "hex": "#808080"
+    },
+    {
+      "name": "silver",
+      "hex": "#C0C0C0"
+    },
+    {
+      "name": "red",
+      "hex": "#FF0000"
+    },
+    {
+      "name": "maroon",
+      "hex": "#800000"
+    },
+    {
+      "name": "orange",
+      "hex": "#FFA500"
+    },
+    {
+      "name": "brown",
+      "hex": "#A52A2A"
+    },
+    {
+      "name": "yellow",
+      "hex": "#FFFF00"
+    },
+    {
+      "name": "olive",
+      "hex": "#808000"
+    },
+    {
+      "name": "lime",
+      "hex": "#00FF00"
+    },
+    {
+      "name": "green",
+      "hex": "#008000"
+    },
+    {
+      "name": "teal",
+      "hex": "#008080"
+    },
+    {
+      "name": "cyan",
+      "hex": "#00FFFF"
+    },
+    {
+      "name": "blue",
+      "hex": "#0000FF"
+    },
+    {
+      "name": "navy",
+      "hex": "#000080"
+    },
+    {
+      "name": "indigo",
+      "hex": "#4B0082"
+    },
+    {
+      "name": "purple",
+      "hex": "#800080"
+    },
+    {
+      "name": "magenta",
+      "hex": "#FF00FF"
+    },
+    {
+      "name": "pink",
+      "hex": "#FFC0CB"
+    },
+    {
+      "name": "tan",
+      "hex": "#D2B48C"
+    },
+    {
+      "name": "gold",
+      "hex": "#FFD700"
+    },
+    {
+      "name": "beige",
+      "hex": "#F5F5DC"
+    },
+    {
+      "name": "turquoise",
+      "hex": "#40E0D0"
+    }
+  ],
+  "parse": [
+    {
+      "name": "#FFF",
+      "input": "#FFF",
+      "expect": {
+        "rgba": {
+          "r": 255,
+          "g": 255,
+          "b": 255,
+          "a": 255
+        },
+        "hex": "#FFFFFF",
+        "hexWithAlpha": "#FFFFFF",
+        "name": "white"
+      }
+    },
+    {
+      "name": "#fff",
+      "input": "#fff",
+      "expect": {
+        "rgba": {
+          "r": 255,
+          "g": 255,
+          "b": 255,
+          "a": 255
+        },
+        "hex": "#FFFFFF",
+        "hexWithAlpha": "#FFFFFF",
+        "name": "white"
+      }
+    },
+    {
+      "name": "#FFFF",
+      "input": "#FFFF",
+      "expect": {
+        "rgba": {
+          "r": 255,
+          "g": 255,
+          "b": 255,
+          "a": 255
+        },
+        "hex": "#FFFFFF",
+        "hexWithAlpha": "#FFFFFF",
+        "name": "white"
+      }
+    },
+    {
+      "name": "#0A84FF",
+      "input": "#0A84FF",
+      "expect": {
+        "rgba": {
+          "r": 10,
+          "g": 132,
+          "b": 255,
+          "a": 255
+        },
+        "hex": "#0A84FF",
+        "hexWithAlpha": "#0A84FF",
+        "name": "turquoise"
+      }
+    },
+    {
+      "name": "#0a84ff80",
+      "input": "#0a84ff80",
+      "expect": {
+        "rgba": {
+          "r": 10,
+          "g": 132,
+          "b": 255,
+          "a": 128
+        },
+        "hex": "#0A84FF",
+        "hexWithAlpha": "#0A84FF80",
+        "name": "turquoise"
+      }
+    },
+    {
+      "name": "#F0A",
+      "input": "#F0A",
+      "expect": {
+        "rgba": {
+          "r": 255,
+          "g": 0,
+          "b": 170,
+          "a": 255
+        },
+        "hex": "#FF00AA",
+        "hexWithAlpha": "#FF00AA",
+        "name": "magenta"
+      }
+    },
+    {
+      "name": "#GGG",
+      "input": "#GGG",
+      "expect": null
+    },
+    {
+      "name": "0A84FF",
+      "input": "0A84FF",
+      "expect": null
+    },
+    {
+      "name": "#12345",
+      "input": "#12345",
+      "expect": null
+    },
+    {
+      "name": "#000000",
+      "input": "#000000",
+      "expect": {
+        "rgba": {
+          "r": 0,
+          "g": 0,
+          "b": 0,
+          "a": 255
+        },
+        "hex": "#000000",
+        "hexWithAlpha": "#000000",
+        "name": "black"
+      }
+    },
+    {
+      "name": "#00000000",
+      "input": "#00000000",
+      "expect": {
+        "rgba": {
+          "r": 0,
+          "g": 0,
+          "b": 0,
+          "a": 0
+        },
+        "hex": "#000000",
+        "hexWithAlpha": "#00000000",
+        "name": "black"
+      }
+    }
+  ],
+  "nearestName": [
+    {
+      "name": "#FF0000",
+      "input": "#FF0000",
+      "expect": "red"
+    },
+    {
+      "name": "#FE0203",
+      "input": "#FE0203",
+      "expect": "red"
+    },
+    {
+      "name": "#0A84FF",
+      "input": "#0A84FF",
+      "expect": "turquoise"
+    },
+    {
+      "name": "#123456",
+      "input": "#123456",
+      "expect": "navy"
+    },
+    {
+      "name": "#FFFFFF",
+      "input": "#FFFFFF",
+      "expect": "white"
+    },
+    {
+      "name": "#FAFAFA",
+      "input": "#FAFAFA",
+      "expect": "white"
+    },
+    {
+      "name": "#000000",
+      "input": "#000000",
+      "expect": "black"
+    },
+    {
+      "name": "#7F7F7F",
+      "input": "#7F7F7F",
+      "expect": "gray"
+    },
+    {
+      "name": "#FFD700",
+      "input": "#FFD700",
+      "expect": "gold"
+    },
+    {
+      "name": "#4B0082",
+      "input": "#4B0082",
+      "expect": "indigo"
+    },
+    {
+      "name": "#EC4899",
+      "input": "#EC4899",
+      "expect": "tan"
+    },
+    {
+      "name": "#14B8A6",
+      "input": "#14B8A6",
+      "expect": "teal"
+    }
+  ],
+  "swatches": [
+    {
+      "name": "a plain list",
+      "swatches": "#FF0000,#00FF00,#0000FF",
+      "alpha": false,
+      "expect": [
+        "#FF0000",
+        "#00FF00",
+        "#0000FF"
+      ]
+    },
+    {
+      "name": "pipes are accepted too",
+      "swatches": "#FF0000|#00FF00",
+      "alpha": false,
+      "expect": [
+        "#FF0000",
+        "#00FF00"
+      ]
+    },
+    {
+      "name": "invalid entries are dropped",
+      "swatches": "#FF0000,notacolor,#00FF00",
+      "alpha": false,
+      "expect": [
+        "#FF0000",
+        "#00FF00"
+      ]
+    },
+    {
+      "name": "duplicates collapse",
+      "swatches": "#FF0000,#ff0000,#F00",
+      "alpha": false,
+      "expect": [
+        "#FF0000"
+      ]
+    },
+    {
+      "name": "alpha is dropped when alpha is off",
+      "swatches": "#FF000080,#00FF00",
+      "alpha": false,
+      "expect": [
+        "#FF0000",
+        "#00FF00"
+      ]
+    },
+    {
+      "name": "alpha is kept when alpha is on",
+      "swatches": "#FF000080,#00FF00",
+      "alpha": true,
+      "expect": [
+        "#FF000080",
+        "#00FF00"
+      ]
+    },
+    {
+      "name": "empty",
+      "swatches": null,
+      "alpha": false,
+      "expect": []
+    }
+  ],
+  "mode": [
+    {
+      "mode": null,
+      "alpha": false,
+      "swatchCount": 0,
+      "expect": {
+        "mode": "wheel",
+        "webNeedsCustomPanel": false
+      }
+    },
+    {
+      "mode": null,
+      "alpha": false,
+      "swatchCount": 3,
+      "expect": {
+        "mode": "swatches",
+        "webNeedsCustomPanel": true
+      }
+    },
+    {
+      "mode": "wheel",
+      "alpha": false,
+      "swatchCount": 3,
+      "expect": {
+        "mode": "wheel",
+        "webNeedsCustomPanel": true
+      }
+    },
+    {
+      "mode": "sliders",
+      "alpha": true,
+      "swatchCount": 0,
+      "expect": {
+        "mode": "sliders",
+        "webNeedsCustomPanel": true
+      }
+    },
+    {
+      "mode": "swatches",
+      "alpha": false,
+      "swatchCount": 0,
+      "expect": {
+        "mode": "swatches",
+        "webNeedsCustomPanel": false
+      }
+    },
+    {
+      "mode": "rainbow",
+      "alpha": false,
+      "swatchCount": 0,
+      "expect": {
+        "mode": "wheel",
+        "webNeedsCustomPanel": false
+      }
+    },
+    {
+      "mode": null,
+      "alpha": true,
+      "swatchCount": 0,
+      "expect": {
+        "mode": "wheel",
+        "webNeedsCustomPanel": true
+      }
+    }
+  ]
+}

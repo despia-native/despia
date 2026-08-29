@@ -1,0 +1,229 @@
+{
+  "_note": "Core/Passkeys (F17.3) — the platform-neutral corpus for the passkey ceremony's INPUT. WebAuthn's data model is binary (challenge, user handle, credential id are byte strings) and the three platforms disagree about how those bytes cross the language boundary: the browser wants BufferSource, Apple wants Data, Android's Credential Manager wants base64url inside a JSON document. Base64url is therefore the ONE wire form on the DSX bus and its codec is pinned here, along with the closed word sets every platform otherwise silently substitutes its own default for. Read by kernel/test/passkeys-conformance.test.ts (TS, reference), :core PasskeysConformanceTest (Kotlin) and Engine/iOS/Passkeys.swift. Byte-to-text expectations were produced by an independent base64url derivation, never by the code under test.",
+
+  "limits": {
+    "minChallengeBytes": 16,
+    "maxChallengeBytes": 1024,
+    "maxUserIdBytes": 64,
+    "minTimeoutMs": 15000,
+    "defaultTimeoutMs": 60000,
+    "maxTimeoutMs": 600000
+  },
+
+  "vocabulary": {
+    "attestations": ["none", "indirect", "direct", "enterprise"],
+    "mediations": ["silent", "optional", "conditional", "required"],
+    "verifications": ["required", "preferred", "discouraged"],
+    "residentKeys": ["discouraged", "preferred", "required"]
+  },
+
+  "encode": [
+    { "name": "empty", "bytes": [], "expect": "" },
+    { "name": "one byte needs two characters and no padding", "bytes": [255], "expect": "_w" },
+    { "name": "two bytes need three", "bytes": [255, 254], "expect": "__4" },
+    { "name": "three bytes are a whole group", "bytes": [255, 254, 253], "expect": "__79" },
+    { "name": "the URL-safe alphabet uses - and _ , never + and /", "bytes": [255, 255, 255], "expect": "____" },
+    { "name": "sixteen zero bytes", "bytes": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "expect": "AAAAAAAAAAAAAAAAAAAAAA" },
+    { "name": "a counting sequence", "bytes": [0, 1, 2, 3, 4, 5, 6, 7], "expect": "AAECAwQFBgc" },
+    { "name": "sixteen counting bytes", "bytes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "expect": "AAECAwQFBgcICQoLDA0ODw" },
+    { "name": "ascii hello", "bytes": [104, 101, 108, 108, 111], "expect": "aGVsbG8" }
+  ],
+
+  "decode": [
+    { "name": "empty decodes to no bytes", "text": "", "ok": true, "bytes": [] },
+    { "name": "the counting sequence round-trips", "text": "AAECAwQFBgc", "ok": true, "bytes": [0, 1, 2, 3, 4, 5, 6, 7] },
+    { "name": "ascii hello", "text": "aGVsbG8", "ok": true, "bytes": [104, 101, 108, 108, 111] },
+    { "name": "padding is tolerated on input even though the encoder never emits it", "text": "aGVsbG8=", "ok": true, "bytes": [104, 101, 108, 108, 111] },
+    { "name": "standard base64 + and / are tolerated — half the world's servers emit them", "text": "AAECAwQFBgcICQoLDA0ODw==", "ok": true, "bytes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] },
+    { "name": "the URL-safe characters decode to the high bytes", "text": "____", "ok": true, "bytes": [255, 255, 255] },
+    { "name": "whitespace from a wrapped header is skipped", "text": "aGVs bG8", "ok": true, "bytes": [104, 101, 108, 108, 111] },
+    { "name": "one leftover character cannot be a base64 group", "text": "aGVsbG8Ab", "ok": false },
+    { "name": "a character outside the alphabet is not base64url", "text": "aGVs*G8", "ok": false },
+    { "name": "a percent-encoded byte is not base64url", "text": "%41%42", "ok": false },
+    { "name": "hex digits ARE base64url characters, so a hex string decodes — the caller must not assume otherwise", "text": "0f1e", "ok": true, "bytes": [209, 253, 94] }
+  ],
+
+  "rpId": [
+    { "name": "a plain registrable domain", "raw": "example.com", "ok": true, "expect": "example.com" },
+    { "name": "case folds", "raw": "Example.COM", "ok": true, "expect": "example.com" },
+    { "name": "whitespace is trimmed", "raw": "  example.com ", "ok": true, "expect": "example.com" },
+    { "name": "a subdomain is a legitimate rpId", "raw": "login.example.com", "ok": true, "expect": "login.example.com" },
+    { "name": "hyphens inside a label are legal", "raw": "my-app.example.com", "ok": true, "expect": "my-app.example.com" },
+    { "name": "localhost is allowed on purpose — it is the only rpId that works before deployment", "raw": "localhost", "ok": true, "expect": "localhost" },
+    { "name": "a URL is the most common mistake and is refused with a reason", "raw": "https://example.com", "ok": false, "error": "invalid_rp_id" },
+    { "name": "a path is not part of an rpId", "raw": "example.com/login", "ok": false, "error": "invalid_rp_id" },
+    { "name": "a port is not part of an rpId", "raw": "example.com:8443", "ok": false, "error": "invalid_rp_id" },
+    { "name": "empty", "raw": "", "ok": false, "error": "invalid_rp_id" },
+    { "name": "an empty label", "raw": "example..com", "ok": false, "error": "invalid_rp_id" },
+    { "name": "a trailing dot leaves an empty label", "raw": "example.com.", "ok": false, "error": "invalid_rp_id" },
+    { "name": "a label cannot start with a hyphen", "raw": "-bad.example.com", "ok": false, "error": "invalid_rp_id" },
+    { "name": "a label cannot end with a hyphen", "raw": "bad-.example.com", "ok": false, "error": "invalid_rp_id" },
+    { "name": "an underscore is not a domain character", "raw": "my_app.example.com", "ok": false, "error": "invalid_rp_id" }
+  ],
+
+  "challenge": [
+    { "name": "sixteen bytes is the floor and passes", "raw": "AAECAwQFBgcICQoLDA0ODw", "ok": true, "expect": "AAECAwQFBgcICQoLDA0ODw" },
+    { "name": "thirty-two bytes", "raw": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8", "ok": true, "expect": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" },
+    { "name": "a padded challenge is re-encoded unpadded — a stray = is why servers reject valid assertions", "raw": "AAECAwQFBgcICQoLDA0ODw==", "ok": true, "expect": "AAECAwQFBgcICQoLDA0ODw" },
+    { "name": "fifteen bytes is replayable and refused", "raw": "AAECAwQFBgcICQoLDA0O", "ok": false, "error": "invalid_challenge" },
+    { "name": "a five-byte word is not a challenge", "raw": "aGVsbG8", "ok": false, "error": "invalid_challenge" },
+    { "name": "empty", "raw": "", "ok": false, "error": "invalid_challenge" },
+    { "name": "not base64url at all", "raw": "not*a*challenge*at*all", "ok": false, "error": "invalid_challenge" }
+  ],
+
+  "user": [
+    {
+      "name": "an opaque handle with a name",
+      "raw": { "id": "AAECAwQFBgc", "name": "ada@example.com" },
+      "ok": true,
+      "expect": { "id": "AAECAwQFBgc", "name": "ada@example.com", "displayName": "ada@example.com" }
+    },
+    {
+      "name": "a display name is kept when given",
+      "raw": { "id": "AAECAwQFBgc", "name": "ada@example.com", "displayName": "Ada Lovelace" },
+      "ok": true,
+      "expect": { "id": "AAECAwQFBgc", "name": "ada@example.com", "displayName": "Ada Lovelace" }
+    },
+    {
+      "name": "a padded handle is re-encoded unpadded",
+      "raw": { "id": "aGVsbG8=", "name": "ada" },
+      "ok": true,
+      "expect": { "id": "aGVsbG8", "name": "ada", "displayName": "ada" }
+    },
+    {
+      "name": "sixty-four bytes is the spec ceiling and passes",
+      "raw": { "id": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-Pw", "name": "ada" },
+      "ok": true,
+      "expect": { "id": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-Pw", "name": "ada", "displayName": "ada" }
+    },
+    { "name": "sixty-five bytes is over the ceiling", "raw": { "id": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-P0A", "name": "ada" }, "ok": false, "error": "invalid_user" },
+    { "name": "no id", "raw": { "name": "ada" }, "ok": false, "error": "invalid_user" },
+    { "name": "an empty id", "raw": { "id": "", "name": "ada" }, "ok": false, "error": "invalid_user" },
+    { "name": "an id that is not base64url — a raw email here is a privacy defect that outlives the account", "raw": { "id": "ada@example.com", "name": "ada" }, "ok": false, "error": "invalid_user" },
+    { "name": "no name means the account picker has nothing to show", "raw": { "id": "AAECAwQFBgc" }, "ok": false, "error": "invalid_user" },
+    { "name": "not an object", "raw": "ada", "ok": false, "error": "invalid_user" }
+  ],
+
+  "words": [
+    { "name": "attestation defaults to none", "kind": "attestation", "raw": null, "ok": true, "expect": "none" },
+    { "name": "attestation direct", "kind": "attestation", "raw": "direct", "ok": true, "expect": "direct" },
+    { "name": "attestation folds case", "kind": "attestation", "raw": "Enterprise", "ok": true, "expect": "enterprise" },
+    { "name": "an unknown attestation is refused rather than silently defaulted", "kind": "attestation", "raw": "maybe", "ok": false, "error": "unknown_attestation" },
+    { "name": "mediation defaults to optional", "kind": "mediation", "raw": "", "ok": true, "expect": "optional" },
+    { "name": "conditional mediation is what autofill uses", "kind": "mediation", "raw": "conditional", "ok": true, "expect": "conditional" },
+    { "name": "an unknown mediation is refused", "kind": "mediation", "raw": "eventually", "ok": false, "error": "unknown_mediation" },
+    { "name": "user verification defaults to preferred", "kind": "verification", "raw": null, "ok": true, "expect": "preferred" },
+    { "name": "required user verification", "kind": "verification", "raw": "required", "ok": true, "expect": "required" },
+    { "name": "an unknown verification word would silently stop verifying the user", "kind": "verification", "raw": "sometimes", "ok": false, "error": "unknown_verification" },
+    { "name": "resident key defaults to preferred", "kind": "residentKey", "raw": null, "ok": true, "expect": "preferred" },
+    { "name": "resident key discouraged", "kind": "residentKey", "raw": "discouraged", "ok": true, "expect": "discouraged" },
+    { "name": "an unknown resident-key word is refused", "kind": "residentKey", "raw": "whatever", "ok": false, "error": "unknown_resident_key" }
+  ],
+
+  "timeout": [
+    { "name": "absent falls back to a minute", "raw": null, "expect": 60000 },
+    { "name": "zero is not a timeout", "raw": 0, "expect": 60000 },
+    { "name": "below the floor clamps up", "raw": 500, "expect": 15000 },
+    { "name": "inside the band is honoured", "raw": 90000, "expect": 90000 },
+    { "name": "above the ceiling clamps down rather than refusing", "raw": 3600000, "expect": 600000 }
+  ],
+
+  "credentials": [
+    { "name": "an empty list is legal — it means any passkey for this relying party", "raw": [], "ok": true, "expect": [] },
+    { "name": "a list of ids", "raw": ["aGVsbG8", "AAECAwQFBgc"], "ok": true, "expect": ["aGVsbG8", "AAECAwQFBgc"] },
+    { "name": "objects carrying an id are accepted, because that is the WebAuthn shape", "raw": [{ "id": "aGVsbG8" }], "ok": true, "expect": ["aGVsbG8"] },
+    { "name": "duplicates collapse", "raw": ["aGVsbG8", "aGVsbG8="], "ok": true, "expect": ["aGVsbG8"] },
+    { "name": "a single string is a one-element list", "raw": "aGVsbG8", "ok": true, "expect": ["aGVsbG8"] },
+    { "name": "an unparseable id is refused — a silently shortened allow list reads as 'no passkey here'", "raw": ["aGVsbG8", "not*base64"], "ok": false, "error": "invalid_credential" },
+    { "name": "an empty id is refused", "raw": [""], "ok": false, "error": "invalid_credential" }
+  ],
+
+  "create": [
+    {
+      "name": "the shortest complete registration",
+      "raw": {
+        "rpId": "example.com",
+        "user": { "id": "AAECAwQFBgc", "name": "ada@example.com" },
+        "challenge": "AAECAwQFBgcICQoLDA0ODw"
+      },
+      "ok": true,
+      "expect": {
+        "rpId": "example.com",
+        "user": { "id": "AAECAwQFBgc", "name": "ada@example.com", "displayName": "ada@example.com" },
+        "challenge": "AAECAwQFBgcICQoLDA0ODw",
+        "attestation": "none",
+        "userVerification": "preferred",
+        "residentKey": "preferred",
+        "excludeCredentials": [],
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "name": "every knob turned",
+      "raw": {
+        "rpId": "LOGIN.example.com",
+        "user": { "id": "aGVsbG8=", "name": "ada", "displayName": "Ada Lovelace" },
+        "challenge": "AAECAwQFBgcICQoLDA0ODw==",
+        "attestation": "Direct",
+        "userVerification": "required",
+        "residentKey": "required",
+        "exclude": ["aGVsbG8"],
+        "timeout": 120000
+      },
+      "ok": true,
+      "expect": {
+        "rpId": "login.example.com",
+        "user": { "id": "aGVsbG8", "name": "ada", "displayName": "Ada Lovelace" },
+        "challenge": "AAECAwQFBgcICQoLDA0ODw",
+        "attestation": "direct",
+        "userVerification": "required",
+        "residentKey": "required",
+        "excludeCredentials": ["aGVsbG8"],
+        "timeoutMs": 120000
+      }
+    },
+    { "name": "a URL rpId", "raw": { "rpId": "https://example.com", "user": { "id": "aGVsbG8", "name": "a" }, "challenge": "AAECAwQFBgcICQoLDA0ODw" }, "ok": false, "error": "invalid_rp_id" },
+    { "name": "a short challenge", "raw": { "rpId": "example.com", "user": { "id": "aGVsbG8", "name": "a" }, "challenge": "aGVsbG8" }, "ok": false, "error": "invalid_challenge" },
+    { "name": "an email as the user handle", "raw": { "rpId": "example.com", "user": { "id": "ada@example.com", "name": "a" }, "challenge": "AAECAwQFBgcICQoLDA0ODw" }, "ok": false, "error": "invalid_user" },
+    { "name": "an unknown attestation word", "raw": { "rpId": "example.com", "user": { "id": "aGVsbG8", "name": "a" }, "challenge": "AAECAwQFBgcICQoLDA0ODw", "attestation": "maybe" }, "ok": false, "error": "unknown_attestation" }
+  ],
+
+  "get": [
+    {
+      "name": "the shortest complete assertion",
+      "raw": { "rpId": "example.com", "challenge": "AAECAwQFBgcICQoLDA0ODw" },
+      "ok": true,
+      "expect": {
+        "rpId": "example.com",
+        "challenge": "AAECAwQFBgcICQoLDA0ODw",
+        "mediation": "optional",
+        "userVerification": "preferred",
+        "allowCredentials": [],
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "name": "conditional mediation with a named credential — the autofill path",
+      "raw": {
+        "rpId": "example.com",
+        "challenge": "AAECAwQFBgcICQoLDA0ODw",
+        "mediation": "conditional",
+        "allow": ["aGVsbG8"],
+        "userVerification": "discouraged",
+        "timeout": 5000
+      },
+      "ok": true,
+      "expect": {
+        "rpId": "example.com",
+        "challenge": "AAECAwQFBgcICQoLDA0ODw",
+        "mediation": "conditional",
+        "userVerification": "discouraged",
+        "allowCredentials": ["aGVsbG8"],
+        "timeoutMs": 15000
+      }
+    },
+    { "name": "no challenge", "raw": { "rpId": "example.com" }, "ok": false, "error": "invalid_challenge" },
+    { "name": "an unknown mediation word", "raw": { "rpId": "example.com", "challenge": "AAECAwQFBgcICQoLDA0ODw", "mediation": "eventually" }, "ok": false, "error": "unknown_mediation" },
+    { "name": "an unparseable allow entry", "raw": { "rpId": "example.com", "challenge": "AAECAwQFBgcICQoLDA0ODw", "allow": ["not*base64"] }, "ok": false, "error": "invalid_credential" }
+  ]
+}

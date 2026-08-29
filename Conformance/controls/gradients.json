@@ -1,0 +1,1350 @@
+{
+  "version": 1,
+  "_schema": "despia-gradient-resolution-v1",
+  "_note": "The U07 gradient pure core. THE ANGLE CONVENTION IS PINNED HERE because CSS and SwiftUI disagree: 0deg points UP and increases CLOCKWISE (the CSS convention), and every target converts at its own boundary. The three legacy direction tokens are kept as exact aliases (vertical=180, horizontal=90, diagonal=135) and the default with neither declared stays vertical, so no shipped app changes appearance. Mesh degrades to a DECLARED radial stack rather than a blank, and the fallback is pinned here rather than left incidental.",
+  "types": [
+    "linear",
+    "radial",
+    "angular",
+    "mesh"
+  ],
+  "directionAliases": {
+    "vertical": 180.0,
+    "horizontal": 90.0,
+    "diagonal": 135.0
+  },
+  "defaults": {
+    "type": "linear",
+    "angle": 180.0,
+    "center": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "radius": 0.5
+  },
+  "cases": [
+    {
+      "name": "the bare two-colour shorthand is unchanged: vertical",
+      "attrs": {
+        "gradient": "#FF2D55|#0A84FF"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#FF2D55",
+          "#0A84FF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "gradientDir=horizontal is 90deg",
+      "attrs": {
+        "gradient": "#FF2D55|#0A84FF",
+        "gradientDir": "horizontal"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#FF2D55",
+          "#0A84FF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 90.0,
+        "start": {
+          "x": 0.0,
+          "y": 0.5
+        },
+        "end": {
+          "x": 1.0,
+          "y": 0.5
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "gradientDir=diagonal is 135deg",
+      "attrs": {
+        "gradient": "#FF2D55|#0A84FF",
+        "gradientDir": "diagonal"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#FF2D55",
+          "#0A84FF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 135.0,
+        "start": {
+          "x": 0.146447,
+          "y": 0.146447
+        },
+        "end": {
+          "x": 0.853553,
+          "y": 0.853553
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "gradientDir=vertical is 180deg",
+      "attrs": {
+        "gradient": "#FF2D55|#0A84FF",
+        "gradientDir": "vertical"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#FF2D55",
+          "#0A84FF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "gradientAngle wins over gradientDir",
+      "attrs": {
+        "gradient": "#FF2D55|#0A84FF",
+        "gradientDir": "vertical",
+        "gradientAngle": "45deg"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#FF2D55",
+          "#0A84FF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 45.0,
+        "start": {
+          "x": 0.146447,
+          "y": 0.853553
+        },
+        "end": {
+          "x": 0.853553,
+          "y": 0.146447
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "0deg points up",
+      "attrs": {
+        "gradient": "#000|#FFF",
+        "gradientAngle": "0deg"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#000",
+          "#FFF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 0.0,
+        "start": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "90deg points right",
+      "attrs": {
+        "gradient": "#000|#FFF",
+        "gradientAngle": "90"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#000",
+          "#FFF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 90.0,
+        "start": {
+          "x": 0.0,
+          "y": 0.5
+        },
+        "end": {
+          "x": 1.0,
+          "y": 0.5
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "270deg points left",
+      "attrs": {
+        "gradient": "#000|#FFF",
+        "gradientAngle": "270deg"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#000",
+          "#FFF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 270.0,
+        "start": {
+          "x": 1.0,
+          "y": 0.5
+        },
+        "end": {
+          "x": 0.0,
+          "y": 0.5
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "an angle wraps past 360",
+      "attrs": {
+        "gradient": "#000|#FFF",
+        "gradientAngle": "495deg"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#000",
+          "#FFF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 135.0,
+        "start": {
+          "x": 0.146447,
+          "y": 0.146447
+        },
+        "end": {
+          "x": 0.853553,
+          "y": 0.853553
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "a negative angle wraps",
+      "attrs": {
+        "gradient": "#000|#FFF",
+        "gradientAngle": "-90deg"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#000",
+          "#FFF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 270.0,
+        "start": {
+          "x": 1.0,
+          "y": 0.5
+        },
+        "end": {
+          "x": 0.0,
+          "y": 0.5
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "turn units",
+      "attrs": {
+        "gradient": "#000|#FFF",
+        "gradientAngle": "0.25turn"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#000",
+          "#FFF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 90.0,
+        "start": {
+          "x": 0.0,
+          "y": 0.5
+        },
+        "end": {
+          "x": 1.0,
+          "y": 0.5
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "rad units",
+      "attrs": {
+        "gradient": "#000|#FFF",
+        "gradientAngle": "1.5707963267948966rad"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#000",
+          "#FFF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 90.0,
+        "start": {
+          "x": 0.0,
+          "y": 0.5
+        },
+        "end": {
+          "x": 1.0,
+          "y": 0.5
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "an unparseable angle falls back to the direction token",
+      "attrs": {
+        "gradient": "#000|#FFF",
+        "gradientAngle": "sideways",
+        "gradientDir": "horizontal"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#000",
+          "#FFF"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 90.0,
+        "start": {
+          "x": 0.0,
+          "y": 0.5
+        },
+        "end": {
+          "x": 1.0,
+          "y": 0.5
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "three colours space evenly",
+      "attrs": {
+        "gradient": "#F00|#0F0|#00F"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#F00",
+          "#0F0",
+          "#00F"
+        ],
+        "stops": [
+          0.0,
+          0.5,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "declared stops are honoured",
+      "attrs": {
+        "gradient": "#F00|#0F0|#00F",
+        "gradientStops": "0,0.2,1"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#F00",
+          "#0F0",
+          "#00F"
+        ],
+        "stops": [
+          0.0,
+          0.2,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "stops are clamped and forced monotonic",
+      "attrs": {
+        "gradient": "#F00|#0F0|#00F",
+        "gradientStops": "0.6,-1,0.3"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#F00",
+          "#0F0",
+          "#00F"
+        ],
+        "stops": [
+          0.6,
+          0.6,
+          0.6
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "percent stops",
+      "attrs": {
+        "gradient": "#F00|#0F0|#00F",
+        "gradientStops": "0%,40%,100%"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#F00",
+          "#0F0",
+          "#00F"
+        ],
+        "stops": [
+          0.0,
+          0.4,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "a stop-count mismatch falls back to even spacing",
+      "attrs": {
+        "gradient": "#F00|#0F0|#00F",
+        "gradientStops": "0,1"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#F00",
+          "#0F0",
+          "#00F"
+        ],
+        "stops": [
+          0.0,
+          0.5,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "radial with a declared centre and radius",
+      "attrs": {
+        "gradient": "#FFF|#000",
+        "gradientType": "radial",
+        "gradientCenter": "0.25 0.75",
+        "gradientRadius": "80%"
+      },
+      "expect": {
+        "type": "radial",
+        "colors": [
+          "#FFF",
+          "#000"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.25,
+          "y": 0.75
+        },
+        "radius": 0.8,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "radial defaults to the middle at half the box",
+      "attrs": {
+        "gradient": "#FFF|#000",
+        "gradientType": "radial"
+      },
+      "expect": {
+        "type": "radial",
+        "colors": [
+          "#FFF",
+          "#000"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "angular sweeps from the centre",
+      "attrs": {
+        "gradient": "#F00|#0F0|#00F|#F00",
+        "gradientType": "angular",
+        "gradientCenter": "0.5 0.5"
+      },
+      "expect": {
+        "type": "angular",
+        "colors": [
+          "#F00",
+          "#0F0",
+          "#00F",
+          "#F00"
+        ],
+        "stops": [
+          0.0,
+          0.333333,
+          0.666667,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "an unknown type folds to linear",
+      "attrs": {
+        "gradient": "#F00|#00F",
+        "gradientType": "conic"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#F00",
+          "#00F"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "one colour is not a gradient",
+      "attrs": {
+        "gradient": "#F00"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#F00"
+        ],
+        "stops": [
+          0.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": false,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "mesh: a 2x2 grid",
+      "attrs": {
+        "gradientType": "mesh",
+        "gradientPoints": "0 0 #6366F1, 1 0 #EC4899; 0 1 #14B8A6, 1 1 #F59E0B"
+      },
+      "expect": {
+        "type": "mesh",
+        "colors": [
+          "#6366F1",
+          "#EC4899",
+          "#14B8A6",
+          "#F59E0B"
+        ],
+        "stops": [
+          0.0,
+          0.333333,
+          0.666667,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": {
+          "columns": 2,
+          "rows": 2,
+          "points": [
+            {
+              "x": 0.0,
+              "y": 0.0,
+              "color": "#6366F1"
+            },
+            {
+              "x": 1.0,
+              "y": 0.0,
+              "color": "#EC4899"
+            },
+            {
+              "x": 0.0,
+              "y": 1.0,
+              "color": "#14B8A6"
+            },
+            {
+              "x": 1.0,
+              "y": 1.0,
+              "color": "#F59E0B"
+            }
+          ]
+        },
+        "meshFallback": {
+          "base": "#F59E0B",
+          "layers": [
+            {
+              "center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "radius": 0.75,
+              "color": "#6366F1"
+            },
+            {
+              "center": {
+                "x": 1.0,
+                "y": 0.0
+              },
+              "radius": 0.75,
+              "color": "#EC4899"
+            },
+            {
+              "center": {
+                "x": 0.0,
+                "y": 1.0
+              },
+              "radius": 0.75,
+              "color": "#14B8A6"
+            },
+            {
+              "center": {
+                "x": 1.0,
+                "y": 1.0
+              },
+              "radius": 0.75,
+              "color": "#F59E0B"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "mesh: a 3x3 grid",
+      "attrs": {
+        "gradientType": "mesh",
+        "gradientPoints": "0 0 #F87171, 0.5 0 #FBBF24, 1 0 #34D399; 0 0.5 #60A5FA, 0.5 0.5 #FFFFFF, 1 0.5 #A78BFA; 0 1 #F472B6, 0.5 1 #22D3EE, 1 1 #4ADE80"
+      },
+      "expect": {
+        "type": "mesh",
+        "colors": [
+          "#F87171",
+          "#FBBF24",
+          "#34D399",
+          "#60A5FA",
+          "#FFFFFF",
+          "#A78BFA",
+          "#F472B6",
+          "#22D3EE",
+          "#4ADE80"
+        ],
+        "stops": [
+          0.0,
+          0.125,
+          0.25,
+          0.375,
+          0.5,
+          0.625,
+          0.75,
+          0.875,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": {
+          "columns": 3,
+          "rows": 3,
+          "points": [
+            {
+              "x": 0.0,
+              "y": 0.0,
+              "color": "#F87171"
+            },
+            {
+              "x": 0.5,
+              "y": 0.0,
+              "color": "#FBBF24"
+            },
+            {
+              "x": 1.0,
+              "y": 0.0,
+              "color": "#34D399"
+            },
+            {
+              "x": 0.0,
+              "y": 0.5,
+              "color": "#60A5FA"
+            },
+            {
+              "x": 0.5,
+              "y": 0.5,
+              "color": "#FFFFFF"
+            },
+            {
+              "x": 1.0,
+              "y": 0.5,
+              "color": "#A78BFA"
+            },
+            {
+              "x": 0.0,
+              "y": 1.0,
+              "color": "#F472B6"
+            },
+            {
+              "x": 0.5,
+              "y": 1.0,
+              "color": "#22D3EE"
+            },
+            {
+              "x": 1.0,
+              "y": 1.0,
+              "color": "#4ADE80"
+            }
+          ]
+        },
+        "meshFallback": {
+          "base": "#FFFFFF",
+          "layers": [
+            {
+              "center": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "radius": 0.375,
+              "color": "#F87171"
+            },
+            {
+              "center": {
+                "x": 0.5,
+                "y": 0.0
+              },
+              "radius": 0.375,
+              "color": "#FBBF24"
+            },
+            {
+              "center": {
+                "x": 1.0,
+                "y": 0.0
+              },
+              "radius": 0.375,
+              "color": "#34D399"
+            },
+            {
+              "center": {
+                "x": 0.0,
+                "y": 0.5
+              },
+              "radius": 0.375,
+              "color": "#60A5FA"
+            },
+            {
+              "center": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "radius": 0.375,
+              "color": "#FFFFFF"
+            },
+            {
+              "center": {
+                "x": 1.0,
+                "y": 0.5
+              },
+              "radius": 0.375,
+              "color": "#A78BFA"
+            },
+            {
+              "center": {
+                "x": 0.0,
+                "y": 1.0
+              },
+              "radius": 0.375,
+              "color": "#F472B6"
+            },
+            {
+              "center": {
+                "x": 0.5,
+                "y": 1.0
+              },
+              "radius": 0.375,
+              "color": "#22D3EE"
+            },
+            {
+              "center": {
+                "x": 1.0,
+                "y": 1.0
+              },
+              "radius": 0.375,
+              "color": "#4ADE80"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "mesh: a ragged grid degrades to linear",
+      "attrs": {
+        "gradientType": "mesh",
+        "gradient": "#F00|#00F",
+        "gradientPoints": "0 0 #F00, 1 0 #0F0; 0 1 #00F"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#F00",
+          "#00F"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "mesh: no points degrades to linear",
+      "attrs": {
+        "gradientType": "mesh",
+        "gradient": "#F00|#00F"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#F00",
+          "#00F"
+        ],
+        "stops": [
+          0.0,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    },
+    {
+      "name": "the colour list is BOUNDED at 64: a longer one truncates rather than refusing to paint",
+      "attrs": {
+        "gradient": "#000000|#0003E8|#0007D0|#000BB8|#000FA0|#001388|#001770|#001B58|#001F40|#002328|#002710|#002AF8|#002EE0|#0032C8|#0036B0|#003A98|#003E80|#004268|#004650|#004A38|#004E20|#005208|#0055F0|#0059D8|#005DC0|#0061A8|#006590|#006978|#006D60|#007148|#007530|#007918|#007D00|#0080E8|#0084D0|#0088B8|#008CA0|#009088|#009470|#009858|#009C40|#00A028|#00A410|#00A7F8|#00ABE0|#00AFC8|#00B3B0|#00B798|#00BB80|#00BF68|#00C350|#00C738|#00CB20|#00CF08|#00D2F0|#00D6D8|#00DAC0|#00DEA8|#00E290|#00E678|#00EA60|#00EE48|#00F230|#00F618|#00FA00|#00FDE8|#0101D0|#0105B8|#0109A0|#010D88"
+      },
+      "expect": {
+        "type": "linear",
+        "colors": [
+          "#000000",
+          "#0003E8",
+          "#0007D0",
+          "#000BB8",
+          "#000FA0",
+          "#001388",
+          "#001770",
+          "#001B58",
+          "#001F40",
+          "#002328",
+          "#002710",
+          "#002AF8",
+          "#002EE0",
+          "#0032C8",
+          "#0036B0",
+          "#003A98",
+          "#003E80",
+          "#004268",
+          "#004650",
+          "#004A38",
+          "#004E20",
+          "#005208",
+          "#0055F0",
+          "#0059D8",
+          "#005DC0",
+          "#0061A8",
+          "#006590",
+          "#006978",
+          "#006D60",
+          "#007148",
+          "#007530",
+          "#007918",
+          "#007D00",
+          "#0080E8",
+          "#0084D0",
+          "#0088B8",
+          "#008CA0",
+          "#009088",
+          "#009470",
+          "#009858",
+          "#009C40",
+          "#00A028",
+          "#00A410",
+          "#00A7F8",
+          "#00ABE0",
+          "#00AFC8",
+          "#00B3B0",
+          "#00B798",
+          "#00BB80",
+          "#00BF68",
+          "#00C350",
+          "#00C738",
+          "#00CB20",
+          "#00CF08",
+          "#00D2F0",
+          "#00D6D8",
+          "#00DAC0",
+          "#00DEA8",
+          "#00E290",
+          "#00E678",
+          "#00EA60",
+          "#00EE48",
+          "#00F230",
+          "#00F618"
+        ],
+        "stops": [
+          0.0,
+          0.015873,
+          0.031746,
+          0.047619,
+          0.063492,
+          0.079365,
+          0.095238,
+          0.111111,
+          0.126984,
+          0.142857,
+          0.15873,
+          0.174603,
+          0.190476,
+          0.206349,
+          0.222222,
+          0.238095,
+          0.253968,
+          0.269841,
+          0.285714,
+          0.301587,
+          0.31746,
+          0.333333,
+          0.349206,
+          0.365079,
+          0.380952,
+          0.396825,
+          0.412698,
+          0.428571,
+          0.444444,
+          0.460317,
+          0.47619,
+          0.492063,
+          0.507937,
+          0.52381,
+          0.539683,
+          0.555556,
+          0.571429,
+          0.587302,
+          0.603175,
+          0.619048,
+          0.634921,
+          0.650794,
+          0.666667,
+          0.68254,
+          0.698413,
+          0.714286,
+          0.730159,
+          0.746032,
+          0.761905,
+          0.777778,
+          0.793651,
+          0.809524,
+          0.825397,
+          0.84127,
+          0.857143,
+          0.873016,
+          0.888889,
+          0.904762,
+          0.920635,
+          0.936508,
+          0.952381,
+          0.968254,
+          0.984127,
+          1.0
+        ],
+        "angle": 180.0,
+        "start": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "end": {
+          "x": 0.5,
+          "y": 1.0
+        },
+        "center": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "radius": 0.5,
+        "valid": true,
+        "mesh": null,
+        "meshFallback": null
+      }
+    }
+  ]
+}

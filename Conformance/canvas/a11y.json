@@ -1,0 +1,202 @@
+{
+ "_note": "ACCESSIBILITY as contract. A canvas is OPAQUE to assistive tech by construction \u2014 there is no view tree to inspect, only pixels \u2014 so the semantics are declared or they do not exist. THE LAW. (1) A canvas with any GESTURE handler (on:tap \u00b7 on:doubletap \u00b7 on:longpress \u00b7 on:drag \u00b7 on:pan \u00b7 on:pinch \u00b7 on:rotate \u00b7 on:swipe \u00b7 on:press \u00b7 on:adjust) and neither `a11yLabel` nor `a11yChildren` is a LINT ERROR \u2014 code `canvas-a11y-label`, failing `lint_dsx.rb --strict`, not a runtime warning nobody reads. (2) `on:draw` and `on:frame` are NOT interaction: a painted background is decorative. (3) A canvas with no label, no overlay and no handlers is DECORATIVE and hidden from assistive tech \u2014 the correct default for a flourish, and the reason the rule can afford to be an error where it does apply. (4) `a11yChildren` declares a semantic overlay tree (the accessible bar-chart pattern): the canvas becomes a GROUP and each child is a real accessibility element with its own role, label and value. (5) A blank label is not a label. The verdict shape here is what all three renderers apply and what the linter enforces \u2014 one fold, one rule, three surfaces.",
+ "cases": [
+  {
+   "name": "a decorative canvas with no label and no handlers is hidden",
+   "attrs": {},
+   "verdict": {
+    "interactive": false,
+    "label": null,
+    "children": [],
+    "role": "none",
+    "hidden": true,
+    "lint": null
+   }
+  },
+  {
+   "name": "on:draw alone is not interactive",
+   "attrs": {
+    "on:draw": "paint(ctx)"
+   },
+   "verdict": {
+    "interactive": false,
+    "label": null,
+    "children": [],
+    "role": "none",
+    "hidden": true,
+    "lint": null
+   }
+  },
+  {
+   "name": "on:frame alone is not interactive",
+   "attrs": {
+    "on:frame": "tick(dsx.this)"
+   },
+   "verdict": {
+    "interactive": false,
+    "label": null,
+    "children": [],
+    "role": "none",
+    "hidden": true,
+    "lint": null
+   }
+  },
+  {
+   "name": "a gesture handler with no label is the LINT ERROR",
+   "attrs": {
+    "on:drag": "stroke(dsx.this)"
+   },
+   "verdict": {
+    "interactive": true,
+    "label": null,
+    "children": [],
+    "role": "group",
+    "hidden": false,
+    "lint": {
+     "code": "canvas-a11y-label",
+     "level": "error",
+     "message": "<canvas> with a gesture handler needs a11yLabel \u2014 a canvas is opaque to assistive tech"
+    }
+   }
+  },
+  {
+   "name": "a tap handler with no label is the LINT ERROR",
+   "attrs": {
+    "on:tap": "hit(dsx.this)"
+   },
+   "verdict": {
+    "interactive": true,
+    "label": null,
+    "children": [],
+    "role": "group",
+    "hidden": false,
+    "lint": {
+     "code": "canvas-a11y-label",
+     "level": "error",
+     "message": "<canvas> with a gesture handler needs a11yLabel \u2014 a canvas is opaque to assistive tech"
+    }
+   }
+  },
+  {
+   "name": "a gesture handler with a label is a button",
+   "attrs": {
+    "on:tap": "hit()",
+    "a11yLabel": "Signature area"
+   },
+   "verdict": {
+    "interactive": true,
+    "label": "Signature area",
+    "children": [],
+    "role": "button",
+    "hidden": false,
+    "lint": null
+   }
+  },
+  {
+   "name": "a blank label does not count",
+   "attrs": {
+    "on:tap": "hit()",
+    "a11yLabel": "   "
+   },
+   "verdict": {
+    "interactive": true,
+    "label": null,
+    "children": [],
+    "role": "group",
+    "hidden": false,
+    "lint": {
+     "code": "canvas-a11y-label",
+     "level": "error",
+     "message": "<canvas> with a gesture handler needs a11yLabel \u2014 a canvas is opaque to assistive tech"
+    }
+   }
+  },
+  {
+   "name": "a labelled non-interactive canvas is an image",
+   "attrs": {
+    "a11yLabel": "Revenue sparkline"
+   },
+   "verdict": {
+    "interactive": false,
+    "label": "Revenue sparkline",
+    "children": [],
+    "role": "image",
+    "hidden": false,
+    "lint": null
+   }
+  },
+  {
+   "name": "a11yChildren declare the semantic overlay",
+   "attrs": {
+    "a11yLabel": "Revenue by quarter"
+   },
+   "verdict": {
+    "interactive": false,
+    "label": "Revenue by quarter",
+    "children": [
+     {
+      "role": "image",
+      "label": "Q1: 12",
+      "value": "12"
+     },
+     {
+      "role": "image",
+      "label": "Q2: 18",
+      "value": "18"
+     },
+     {
+      "role": "image",
+      "label": "Q3: 9",
+      "value": "9"
+     }
+    ],
+    "role": "group",
+    "hidden": false,
+    "lint": null
+   },
+   "a11yChildren": [
+    {
+     "role": "image",
+     "label": "Q1: 12",
+     "value": "12"
+    },
+    {
+     "role": "image",
+     "label": "Q2: 18",
+     "value": "18"
+    },
+    {
+     "role": "image",
+     "label": "Q3: 9",
+     "value": "9"
+    }
+   ]
+  },
+  {
+   "name": "a11yChildren satisfy the rule even without a label",
+   "attrs": {
+    "on:tap": "pick()"
+   },
+   "verdict": {
+    "interactive": true,
+    "label": null,
+    "children": [
+     {
+      "role": "button",
+      "label": "First bar",
+      "value": null
+     }
+    ],
+    "role": "group",
+    "hidden": false,
+    "lint": null
+   },
+   "a11yChildren": [
+    {
+     "role": "button",
+     "label": "First bar"
+    }
+   ]
+  }
+ ]
+}

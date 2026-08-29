@@ -687,6 +687,6 @@ ModuleCallError.actionFailed(code: String, data: Any?)
 See [runtime-api.md](runtime-api.md) for the full `dsx` surface this lives
 on, and [writing-a-module.md](writing-a-module.md) for the module-author
 recipe. Concrete consumer / receiver examples live in
-[`ClosedSource/DSX/Modules/Core/Clerk/ClerkBridge.swift`](../../ClosedSource/DSX/Modules/Core/Clerk/ClerkBridge.swift),
+[`ClosedSource/DSX/Modules/Core/Clerk/swift/ClerkBridge.swift`](../../ClosedSource/DSX/Modules/Core/Clerk/swift/ClerkBridge.swift),
 [`ClosedSource/DSX/Modules/Core/AppsFlyer/README.md`](../../ClosedSource/DSX/Modules/Core/AppsFlyer/README.md), and
 [`ClosedSource/DSX/Modules/Core/OneSignal/README.md`](../../ClosedSource/DSX/Modules/Core/OneSignal/README.md).

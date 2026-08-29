@@ -1,5 +1,7 @@
 package despia.engine.desktop
 
+import androidx.compose.ui.graphics.Color
+import despia.engine.ControlsCore
 import despia.engine.JSERunner
 import despia.engine.Platform
 import despia.engine.StackNode
@@ -8,6 +10,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -111,13 +114,111 @@ class DesktopUniversalStyleTest {
         assertNull(desktopAspectRatio("NaN"))
         assertNull(desktopAspectRatio("1000001"))
 
-        assertEquals(listOf("#000", "#fff"), desktopGradientColors("#000 | #fff"))
-        assertNull(desktopGradientColors("#000"))
-        assertNull(desktopGradientColors((0..64).joinToString("|") { "#$it" }))
-        assertEquals(6, desktopStyleDeterministicDegradations.size)
+        // The colour bound used to live in a desktop-only parser, which made "how many colours is
+        // too many" a property of ONE renderer. It is grammar now (ControlsCore, corpus-pinned),
+        // so what this lane asserts is that it reads the shared answer rather than its own.
+        assertEquals(
+            listOf("#000", "#fff"),
+            ControlsCore.resolveGradient(gradient = "#000 | #fff").colors,
+        )
+        assertFalse(ControlsCore.resolveGradient(gradient = "#000").valid, "one colour is a fill")
+        assertEquals(
+            ControlsCore.MAX_GRADIENT_COLORS,
+            ControlsCore.resolveGradient(
+                gradient = (0..200).joinToString("|") { "#$it" },
+            ).colors.size,
+            "an unbounded colour list must be bounded, not refused",
+        )
+        // The lane's own inventory of what it does NOT implement. check_style_parity.rb reads it
+        // and counts every row as an Article 10 gap, so it only ever SHRINKS - shadowX and
+        // shadowY left it when DesktopShadow.kt started painting the shadow instead of asking
+        // the platform to light the element.
+        assertEquals(3, desktopStyleDeterministicDegradations.size)
         assertTrue(desktopStyleDeterministicDegradations.keys.containsAll(
-            setOf("surface", "glassInteractive", "shadowX", "shadowY", "ignoreSafeArea"),
+            setOf("surface", "ignoreSafeArea"),
         ))
+        assertTrue(
+            desktopStyleDeterministicDegradations.keys.none {
+                it == "shadowX" || it == "shadowY" || it == "glassInteractive"
+            },
+            "the shadow offsets and the glass press are painted now; a row that outlives its " +
+                "debt is a standing permission nobody re-argued",
+        )
+    }
+
+    /**
+     * The declared gradient surface, painted from the shared core. Before this the desktop lane
+     * read `gradient` and the three legacy `gradientDir` tokens and threw the other six declared
+     * properties away after ControlsCore had already resolved them, which is the Article 10 gap
+     * this closes. What is asserted here is the PAINT decision - the type picks the brush, and
+     * the mesh degradation is layers rather than nothing.
+     */
+    @Test
+    fun gradientTypesEachPaintTheirOwnBrushAndMeshDegradesToLayers() {
+        fun brushes(vararg pairs: Pair<String, String>): List<Any> =
+            DesktopGradients.layers(
+                ControlsCore.resolveGradient(
+                    gradient = pairs.toMap()["gradient"],
+                    gradientType = pairs.toMap()["gradientType"],
+                    gradientStops = pairs.toMap()["gradientStops"],
+                    gradientAngle = pairs.toMap()["gradientAngle"],
+                    gradientCenter = pairs.toMap()["gradientCenter"],
+                    gradientRadius = pairs.toMap()["gradientRadius"],
+                    gradientPoints = pairs.toMap()["gradientPoints"],
+                ),
+            ) { Color.Red }
+
+        val linear = brushes("gradient" to "#000|#fff")
+        val radial = brushes("gradient" to "#000|#fff", "gradientType" to "radial")
+        val angular = brushes("gradient" to "#000|#fff", "gradientType" to "angular")
+        assertEquals(1, linear.size)
+        assertEquals(1, radial.size)
+        assertEquals(1, angular.size)
+        // Three types, three DIFFERENT brush classes. One class for all three is the old defect.
+        assertEquals(
+            3,
+            listOf(linear, radial, angular).map { it.first()::class }.distinct().size,
+            "each gradient type must paint its own brush",
+        )
+
+        // A single colour is a flat fill, not a gradient: paint nothing rather than a band.
+        assertTrue(brushes("gradient" to "#000").isEmpty())
+
+        // Mesh has no Compose primitive at any version, so it degrades to the corpus's declared
+        // fallback: the base fill plus one soft radial per control point.
+        val mesh = brushes(
+            "gradientType" to "mesh",
+            "gradientPoints" to "0 0 #f00, 1 0 #0f0; 0 1 #00f, 1 1 #ff0",
+        )
+        assertEquals(5, mesh.size, "a 2x2 mesh degrades to a base fill plus four radials")
+    }
+
+    /**
+     * Compose's sweep starts at three o'clock and takes no rotation argument; the corpus angle
+     * starts at twelve. Rotating a sweep IS a cyclic shift of its stops, so the conversion is
+     * exact rather than an approximation - and the ring is closed at both ends so the wrap point
+     * shows no seam the unrotated gradient did not already have.
+     */
+    @Test
+    fun sweepRotationIsACyclicStopShiftWithNoSeam() {
+        val ring = listOf(0f to Color.Red, 0.5f to Color.Green, 1f to Color.Blue)
+        assertEquals(ring, DesktopGradients.rotatedRing(ring, 0.0), "no rotation changes nothing")
+        assertEquals(ring, DesktopGradients.rotatedRing(ring, 360.0), "a full turn changes nothing")
+
+        val quarter = DesktopGradients.rotatedRing(ring, 90.0)
+        assertEquals(0f, quarter.first().first, "the ring must start at 0")
+        assertEquals(1f, quarter.last().first, "the ring must end at 1")
+        assertEquals(
+            quarter.first().second, quarter.last().second,
+            "a ring's two ends are the same point, so they must be the same colour",
+        )
+        assertTrue(
+            quarter.zipWithNext().all { (a, b) -> a.first <= b.first },
+            "stops must stay ascending or the shader rejects them",
+        )
+        // The 0.5 stop lands at 0.75 after a quarter turn; the 0.0 and 1.0 ends wrap to 0.25.
+        assertTrue(quarter.any { kotlin.math.abs(it.first - 0.75f) < 1e-5f && it.second == Color.Green })
+        assertEquals(2, quarter.count { kotlin.math.abs(it.first - 0.25f) < 1e-5f })
     }
 
     @Test

@@ -13,17 +13,20 @@
 import {
   ReactiveStore, ActionRunner, makeRunEnv, writeBound, JSE, JSESeams, ApiBlock, ApiGraph, ModuleRegistry,
   string, truthy, number, isDict, watchKey, noteSurfaceRead, type Dict, type RunEnv, type ApiSpec, type ApiSeed,
+  RefRegistry, refKey, attributeBinding, DSXStrings, overrideAttrName,
 } from "@despia/kernel";
-import { legacyAttrToDecls, mapStyleValue, BRIDGE_ATTRS } from "@despia/compiler/cssmap";
+import { legacyAttrToDecls, mapStyleValue, parseStyleAttr, BRIDGE_ATTRS, BRIDGE_CONTEXT_ATTRS } from "@despia/compiler/cssmap";
 import { resolveComponent, type Registry } from "@despia/compiler/resolve";
 import type { XmlNode } from "@despia/compiler/xml";
-import type { ComponentIR } from "@despia/compiler/component";
+import { stampNodeIds, type ComponentIR, type IRNode } from "@despia/compiler/component";
 import {
   ELEMENTS, GLOBAL_ELEMENTS, UNSUPPORTED, BUTTON_ROLES, booleanWord, createMarquee, iconSvg,
   type ElementApi, type ElementFactory,
 } from "./elements.ts";
 import { asFacetComponent, type FacetComponent, type FacetCtx, type FacetInstance } from "./facet.ts";
 import { registerInputDeclarations, onInputEdge } from "./input.ts";
+import { placeFloating } from "./overlay-controls.ts";
+import { bindLength } from "./structural-controls.ts";
 
 export type SlotContent = {
   defaults: XmlNode[];
@@ -50,7 +53,21 @@ export type MountCtx = {
   itemRefresh?: { listeners: Set<() => void> } | null;
   /** Enclosing `<form as=…>` environment value inherited by descendant fields. */
   formNamespace?: string | null;
+  /** Component-expansion depth from the surface root. See COMPONENT_DEPTH_CAP. */
+  depth?: number;
 };
+
+/** How deep a component may expand before the renderer stops.
+ *
+ *  NOT a budget, and never to be tuned for taste. A component that names itself is a
+ *  legitimate and common shape - a tree, an outliner, a comment thread, a file browser -
+ *  and it terminates because the DATA terminates. This exists for the one case where the
+ *  data does not: a cycle or a corrupt child list, where the only alternatives are an
+ *  unbounded render and a dead stack. Bounded output beats a crash, and legitimate nesting
+ *  must never reach it. Uniform on all three renderers (corpus
+ *  Conformance/composition/attribute-binding.json `recursion`) so a tree that draws on one
+ *  draws on all of them. */
+export const COMPONENT_DEPTH_CAP = 256;
 
 function subCtx(ctx: MountCtx, overrides: Partial<MountCtx> = {}): MountCtx {
   return { ...ctx, disposers: [], ...overrides };
@@ -114,6 +131,21 @@ export const ApiSeedSeam = {
 export const StreamSeedSeam = {
   offer: null as ((as: string, block: ApiBlock) => void) | null,
 };
+
+/** WebMCP tool registration (proposals/webmcp.md §3; webmcp.ts implements, boot.ts pulls
+ *  it in). A SEAM for the same reason as AdoptSeam: mount.ts ships in every bundle
+ *  including self-contained embeds, and a document that declares no `<tool>` row must not
+ *  pay for the spec adapter — nor should an embed, which has no user agent to register
+ *  with. The row type is structural on purpose so this declaration imports nothing. */
+export const WebMcpSeam = {
+  bind: null as ((
+    rows: ReadonlyArray<{ as?: string; action: string; description: string; mutates?: string }>,
+    options: {
+      actionInputs: ReadonlyMap<string, readonly string[]>;
+      dispatch: (action: string, args: Record<string, unknown>) => Promise<unknown>;
+    },
+  ) => () => void) | null,
+};
 /** the mount internals the adopt walk needs (adopt.ts; bundlers strip when unused) */
 export const adoptInternals = {
   makeApi: (node: XmlNode, ctx: MountCtx, childCtx?: MountCtx): ElementApi => makeApi(node, ctx, childCtx),
@@ -133,7 +165,9 @@ export const adoptInternals = {
   },
 };
 
-const BOUND_COLLECTION_TAGS = new Set(["list", "grid", "pager"]);
+// `flow` is here as of 2026-08-26 (runtime-pressure R29): the wrap layout was the one layout
+// with no repeater, so a wrapping run of chips or tags could not be driven by data at all.
+const BOUND_COLLECTION_TAGS = new Set(["list", "grid", "pager", "flow"]);
 export const BOUND_COLLECTION_LIMIT = 1_000;
 const SURFACE_NAMES = new Set(["glass", "ultraThin", "thin", "regular", "thick", "sheet"]);
 /** structural attrs the renderer consumes — never forwarded to element factories */
@@ -191,6 +225,32 @@ export function matchShortcut(shortcut: string, event: ShortcutKeyEvent): boolea
   return true;
 }
 
+/** The Return-key spellings the toolkits use (DOM `Enter`/`NumpadEnter`, Compose `Enter`,
+ *  AppKit `Return`). */
+export const RETURN_KEYS = new Set(["enter", "return", "numpadenter"]);
+
+export type MultilineReturn = "submit" | "newline" | "ignore";
+
+/** What Return should do in a MULTILINE field (OpenSource/Conformance/input/multiline-submit.json)
+ *  - the twin of Swift/Kotlin StackDesktopInput.multilineReturn.
+ *
+ *  Return already means "newline" in a multiline field and must keep meaning it on a soft
+ *  keyboard, so this grammar decides HARDWARE key events only. `ignore` and `newline` are
+ *  DIFFERENT answers: `ignore` means no opinion and the caller must not consume the event. */
+export function multilineReturn(
+  event: { key: string; shift: boolean; meta: boolean; ctrl: boolean; alt: boolean },
+  submitOnEnter: boolean,
+  hasSubmit: boolean,
+): MultilineReturn {
+  if (!RETURN_KEYS.has(event.key.toLowerCase())) return "ignore";
+  // The explicit line-break chords win over everything, including an authored submitOnEnter:
+  // turning Enter-to-send on must not take away the way out of it.
+  if (event.shift || event.alt) return "newline";
+  if (event.meta || event.ctrl) return hasSubmit ? "submit" : "ignore";
+  if (submitOnEnter && hasSubmit) return "submit";
+  return "newline";
+}
+
 /** Shared `focusOrder=` traversal resolution (OpenSource/Conformance/input/focusOrder.json).
  *  Disabled ⇒ -1 (out of traversal); a decimal-integer order ⇒ that index; absent/non-finite/
  *  empty ⇒ null (toolkit default). */
@@ -200,6 +260,92 @@ export function resolveFocusOrder(focusOrder: string | null | undefined, disable
   const trimmed = focusOrder.trim();
   if (!/^-?\d+$/.test(trimmed)) return null;
   return Number(trimmed);
+}
+
+/** Shared `tooltip=` / `tooltipSide=` resolution (OpenSource/Conformance/input/tooltip.json —
+ *  the universal element hint, design-system.md Wave 3 (c)1). Whitespace-only text drops the
+ *  tooltip; the side vocabulary is the floating-preference set, exact lowercase after trim,
+ *  with `top` the default AND the fallback. A resolved tooltip always doubles as the element's
+ *  accessibility description (aria-describedby here, the platform hint slots native), so its
+ *  content is never gated behind hover (Article 7). */
+export type TooltipSide = "top" | "bottom" | "leading" | "trailing";
+export function resolveTooltip(
+  tooltip: string | null | undefined,
+  side: string | null | undefined,
+): { text: string; side: TooltipSide } | null {
+  const text = (tooltip ?? "").trim();
+  if (text.length === 0) return null;
+  const trimmed = (side ?? "").trim();
+  const resolved: TooltipSide = trimmed === "top" || trimmed === "bottom" || trimmed === "leading" || trimmed === "trailing"
+    ? trimmed
+    : "top";
+  return { text, side: resolved };
+}
+
+/** Shared `density=` resolution (OpenSource/Conformance/input/density.json — the universal
+ *  subtree density knob, component-library.md W9). The vocabulary is exactly
+ *  `comfortable | compact`, exact lowercase after trim; anything else is NO pin, so the
+ *  element stays transparent to its ancestors' density. */
+export type StackDensityValue = "comfortable" | "compact";
+export function resolveDensity(raw: string | null | undefined): StackDensityValue | null {
+  const trimmed = (raw ?? "").trim();
+  return trimmed === "comfortable" || trimmed === "compact" ? trimmed : null;
+}
+
+/** The shared subtree law (density.json `effective[]`): `chain` is the authored raw
+ *  density attributes from the root to the element; the NEAREST resolving pin wins — an
+ *  invalid nearer value never masks an outer pin — and with no pin the platform default
+ *  applies (compact on a desktop fine pointer, comfortable everywhere else). On web the
+ *  CSS custom-property cascade IS this fold (the stamped data-dsx-density token tables in
+ *  theme.ts inherit exactly this way); the native kernels run it directly. */
+export function effectiveDensity(
+  chain: readonly (string | null | undefined)[],
+  finePointer: boolean,
+): StackDensityValue {
+  for (let index = chain.length - 1; index >= 0; index -= 1) {
+    const pinned = resolveDensity(chain[index]);
+    if (pinned !== null) return pinned;
+  }
+  return finePointer ? "compact" : "comfortable";
+}
+
+/** Renderer-neutral show/dismiss state machine for the resolved tooltip, shared in
+ *  OpenSource/Conformance/input/tooltip.json and executed by all three runtimes. Events are
+ *  INTENT-qualified — the UI adapter owns its hover-intent delay and pointer identity, then
+ *  reports each source with its own hover capability: a non-capable source (touch) is never
+ *  even tracked. visible = (hovered || focused) && !dismissed; Escape dismisses and
+ *  suppresses re-show until hover and focus have BOTH cleared. No authored events exist. */
+export type TooltipAction = "show" | "hide";
+export class TooltipLifecycle {
+  private hovered = false;
+  private focused = false;
+  private dismissed = false;
+
+  get visible(): boolean { return (this.hovered || this.focused) && !this.dismissed; }
+
+  hoverStart(hoverCapable: boolean): TooltipAction[] {
+    return this.transition(() => { if (hoverCapable) this.hovered = true; });
+  }
+
+  hoverEnd(): TooltipAction[] { return this.transition(() => { this.hovered = false; }); }
+
+  focus(hoverCapable: boolean): TooltipAction[] {
+    return this.transition(() => { if (hoverCapable) this.focused = true; });
+  }
+
+  blur(): TooltipAction[] { return this.transition(() => { this.focused = false; }); }
+
+  escape(): TooltipAction[] { return this.transition(() => { if (this.visible) this.dismissed = true; }); }
+
+  unmount(): TooltipAction[] { return this.transition(() => { this.hovered = false; this.focused = false; }); }
+
+  private transition(mutate: () => void): TooltipAction[] {
+    const before = this.visible;
+    mutate();
+    if (!this.hovered && !this.focused) this.dismissed = false;
+    const after = this.visible;
+    return before === after ? [] : [after ? "show" : "hide"];
+  }
 }
 
 // ── the element api ─────────────────────────────────────────────────────────────────
@@ -226,10 +372,44 @@ function contextEffect<T>(ctx: MountCtx, read: () => T, apply: (value: T) => voi
   };
 }
 
+/** Read one consumer attribute the way its template asks to be read: a sole `{{ … }}`
+ *  carries the VALUE (an object stays an object), a mixed template carries the sentence,
+ *  a template with no hole is its own text. The fold is the kernel's, shared with the
+ *  Kotlin and Swift twins - see `attributeBinding`. */
+function readAttribute(ctx: MountCtx, template: string): unknown {
+  const binding = attributeBinding(template);
+  if (binding.kind === "value") return ctx.store.eval(binding.expr, ctx.item);
+  if (binding.kind === "text") return ctx.store.interpolate(template, ctx.item);
+  return template;
+}
+
 function makeApi(node: XmlNode, ctx: MountCtx, childCtx: MountCtx = ctx): ElementApi {
   return {
     bindText(expr, apply) {
       if (expr === undefined) return;
+      if (!expr.includes("{{")) { apply(expr); return; }
+      ctx.disposers.push(contextEffect(ctx,
+        () => ctx.store.interpolate(expr, ctx.item),
+        (v) => apply(v),
+      ));
+    },
+    bindDisplay(expr, apply) {
+      if (expr === undefined) return;
+      // The define is checked INSIDE the condition on purpose (the markdown fold's
+      // pattern): an embed build pins __DSX_OPTIONAL_STRINGS__ false and esbuild folds
+      // the whole localization tier away, keeping widgets under the G10 byte law -
+      // there bindDisplay degrades to bindText semantics.
+      if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_STRINGS__?: boolean })
+        .__DSX_OPTIONAL_STRINGS__ !== false) {
+        // ALWAYS an effect: localize reads global.locale / global.strings through the
+        // tracked door, so even a static "Save" re-resolves when the locale flips - the
+        // in-app language switcher is one state write (localization.md).
+        ctx.disposers.push(contextEffect(ctx,
+          () => DSXStrings.localize(expr.includes("{{") ? ctx.store.interpolate(expr, ctx.item) : expr),
+          (v) => apply(v),
+        ));
+        return;
+      }
       if (!expr.includes("{{")) { apply(expr); return; }
       ctx.disposers.push(contextEffect(ctx,
         () => ctx.store.interpolate(expr, ctx.item),
@@ -261,9 +441,13 @@ function makeApi(node: XmlNode, ctx: MountCtx, childCtx: MountCtx = ctx): Elemen
       return node.attrs[`on:${name}`] !== undefined;
     },
     children(parent, nodes = node.children, inherit = {}) {
-      const inheritedCtx = inherit.formNamespace === undefined
+      const inheritedCtx = inherit.formNamespace === undefined && inherit.disposers === undefined
         ? childCtx
-        : { ...childCtx, formNamespace: inherit.formNamespace };
+        : {
+            ...childCtx,
+            ...(inherit.formNamespace !== undefined ? { formNamespace: inherit.formNamespace } : {}),
+            ...(inherit.disposers !== undefined ? { disposers: inherit.disposers } : {}),
+          };
       for (const child of nodes) mountNode(child, inheritedCtx, parent);
     },
   };
@@ -365,6 +549,10 @@ export function mountNode(node: XmlNode, ctx: MountCtx, parent: ParentNode): voi
     else boundCollectionRuntime.mountList(node, ctx, parent);
     return;
   }
+  if (node.tag === "node" || node.tag === "dynamic") {
+    mountDynamicTag(node, ctx, parent);
+    return;
+  }
   // A small number of platform primitives have intentionally capitalized public
   // spellings (`<WebView>` mirrors the native type). Registered element-library
   // primitives must win before the generic Capitalized-component route; otherwise
@@ -379,7 +567,101 @@ export function mountNode(node: XmlNode, ctx: MountCtx, parent: ParentNode): voi
     return;
   }
 
+  const facet = facetElement(node.tag);
+  if (facet !== null) {
+    mountFacet(node, ctx, parent, facet.qualified, facet.impl);
+    return;
+  }
   mountElementFactory(node, ctx, parent, UNSUPPORTED);
+}
+
+/** `<node tag="…">` / `<dynamic>` — the data-driven tag (StackReference "node"; the
+ *  Stack.swift `case "node","dynamic"` / StackNodeView.kt twins). The `tag=`
+ *  indirection resolves BEFORE factory lookup; an empty resolution (a bare `<node>`,
+ *  or an expression that resolves to nothing) falls through to the children; an
+ *  interpolated tag re-resolves live through the same anchor/remount contract
+ *  `visible-if` established. */
+function mountDynamicTag(node: XmlNode, ctx: MountCtx, parent: ParentNode): void {
+  const expr = node.attrs["tag"] ?? "";
+  const mountResolved = (tag: string, target: ParentNode, branch: MountCtx): void => {
+    if (tag.length === 0) {
+      for (const child of node.children) mountNode(child, branch, target);
+      return;
+    }
+    const inner: XmlNode = { ...node, tag, attrs: { ...node.attrs } };
+    delete inner.attrs["tag"];
+    mountResolvedTag(inner, branch, target);
+  };
+  if (!expr.includes("{{")) {
+    mountResolved(expr.trim(), parent, ctx);
+    return;
+  }
+  const anchor = document.createComment("dsx:node");
+  parent.appendChild(anchor);
+  let mounted: { nodes: ChildNode[]; ctx: MountCtx } | null = null;
+  const unmount = (): void => {
+    if (mounted === null) return;
+    mounted.ctx.disposers.forEach((d) => d());
+    mounted.nodes.forEach((n) => n.remove());
+    mounted = null;
+  };
+  ctx.disposers.push(contextEffect(ctx,
+    () => ctx.store.interpolate(expr, ctx.item).trim(),
+    (tag) => {
+      unmount();
+      const branch = subCtx(ctx);
+      const frag = document.createDocumentFragment();
+      mountResolved(tag, frag, branch);
+      const nodes = [...frag.childNodes];
+      anchor.after(...nodes);
+      mounted = { nodes, ctx: branch };
+    },
+  ), unmount);
+}
+
+/** Dispatch a RESOLVED dynamic tag. The name reaches only what is compiled into THIS
+ *  build — registered element factories, bound collections, and resolvable components
+ *  — and an unknown name renders NOTHING: the capability boundary stays silent (a
+ *  remote route can never name a view this build can't render — the grammar's rule),
+ *  never the `<x>?` unsupported box a LITERAL unknown tag earns. */
+function mountResolvedTag(node: XmlNode, ctx: MountCtx, parent: ParentNode): void {
+  if (boundCollectionRuntime !== null && BOUND_COLLECTION_TAGS.has(node.tag) && node.attrs["bind"] !== undefined) {
+    if (node.tag === "pager") boundCollectionRuntime.mountBoundPager(node, ctx, parent);
+    else boundCollectionRuntime.mountList(node, ctx, parent);
+    return;
+  }
+  const builtin = ELEMENTS[node.tag];
+  if (builtin !== undefined) {
+    mountElementFactory(node, ctx, parent, builtin);
+    return;
+  }
+  if (!/^[A-Z]/.test(node.tag) && !node.tag.includes(".")) {
+    const facet = facetElement(node.tag);
+    if (facet !== null) mountFacet(node, ctx, parent, facet.qualified, facet.impl);
+    return;
+  }
+  const globals = (globalThis as typeof globalThis & { __DSX_OPTIONAL_GLOBALS__?: boolean })
+    .__DSX_OPTIONAL_GLOBALS__ !== false;
+  if (resolveComponent(ctx.registry, ctx.scheme, node.tag) !== null
+      || ModuleRegistry.facetComponent(node.tag) !== null
+      || (globals && GLOBAL_ELEMENTS[node.tag] !== undefined)) {
+    mountComponent(node, ctx, parent);
+  }
+}
+
+/** The module-provided ELEMENT half of the /web/18 facet loader (design-system.md Wave 3
+ *  (b)3): a lowercase tag no builtin claims resolves through the SAME `components` table
+ *  Capitalized facet tags already ride — the web twin of a module-registered native
+ *  global element (`<lottie>` = Core/Lottie's GlobalStackComponent). Consulted only
+ *  AFTER the builtin table (a shipped tag of the same name always wins), and an
+ *  absent/excluded module answers null so each caller keeps its honest degradation:
+ *  the labelled unsupported box for a literal tag, nothing for a resolved dynamic one. */
+function facetElement(tag: string): { qualified: string; impl: FacetComponent } | null {
+  const facet = ModuleRegistry.facetComponent(tag);
+  const impl = facet !== null ? asFacetComponent(facet.impl) : null;
+  return facet !== null && impl !== null
+    ? { qualified: `${facet.scheme}.${facet.name}`, impl }
+    : null;
 }
 
 /** Mount an element-library factory through the full universal wrapper contract.
@@ -405,10 +687,33 @@ function mountElementFactory(
       get width(): unknown { noteSurfaceRead(key); return (store.vars.get(key) as Dict | undefined)?.["width"] ?? null; },
       get height(): unknown { noteSurfaceRead(key); return (store.vars.get(key) as Dict | undefined)?.["height"] ?? null; },
     };
-    const childCtx: MountCtx = { ...ctx, item: { ...(ctx.item ?? {}), __element: scope } };
+    // A live VIEW over the enclosing item, never a snapshot. In a component body,
+    // ctx.item IS the instance's attrs object, and the consumer's reactive-prop effects
+    // mutate that same object in place — a `{ ...item }` spread here froze every
+    // attribute for the whole subtree the moment its root declared `container`, and the
+    // dsx.attribute store fallback never fired because the stale copy answered first
+    // (found by Flow's fit staying at the pre-fetch extent). The prototype chain keeps
+    // attribute reads live and layers only the element scope on top.
+    const childItem = Object.create(ctx.item ?? null) as Dict;
+    Object.defineProperty(childItem, "__element", { value: scope, enumerable: true });
+    const childCtx: MountCtx = { ...ctx, item: childItem };
     api = makeApi(node, ctx, childCtx);
   }
   const element = factory(node, ctx, api);
+  // The element's IR identity, stamped on CLIENT mounts the same way SSR stamps it
+  // (render.ts hydrate mode): `data-dsx-n` is the per-component preorder nid and
+  // `data-dsx-owner` the owning component. The editor's select-on-the-real-render
+  // (master plan P5) reads these to address a click as a source splice; same
+  // reach-not-access reasoning as the state door, and ONE code path — no dev/prod
+  // divergence to drift. Optional fold: embeds shed it (G10 widget law).
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_EDIT_TAGS__?: boolean })
+    .__DSX_OPTIONAL_EDIT_TAGS__ !== false) {
+    const irNid = (node as IRNode).nid;
+    if (irNid !== undefined) {
+      element.setAttribute("data-dsx-n", String(irNid));
+      element.setAttribute("data-dsx-owner", ctx.owner);
+    }
+  }
   wireCommon(element, node, ctx, api);
   if (containerKey !== null) {
     const key = containerKey;
@@ -432,8 +737,139 @@ function mountElementFactory(
 function wireCommon(el: HTMLElement, node: XmlNode, ctx: MountCtx, api: ElementApi): void {
   wireStyles(el, node, ctx, api);
   wireGestures(el, node, ctx, api);
+  wireTooltip(el, node, ctx, api);
   wireMeasure(el, node, ctx);
+  wireRef(el, node, ctx);
   wireDeclaredInput(node, ctx, api);
+}
+
+/** hover-intent delay before a tooltip shows (the platform hint feel; keyboard focus shows
+ *  immediately). The reveal motion itself rides the motion tokens in the dsx-elements sheet. */
+export const TOOLTIP_INTENT_DELAY_MS = 300;
+
+/** per-document sequence for tooltip node ids (the aria-describedby identity) */
+let tooltipSeq = 0;
+
+/** tooltip= / tooltipSide= — the universal element hint (design-system.md Wave 3 (c)1; the
+ *  shared law: input/tooltip.json). The bubble is a real `role="tooltip"` node the element
+ *  references via aria-describedby the whole time it is mounted, so assistive tech reads the
+ *  text with or without a pointer — the visual reveal is the only part gated on a REAL fine
+ *  pointer (`(hover: hover)`), which is why a touch surface never fires it and loses nothing
+ *  (Article 7). Placement reuses the floating-layer solver (placeFloating, data-dsx-placement).
+ *  Part of the desktop input grammar slice: an embed that authors none of it strips this whole
+ *  block via the build's __DSX_OPTIONAL_DESKTOP_INPUT__ define — full pages keep it (flag unset). */
+function wireTooltip(el: HTMLElement, node: XmlNode, ctx: MountCtx, api: ElementApi): void {
+  const attr = (globalThis as typeof globalThis & { __DSX_OPTIONAL_DESKTOP_INPUT__?: boolean })
+    .__DSX_OPTIONAL_DESKTOP_INPUT__ !== false ? node.attrs["tooltip"] : undefined;
+  if (attr === undefined) return;
+
+  const bubble = document.createElement("div");
+  bubble.className = "dsx-tooltip";
+  bubble.id = `dsx-tooltip-${++tooltipSeq}`;
+  bubble.setAttribute("role", "tooltip");
+  bubble.hidden = true;
+
+  const lifecycle = new TooltipLifecycle();
+  let current: { text: string; side: TooltipSide } | null = null;
+  let rawText = "";
+  let rawSide = "";
+
+  const describe = (on: boolean): void => {
+    const tokens = (el.getAttribute("aria-describedby") ?? "")
+      .split(/\s+/).filter((token) => token.length > 0 && token !== bubble.id);
+    if (on) tokens.push(bubble.id);
+    if (tokens.length === 0) el.removeAttribute("aria-describedby");
+    else el.setAttribute("aria-describedby", tokens.join(" "));
+  };
+
+  const position = (): void => {
+    if (current === null || typeof el.getBoundingClientRect !== "function") return;
+    const doc = document.documentElement as HTMLElement | null;
+    const viewport = {
+      width: (doc?.clientWidth ?? 0) || (globalThis as { innerWidth?: number }).innerWidth || 0,
+      height: (doc?.clientHeight ?? 0) || (globalThis as { innerHeight?: number }).innerHeight || 0,
+    };
+    if (viewport.width <= 0 || viewport.height <= 0) return;
+    const rect = bubble.getBoundingClientRect();
+    const rtl = typeof getComputedStyle === "function" && getComputedStyle(el).direction === "rtl";
+    // placeFloating's preference names the ARROW side (the popover contract: the bubble
+    // sits opposite it); tooltipSide names where the BUBBLE is — so pass the opposite.
+    const preference = current.side === "top" ? "bottom"
+      : current.side === "bottom" ? "top"
+      : current.side === "leading" ? "trailing" : "leading";
+    const placed = placeFloating(el.getBoundingClientRect(), { width: rect.width, height: rect.height },
+      viewport, preference, rtl);
+    bubble.style.setProperty("left", `${placed.x}px`);
+    bubble.style.setProperty("top", `${placed.y}px`);
+    bubble.setAttribute("data-dsx-placement", placed.placement);
+  };
+  const reposition = (): void => { if (!bubble.hidden) position(); };
+  const win = typeof window === "undefined" ? null : window;
+  const onEscape = (e: KeyboardEvent): void => { if (e.key === "Escape") dispatch(lifecycle.escape()); };
+  const dispatch = (actions: TooltipAction[]): void => {
+    for (const action of actions) {
+      if (action === "show") {
+        bubble.hidden = false;
+        position();
+        document.addEventListener("keydown", onEscape as EventListener, true);
+        win?.addEventListener("resize", reposition);
+        document.addEventListener("scroll", reposition, true);
+      } else {
+        bubble.hidden = true;
+        document.removeEventListener("keydown", onEscape as EventListener, true);
+        win?.removeEventListener("resize", reposition);
+        document.removeEventListener("scroll", reposition, true);
+      }
+    }
+  };
+
+  // reactive resolution: text and side both interpolate; text going empty drops the
+  // tooltip mid-flight (description off, an active show hidden through the machine)
+  const sync = (): void => {
+    current = resolveTooltip(rawText, rawSide);
+    bubble.textContent = current === null ? "" : current.text;
+    describe(current !== null);
+    if (current === null) dispatch(lifecycle.unmount());
+    else reposition();
+  };
+  api.bindText(attr, (v) => { rawText = v; sync(); });
+  const sideAttr = node.attrs["tooltipSide"];
+  if (sideAttr !== undefined) api.bindText(sideAttr, (v) => { rawSide = v; sync(); });
+  (document.body as HTMLElement | null)?.appendChild(bubble);
+
+  // the visual reveal, gated per source on a REAL fine pointer — never touch
+  const canHover = (): boolean =>
+    typeof matchMedia === "function" && matchMedia("(hover: hover)").matches;
+  let intentTimer: ReturnType<typeof setTimeout> | null = null;
+  const cancelIntent = (): void => {
+    if (intentTimer !== null) { clearTimeout(intentTimer); intentTimer = null; }
+  };
+  el.addEventListener("pointerenter", (e: PointerEvent) => {
+    if (e.pointerType === "touch" || !canHover() || current === null) return;
+    cancelIntent();
+    intentTimer = setTimeout(() => {
+      intentTimer = null;
+      dispatch(lifecycle.hoverStart(true));
+    }, TOOLTIP_INTENT_DELAY_MS);
+  });
+  const endHover = (): void => { cancelIntent(); dispatch(lifecycle.hoverEnd()); };
+  el.addEventListener("pointerleave", endHover);
+  el.addEventListener("pointercancel", endHover);
+  el.addEventListener("pointerdown", cancelIntent); // a press is activation, not hover intent
+  const focusVisible = (): boolean => {
+    if (typeof el.matches !== "function") return true;
+    try { return el.matches(":focus-visible"); } catch { return true; }
+  };
+  el.addEventListener("focus", () => {
+    if (current !== null && focusVisible()) dispatch(lifecycle.focus(canHover()));
+  });
+  el.addEventListener("blur", () => dispatch(lifecycle.blur()));
+
+  ctx.disposers.push(() => {
+    cancelIntent();
+    dispatch(lifecycle.unmount());
+    bubble.remove();
+  });
 }
 
 /** G4 unified input (dsx-game.md §2): `on:input.<name>` on ANY element subscribes to the
@@ -462,6 +898,19 @@ function wireDeclaredInput(node: XmlNode, ctx: MountCtx, api: ElementApi): void 
 function wireStyles(el: HTMLElement, node: XmlNode, ctx: MountCtx, api: ElementApi): void {
   wireVisualStyles(el, node, ctx, api);
 
+  // id= is the universal "stable id for imperative patches" (the editor catalog declares it
+  // on every element) and the web twin never emitted it — so ui.node("#id"), tests and the
+  // shot pipeline's frame measurement had nothing to address. Emitted BOUND like aria-label
+  // below: an interpolated id resolves, never the raw {{ }} template text.
+  const stableId = node.attrs["id"];
+  if (stableId !== undefined) {
+    api.bindText(stableId, (v) => {
+      const t = v.trim();
+      if (t === "") el.removeAttribute("id");
+      else el.setAttribute("id", t);
+    });
+  }
+
   // ACCESSIBILITY — the cross-platform contract (StackReference §Accessibility), TWO
   // equal spellings per key: the DSX one (a11y*) and the web-standard aria one, which
   // this renderer emits VERBATIM (what a web developer writes is what the DOM gets).
@@ -486,6 +935,11 @@ function wireStyles(el: HTMLElement, node: XmlNode, ctx: MountCtx, api: ElementA
     });
   }
   if (a("a11yHidden", "aria-hidden") === "true") el.setAttribute("aria-hidden", "true");
+  // `passthrough="true"` — decorative and non-interactive: the finger falls through to whatever
+  // is behind. iOS `.allowsHitTesting(false)`, Compose a Box that does not consume, and here the
+  // CSS twin. Without it a legibility scrim over a tappable video, or a fade bar over a scroller,
+  // silently eats every touch in its own rectangle.
+  if (node.attrs["passthrough"] === "true") el.style.setProperty("pointer-events", "none");
   const label = a("a11yLabel", "aria-label");
   if (label !== undefined && el.tagName !== "BUTTON") {
     api.bindText(label, (v) => el.setAttribute("aria-label", v));
@@ -541,6 +995,20 @@ function wireVisualStyles(el: HTMLElement, node: XmlNode, ctx: MountCtx, api: El
       else el.removeAttribute("data-dsx-grow");
     });
   }
+  // U03 shared elements + F07b lockOrientation: stamped as data attributes rather than read
+  // off the node, because the router's reconcile runs over the LIVE DOM after a navigation and
+  // never sees the node tree that produced it.
+  for (const [attr, data] of [["shared", "data-dsx-shared"], ["sharedMode", "data-dsx-shared-mode"],
+                              ["sharedAnim", "data-dsx-shared-anim"], ["sharedOrder", "data-dsx-shared-order"],
+                              ["lockOrientation", "data-dsx-lock-orientation"]] as const) {
+    const raw = node.attrs[attr];
+    if (raw === undefined) continue;
+    api.bindText(raw, (t) => {
+      const v = t.trim();
+      if (v === "") el.removeAttribute(data);
+      else el.setAttribute(data, v);
+    });
+  }
   // theme="dark|light" — the per-subtree color-scheme pin (kernel: environment colorScheme
   // + preferredColorScheme). Here it stamps data-dsx-theme, whose UNANCHORED token override
   // in theme.ts re-themes this element and everything under it.
@@ -553,20 +1021,61 @@ function wireVisualStyles(el: HTMLElement, node: XmlNode, ctx: MountCtx, api: El
       else el.removeAttribute("data-dsx-theme");
     });
   }
+  // density="comfortable|compact" — the subtree density knob (the theme= pin's twin;
+  // shared law: input/density.json). Stamps data-dsx-density, whose token tables in
+  // theme.ts re-derive the control metrics for this element and everything under it —
+  // custom-property inheritance IS the nearest-ancestor fold, and the fine-pointer
+  // platform default rides the same tokens' media query, so an authored pin always wins.
+  const density = node.attrs["density"];
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_DENSITY__?: boolean })
+    .__DSX_OPTIONAL_DENSITY__ !== false && density !== undefined) {
+    api.bindText(density, (v) => {
+      const resolved = resolveDensity(v);
+      if (resolved === null) el.removeAttribute("data-dsx-density");
+      else el.setAttribute("data-dsx-density", resolved);
+    });
+  }
 
   // reactive legacy attrs ({{ }} in grow/background/color/…) — runtime bridge
+  //
+  // A fold is reactive when its OWN value carries a template or when one of the attributes it
+  // READS does (BRIDGE_CONTEXT_ATTRS: the gradient modifiers, the Dynamic Type opt-in). The
+  // context is resolved into its own live map, because `node.attrs` holds the raw templates and
+  // a fold handed "{{ dsx.variable.x }}" as a stop list parses nothing and silently degrades.
+  // ONE shared resolved-context map and ONE subscription per dynamic context attribute, not
+  // one per (bridge attr x context attr): the first shape registered N*M store watches and N
+  // context copies for the same facts, and a single gradientStops tick refolded through M
+  // duplicate callbacks. The context is shared because it is one truth; each attr keeps only
+  // its own latest value and applied set.
+  const dynamicContext = [...BRIDGE_CONTEXT_ATTRS]
+    .filter((name) => (node.attrs[name] ?? "").includes("{{"));
+  const context: Record<string, string | undefined> = { ...node.attrs };
+  const refolds: Array<() => void> = [];
   for (const [name, value] of Object.entries(node.attrs)) {
-    if (!BRIDGE_ATTRS.has(name) || !value.includes("{{")) continue;
+    if (!BRIDGE_ATTRS.has(name)) continue;
+    if (!value.includes("{{") && dynamicContext.length === 0) continue;
     const applied = new Set<string>();
-    api.bindText(value, (v) => {
-      const decls = legacyAttrToDecls(name, v.trim());
+    let latest = value;
+    const refold = (): void => {
+      const decls = legacyAttrToDecls(name, latest.trim(), context);
       for (const prop of applied) el.style.removeProperty(prop);
       applied.clear();
       for (const [prop, val] of decls ?? []) {
         el.style.setProperty(prop, val);
         applied.add(prop);
       }
-    });
+    };
+    refolds.push(refold);
+    if (value.includes("{{")) api.bindText(value, (v) => { latest = v; refold(); });
+    else refold();
+  }
+  if (refolds.length > 0) {
+    for (const key of dynamicContext) {
+      api.bindText(node.attrs[key] ?? "", (resolved) => {
+        context[key] = resolved;
+        for (const refold of refolds) refold();
+      });
+    }
   }
 }
 
@@ -618,10 +1127,56 @@ function wireRootStyleContract(el: HTMLElement, node: XmlNode, api: ElementApi):
         if (mapped.length === 0 || v.trim().length === 0) el.style.removeProperty(prop);
         else el.style.setProperty(prop, mapped);
         if (prop === "flex-direction") el.classList.toggle("dsx-hstack", v.trim().startsWith("row"));
+        // A transform changes no layout box, so nothing downstream can observe it - and a
+        // canvas under a zoomable world sizes its backing store for where it LANDS. Say it
+        // out loud once here rather than have every surface poll for it. Optional, and
+        // reachable only from a document that draws: an embed with no <canvas> in a scaled
+        // container folds the announcement out entirely (R21).
+        if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_CANVAS_ZOOM__?: boolean })
+          .__DSX_OPTIONAL_CANVAS_ZOOM__ !== false
+          && prop === "transform" && typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("dsx:transform", { detail: { el } }));
+        }
       });
     }
   }
 
+  // Whole-attribute style hole: `style="{{ expr }}"` yields a full declaration LIST
+  // (the css-typed override consumption door). The native renderers interpolate the
+  // whole style string before parsing; this is the web twin. Properties from the
+  // previous evaluation are removed before the next lands, so a shrinking list cannot
+  // strand stale declarations on the element. Rides the style-formula fold: the door
+  // maps through cssmap's vocabulary, and `registryUsesStyleFormulas` counts the
+  // compiled `__style_list` spelling, so a slice that authors the hole keeps both.
+  // The define is read INSIDE the condition (the markdown-fold pattern) — that is what
+  // lets esbuild delete the block and drop the parseStyleAttr/mapStyleValue refs.
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_STYLE_FORMULAS__?: boolean })
+    .__DSX_OPTIONAL_STYLE_FORMULAS__ !== false) {
+    const styleList = node.attrs["__style_list"];
+    if (styleList !== undefined) {
+      const applied = new Set<string>();
+      // flex-direction toggles dsx-hstack; when a later list DROPS the declaration the
+      // class restores to the element's own base state, not to whatever the last value
+      // left behind — retraction covers the class contract, not just inline properties.
+      const baseHstack = el.classList.contains("dsx-hstack");
+      api.bindText(styleList, (v) => {
+        const seen = new Set<string>();
+        for (const [prop, value] of parseStyleAttr(v)) {
+          const mapped = mapStyleValue(prop, value);
+          if (mapped.length === 0) continue;
+          el.style.setProperty(prop, mapped);
+          seen.add(prop);
+          if (prop === "flex-direction") el.classList.toggle("dsx-hstack", value.startsWith("row"));
+        }
+        for (const prop of applied) if (!seen.has(prop)) el.style.removeProperty(prop);
+        if (applied.has("flex-direction") && !seen.has("flex-direction")) {
+          el.classList.toggle("dsx-hstack", baseHstack);
+        }
+        applied.clear();
+        for (const prop of seen) applied.add(prop);
+      });
+    }
+  }
 }
 
 /** the input half — tap/link, appear/disappear, longpress, the on:drag pointer
@@ -873,6 +1428,25 @@ function wireMeasure(el: HTMLElement, node: XmlNode, ctx: MountCtx): void {
   }
 }
 
+/** ref="name" — publish this element into the shared-handle registry so a MODULE can reach it
+ *  (capture.element, scroll.toElement, Spotlight). The law is Conformance/input/ref.json and the
+ *  RefRegistry core; the kernel names no consumer. Teardown checks provider identity, because a
+ *  recycled list row mounts the incoming element BEFORE unmounting the outgoing one. */
+function wireRef(el: HTMLElement, node: XmlNode, ctx: MountCtx): void {
+  const name = node.attrs["ref"];
+  if (name === undefined || refKey(name) === null) return;
+  domRefs().provide(name, el);
+  ctx.disposers.push(() => domRefs().clear(name, el));
+}
+
+/** The one process-wide ref table, keyed off a well-known symbol so every bundle in a page
+ *  shares it (an embedded surface and its host must resolve the same names). */
+function domRefs(): RefRegistry<HTMLElement> {
+  const slot = Symbol.for("dsx.refs.v1");
+  const g = globalThis as unknown as { [k: symbol]: RefRegistry<HTMLElement> | undefined };
+  return (g[slot] ??= new RefRegistry<HTMLElement>());
+}
+
 // ── slots (caller-scope semantics, /web/19) ─────────────────────────────────────────
 
 function mountSlot(node: XmlNode, ctx: MountCtx, parent: ParentNode): void {
@@ -959,38 +1533,64 @@ function keyedCollectionValue(raw: unknown, index: number, keyField: string, cou
   return duplicate === 0 ? base : `${base}·${duplicate}`;
 }
 
+/** What a row's item view currently reads. Mutable ON PURPOSE - see `collectionItem`. */
+type ItemSource = { parent: Dict; raw: unknown; index: number };
+
+/** The item view for one row: an O(1) overlay over the bound element and the enclosing
+ *  scope, and - the part that matters - ONE object for as long as the row lives.
+ *
+ *  A keyed row keeps its DOM identity while its data changes underneath it; that is what
+ *  a key MEANS. The item view has to keep its identity for exactly the same reason. It
+ *  used to be rebuilt on every reconciliation and re-pointed onto `row.ctx.item`, which
+ *  works only for a reader holding that one context object. Every other reader holds a
+ *  COPY: `{...ctx}` is how an element scope, a slot mount and a component's props all
+ *  descend, and a copy froze `item` at the value it had when the row mounted. So a
+ *  binding written straight into the row updated and the identical binding one component
+ *  deep did not - the row rendered live and stale data side by side, silently, forever.
+ *  It was found by putting the same expression in both places and reading the screen.
+ *
+ *  Re-pointing every copy is not reachable (a spread is a value copy by definition), so
+ *  the identity stops moving instead: the view is stable and its SOURCE is a cell the
+ *  reconciler updates. Every holder, however it was copied, reads through to live data. */
 function collectionItem(parentItem: Dict | null, raw: unknown, index: number): Dict {
-  // A row may be a host-provided object with a huge property table. Copying it on
-  // every reconciliation defeats the live-row cap, so expose an O(1) overlay view;
-  // ordinary item.field lookup stays identical and enumeration remains available
-  // on demand for event scopes.
-  const row = isDict(raw) ? raw as Dict : null;
-  const scalar = row === null ? raw : undefined;
-  const parent = parentItem ?? {};
-  const own = (key: PropertyKey): boolean => typeof key === "string" && (
-    key === "index" || (row !== null && Object.prototype.hasOwnProperty.call(row, key))
-    || (row === null && key === "value") || Object.prototype.hasOwnProperty.call(parent, key)
-  );
-  return new Proxy({} as Dict, {
+  const source: ItemSource = { parent: parentItem ?? {}, raw, index };
+  const row = (): Dict | null => (isDict(source.raw) ? source.raw as Dict : null);
+  const own = (key: PropertyKey): boolean => {
+    if (typeof key !== "string") return false;
+    const r = row();
+    return key === "index" || (r !== null && Object.prototype.hasOwnProperty.call(r, key))
+      || (r === null && key === "value") || Object.prototype.hasOwnProperty.call(source.parent, key);
+  };
+  const view = new Proxy({} as Dict, {
     get: (_target, key) => {
-      if (key === "index") return index;
-      if (row !== null && Object.prototype.hasOwnProperty.call(row, key)) return row[key as string];
-      if (row === null && key === "value") return scalar;
-      return parent[key as string];
+      if (key === "index") return source.index;
+      const r = row();
+      if (r !== null && Object.prototype.hasOwnProperty.call(r, key)) return r[key as string];
+      if (r === null && key === "value") return source.raw;
+      return source.parent[key as string];
     },
     has: (_target, key) => own(key),
-    ownKeys: () => [...new Set([
-      ...Object.keys(parent), ...(row === null ? ["value"] : Object.keys(row)), "index",
-    ])],
+    ownKeys: () => {
+      const r = row();
+      return [...new Set([
+        ...Object.keys(source.parent), ...(r === null ? ["value"] : Object.keys(r)), "index",
+      ])];
+    },
     getOwnPropertyDescriptor: (_target, key) => own(key)
       ? { configurable: true, enumerable: true, writable: false, value: undefined }
       : undefined,
   });
+  itemSources.set(view, source);
+  return view;
 }
 
-function refreshRow(row: Row, item: Dict, raw: unknown, index: number): void {
+/** The cell behind each live item view. Weak, so a dropped row's cell goes with it. */
+const itemSources = new WeakMap<Dict, ItemSource>();
+
+function refreshRow(row: Row, raw: unknown, index: number): void {
   const changed = row.raw !== raw || row.index !== index;
-  row.ctx.item = item;
+  const source = itemSources.get(row.ctx.item as Dict);
+  if (source !== undefined) { source.raw = raw; source.index = index; }
   row.raw = raw;
   row.index = index;
   if (row.ctx.rowBinding) row.ctx.rowBinding.index = index;
@@ -1052,20 +1652,35 @@ function normalizeListActions(input: unknown): ListAction[] {
 }
 
 function mountList(node: XmlNode, ctx: MountCtx, parent: ParentNode): void {
-  const kind = node.tag === "grid" ? "grid" : "list";
-  const cls = kind === "grid" ? "dsx-list dsx-grid" : "dsx-list";
+  const kind = node.tag === "grid" ? "grid" : node.tag === "flow" ? "flow" : "list";
+  // A bound `<flow>` is the STATIC flow's box - the same `.dsx-flow` flex-wrap and the same two
+  // spacing custom properties - with rows in it. It takes none of the list chrome (no grouping,
+  // no swipe, no reorder, no appearance), which falls out of the `kind === "list"` guards below
+  // rather than needing its own branch. `.dsx-row` is `display: contents`, so each row's content
+  // becomes a direct flex item and wraps like any authored child would.
+  const cls = kind === "grid" ? "dsx-list dsx-grid" : kind === "flow" ? "dsx-flow" : "dsx-list";
   const container = document.createElement("div");
   container.className = cls;
-  container.setAttribute("role", kind);
+  container.setAttribute("role", kind === "flow" ? "list" : kind);
   container.setAttribute("data-dsx-component", kind);
   if (kind === "list") container.setAttribute("data-dsx-appearance", "automatic");
   const api = makeApi(node, ctx);
+  if (kind === "flow") {
+    bindLength(node, api, "spacing", 8, container, "--dsx-flow-spacing");
+    bindLength(node, api, "lineSpacing", 8, container, "--dsx-flow-line-spacing");
+  }
   let columns = 3;
   let collectionAxis: "horizontal" | "vertical" = "vertical";
   let rows: Row[] = [];
 
   const bindExpr = node.attrs["bind"]!;
   const keyField = node.attrs["key"] ?? "id";
+  // A bound collection SAYS SO in the DOM. Inert for layout and free at runtime, and it makes
+  // the collection self-describing to every tool that has to reason about it from outside -
+  // the editor's tree, a test, and the shot guard that refuses a "No data found" screenshot
+  // (platform/10 §4). A collection that does not declare its binding is opaque to all three,
+  // and the alternative was each of them re-deriving it from the IR by position.
+  container.setAttribute("data-dsx-bind", bindExpr.trim());
   // a plain dotted path can host rowWrite two-way binds — and is what a reorder drop
   // writes the moved array back through (List.swift's `dsx.setBound` seam)
   const arrayPath = /^[A-Za-z_][A-Za-z0-9_.]*$/.test(bindExpr.trim()) ? JSE.normalizeScope(bindExpr.trim()) : null;
@@ -1124,11 +1739,14 @@ function mountList(node: XmlNode, ctx: MountCtx, parent: ParentNode): void {
         }));
         return;
       }
-      if (kind === "list") {
+      if (kind === "list" || kind === "flow") {
         // a grouped→flat flip leaves emptied sections behind; drop them, then re-append
         if (container.firstElementChild?.classList.contains("dsx-list-section") === true) {
           container.replaceChildren();
         }
+        // A flow appends its rows FLAT and takes no aria grid rows: the grid's row/col grouping
+        // below is a real block element per row, which would put every chip on one line and
+        // make a wrap that does not wrap.
         for (const row of rows) container.appendChild(row.wrapper);
         return;
       }
@@ -1183,9 +1801,12 @@ function mountList(node: XmlNode, ctx: MountCtx, parent: ParentNode): void {
     container.setAttribute("data-dsx-scroll", scrollWord ? "true" : "false");
     refreshConstructs();
   });
-  api.bindText(node.attrs["align"] ?? "leading", (value) => {
-    container.setAttribute("data-dsx-align", value === "center" || value === "trailing" ? value : "leading");
-  });
+  // unset align = STRETCH (the base rule) — stamp nothing (wave-7 F3), authored keeps meaning
+  if (node.attrs["align"] !== undefined) {
+    api.bindText(node.attrs["align"], (value) => {
+      container.setAttribute("data-dsx-align", value === "center" || value === "trailing" ? value : "leading");
+    });
+  }
 
   // ── row-construct anatomy: one host box per row, the content it slides, and the two
   //    action rails it slides over. Built only when the list DECLARES swipe/reorder, so
@@ -1549,15 +2170,16 @@ function mountList(node: XmlNode, ctx: MountCtx, parent: ParentNode): void {
     const keyCounts = new Map<string, number>();
 
     data.forEach((raw, i) => {
-      const item = collectionItem(ctx.item, raw, i);
       const key = keyedCollectionValue(raw, i, keyField, keyCounts);
       const prior = existing.get(key);
       if (prior !== undefined) {
-        refreshRow(prior, item, raw, i);
+        // A surviving row keeps its item view; only what the view reads is updated.
+        refreshRow(prior, raw, i);
         next.push(prior);
         existing.delete(key);
         return;
       }
+      const item = collectionItem(ctx.item, raw, i);
       const wrapper = document.createElement("div");
       wrapper.className = "dsx-row dsx-collection-row";
       wrapper.setAttribute("data-dsx-part", "row");
@@ -1640,6 +2262,8 @@ function mountBoundPager(node: XmlNode, ctx: MountCtx, parent: ParentNode): void
   dots.setAttribute("aria-label", "Choose slide");
   viewport.appendChild(track);
   root.append(viewport, dots);
+  // Same self-description as the bound list/grid: the collection declares its binding.
+  root.setAttribute("data-dsx-bind", (node.attrs["bind"] ?? "").trim());
 
   const api = makeApi(node, ctx);
   wireCommon(root, node, ctx, api);
@@ -1737,14 +2361,14 @@ function mountBoundPager(node: XmlNode, ctx: MountCtx, parent: ParentNode): void
     const next: PagerRow[] = [];
     data.forEach((raw, index) => {
       const key = keyedCollectionValue(raw, index, keyField, keyCounts);
-      const item = collectionItem(ctx.item, raw, index);
       const prior = existing.get(key);
       if (prior !== undefined) {
         existing.delete(key);
-        refreshRow(prior, item, raw, index);
+        refreshRow(prior, raw, index);
         next.push(prior);
         return;
       }
+      const item = collectionItem(ctx.item, raw, index);
       const wrapper = document.createElement("div");
       wrapper.className = "dsx-paged-page";
       wrapper.setAttribute("role", "group");
@@ -1813,20 +2437,27 @@ function mountFacet(node: XmlNode, ctx: MountCtx, parent: ParentNode, qualified:
   const api = makeApi(node, ctx);
   wireStyles(host, node, ctx, api);
   wireMeasure(host, node, ctx);
+  wireRef(host, node, ctx);
 
   const attrs: Dict = {};
-  const reactive: Array<[name: string, expr: string]> = [];
+  const overrides: Dict = {};
+  const reactive: Array<[name: string, expr: string, plane: Dict]> = [];
   const handlers = new Map<string, string>();
   for (const [name, value] of Object.entries(node.attrs)) {
     if (name.startsWith("on:")) { handlers.set(name.substring(3), value); continue; }
     if (CONSUMED.has(name) || name.startsWith("__")) continue;
-    if (value.includes("{{")) { reactive.push([name, value]); attrs[name] = null; }
-    else attrs[name] = value;
+    const override = (globalThis as typeof globalThis & { __DSX_OPTIONAL_STYLE_OVERRIDES__?: boolean })
+      .__DSX_OPTIONAL_STYLE_OVERRIDES__ !== false ? overrideAttrName(name) : null;
+    const plane = override !== null ? overrides : attrs;
+    const key = override ?? name;
+    if (value.includes("{{")) { reactive.push([key, value, plane]); plane[key] = null; }
+    else plane[key] = value;
   }
 
   const control = new AbortController();
   const facetCtx: FacetCtx = {
     attrs,
+    overrides,
     emit(event, payload = {}) {
       const h = handlers.get(event);
       if (h === undefined) return;
@@ -1843,19 +2474,18 @@ function mountFacet(node: XmlNode, ctx: MountCtx, parent: ParentNode, qualified:
     root.appendChild(target);
   }
 
-  // reactive props BEFORE mount: effects apply immediately, so attrs carries live
-  // initial values when mount() reads it; after mount each change pokes update().
+  // reactive props BEFORE mount: effects apply immediately, so attrs (and overrides)
+  // carry live initial values when mount() reads them; after mount each change pokes
+  // update() — override changes report as `override:<name>` so a facet can tell the
+  // planes apart.
   let instance: FacetInstance | null = null;
-  for (const [name, value] of reactive) {
-    const t = value.trim();
-    const single = t.startsWith("{{") && t.endsWith("}}") && t.indexOf("{{", 2) === -1
-      ? t.slice(2, -2)
-      : null;
+  for (const [name, value, plane] of reactive) {
     ctx.disposers.push(contextEffect(ctx,
-      single !== null ? () => ctx.store.eval(single, ctx.item) : () => ctx.store.interpolate(value, ctx.item),
+      () => readAttribute(ctx, value),
       (v) => {
-        attrs[name] = v;
-        instance?.update?.([name]);
+        plane[name] = v;
+        instance?.update?.([(globalThis as typeof globalThis & { __DSX_OPTIONAL_STYLE_OVERRIDES__?: boolean })
+          .__DSX_OPTIONAL_STYLE_OVERRIDES__ !== false && plane === overrides ? `override:${name}` : name]);
       },
     ));
   }
@@ -1892,6 +2522,20 @@ function mountComponent(node: XmlNode, ctx: MountCtx, parent: ParentNode, adoptE
       }
     }
     console.warn(`[dsx dom] unresolved component <${node.tag}> (scheme ${ctx.scheme})`);
+    // SLOT CHILDREN ARE THE AUTHOR'S EXCLUSION FALLBACK, and they are the whole reason an
+    // excludable module element is safe to write. iOS (Stack.swift) and Android
+    // (StackNodeView.kt) both render the children of a tag nothing resolves; this renderer
+    // dropped them, which made the guarantee two-of-three and silently discarded markup an
+    // author wrote precisely for the excluded build. Rendering them here is what makes
+    // `<rive src="…"><image src="poster.png"/></rive>` mean the same thing on all three.
+    //
+    // The marker still appears when there is NOTHING to fall back to, because a blank space
+    // where a component should be is the failure that is hardest to diagnose; an author who
+    // supplied a fallback has already said what should be there instead.
+    if (node.children.length > 0) {
+      for (const child of node.children) mountNode(child, ctx, parent);
+      return;
+    }
     const missing = document.createElement("div");
     missing.className = "dsx-unsupported";
     missing.textContent = `<${node.tag}>?`;
@@ -1899,9 +2543,27 @@ function mountComponent(node: XmlNode, ctx: MountCtx, parent: ParentNode, adoptE
     return;
   }
 
-  // split consumer attrs: props (static + reactive) vs on:* event handlers
+  // THE RECURSION FLOOR. A component that names itself expands until the data runs out,
+  // which is the whole point of typed props - a tree hands its own children down. When the
+  // data is cyclic or corrupt it never runs out, and this renderer had no floor at all: the
+  // page hung and took the tab with it. Stopping here renders the subtree short instead,
+  // which is a visible, diagnosable wrong answer rather than a dead surface. The marker
+  // says which tag stopped, because a silently truncated tree looks like missing data.
+  if ((ctx.depth ?? 0) >= COMPONENT_DEPTH_CAP) {
+    console.warn(`[dsx dom] <${node.tag}> stopped at the component depth cap (${COMPONENT_DEPTH_CAP}) — cyclic data?`);
+    const capped = document.createElement("div");
+    capped.className = "dsx-depth-capped";
+    capped.setAttribute("data-dsx-depth-capped", node.tag);
+    parent.appendChild(capped);
+    return;
+  }
+
+  // split consumer attrs: props (static + reactive) vs override:<name> style knobs vs
+  // on:* event handlers (the split law — corpus OpenSource/Conformance/overrides)
   const attrs: Dict = {};
   const reactiveAttrs: Array<[string, string]> = [];
+  const overrides: Dict = {};
+  const reactiveOverrides: Array<[string, string]> = [];
   const handlers = new Map<string, string>();
   for (const [name, value] of Object.entries(node.attrs)) {
     if (name.startsWith("on:")) { handlers.set(name.substring(3), value); continue; }
@@ -1915,17 +2577,33 @@ function mountComponent(node: XmlNode, ctx: MountCtx, parent: ParentNode, adoptE
     // divergence: the server rendered the branch from the real value, the client's
     // first pass said no, and the server's element became an unmatched leftover that
     // replace-mounted the subtree. Found by the dashboard's own section labels.
+    const override = (globalThis as typeof globalThis & { __DSX_OPTIONAL_STYLE_OVERRIDES__?: boolean })
+      .__DSX_OPTIONAL_STYLE_OVERRIDES__ !== false ? overrideAttrName(name) : null;
+    if (override !== null) {
+      if (value.includes("{{")) reactiveOverrides.push([override, value]);
+      overrides[override] = value.includes("{{") ? readAttribute(ctx, value) : value;
+      continue;
+    }
     if (value.includes("{{")) {
       reactiveAttrs.push([name, value]);
-      attrs[name] = ctx.store.interpolate(value, ctx.item);
+      attrs[name] = readAttribute(ctx, value);
     } else attrs[name] = value;
   }
+  // The tag door rides the item scope (the `__overrides` dict inside attrs — the same
+  // vehicle `__element` rides), so a component's first pass reads live values with no
+  // effect having run, exactly like attributes. Present even when empty only if a
+  // reactive override may later write it.
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_STYLE_OVERRIDES__?: boolean })
+    .__DSX_OPTIONAL_STYLE_OVERRIDES__ !== false
+    && (Object.keys(overrides).length > 0 || reactiveOverrides.length > 0)) attrs["__overrides"] = overrides;
 
   // folds away in embeds with the rest of the adopt machinery (define above)
   const adopting = (globalThis as typeof globalThis & { __DSX_OPTIONAL_ADOPT__?: boolean })
     .__DSX_OPTIONAL_ADOPT__ !== false && adoptEl !== undefined;
+  const inheritedEnv = scopedEnvOf(ctx.env);
   const instance = instantiate(ir, ctx.registry, {
     attrs,
+    ...(inheritedEnv !== null ? { env: inheritedEnv } : {}),
     ...(adopting && adoptEl !== undefined ? { adopt: adoptEl } : {}),
     emitEvent: (name, payload) => {
       const h = handlers.get(name);
@@ -1934,6 +2612,7 @@ function mountComponent(node: XmlNode, ctx: MountCtx, parent: ParentNode, adoptE
     },
     component: ctx.env.component,
     formNamespace: ctx.formNamespace,
+    depth: (ctx.depth ?? 0) + 1,
     ...(ctx.env.frameId !== undefined ? { frameId: ctx.env.frameId } : {}),
     slots: {
       defaults: node.children.filter((c) => (c.attrs["slot"] ?? "") === ""),
@@ -1955,12 +2634,27 @@ function mountComponent(node: XmlNode, ctx: MountCtx, parent: ParentNode, adoptE
   // deep-equal dedupe see prev == next and ELIDE the child notification (stale props).
   for (const [name, value] of reactiveAttrs) {
     ctx.disposers.push(contextEffect(ctx,
-      () => ctx.store.interpolate(value, ctx.item),
+      () => readAttribute(ctx, value),
       (v) => {
         attrs[name] = v;
         instance.ctx.store.set("dsx.attribute", { ...attrs });
       },
     ));
+  }
+  // reactive overrides: same discipline on the style plane — mutate the live dict the
+  // item scope reads, then poke the child's "dsx.override" pseudo-key so every effect
+  // that read any knob re-runs (jse.ts lookup tracks that key).
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_STYLE_OVERRIDES__?: boolean })
+    .__DSX_OPTIONAL_STYLE_OVERRIDES__ !== false) {
+    for (const [name, value] of reactiveOverrides) {
+      ctx.disposers.push(contextEffect(ctx,
+        () => readAttribute(ctx, value),
+        (v) => {
+          overrides[name] = v;
+          instance.ctx.store.set("dsx.override", { ...overrides });
+        },
+      ));
+    }
   }
 
   // Invocation presentation decorates the expanded root, while its ordinary attrs
@@ -1979,14 +2673,37 @@ export type Instance = {
   unmount: () => void;
 };
 
+/** the seams a scoping host may thread through a mount (all landed kernel seams — B6) */
+export type ScopedEnv = Pick<RunEnv, "callModule" | "egress" | "ownerScheme" | "loopCap" | "deadlineAt" | "callBudget" | "loopWork">;
+
+/** the inheritable slice of a mount's env — SAME objects on purpose (shared budgets) */
+function scopedEnvOf(env: RunEnv): ScopedEnv | null {
+  if (env.callModule === undefined && env.egress === undefined) return null;
+  return {
+    ...(env.callModule !== undefined ? { callModule: env.callModule } : {}),
+    ...(env.egress !== undefined ? { egress: env.egress } : {}),
+    ...(env.ownerScheme !== undefined ? { ownerScheme: env.ownerScheme } : {}),
+    ...(env.loopCap !== undefined ? { loopCap: env.loopCap } : {}),
+    ...(env.deadlineAt !== undefined ? { deadlineAt: env.deadlineAt } : {}),
+    ...(env.callBudget !== undefined ? { callBudget: env.callBudget } : {}),
+    loopWork: env.loopWork,
+  };
+}
+
 export function instantiate(
   ir: ComponentIR,
   registry: Registry,
   opts: {
     attrs?: Dict;
+    /** style-override raw values for the VERB doors (`dsx.component.push/present`,
+     *  native mounts) — the tag door rides `attrs.__overrides` instead. Seeded into the
+     *  instance store's `dsx.override` var before the body mounts. */
+    overrides?: Dict;
     vars?: Dict;
     emitEvent?: (name: string, payload: Dict) => void;
     component?: RunEnv["component"];
+    /** Component-expansion depth of the INVOCATION, so the floor survives nesting. */
+    depth?: number;
     /** Opaque router frame identity propagated through every nested .dsx component. */
     frameId?: number;
     /** Renderer environment inherited from the caller. */
@@ -2001,8 +2718,26 @@ export function instantiate(
      *  server-resolved envelope and skips its initial fetch. Takes precedence over the
      *  global seam; absent = the ordinary fetch-on-mount path. */
     apiSeeds?: { [as: string]: ApiSeed };
+    /** THE SCOPED ENVIRONMENT (studio-apps.md §8): a host mounting a subtree it did not
+     *  write threads the kernel's landed seams — the module funnel (`callModule`), the
+     *  egress gate, owner attribution and the execution budgets. INHERITED by every
+     *  nested component expansion as the SAME objects (a shared call budget and loop
+     *  counter are what make the ceiling subtree-wide — without the inheritance hop a
+     *  child component would silently reach the process-global registry, which would
+     *  void the whole containment story). Unset = the global registry and platform
+     *  networking, byte-identical to before. */
+    env?: ScopedEnv;
   } = {},
 ): Instance {
+  // Fresh client mounts carry the same IR identity SSR emits (idempotent; adopt and
+  // renderPage already stamp): every element gets data-dsx-n/-owner below, which is
+  // what lets the editor address a click on the REAL render as a source splice (P5).
+  // An OPTIONAL FOLD (the R11 discipline): embeds shed it under the G10 widget law —
+  // a sliced widget is never edited in place, so it never pays for editability.
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_EDIT_TAGS__?: boolean })
+    .__DSX_OPTIONAL_EDIT_TAGS__ !== false) {
+    stampNodeIds(ir.root as IRNode);
+  }
   const store = new ReactiveStore();
   const attrs = opts.attrs ?? {};
   const env = makeRunEnv(store, {
@@ -2011,6 +2746,9 @@ export function instantiate(
     ...(opts.component !== undefined ? { component: opts.component } : {}),
     ...(opts.frameId !== undefined ? { frameId: opts.frameId } : {}),
     ...(cookieWriter !== null ? { cookieSet: cookieWriter } : {}),
+    // the scoped seams, when a host threaded them (studio-apps.md §8) — spread LAST so a
+    // scoping host's funnel/gate/budgets are what this subtree actually runs under
+    ...(opts.env ?? {}),
   });
   const runner = new ActionRunner(env);
   const ctx: MountCtx = {
@@ -2025,12 +2763,21 @@ export function instantiate(
     slots: opts.slots ?? null,
     rowBinding: null,
     formNamespace: opts.formNamespace ?? null,
+    depth: opts.depth ?? 0,
   };
 
   // the head, in canonical order
   store.jse.vars.set("dsx.attribute", { ...attrs });
   for (const a of ir.head.attributes) {
     if (a.default !== undefined) store.jse.attrDefaults.set(a.as, a.default);
+  }
+  // the style contract: declared knobs register before anything reads, the verb door's
+  // raw values seed the store var (the tag door already rides attrs.__overrides).
+  // Folds with the rest of the plane in a knob-free embed (define read in-condition).
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_STYLE_OVERRIDES__?: boolean })
+    .__DSX_OPTIONAL_STYLE_OVERRIDES__ !== false) {
+    for (const o of ir.head.overrides ?? []) store.jse.overrideDecls.set(o.as, o);
+    if (opts.overrides !== undefined) store.jse.vars.set("dsx.override", { ...opts.overrides });
   }
   // `<functions global="true">` — the GLOBAL FUNCTION LIBRARY blocks (js-core.md
   // "Shared logic", corpus Conformance/functions): app-wide registration, last write
@@ -2054,6 +2801,31 @@ export function instantiate(
   }
   for (const a of ir.head.actions) {
     env.actions.set(a.as, { body: a.body, inputs: a.inputs });
+  }
+  // WebMCP (proposals/webmcp.md §3): the document's `<tool>` rows register with the user
+  // agent for exactly as long as this document is mounted, so the tool set an agent sees
+  // is always the set the current screen can honour. A slice that declares no row folds
+  // this away entirely (__DSX_OPTIONAL_WEBMCP__), so an embed pays nothing for a surface
+  // it never uses — the /web/13 byte budget, same discipline as `<api>`. A call arrives
+  // as an ENTRY call — the
+  // agent is a host with a payload and no caller scope, the same shape an HTTP route, a
+  // CLI command and a queue message already use (Conformance/actions entry-* cases).
+  if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_WEBMCP__?: boolean })
+    .__DSX_OPTIONAL_WEBMCP__ !== false && ir.head.tools.length > 0 && WebMcpSeam.bind !== null) {
+    const actionInputs = new Map<string, readonly string[]>();
+    for (const a of ir.head.actions) actionInputs.set(a.as, Object.keys(a.inputs));
+    ctx.disposers.push(WebMcpSeam.bind(ir.head.tools, {
+      actionInputs,
+      dispatch: async (action, args) => {
+        const value = await runner.callAction(action, {}, null, args as Dict, { entry: true });
+        // A deliberate throw is the ANSWER, not an unobserved fault: taking it off the
+        // runner here is what lets the adapter shape it into an isError result instead of
+        // the ledger filing it as an uncaught surface error.
+        const thrown = runner.takeThrow();
+        if (thrown !== null) throw thrown.value;
+        return value;
+      },
+    }));
   }
   // pushed vars (`<expects variable="vars"/>` — the router seeds them)
   if (opts.vars) {
@@ -2080,6 +2852,8 @@ export function instantiate(
           if (h !== undefined) void runner.run(h, attrs, payload);
         },
         ...(seed !== null ? { seed } : {}),
+        // a scoped mount's egress gate reaches `<api>` too — the funnel law, block tier
+        ...(env.egress !== undefined ? { egress: env.egress } : {}),
         graph: apiGraph,
       });
       apiBlocks.push(block);
@@ -2106,12 +2880,17 @@ export function instantiate(
   }
   root.setAttribute("data-dsx-owner", ir.name);
 
-  // watches attach AFTER mount (never fire on subscribe — the reference semantics)
+  // watches attach AFTER mount and never fire on subscribe — the reference semantics — EXCEPT
+  // under `immediate`, which is the element's documented "also fire once on mount" and is how a
+  // component seeds a writable local from a read-only prop.
   for (const w of ir.head.watches) {
     ctx.disposers.push(store.watch(
       () => store.eval(w.value, ctx.item),
       (v) => { void runner.run(w.handler, ctx.item, { value: v }); },
     ));
+    if (w.immediate === true) {
+      void runner.run(w.handler, ctx.item, { value: store.eval(w.value, ctx.item) });
+    }
   }
 
   const unmount = (): void => {

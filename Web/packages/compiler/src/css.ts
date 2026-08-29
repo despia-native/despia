@@ -11,7 +11,8 @@
 //  attribute bridge lands in dsx-attrs (strongest).
 //
 
-import { splitStyleAttr, legacyAttrToDecls, BRIDGE_ATTRS, LAYER_STATEMENT, type Decl } from "./cssmap.ts";
+import { attributeBinding } from "@despia/kernel";
+import { splitStyleAttr, legacyAttrToDecls, BRIDGE_ATTRS, BRIDGE_CONTEXT_ATTRS, LAYER_STATEMENT, type Decl } from "./cssmap.ts";
 import type { XmlNode } from "./xml.ts";
 import type { ComponentIR } from "./component.ts";
 
@@ -67,7 +68,13 @@ function scopeBlock(css: string, prefix: string): string {
         const s = sel.trim();
         if (s.length === 0) return s;
         if (s.startsWith(":root") || s.startsWith("html") || s.startsWith("body")) return s;
-        return `${prefix} ${s}`;
+        // Two alternatives on purpose: the owner stamp lives ON the component's root
+        // element (mount.ts stamps data-dsx-owner on the mounted root), so the descendant
+        // form alone can never reach the root from its own sheet - a rule on the root's
+        // class silently no-ops. The `:is()` self form matches the stamped root itself;
+        // :is() parses forgivingly, so a pseudo-element argument (which cannot appear in
+        // :is) drops that alternative without invalidating the list.
+        return `${prefix} ${s}, ${prefix}:is(${s})`;
       })
       .join(", ");
     out += `${scoped} {${body}}`;
@@ -86,7 +93,15 @@ export type NodeCss = {
 export class CssCollector {
   private inlineRules = new Map<string, string>(); // decl text → class
   private attrsRules = new Map<string, string>();
+  private sheetRules: string[] = [];              // owner-scoped named-style rules
   private n = 0;
+
+  /** An owner-scoped rule block (a component's named styles) destined for the
+   *  `dsx-sheets` layer — the same layer a sidecar `Foo.css` lands in, so an element's
+   *  own attributes and inline style still win by the established layer order. */
+  sheet(css: string): void {
+    if (css.trim().length > 0) this.sheetRules.push(css.trim());
+  }
 
   /** static style="" declarations → a deduped dsx-inline class */
   inline(decls: Decl[]): string {
@@ -123,6 +138,7 @@ export class CssCollector {
       .map(([text, cls]) => `[data-dsx~="${cls}"] { ${text}; }`)
       .join("\n");
     const parts: string[] = [];
+    if (this.sheetRules.length > 0) parts.push(`@layer dsx-sheets {\n${this.sheetRules.join("\n")}\n}`);
     if (inline.length > 0) parts.push(`@layer dsx-inline {\n${inline}\n}`);
     if (attrs.length > 0) parts.push(`@layer dsx-attrs {\n${attrs}\n}`);
     return parts.join("\n");
@@ -132,11 +148,51 @@ export class CssCollector {
 /** Walk a component tree collecting static css; stamps each node's attrs with
  *  `data-dsx` class handles (consumed by @despia/dom at mount). Reactive declarations
  *  stay in the attrs for the runtime to bind. */
+/** `<style as="card" …/>` head declarations → owner-scoped class rules.
+ *
+ *  A named style is exactly "a class rule in this component's own sheet", so it folds
+ *  through the SAME cssmap an element attribute uses and rides the SAME owner scoping a
+ *  sidecar `Foo.css` gets. That places it in the `dsx-sheets` layer, which the layer order
+ *  already ranks below `dsx-inline`/`dsx-attrs` - so the element's own attributes win over
+ *  the named style without a single new precedence rule. Reactive values ({{ }}) are not
+ *  folded: a named style is a static look, and a binding there would bake template text
+ *  into a class the runtime never revisits. */
+function namedStyleDecls(ir: ComponentIR): Map<string, Decl[]> {
+  const table = new Map<string, Decl[]>();
+  for (const { as, attrs } of ir.head.styles) {
+    if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(as)) continue; // not a usable class ident
+    const decls: Decl[] = [];
+    for (const [name, value] of Object.entries(attrs)) {
+      if (!BRIDGE_ATTRS.has(name) || value.includes("{{")) continue;
+      const mapped = legacyAttrToDecls(name, value, attrs);
+      if (mapped) decls.push(...mapped);
+    }
+    if (decls.length > 0) table.set(as, decls);
+  }
+  return table;
+}
+
+function namedStyleRules(ir: ComponentIR, table: Map<string, Decl[]>): string {
+  const blocks = [...table.entries()]
+    .map(([as, decls]) => `.${as} { ${decls.map(([prop, v]) => `${prop}: ${v}`).join("; ")}; }`);
+  return blocks.length === 0 ? "" : scopeSheet(blocks.join("\n"), ir.name);
+}
+
 export function extractComponentCss(ir: ComponentIR, collector: CssCollector): void {
+  const named = namedStyleDecls(ir);
+  collector.sheet(namedStyleRules(ir, named));
   const walk = (node: XmlNode): void => {
     const style = node.attrs["style"];
     const handles: string[] = [];
-    if (style !== undefined && style.length > 0) {
+    if (style !== undefined && style.length > 0 && attributeBinding(style).kind === "value") {
+      // A sole `{{ … }}` style attribute is a whole DECLARATION-LIST hole (the css-typed
+      // override consumption door — `style="{{ dsx.override.extra }}"`). The native
+      // renderers interpolate the whole style string before parsing, so splitting this
+      // per-declaration here would butcher the expression (a ternary's `:` reads as a
+      // property separator). It rides intact for the runtime to evaluate and parse.
+      node.attrs["__style_list"] = style;
+      delete node.attrs["style"];
+    } else if (style !== undefined && style.length > 0) {
       const { staticDecls, reactiveDecls } = splitStyleAttr(style);
       const cls = collector.inline(staticDecls);
       if (cls.length > 0) handles.push(cls);
@@ -149,10 +205,28 @@ export function extractComponentCss(ir: ComponentIR, collector: CssCollector): v
       delete node.attrs["style"];
     }
     const attrDecls: Decl[] = [];
+    // MULTI-CLASS ORDER. Both native renderers merge named styles in CLASS-ATTRIBUTE order
+    // (`for (name in cls.split(" ")) base.putAll(...)`), so `class="b a"` lets `a` win. A
+    // plain CSS cascade cannot express that - it resolves by SOURCE order - so a static
+    // class list is folded here instead, in the author's order, ahead of the element's own
+    // declarations (which therefore still win, exactly as `base.putAll(a)` does on native).
+    // A class FORMULA cannot be folded at compile time and keeps the sheet rules, whose
+    // source order is the head's declaration order.
+    const classAttr = node.attrs["class"];
+    if (named.size > 0 && classAttr !== undefined && !classAttr.includes("{{")) {
+      for (const token of classAttr.split(/\s+/)) {
+        const decls = named.get(token);
+        if (decls !== undefined) attrDecls.push(...decls);
+      }
+    }
+    // A fold whose CONTEXT is reactive is itself reactive: folding it here would bake the
+    // literal template text into a class the runtime then never revisits.
+    const reactiveContext = [...BRIDGE_CONTEXT_ATTRS]
+      .some((name) => (node.attrs[name] ?? "").includes("{{"));
     for (const [name, value] of Object.entries(node.attrs)) {
       if (!BRIDGE_ATTRS.has(name)) continue;
-      if (value.includes("{{")) continue; // reactive legacy attr — runtime path
-      const decls = legacyAttrToDecls(name, value);
+      if (value.includes("{{") || reactiveContext) continue; // reactive legacy attr — runtime path
+      const decls = legacyAttrToDecls(name, value, node.attrs);
       if (decls) attrDecls.push(...decls);
     }
     if (attrDecls.length > 0) {

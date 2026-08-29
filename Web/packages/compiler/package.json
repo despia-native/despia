@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "license": "Apache-2.0",
   "type": "module",
-  "description": "DSX web compiler \u2014 .dsx \u2192 node-tree IR, head contract extraction, CSS emission (layers + owner scoping), module registry. Build-time twin of prepare_config.rb + compile_dsx_css.rb + StackXML.",
+  "description": "DSX web compiler - .dsx → node-tree IR, head contract extraction, CSS emission (layers + owner scoping), module registry. Build-time twin of prepare_config.rb + compile_dsx_css.rb + StackXML.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -42,6 +42,21 @@
       "import": "./dist/xml.js",
       "default": "./dist/xml.js"
     },
+    "./surgery": {
+      "types": "./dist/surgery.d.ts",
+      "import": "./dist/surgery.js",
+      "default": "./dist/surgery.js"
+    },
+    "./screengraph": {
+      "types": "./dist/screengraph.d.ts",
+      "import": "./dist/screengraph.js",
+      "default": "./dist/screengraph.js"
+    },
+    "./screenlayout": {
+      "types": "./dist/screenlayout.d.ts",
+      "import": "./dist/screenlayout.js",
+      "default": "./dist/screenlayout.js"
+    },
     "./expose": {
       "types": "./dist/expose.d.ts",
       "import": "./dist/expose.js",
@@ -72,7 +87,7 @@
     "url": "git+https://github.com/despia-native/despia.git",
     "directory": "Web/packages/compiler"
   },
-  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/compiler",
+  "homepage": "https://github.com/despia-native/despia/tree/main/Web/packages/compiler",
   "bugs": {
     "url": "https://github.com/despia-native/despia/issues"
   },

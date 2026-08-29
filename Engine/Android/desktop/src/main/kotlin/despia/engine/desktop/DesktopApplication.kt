@@ -3,6 +3,7 @@ package despia.engine.desktop
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.Colors
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.darkColors
 import androidx.compose.material.lightColors
@@ -50,25 +51,7 @@ object DesktopApplication {
                 }
             }
             val dark = isSystemInDarkTheme()
-            MaterialTheme(
-                colors = if (dark) {
-                    darkColors(
-                        primary = Color(0xFF8EAAFF),
-                        secondary = Color(0xFFAAB3CB),
-                        background = Color(0xFF111318),
-                        surface = Color(0xFF1A1D24),
-                        error = Color(0xFFFFB4AB),
-                    )
-                } else {
-                    lightColors(
-                        primary = Color(0xFF315BE8),
-                        secondary = Color(0xFF5B6478),
-                        background = Color(0xFFF5F7FB),
-                        surface = Color.White,
-                        error = Color(0xFFBA1A1A),
-                    )
-                },
-            ) {
+            MaterialTheme(colors = desktopPalette(dark)) {
                 if (uiSmoke) DesktopUiSmokeStateProbe(store)
                 if (root == null) {
                     val fallback = remember { DesktopHost.loadBundled("/dsx/DesktopFailure.dsx") }
@@ -94,6 +77,28 @@ object DesktopApplication {
             }
         }
     }
+}
+
+/** The shipped Windows/Linux window palette. Named because the parity capture harness
+ * must measure the SAME MaterialTheme the application stamps: `color()` resolves the DSX
+ * semantic words off these slots, so a capture under a different palette would report
+ * colors no user ever sees. */
+internal fun desktopPalette(dark: Boolean): Colors = if (dark) {
+    darkColors(
+        primary = Color(0xFF8EAAFF),
+        secondary = Color(0xFFAAB3CB),
+        background = Color(0xFF111318),
+        surface = Color(0xFF1A1D24),
+        error = Color(0xFFFFB4AB),
+    )
+} else {
+    lightColors(
+        primary = Color(0xFF315BE8),
+        secondary = Color(0xFF5B6478),
+        background = Color(0xFFF5F7FB),
+        surface = Color.White,
+        error = Color(0xFFBA1A1A),
+    )
 }
 
 internal data class DesktopRootExitPlan(val motion: String, val durationMillis: Int)

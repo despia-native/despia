@@ -361,9 +361,9 @@ class DesktopStudioElementsUiTest {
             <vstack padding="16">
               <head>
                 <variable as="remoteTitle">return "Remote DSX native"</variable>
-                <component as="RemoteCard"><text value="{{ dsx.variable.remoteTitle }}"/></component>
+                <component as="RemoteCard"><text value="{{ dsx.attribute.title }}"/></component>
               </head>
-              <RemoteCard/>
+              <RemoteCard title="{{ dsx.variable.remoteTitle }}"/>
             </vstack>
         """.trimIndent().toByteArray()
         local.createContext("/screen.dsx") { exchange ->

@@ -1,0 +1,349 @@
+{
+  "version": 1,
+  "_note": "CAMERA MATHS - the web-mercator projection every renderer already needs, plus the two things nobody gets right. FIRST, fitTo across the antimeridian: taking min and max longitude of a set straddling 180 degrees produces a camera that flies the long way round the planet and zooms out to the whole world. The fix is the minimal enclosing ARC - sort the longitudes, find the largest circular GAP, and the span is what is left. SECOND, asymmetric padding: the content must be centred in the USABLE rectangle, not the viewport, so the camera centre shifts by half the padding difference converted back to world units AT THE CHOSEN ZOOM. A single coordinate is not a zero-span bug, it is a request to sit at defaultZoom. The region payload is what on:regionChange emits.",
+  "tolerance": 1e-09,
+  "defaults": {
+    "tileSize": 256.0,
+    "minZoom": 0.0,
+    "maxZoom": 22.0,
+    "defaultZoom": 16.0,
+    "maxMercatorLatitude": 85.05112878
+  },
+  "project": [
+    {
+      "name": "the prime meridian is the middle of the world",
+      "lon": 0.0,
+      "expectWorldX": 0.5
+    },
+    {
+      "name": "the antimeridian west edge",
+      "lon": -180.0,
+      "expectWorldX": 0.0
+    },
+    {
+      "name": "the equator is the middle of the world",
+      "lat": 0.0,
+      "expectWorldY": 0.5
+    },
+    {
+      "name": "san francisco",
+      "lat": 37.7749,
+      "expectWorldY": 0.38652093672172827
+    },
+    {
+      "name": "sydney is south of the middle",
+      "lat": -33.8688,
+      "expectWorldY": 0.6000922514587762
+    },
+    {
+      "name": "the pole clamps to the mercator limit",
+      "lat": 90.0,
+      "expectWorldY": -6.227685034332353e-12
+    }
+  ],
+  "roundTrip": [
+    {
+      "name": "equator",
+      "lat": 0.0,
+      "lon": 0.0
+    },
+    {
+      "name": "san francisco",
+      "lat": 37.7749,
+      "lon": -122.4194
+    },
+    {
+      "name": "sydney",
+      "lat": -33.8688,
+      "lon": 151.2093
+    },
+    {
+      "name": "the mercator limit",
+      "lat": 85.0,
+      "lon": 179.9
+    }
+  ],
+  "normalizeLon": [
+    {
+      "name": "in range is untouched",
+      "lon": 12.5,
+      "expect": 12.5
+    },
+    {
+      "name": "one turn east",
+      "lon": 200.0,
+      "expect": -160.0
+    },
+    {
+      "name": "one turn west",
+      "lon": -200.0,
+      "expect": 160.0
+    },
+    {
+      "name": "the antimeridian normalises west",
+      "lon": 180.0,
+      "expect": -180.0
+    },
+    {
+      "name": "two full turns",
+      "lon": 730.0,
+      "expect": 10.0
+    }
+  ],
+  "fitTo": [
+    {
+      "name": "two points either side of greenwich",
+      "coords": [
+        {
+          "lat": 0.0,
+          "lon": -45.0
+        },
+        {
+          "lat": 0.0,
+          "lon": 45.0
+        }
+      ],
+      "width": 512.0,
+      "height": 512.0,
+      "padding": {
+        "top": 0.0,
+        "right": 0.0,
+        "bottom": 0.0,
+        "left": 0.0
+      },
+      "expect": {
+        "valid": true,
+        "lat": 0.0,
+        "lon": 0.0,
+        "zoom": 3.0
+      }
+    },
+    {
+      "name": "across the antimeridian, the short way",
+      "coords": [
+        {
+          "lat": 0.0,
+          "lon": 170.0
+        },
+        {
+          "lat": 0.0,
+          "lon": -170.0
+        }
+      ],
+      "width": 512.0,
+      "height": 512.0,
+      "padding": {
+        "top": 0.0,
+        "right": 0.0,
+        "bottom": 0.0,
+        "left": 0.0
+      },
+      "expect": {
+        "valid": true,
+        "lat": 0.0,
+        "lon": -180.0,
+        "zoom": 5.169925001442312
+      }
+    },
+    {
+      "name": "top padding pushes the camera north",
+      "coords": [
+        {
+          "lat": 0.0,
+          "lon": -45.0
+        },
+        {
+          "lat": 0.0,
+          "lon": 45.0
+        }
+      ],
+      "width": 400.0,
+      "height": 400.0,
+      "padding": {
+        "top": 100.0,
+        "right": 0.0,
+        "bottom": 0.0,
+        "left": 0.0
+      },
+      "expect": {
+        "valid": true,
+        "lat": 11.178401873711781,
+        "lon": 0.0,
+        "zoom": 2.643856189774725
+      }
+    },
+    {
+      "name": "left padding moves the camera west so the content clears it",
+      "coords": [
+        {
+          "lat": 0.0,
+          "lon": -45.0
+        },
+        {
+          "lat": 0.0,
+          "lon": 45.0
+        }
+      ],
+      "width": 400.0,
+      "height": 400.0,
+      "padding": {
+        "top": 0.0,
+        "right": 0.0,
+        "bottom": 0.0,
+        "left": 80.0
+      },
+      "expect": {
+        "valid": true,
+        "lat": 0.0,
+        "lon": -11.25,
+        "zoom": 2.321928094887362
+      }
+    },
+    {
+      "name": "a single coordinate sits at the default zoom",
+      "coords": [
+        {
+          "lat": 37.7749,
+          "lon": -122.4194
+        }
+      ],
+      "width": 400.0,
+      "height": 400.0,
+      "padding": {
+        "top": 0.0,
+        "right": 0.0,
+        "bottom": 0.0,
+        "left": 0.0
+      },
+      "expect": {
+        "valid": true,
+        "lat": 37.774899999999995,
+        "lon": -122.4194,
+        "zoom": 16.0
+      }
+    },
+    {
+      "name": "a latitude-only span picks the vertical fit",
+      "coords": [
+        {
+          "lat": 30.0,
+          "lon": 0.0
+        },
+        {
+          "lat": 40.0,
+          "lon": 0.0
+        }
+      ],
+      "width": 400.0,
+      "height": 400.0,
+      "padding": {
+        "top": 0.0,
+        "right": 0.0,
+        "bottom": 0.0,
+        "left": 0.0
+      },
+      "expect": {
+        "valid": true,
+        "lat": 35.153391777165496,
+        "lon": 0.0,
+        "zoom": 5.522345075410386
+      }
+    },
+    {
+      "name": "a bay area bounding box",
+      "coords": [
+        {
+          "lat": 37.7749,
+          "lon": -122.4194
+        },
+        {
+          "lat": 37.8044,
+          "lon": -122.2712
+        },
+        {
+          "lat": 37.6879,
+          "lon": -122.4702
+        }
+      ],
+      "width": 390.0,
+      "height": 600.0,
+      "padding": {
+        "top": 24.0,
+        "right": 24.0,
+        "bottom": 24.0,
+        "left": 24.0
+      },
+      "expect": {
+        "valid": true,
+        "lat": 37.746172923386176,
+        "lon": -122.3707,
+        "zoom": 11.238865275333923
+      }
+    },
+    {
+      "name": "no coordinates is a typed invalid, not a camera at null island",
+      "coords": [],
+      "width": 400.0,
+      "height": 400.0,
+      "padding": {
+        "top": 0.0,
+        "right": 0.0,
+        "bottom": 0.0,
+        "left": 0.0
+      },
+      "expect": {
+        "valid": false,
+        "lat": 0.0,
+        "lon": 0.0,
+        "zoom": 16.0
+      }
+    }
+  ],
+  "region": [
+    {
+      "name": "a city-scale camera",
+      "lat": 37.7749,
+      "lon": -122.4194,
+      "zoom": 12.0,
+      "width": 390.0,
+      "height": 600.0,
+      "expect": {
+        "centerLat": 37.7749,
+        "centerLon": -122.4194,
+        "zoom": 12.0,
+        "latSpan": 0.16282218889026723,
+        "lonSpan": 0.1338958740234375
+      }
+    },
+    {
+      "name": "the whole world",
+      "lat": 0.0,
+      "lon": 0.0,
+      "zoom": 0.0,
+      "width": 256.0,
+      "height": 256.0,
+      "expect": {
+        "centerLat": 0.0,
+        "centerLon": 0.0,
+        "zoom": 0.0,
+        "latSpan": 170.1022575596132,
+        "lonSpan": 360.0
+      }
+    },
+    {
+      "name": "a longitude past the antimeridian normalises in the payload",
+      "lat": 0.0,
+      "lon": 190.0,
+      "zoom": 10.0,
+      "width": 400.0,
+      "height": 400.0,
+      "expect": {
+        "centerLat": 0.0,
+        "centerLon": -170.0,
+        "zoom": 10.0,
+        "latSpan": 0.5493143024293726,
+        "lonSpan": 0.54931640625
+      }
+    }
+  ]
+}

@@ -20,6 +20,7 @@
       "WebView",
       "chart",
       "lottie",
+      "rive",
       "map"
     ]
   },
@@ -30,6 +31,14 @@
       "Scene360"
     ]
   },
-  "partial": {},
-  "_partial_reasons": {}
+  "partial": {
+    "pager": [
+      "attributes.bind"
+    ]
+  },
+  "_partial_reasons": {
+    "pager": {
+      "attributes.bind": "iOS bind= is the data-bound page list plus one row template. Android bind= is an alias of value= (the page index); data-bound pages ride list registration, not bind=. Pinned in the StackNodeView.kt Pager header."
+    }
+  }
 }

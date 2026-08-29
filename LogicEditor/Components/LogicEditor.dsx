@@ -1,0 +1,47 @@
+<!-- LogicEditor — the visual formula editor as a DSX component (/web/13 + /web/18),
+     the logic twin of Components/StackEditor.dsx in the canvas editor: canvas edits
+     UI, this edits FORMULAS (node graph, left → right, one output, live values).
+     The head IS the web-component contract: every attribute becomes an observed
+     attribute AND a JS property on <despia-logic> (rich data — a graph, a scope —
+     rides the property or JSON attribute text), and every event re-dispatches as a
+     composed CustomEvent with the SDK payload in `detail`. The body is ONE
+     module-provided facet component: <LogicCanvas> (web/index.js) mounts the
+     zero-dependency StackLogic SDK — the same surface LogicEditor.html loads.
+     The contract the editor keeps: the graph JSON is a VIEW; `change` always
+     carries the compiled JSE text, and THAT is what a host persists into a .dsx.
+     Forwarding is FIELD-EXPLICIT on purpose: each event names exactly the SDK
+     payload fields it re-emits — the component's event contract, readable in one
+     place. -->
+<stack style="width: 100%; height: 100%; background: #161617">
+  <head>
+    <attribute as="graph" default=""/>
+    <attribute as="jse" default=""/>
+    <attribute as="scope" default=""/>
+    <attribute as="src" default=""/>
+    <attribute as="readonly" default="false"/>
+    <attribute as="code" default="false"/>
+    <attribute as="theme" default="auto"/>
+    <event as="ready"/>
+    <event as="change"/>
+    <event as="select"/>
+    <event as="deselect"/>
+    <event as="preview"/>
+    <event as="view"/>
+    <action as="fwdChange">dsx.event('change', { graph: dsx.this.graph, jse: dsx.this.jse })</action>
+    <action as="fwdPreview">dsx.event('preview', { values: dsx.this.values, result: dsx.this.result, jse: dsx.this.jse })</action>
+  </head>
+  <LogicCanvas grow="true"
+    graph="{{ dsx.attribute.graph }}"
+    jse="{{ dsx.attribute.jse }}"
+    scope="{{ dsx.attribute.scope }}"
+    src="{{ dsx.attribute.src }}"
+    readonly="{{ dsx.attribute.readonly }}"
+    code="{{ dsx.attribute.code }}"
+    theme="{{ dsx.attribute.theme }}"
+    on:ready="dsx.event('ready', { nodes: dsx.this.nodes, jse: dsx.this.jse })"
+    on:change="fwdChange()"
+    on:select="dsx.event('select', { id: dsx.this.id, kind: dsx.this.kind })"
+    on:deselect="dsx.event('deselect', {})"
+    on:preview="fwdPreview()"
+    on:view="dsx.event('view', { zoom: dsx.this.zoom, x: dsx.this.x, y: dsx.this.y })"/>
+</stack>

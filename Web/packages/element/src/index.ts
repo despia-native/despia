@@ -15,7 +15,7 @@
 import { JSESeams, ModuleRegistry, isDict, number, type ApiSeed, type Dict, type WebModule } from "@despia/kernel";
 import type { Registry } from "@despia/compiler/resolve";
 import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-import { instantiate, type Instance } from "@despia/dom/mount";
+import { instantiate, type Instance, type ScopedEnv } from "@despia/dom/mount";
 import { TOKENS_CSS, ELEMENTS_CSS } from "@despia/dom/theme";
 
 export type EmbedSpec = {
@@ -28,6 +28,9 @@ export type EmbedSpec = {
   /** module chunks bundled with this embed (the honest subset — everything else
    *  reads dsx.has() === false) */
   modules?: WebModule[];
+  /** the scoped environment (studio-apps.md §8), forwarded verbatim to instantiate —
+   *  a host embedding a subtree it did not write threads its funnel/gate/budgets here */
+  env?: ScopedEnv;
 };
 
 const kebab = (s: string): string => s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
@@ -120,6 +123,7 @@ export function defineDsxElement(spec: EmbedSpec): void {
       }
       this.#instance = instantiate(ir, spec.registry, {
         attrs: this.#attrs,
+        ...(spec.env !== undefined ? { env: spec.env } : {}),
         // SSR api-seed (scenario 2): read from the DSD before the upgrade replaces it.
         // Gated on __DSX_OPTIONAL_APIS__ so a no-api embed folds embedSeedOpts out AND
         // this spread collapses to nothing — byte-identical to v0 (/web/13 byte budget).

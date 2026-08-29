@@ -13,12 +13,16 @@ import java.nio.charset.StandardCharsets
  * implementation excluded from this build remains the distinct `not_loaded` case. */
 internal object DesktopPackageCatalog {
     private const val RESOURCE = "/dsx/ModulePlatformSupport.generated.tsv"
+    private const val ACTION_RESOURCE = "/dsx/ModuleActionPlatformSupport.generated.tsv"
     private const val IMPLEMENTATIONS_RESOURCE = "/dsx/DesktopPackageImplementations.generated.tsv"
     // These are DSX routing keys/chains, not necessarily RFC URI schemes.
     // Keep the core/DSXGraph grammar, including structured underscore keys.
     private val routePattern = Regex("[a-z0-9][a-z0-9._-]{0,127}")
     private val classPattern = Regex("despia\\.modules(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\.[A-Z][A-Za-z0-9_]{0,127}")
-    private val platformOrder = listOf("ios", "android", "macos", "windows", "linux")
+    // The full catalog vocabulary, in DSXGraph.PLATFORM_SUPPORT_ORDER. `web` is a support
+    // FACT like any other here — the desktop host never runs it, but a row that omitted it
+    // would tell a Windows caller a browser-implemented action is implemented nowhere.
+    private val platformOrder = listOf("ios", "android", "web", "macos", "windows", "linux")
     private val desktopTargetOrder = listOf("windows", "linux")
     private val installedTargets = HashSet<String>()
     private val requiredHeader = listOf(
@@ -28,8 +32,23 @@ internal object DesktopPackageCatalog {
         "# scheme<TAB>comma-separated concrete implementation platforms",
     )
 
+    private val requiredActionHeader = listOf(
+        "# ModuleActionPlatformSupport.generated.tsv",
+        "# Generated from ClosedSource/DSX/Modules/**/dsx.json `actions[].platforms` by prepare_modules_android.rb.",
+        "# Support facts only: this file does not load or promise any package implementation.",
+        "# scheme.action<TAB>comma-separated concrete implementation platforms",
+    )
+
     val byScheme: Map<String, List<String>> by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         parse(readResource(RESOURCE, "module-support"))
+    }
+
+    /** The ACTION rows — "<scheme>.<action>" → the platforms that one action runs on. Sparse:
+     * only manifest-declared narrowings appear. Read with the same bounded, schema-pinned
+     * parser as the scheme table; an EMPTY table is legal here (no narrowing is declared yet),
+     * which is the one place the two catalogs differ. */
+    val byAction: Map<String, List<String>> by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        parse(readResource(ACTION_RESOURCE, "action-support"), requiredActionHeader, allowEmpty = true)
     }
 
     internal data class Implementation(
@@ -55,18 +74,22 @@ internal object DesktopPackageCatalog {
         }
     }
 
-    internal fun parse(text: String): Map<String, List<String>> {
+    internal fun parse(
+        text: String,
+        header: List<String> = requiredHeader,
+        allowEmpty: Boolean = false,
+    ): Map<String, List<String>> {
         val canonical = canonicalLineEndings(text, "module-support")
         require(canonical.endsWith('\n')) { "Desktop module-support catalog must end with LF" }
         val lines = canonical.removeSuffix("\n").split('\n')
-        require(lines.take(requiredHeader.size) == requiredHeader) {
+        require(lines.take(header.size) == header) {
             "Desktop module-support catalog schema/header mismatch"
         }
         val parsed = LinkedHashMap<String, List<String>>()
         var records = 0
         var previousScheme: String? = null
-        lines.drop(requiredHeader.size).forEachIndexed { recordIndex, line ->
-            val index = recordIndex + requiredHeader.size
+        lines.drop(header.size).forEachIndexed { recordIndex, line ->
+            val index = recordIndex + header.size
             require(line.isNotEmpty() && !line.startsWith('#')) {
                 "Blank/comment desktop module-support record at line ${index + 1}"
             }
@@ -93,7 +116,7 @@ internal object DesktopPackageCatalog {
                 "Duplicate desktop module scheme at line ${index + 1}"
             }
         }
-        require(parsed.isNotEmpty()) { "Desktop module-support catalog is empty" }
+        require(allowEmpty || parsed.isNotEmpty()) { "Desktop module-support catalog is empty" }
         return parsed.mapValues { (_, platforms) -> platforms.toList() }.toMap()
     }
 
@@ -188,6 +211,7 @@ internal object DesktopPackageCatalog {
     @Synchronized
     fun install() {
         ModuleRegistry.shared.platformSupport = byScheme
+        ModuleRegistry.shared.platformSupportByAction = byAction
         val os = Platform.os
         require(os == "windows" || os == "linux" || os == "macos") {
             "Desktop package catalog cannot install for platform '$os'"

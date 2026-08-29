@@ -104,7 +104,11 @@ export function fallbackText(value: unknown): string {
     return value.map((v, i) => `${i + 1}. ${fallbackText(v)}`).join("\n");
   }
   if (isRecord(value)) {
-    const entries = Object.entries(value);
+    // Keys are SORTED, not insertion-ordered, because this text is pinned by a corpus that
+    // runs on three renderers and a Swift dictionary has no order to preserve. Sorting is
+    // the only ordering all three can produce identically, and a fallback rendering has no
+    // semantic key order to lose (`structuredContent` carries the value itself).
+    const entries = Object.entries(value).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
     if (entries.length === 0) return "(empty)";
     return entries.map(([k, v]) => `${k}: ${scalarish(v)}`).join("\n");
   }

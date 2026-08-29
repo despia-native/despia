@@ -1,0 +1,12 @@
+<vstack style="padding: 20px; gap: 0.5rem">
+  <head>
+    <!-- NEGATIVE FIXTURE: everything resolves and nothing throws - the api answers with an
+         EMPTY ARRAY. The screen renders perfectly and says nothing. This is the "No data
+         found" screenshot, and only the zero-row rule catches it. -->
+    <api as="orders" url="/api/orders" sample="[]"/>
+  </head>
+  <text value="Your orders" type="title1"/>
+  <list ref="orderList" bind="orders.data" key="id">
+    <text value="{{ item.title }}"/>
+  </list>
+</vstack>

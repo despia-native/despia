@@ -1,4 +1,4 @@
-# The JS core globals in JSE — app logic, 1:1, no browser
+# The JS core globals in JSE: app logic, 1:1, no browser
 
 > JSE ships the boring, universal Web/JS primitives that make DSX **computationally
 > complete for app logic** — URL math, dates, localization, JSON, uploads, async

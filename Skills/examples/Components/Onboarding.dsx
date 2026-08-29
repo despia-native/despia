@@ -1,0 +1,56 @@
+<!-- Onboarding: value before any ask. Three steps, each one concrete benefit, skippable
+     from the first screen. No permission prompts here; those fire later, in the context
+     where their value is obvious (designing-an-app.md section 8). -->
+<vstack background="background" padding="24" spacing="24">
+  <head>
+    <expects variable="nav"/>   <!-- the runtime's navigation state: canPop, depth -->
+
+    <variable as="step">return 0</variable>
+    <variable as="steps">
+      return [
+        { icon: 'sparkles', title: 'Trails picked for you', body: 'A short list that fits the time you actually have, not a map dump.' },
+        { icon: 'star.fill', title: 'Know before you go', body: 'Ratings and timing from people who hiked it this season.' },
+        { icon: 'checkmark', title: 'Hike it, log it', body: 'Start a hike and your progress keeps itself.' }
+      ]
+    </variable>
+    <variable as="current" computed="true">dsx.variable.steps[dsx.variable.step]</variable>
+    <variable as="last" computed="true">dsx.variable.step >= dsx.variable.steps.length - 1</variable>
+
+    <!-- leaving the flow pops back to where it was opened from; a first-launch mount has
+         no history, so the same action replaces to the root instead. Never href: href
+         pushes, and a Skip that pushes leaves the tour underneath the feed forever. -->
+    <action as="leave">
+      if (dsx.variable.nav.canPop) { dsx.module.route.pop() }
+      else { dsx.module.route.replace({ path: '/' }) }
+    </action>
+    <action as="next">
+      if (dsx.variable.last) { dsx.action.leave() }
+      else { dsx.variable.step = dsx.variable.step + 1 }
+    </action>
+  </head>
+
+  <hstack>
+    <spacer/>
+    <button label="Skip" on:tap="dsx.action.leave()" visible-if="!dsx.variable.last" a11yLabel="Skip the tour"/>
+  </hstack>
+
+  <spacer/>
+
+  <vstack spacing="16" align="center">
+    <vstack width="88" height="88" background="fill" radius="24" align="center" alignY="center">
+      <image icon="{{ dsx.variable.current.icon }}" iconSize="34" color="accent" a11yHidden="true"/>
+    </vstack>
+    <text value="{{ dsx.variable.current.title }}" fontSize="24" fontWeight="bold" align="center" a11yTrait="header"/>
+    <text value="{{ dsx.variable.current.body }}" fontSize="15" color="secondary" align="center"/>
+  </vstack>
+
+  <spacer/>
+
+  <hstack spacing="8" align="center" a11yHidden="true">
+    <vstack width="8" height="8" radius="4" background="{{ dsx.variable.step == 0 ? 'accent' : 'fill' }}"/>
+    <vstack width="8" height="8" radius="4" background="{{ dsx.variable.step == 1 ? 'accent' : 'fill' }}"/>
+    <vstack width="8" height="8" radius="4" background="{{ dsx.variable.step == 2 ? 'accent' : 'fill' }}"/>
+  </hstack>
+
+  <button label="{{ dsx.variable.last ? 'Start exploring' : 'Continue' }}" variant="prominent" on:tap="dsx.action.next()"/>
+</vstack>

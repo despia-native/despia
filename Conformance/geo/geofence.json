@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "_note": "REGION MONITORING: the accounting, the platform cap, and where a crossing is delivered (parity/F09-geo.md). iOS monitors at most TWENTY CLCircularRegions per app - a hard OS limit - and Android starts dropping registrations above ONE HUNDRED. Every library the audit looked at silently drops the twenty-first region, so an app registers fifty stores, tests three, and ships a feature that works for the first twenty entries in whatever order the loop ran. Here the cap is a typed refusal that NAMES the limit and the current count. This corpus pins the region set (TS GeoPolicy.GeoRegionSet, Kotlin :core, Swift Engine/iOS) and the delivery decision that makes a crossing reach a Core/Background declared task with no screen mounted, which is the whole reason F09 depends on F08.",
+
+  "caps": { "ios": 20, "android": 100, "web": 0 },
+
+  "regions": [
+    { "name": "adding regions up to the cap all succeed",
+      "cap": 3,
+      "ops": [
+        { "add": "a" }, { "add": "b" }, { "add": "c" }
+      ],
+      "expect": [
+        { "ok": true, "id": "a", "count": 1 },
+        { "ok": true, "id": "b", "count": 2 },
+        { "ok": true, "id": "c", "count": 3 }
+      ] },
+
+    { "name": "the region past the cap is a typed refusal naming the limit and the count",
+      "cap": 2,
+      "ops": [ { "add": "a" }, { "add": "b" }, { "add": "c" } ],
+      "expect": [
+        { "ok": true, "id": "a", "count": 1 },
+        { "ok": true, "id": "b", "count": 2 },
+        { "ok": false, "error": "region_limit", "limit": 2, "count": 2 }
+      ] },
+
+    { "name": "re-adding a live id REPLACES it and does not consume a slot",
+      "cap": 2,
+      "ops": [ { "add": "a" }, { "add": "a" }, { "add": "b" } ],
+      "expect": [
+        { "ok": true, "id": "a", "count": 1 },
+        { "ok": true, "id": "a", "count": 1 },
+        { "ok": true, "id": "b", "count": 2 }
+      ] },
+
+    { "name": "removing frees a slot",
+      "cap": 2,
+      "ops": [ { "add": "a" }, { "add": "b" }, { "remove": "a" }, { "add": "c" } ],
+      "expect": [
+        { "ok": true, "id": "a", "count": 1 },
+        { "ok": true, "id": "b", "count": 2 },
+        { "ok": true, "id": "a", "count": 1, "removed": true },
+        { "ok": true, "id": "c", "count": 2 }
+      ] },
+
+    { "name": "removing an id that was never added is not an error",
+      "cap": 2,
+      "ops": [ { "add": "a" }, { "remove": "zzz" } ],
+      "expect": [
+        { "ok": true, "id": "a", "count": 1 },
+        { "ok": true, "id": "zzz", "count": 1, "removed": false }
+      ] },
+
+    { "name": "list returns the live ids in insertion order",
+      "cap": 5,
+      "ops": [ { "add": "store-9" }, { "add": "store-1" }, { "remove": "store-9" }, { "add": "store-4" }, { "list": true } ],
+      "expect": [
+        { "ok": true, "id": "store-9", "count": 1 },
+        { "ok": true, "id": "store-1", "count": 2 },
+        { "ok": true, "id": "store-9", "count": 1, "removed": true },
+        { "ok": true, "id": "store-4", "count": 2 },
+        { "ok": true, "ids": ["store-1", "store-4"], "count": 2 }
+      ] },
+
+    { "name": "an empty region id is refused before it can shadow a real one",
+      "cap": 5,
+      "ops": [ { "add": "" } ],
+      "expect": [ { "ok": false, "error": "invalid_argument" } ] },
+
+    { "name": "a region at the iOS cap refuses with 20",
+      "cap": 20,
+      "ops": [
+        { "add": "r1" }, { "add": "r2" }, { "add": "r3" }, { "add": "r4" }, { "add": "r5" },
+        { "add": "r6" }, { "add": "r7" }, { "add": "r8" }, { "add": "r9" }, { "add": "r10" },
+        { "add": "r11" }, { "add": "r12" }, { "add": "r13" }, { "add": "r14" }, { "add": "r15" },
+        { "add": "r16" }, { "add": "r17" }, { "add": "r18" }, { "add": "r19" }, { "add": "r20" },
+        { "add": "r21" }
+      ],
+      "expect": [
+        { "ok": true, "id": "r1", "count": 1 }, { "ok": true, "id": "r2", "count": 2 },
+        { "ok": true, "id": "r3", "count": 3 }, { "ok": true, "id": "r4", "count": 4 },
+        { "ok": true, "id": "r5", "count": 5 }, { "ok": true, "id": "r6", "count": 6 },
+        { "ok": true, "id": "r7", "count": 7 }, { "ok": true, "id": "r8", "count": 8 },
+        { "ok": true, "id": "r9", "count": 9 }, { "ok": true, "id": "r10", "count": 10 },
+        { "ok": true, "id": "r11", "count": 11 }, { "ok": true, "id": "r12", "count": 12 },
+        { "ok": true, "id": "r13", "count": 13 }, { "ok": true, "id": "r14", "count": 14 },
+        { "ok": true, "id": "r15", "count": 15 }, { "ok": true, "id": "r16", "count": 16 },
+        { "ok": true, "id": "r17", "count": 17 }, { "ok": true, "id": "r18", "count": 18 },
+        { "ok": true, "id": "r19", "count": 19 }, { "ok": true, "id": "r20", "count": 20 },
+        { "ok": false, "error": "region_limit", "limit": 20, "count": 20 }
+      ] }
+  ],
+
+  "_note_radius": "iOS clamps a monitored radius to the device's maximumRegionMonitoringDistance and Android rejects a radius below roughly 100 m as unreliable. Both are reported: a radius the platform will not honour is corrected and the correction is visible, rather than a region that silently never fires.",
+  "radius": [
+    { "name": "a sensible radius passes through", "radius": 150, "expect": { "radius": 150, "clamped": false } },
+    { "name": "a tiny radius is raised to the reliable floor", "radius": 5, "expect": { "radius": 100, "clamped": true } },
+    { "name": "the floor itself is not a clamp", "radius": 100, "expect": { "radius": 100, "clamped": false } },
+    { "name": "a huge radius is capped", "radius": 500000, "expect": { "radius": 100000, "clamped": true } },
+    { "name": "a zero radius is raised to the floor", "radius": 0, "expect": { "radius": 100, "clamped": true } }
+  ],
+
+  "_note_events": "The three crossing events, with the payload shape a page and a native handler both receive. `dwell` carries the seconds the device stayed inside, which is what separates 'walked past the shop' from 'is in the shop'.",
+  "events": [
+    { "event": "geo.enter", "payload": { "id": "store-42", "lat": 37.7749, "lon": -122.4194 } },
+    { "event": "geo.exit", "payload": { "id": "store-42" } },
+    { "event": "geo.dwell", "payload": { "id": "store-42", "seconds": 300 } },
+    { "event": "geo.permission", "payload": { "status": "always" } }
+  ],
+
+  "_note_delivery": "WHERE A CROSSING GOES, and the reason this module depends on Core/Background. A geofence crossing wakes the app with NO UI: on iOS the OS relaunches a terminated process for a region event, on Android a GeofencingClient PendingIntent fires into a receiver. If the only delivery path were a broadcast to a mounted screen, the entire feature would work in the simulator with the app open and never in production. So a region may name a declared background TASK, and the crossing is delivered to it through dsx.module.background.deliver - the same run ledger, the same budget. The broadcast still fires for a live screen; the two are not alternatives.",
+  "delivery": [
+    { "name": "a crossing with a screen mounted and no task reaches the screen only",
+      "task": null, "screenMounted": true,
+      "expect": { "broadcast": true, "background": false, "foreground": true } },
+
+    { "name": "A CROSSING WITH NO SCREEN AND A DECLARED TASK REACHES THE BACKGROUND TASK",
+      "task": "arrival", "screenMounted": false,
+      "expect": { "broadcast": true, "background": true, "foreground": false } },
+
+    { "name": "a crossing with both reaches both, and the task is not skipped just because a screen is up",
+      "task": "arrival", "screenMounted": true,
+      "expect": { "broadcast": true, "background": true, "foreground": true } },
+
+    { "name": "a crossing with neither still broadcasts, so a late subscriber can see it in the ledger",
+      "task": null, "screenMounted": false,
+      "expect": { "broadcast": true, "background": false, "foreground": false } },
+
+    { "name": "an empty task name is not a task",
+      "task": "", "screenMounted": false,
+      "expect": { "broadcast": true, "background": false, "foreground": false } }
+  ]
+}

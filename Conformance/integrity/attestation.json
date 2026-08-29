@@ -1,0 +1,112 @@
+{
+  "_note": "Core/Integrity (F17.4) — the platform-neutral corpus for server-verifiable app attestation. The capability is NOT device posture (Mandatory/Security answers that, and an attacker simply lies to it): it is a token the developer's BACKEND verifies with Apple or Google, so the trust anchor is off-device. What is pinned here is therefore the REQUEST validation and the ENVELOPE SHAPE, so one server can be written against one contract instead of sniffing which mobile OS sent the request. There is deliberately no client-side verdict to pin. Read by kernel/test/integrity-conformance.test.ts (TS, reference), :core IntegrityConformanceTest (Kotlin) and Engine/iOS/Integrity.swift.",
+
+  "limits": {
+    "minChallengeBytes": 16,
+    "maxChallengeBytes": 500,
+    "maxKeyRefChars": 512,
+    "_note": "500 is Play Integrity's nonce ceiling and is the BINDING constraint across both platforms: Apple hashes the challenge so any length works there. One rule, so a challenge that works on one platform cannot fail on the other."
+  },
+
+  "vocabulary": {
+    "providers": ["appattest", "playintegrity", "none"],
+    "formats": ["apple.attest", "apple.assert", "google.playintegrity"]
+  },
+
+  "advisory": "This token is only meaningful once your backend verifies it with Apple or Google. Nothing decided on the device is a security decision.",
+
+  "provider": [
+    { "name": "ios", "platform": "ios", "expect": "appattest" },
+    { "name": "ipados uses the same service", "platform": "ipados", "expect": "appattest" },
+    { "name": "macos uses the same service", "platform": "macOS", "expect": "appattest" },
+    { "name": "watchos uses the same service", "platform": "watchos", "expect": "appattest" },
+    { "name": "android", "platform": "Android", "expect": "playintegrity" },
+    { "name": "web has no attestation service at all — that is an answer, not an error", "platform": "web", "expect": "none" },
+    { "name": "an unknown platform", "platform": "toaster", "expect": "none" },
+    { "name": "absent", "platform": "", "expect": "none" }
+  ],
+
+  "format": [
+    { "name": "apple registration", "provider": "appattest", "kind": "attest", "ok": true, "expect": "apple.attest" },
+    { "name": "apple per-request assertion", "provider": "appattest", "kind": "assert", "ok": true, "expect": "apple.assert" },
+    { "name": "google draws no attest/assert distinction — one request, one token", "provider": "playintegrity", "kind": "attest", "ok": true, "expect": "google.playintegrity" },
+    { "name": "google assert is the same token", "provider": "playintegrity", "kind": "assert", "ok": true, "expect": "google.playintegrity" },
+    { "name": "case folds", "provider": "AppAttest", "kind": "Attest", "ok": true, "expect": "apple.attest" },
+    { "name": "no provider means no ceremony", "provider": "none", "kind": "attest", "ok": false, "error": "unknown_provider" },
+    { "name": "an invented provider", "provider": "safetynet", "kind": "attest", "ok": false, "error": "unknown_provider" },
+    { "name": "an invented ceremony on a real provider", "provider": "appattest", "kind": "prove", "ok": false, "error": "unknown_format" }
+  ],
+
+  "challenge": [
+    { "name": "sixteen bytes is the floor and passes", "raw": "AAECAwQFBgcICQoLDA0ODw", "ok": true, "expect": "AAECAwQFBgcICQoLDA0ODw" },
+    { "name": "thirty-two bytes", "raw": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8", "ok": true, "expect": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" },
+    { "name": "a padded challenge is re-encoded unpadded so both platforms see the same bytes", "raw": "AAECAwQFBgcICQoLDA0ODw==", "ok": true, "expect": "AAECAwQFBgcICQoLDA0ODw" },
+    { "name": "fifteen bytes is guessable and refused", "raw": "AAECAwQFBgcICQoLDA0O", "ok": false, "error": "invalid_challenge" },
+    { "name": "empty", "raw": "", "ok": false, "error": "invalid_challenge" },
+    { "name": "not base64url", "raw": "challenge*please", "ok": false, "error": "invalid_challenge" }
+  ],
+
+  "keyRef": [
+    { "name": "an opaque base64 handle", "raw": "d2hhdGV2ZXJBcHBsZUdhdmVVcw==", "ok": true, "expect": "d2hhdGV2ZXJBcHBsZUdhdmVVcw==" },
+    { "name": "whitespace is trimmed", "raw": "  abcDEF123  ", "ok": true, "expect": "abcDEF123" },
+    { "name": "empty", "raw": "", "ok": false, "error": "invalid_key_ref" },
+    { "name": "a path is not a key handle", "raw": "../../etc/passwd", "ok": false, "error": "invalid_key_ref" },
+    { "name": "a space inside is not a key handle", "raw": "abc def", "ok": false, "error": "invalid_key_ref" }
+  ],
+
+  "envelope": [
+    {
+      "name": "an apple attestation, as the backend receives it",
+      "provider": "appattest",
+      "kind": "attest",
+      "token": "o2NmbXRvYXBwbGUtYXBwYXR0ZXN0",
+      "challenge": "AAECAwQFBgcICQoLDA0ODw",
+      "keyRef": "d2hhdGV2ZXJBcHBsZUdhdmVVcw==",
+      "ok": true,
+      "expect": {
+        "provider": "appattest",
+        "format": "apple.attest",
+        "token": "o2NmbXRvYXBwbGUtYXBwYXR0ZXN0",
+        "challenge": "AAECAwQFBgcICQoLDA0ODw",
+        "keyRef": "d2hhdGV2ZXJBcHBsZUdhdmVVcw==",
+        "advisory": "This token is only meaningful once your backend verifies it with Apple or Google. Nothing decided on the device is a security decision."
+      }
+    },
+    {
+      "name": "an apple assertion carries the same key reference",
+      "provider": "appattest",
+      "kind": "assert",
+      "token": "omlzaWduYXR1cmVY",
+      "challenge": "AAECAwQFBgcICQoLDA0ODw",
+      "keyRef": "d2hhdGV2ZXJBcHBsZUdhdmVVcw==",
+      "ok": true,
+      "expect": {
+        "provider": "appattest",
+        "format": "apple.assert",
+        "token": "omlzaWduYXR1cmVY",
+        "challenge": "AAECAwQFBgcICQoLDA0ODw",
+        "keyRef": "d2hhdGV2ZXJBcHBsZUdhdmVVcw==",
+        "advisory": "This token is only meaningful once your backend verifies it with Apple or Google. Nothing decided on the device is a security decision."
+      }
+    },
+    {
+      "name": "a google token carries an EMPTY key reference rather than omitting the field — a sometimes-missing field is a server branch nobody writes",
+      "provider": "playintegrity",
+      "kind": "attest",
+      "token": "eyJhbGciOiJFUzI1NiJ9.payload.sig",
+      "challenge": "AAECAwQFBgcICQoLDA0ODw",
+      "keyRef": "",
+      "ok": true,
+      "expect": {
+        "provider": "playintegrity",
+        "format": "google.playintegrity",
+        "token": "eyJhbGciOiJFUzI1NiJ9.payload.sig",
+        "challenge": "AAECAwQFBgcICQoLDA0ODw",
+        "keyRef": "",
+        "advisory": "This token is only meaningful once your backend verifies it with Apple or Google. Nothing decided on the device is a security decision."
+      }
+    },
+    { "name": "no provider means no envelope", "provider": "none", "kind": "attest", "token": "x", "challenge": "AAECAwQFBgcICQoLDA0ODw", "keyRef": "", "ok": false, "error": "unknown_provider" },
+    { "name": "an invented ceremony", "provider": "appattest", "kind": "prove", "token": "x", "challenge": "AAECAwQFBgcICQoLDA0ODw", "keyRef": "k", "ok": false, "error": "unknown_format" }
+  ]
+}

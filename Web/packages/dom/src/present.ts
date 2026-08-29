@@ -56,8 +56,12 @@ export class PresentLedger {
   /** The live half of the attribute contract at the LEDGER level: merge `attrs` into the
    *  deepest-last entry matching `target` (the dismiss rule; null/empty = the top). Returns
    *  the updated entry or null (unmatched / empty ledger = documented no-op). */
-  updateAttrs(target: string | null | undefined, attrs: Dict): PresentEntry | null {
-    if (this.entries.length === 0 || Object.keys(attrs).length === 0) return null;
+  /** The update MATCHING half alone (no merge) — no target = the top entry; else by
+   *  component tag (exact or bare) or `as` mode, deepest-last. Shared by updateAttrs
+   *  and the style plane's overrides re-seed, so the two planes can never target
+   *  different entries. */
+  find(target: string | null | undefined): PresentEntry | null {
+    if (this.entries.length === 0) return null;
     let idx = this.entries.length - 1;
     if (target !== undefined && target !== null && target.length > 0) {
       idx = -1;
@@ -68,7 +72,13 @@ export class PresentLedger {
       }
       if (idx < 0) return null;
     }
-    const e = this.entries[idx]!;
+    return this.entries[idx]!;
+  }
+
+  updateAttrs(target: string | null | undefined, attrs: Dict): PresentEntry | null {
+    if (Object.keys(attrs).length === 0) return null;
+    const e = this.find(target);
+    if (e === null) return null;
     e.attrs = { ...(e.attrs ?? {}), ...attrs };
     return e;
   }

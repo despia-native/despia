@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 //
-//  The `create-dsx` executable (`npm create dsx <dir>`). Node ≥ 22.18 runs this
+//  The `create-despia` executable (`npm create despia <dir>`; `create-dsx` stays as an
+//  alias bin). Node ≥ 22.18 runs this
 //  TypeScript source directly (native type stripping).
 //
 

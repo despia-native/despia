@@ -1,0 +1,33 @@
+<server>
+  <head>
+    <!-- The headless half of the same check the panel runs (studio-apps.md §9.1): one action
+         body, three consumers - the panel, `despia app run copy findPlaceholders`, and an
+         agent over MCP. A launch checklist can call it; nobody has to open a browser. -->
+    <action as="findPlaceholders">
+      const listing = await dsx.module.studio.project.list()
+      if (listing.ok != true) {
+        throw { reason: 'unavailable', message: 'the project could not be listed' }
+      }
+      const documents = listing.data.documents
+      const limit = documents.length &lt; 60 ? documents.length : 60
+      const found = []
+      let words = 0
+      for (let i = 0; i &lt; limit; i++) {
+        const name = documents[i]
+        const tree = await dsx.module.studio.project.tree({ name: name })
+        if (tree.ok != true) { continue }
+        const rows = tree.data.rows.filter(r => r.textAttr != '' &amp;&amp; r.text != '')
+        for (let j = 0; j &lt; rows.length; j++) {
+          words = words + rows[j].text.split(' ').length
+          const t = rows[j].text.toLowerCase().trim()
+          const bare = t == 'text' || t == 'title' || t == 'label' || t == 'untitled' || t == 'placeholder'
+          const marker = t.includes('lorem ipsum') || t.includes('todo') || t.includes('tbd') || t.includes('xxx')
+          if (bare || marker) {
+            found.push({ document: name, path: rows[j].id, element: rows[j].tag, text: rows[j].text })
+          }
+        }
+      }
+      return { scanned: limit, words: words, placeholders: found.length, found: found }
+    </action>
+  </head>
+</server>

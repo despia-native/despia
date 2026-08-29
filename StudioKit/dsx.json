@@ -1,0 +1,11 @@
+{
+  "name": "StudioKit",
+  "scheme": "studiokit",
+  "version": "0.1.0",
+  "_note": "THE MANDATORY UI KIT for Despia apps (studio-apps.md §13): eighteen components plus the UNSCOPED class vocabulary they are built from (kit.css, declared web.styles so it folds into the dsx-theme layer of every app's sub-registry). A kit that shipped only components would be a kit an author cannot extend - the moment they need a shape it did not anticipate they invent one, and the Studio grows a second design system inside someone else's package. Here the components AND the author's own markup speak one vocabulary. Every value in the sheet is a --dsx-* token, never a literal: `despia review --app` holds app authors to exactly that, and this package is the reference it holds them to.",
+  "web": {
+    "styles": [
+      "kit.css"
+    ]
+  }
+}

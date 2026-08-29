@@ -245,7 +245,7 @@ under a string key, any node `use`s it (and may `on`-observe re-publishes). The 
 web surface is published under `"web"` on **every boot path** — DSXWebView provides it on
 the DSX-first path, and `ModuleRegistry.runHydrations/runReady` publish it for any
 host, so the legacy `WebViewController` root is covered too. But WebKit is confined to
-the **Dom module** (`DSX/Modules/Mandatory/Dom`) and its DSXWebView component: the `"web"`
+the **Dom module** (`DSX/Modules/Core/Dom`) and its DSXWebView component: the `"web"`
 handle is Dom's to hold, and every **other** module reaches the web surface through
 `dsx.module.dom.{inject,eval,load,reload,call,set,css,…}` — never by importing WebKit
 or pulling a `WKWebView` of its own. The engine **never special-cases a

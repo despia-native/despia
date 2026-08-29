@@ -1,0 +1,24 @@
+<vstack id="ketoCard" grow="width" style="gap: 1rem; border-radius: 24px; padding: 26px 28px;
+        background: linear-gradient(135deg, #103127 0%, #0e2018 100%); border: 1px solid #1d5c44">
+  <head>
+    <!-- The FRAMELESS product shot: the ketosis card alone on the film stage, no chassis.
+         The state door tweens ketoneTenths (an integer, so the display never shows float
+         noise) and the card animates its own change: label, ink and bar all flip when the
+         reading crosses the ketosis threshold - the app rendering its own state, mid-scene. -->
+    <variable as="ketoneTenths" sample="18">return 18</variable>
+    <variable as="ketone" computed="true">return ketoneTenths / 10</variable>
+    <variable as="inKetosis" computed="true">return ketoneTenths >= 5</variable>
+  </head>
+
+  <hstack grow="width" style="align-items: center; gap: 0.75rem">
+    <vstack grow="width" style="gap: 0.25rem">
+      <text value="{{ inKetosis ? 'In ketosis' : 'Getting there' }}"
+            style="color: {{ inKetosis ? '#34d399' : '#fbbf24' }}; font-size: 28px; font-weight: 800; letter-spacing: -0.02em"/>
+      <text value="{{ ketone }} mmol/L blood ketones" style="color: #7fb8a3; font-size: 17px; font-weight: 600"/>
+    </vstack>
+    <text value="&#9679;" style="color: {{ inKetosis ? '#34d399' : '#fbbf24' }}; font-size: 30px"/>
+  </hstack>
+
+  <progress value="{{ ketoneTenths / 20 }}" color="{{ inKetosis ? '#34d399' : '#fbbf24' }}"
+            height="10" grow="width"/>
+</vstack>

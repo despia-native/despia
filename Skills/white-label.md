@@ -1,4 +1,4 @@
-# White-labeling — `dsx.global.strings` + `dsx.global.theme` (the platform convention)
+# White-labeling: `dsx.global.strings` + `dsx.global.theme` (the platform convention)
 
 The platform ships into **many different apps**. Nothing user-facing may be baked into a
 module: not text, not brand colors. This skill defines the one convention every module

@@ -1,0 +1,573 @@
+{
+  "version": 1,
+  "_note": "The `lockOrientation=` ROUTER BINDING (parity/F07-orientation.md \u00a73a, build log \u00a710) - the half F07 left open. The claim stack itself is already pinned by input/orientation.json; this file pins the RECONCILE that drives it: given the surfaces the router just published and the ledger of what the router has already claimed, which release/claim calls bring the shared OrientationClaimStack in line. The reconcile is a function of the LIVE SET, not a pair of appear/disappear callbacks - which is precisely why all five dismissal paths (button pop, edge-swipe back, modal drag-dismiss, deep-link stack replacement, backgrounded return) funnel into one release path and cannot leak independently, and why merely COVERING a screen (which SwiftUI and Compose both report as a disappearance) does not release it. Releases are emitted before claims so an arriving surface is never buried under a departing one, and a live surface whose `to` changed re-claims IN PLACE rather than release-then-claim. The `imperative` slot (orientation.lock()/unlock()) is never named here.",
+  "surfaceIds": {
+    "_note": "the id the router claims under. One derivation on three renderers, so a pushed frame and a presented modal can never collide.",
+    "frame": "frame:<frameId>",
+    "modal": "modal:<modalId>"
+  },
+  "reconcile": [
+    {
+      "name": "a screen with lockOrientation claims when it enters the published stack",
+      "_pins": "the appear half. The router does not wait for a view callback: the claim is a function of what the published stack contains.",
+      "steps": [
+        {
+          "publish": "root only",
+          "live": [],
+          "expectOps": [],
+          "expectLedger": [],
+          "expectEffective": null
+        },
+        {
+          "publish": "push the player",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        }
+      ]
+    },
+    {
+      "name": "BUTTON POP - the frame leaves the stack, so the claim is released",
+      "_pins": "dismissal path 1 of 5.",
+      "steps": [
+        {
+          "publish": "push the player",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        },
+        {
+          "publish": "pop",
+          "live": [],
+          "expectOps": [
+            {
+              "op": "release",
+              "surface": "frame:2"
+            }
+          ],
+          "expectLedger": [],
+          "expectEffective": null
+        }
+      ]
+    },
+    {
+      "name": "EDGE-SWIPE BACK - the same published stack, therefore the same release",
+      "_pins": "dismissal path 2 of 5, and the reason the reconcile is a function of the live set rather than a pair of appear/disappear callbacks: a gesture pop and a button pop produce the IDENTICAL plan, so neither can leak where the other does not.",
+      "steps": [
+        {
+          "publish": "push the player",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        },
+        {
+          "publish": "interactive pop committed",
+          "live": [],
+          "expectOps": [
+            {
+              "op": "release",
+              "surface": "frame:2"
+            }
+          ],
+          "expectLedger": [],
+          "expectEffective": null
+        }
+      ]
+    },
+    {
+      "name": "MODAL DRAG-DISMISS - the presented surface releases and the screen beneath resumes",
+      "_pins": "dismissal path 3 of 5. Nesting: a landscape screen presenting a portrait sheet, then the sheet swiped away.",
+      "steps": [
+        {
+          "publish": "player pushed",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        },
+        {
+          "publish": "sheet presented",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            },
+            {
+              "surface": "modal:7",
+              "to": "portrait"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "modal:7",
+              "to": "portrait"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            },
+            {
+              "surface": "modal:7",
+              "to": "portrait"
+            }
+          ],
+          "expectEffective": "portrait"
+        },
+        {
+          "publish": "sheet dragged away",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "release",
+              "surface": "modal:7"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        }
+      ]
+    },
+    {
+      "name": "DEEP LINK REPLACING THE STACK - every departed surface releases in one publish",
+      "_pins": "dismissal path 4 of 5. Two locked frames leave and one arrives; releases come first, so the arriving claim is never buried under a corpse.",
+      "steps": [
+        {
+          "publish": "two locked frames",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            },
+            {
+              "surface": "frame:3",
+              "to": "portrait"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:2",
+              "to": "landscape"
+            },
+            {
+              "op": "claim",
+              "surface": "frame:3",
+              "to": "portrait"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            },
+            {
+              "surface": "frame:3",
+              "to": "portrait"
+            }
+          ],
+          "expectEffective": "portrait"
+        },
+        {
+          "publish": "deep link resets to one new frame",
+          "live": [
+            {
+              "surface": "frame:9",
+              "to": "landscapeLeft"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "release",
+              "surface": "frame:2"
+            },
+            {
+              "op": "release",
+              "surface": "frame:3"
+            },
+            {
+              "op": "claim",
+              "surface": "frame:9",
+              "to": "landscapeLeft"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:9",
+              "to": "landscapeLeft"
+            }
+          ],
+          "expectEffective": "landscapeLeft"
+        }
+      ]
+    },
+    {
+      "name": "BACKGROUNDED RETURN - the live set is unchanged, so the plan is empty",
+      "_pins": "dismissal path 5 of 5, which is not a dismissal at all: the re-assert on becomeActive must be IDEMPOTENT. A plan that re-claimed here would reorder the stack and let a covered screen jump above a live sheet.",
+      "steps": [
+        {
+          "publish": "player pushed",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        },
+        {
+          "publish": "app returns from the background",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        },
+        {
+          "publish": "and again",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        }
+      ]
+    },
+    {
+      "name": "COVERING A LOCKED SCREEN IS NOT DISMISSING IT",
+      "_pins": "the bug an onDisappear-based implementation ships: SwiftUI (and Compose) tell a merely COVERED screen that it disappeared. The frame is still in the published stack, so it keeps its claim, and popping back to it changes nothing.",
+      "steps": [
+        {
+          "publish": "player pushed",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        },
+        {
+          "publish": "a plain screen pushed on top",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        },
+        {
+          "publish": "popped back",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        }
+      ]
+    },
+    {
+      "name": "a live surface changing its lockOrientation re-claims IN PLACE",
+      "_pins": "route.updateComponent can rewrite the attribute under a screen that never left. One re-claim, no release: a release-then-claim would send it to the top of the stack past a sheet it is already under.",
+      "steps": [
+        {
+          "publish": "two locked surfaces",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            },
+            {
+              "surface": "modal:7",
+              "to": "portrait"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:2",
+              "to": "landscape"
+            },
+            {
+              "op": "claim",
+              "surface": "modal:7",
+              "to": "portrait"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            },
+            {
+              "surface": "modal:7",
+              "to": "portrait"
+            }
+          ],
+          "expectEffective": "portrait"
+        },
+        {
+          "publish": "the frame flips to portrait",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "portrait"
+            },
+            {
+              "surface": "modal:7",
+              "to": "portrait"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:2",
+              "to": "portrait"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "portrait"
+            },
+            {
+              "surface": "modal:7",
+              "to": "portrait"
+            }
+          ],
+          "expectEffective": "portrait"
+        }
+      ]
+    },
+    {
+      "name": "surfaces without the attribute never enter the plan",
+      "_pins": "the attribute is opt-in: a stack of ordinary screens produces no claims at all, so an app that never writes lockOrientation behaves exactly as it did before the module existed.",
+      "steps": [
+        {
+          "publish": "three plain screens",
+          "live": [],
+          "expectOps": [],
+          "expectLedger": [],
+          "expectEffective": null
+        },
+        {
+          "publish": "one of them locks",
+          "live": [
+            {
+              "surface": "frame:3",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:3",
+              "to": "landscape"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:3",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        },
+        {
+          "publish": "it pops",
+          "live": [],
+          "expectOps": [
+            {
+              "op": "release",
+              "surface": "frame:3"
+            }
+          ],
+          "expectLedger": [],
+          "expectEffective": null
+        }
+      ]
+    },
+    {
+      "name": "the imperative slot is not the router's to release",
+      "_pins": "orientation.lock() occupies the shared stack's `imperative` entry. The reconcile only ever names surfaces it claimed itself, so an escape-hatch lock survives every stack change and only orientation.unlock() clears it.",
+      "imperative": "portrait",
+      "steps": [
+        {
+          "publish": "a locked screen over an imperative lock",
+          "live": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectOps": [
+            {
+              "op": "claim",
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectLedger": [
+            {
+              "surface": "frame:2",
+              "to": "landscape"
+            }
+          ],
+          "expectEffective": "landscape"
+        },
+        {
+          "publish": "the screen pops",
+          "live": [],
+          "expectOps": [
+            {
+              "op": "release",
+              "surface": "frame:2"
+            }
+          ],
+          "expectLedger": [],
+          "expectEffective": "portrait"
+        }
+      ]
+    }
+  ]
+}

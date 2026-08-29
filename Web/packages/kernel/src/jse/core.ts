@@ -565,7 +565,7 @@ const JSE_CORE_FULL: JSECoreApi = {
       case "File": case "FormData": case "Date": case "AbortController":
       case "structuredClone": case "encodeURIComponent": case "decodeURIComponent":
       case "encodeURI": case "decodeURI": case "parseInt": case "parseFloat":
-      case "isNaN": case "Number": case "String": case "Boolean": case "Map":
+      case "isNaN": case "isFinite": case "Number": case "String": case "Boolean": case "Map":
       case "Set": case "Error": case "RegExp": case "WebSocket":
         return true;
       default:
@@ -732,6 +732,9 @@ const JSE_CORE_FULL: JSECoreApi = {
         return m ? Number(m[0]) : NaN;
       }
       case "isNaN": { const n = number(a[0]); return n === null || Number.isNaN(n); }
+      // The twin of isNaN, which shipped without it: an author reaching for one reaches for
+      // the other, and a missing global reads as `null` — silently falsy — not as an error.
+      case "isFinite": { const n = number(a[0]); return n !== null && Number.isFinite(n); }
       case "Number": return number(a[0]) ?? NaN;
       case "String": return string(a[0]);
       case "Boolean": return truthy(a[0]);

@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "license": "Apache-2.0",
   "type": "module",
-  "description": "DSX web kernel \u2014 path-keyed signal store, JSE (interpreter + compiled helpers), action runner, module bus. TypeScript twin of OpenSource/Engine/.",
+  "description": "DSX web kernel - path-keyed signal store, JSE (interpreter + compiled helpers), action runner, module bus. TypeScript twin of OpenSource/Engine/.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -17,10 +17,20 @@
       "import": "./dist/config-validate.js",
       "default": "./dist/config-validate.js"
     },
+    "./film": {
+      "types": "./dist/film.d.ts",
+      "import": "./dist/film.js",
+      "default": "./dist/film.js"
+    },
     "./mcp": {
       "types": "./dist/mcp.d.ts",
       "import": "./dist/mcp.js",
       "default": "./dist/mcp.js"
+    },
+    "./keyboard": {
+      "types": "./dist/keyboard.d.ts",
+      "import": "./dist/keyboard.js",
+      "default": "./dist/keyboard.js"
     }
   },
   "files": [
@@ -37,7 +47,7 @@
     "url": "git+https://github.com/despia-native/despia.git",
     "directory": "Web/packages/kernel"
   },
-  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/kernel",
+  "homepage": "https://github.com/despia-native/despia/tree/main/Web/packages/kernel",
   "bugs": {
     "url": "https://github.com/despia-native/despia/issues"
   },

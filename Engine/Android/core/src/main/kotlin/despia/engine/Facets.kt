@@ -112,6 +112,11 @@ data class FacetFacts(
     val excluded: Boolean = false,
     /// the platform catalog knows this scheme but not on this OS (the X-tier)
     val offPlatform: Boolean = false,
+    /// the platform catalog knows THIS ACTION and it is declared off this OS (X2 §4
+    /// `platforms`). Separate from `offPlatform` because it outranks `unknown_action`: the
+    /// module can be here and still not run this action, and calling a declared-impossible
+    /// action is not the caller bug `unknown_action` names.
+    val offPlatformAction: Boolean = false,
 )
 
 object FacetLadder {
@@ -151,6 +156,9 @@ object FacetLadder {
         if (f.linked) return REACH_LINK
 
         val code = when {
+            // the ACTION-level narrowing first: it is the more specific claim, and the only
+            // rung that can be true while the module itself is present and correct
+            f.offPlatformAction -> "unsupported_platform"
             f.module -> "unknown_action"
             f.offPlatform -> "unsupported_platform"
             // the facet half of rung three sits BETWEEN the platform catalog and the excluded

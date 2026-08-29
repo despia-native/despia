@@ -24,12 +24,12 @@
     "platformSuffix": "Any attribute key may carry an exact :ios / :android / :web / :watch / :wear / :macos / :windows / :linux suffix, or the :desktop / :native group suffix. Precedence is exact > :desktop > :native > bare.",
     "argPrefix": "arg:<key>=\"value\" attributes assemble a typed payload for dsx.send/dsx.event handlers.",
     "componentEvents": "A component invocation accepts on:<event> for every event its definition declares (events bubble to the nearest consumer).",
+    "componentOverrides": "A component invocation accepts override:<name>= for every knob its definition declares under `overrides` — the STYLE contract beside the attribute DATA contract (Conformance/overrides). Values are literals or {{ }} bindings, typed by the declaration (the style catalog's controlTypes + css), fail-open coerced with min/max clamping, default-backed; the component reads dsx.override.<name>. Platform suffixes compose (override:<name>:<platform>=). The styling panel renders these as typed controls, the way `attributes` feed the props panel.",
     "styleAttribute": "style=\"…\" holds inline DSX-CSS declarations or named classes; the universal style vocabulary lives in styleProperties ($ref), not per element.",
     "webClass": "Every element declares webClass — the stable .dsx-* class the Web renderer stamps on that tag's ROOT element, and the contract application CSS targets. Two values are special and must not be read as a per-element styling hook: \"dsx-unsupported\" is the ONE shared, labelled placeholder the DOM runtime mounts for a tag with no Web renderer (a capitalized native-only tag emits nothing server-side, and the client mounts the marker), and null means the tag renders no DOM root at all — the kernel structural/declaration tags (head, variable, action, …), which are logic, not markup. An ALIAS has no webClass of its own: resolve it through the aliases index and read its canonical element (the generator aborts if the ledger's alias row ever disagrees). A markup component (components) likewise has none — it expands to a root element that carries the class.",
     "defaults": "default: null = no default (required or pass-through). Component attribute defaults are JSE expressions (e.g. '#FF2D55')."
   },
   "aliases": {
-    "GodotView": "Godot",
     "Model3D": "Scene3D",
     "Panorama": "Scene360",
     "Scene3DView": "Scene3D",
@@ -57,6 +57,14 @@
         "inspector"
       ],
       "doc": "On a direct child of an adaptive <scaffold>: assigns the child to a large-screen pane."
+    },
+    "paneRole": {
+      "enum": [
+        "sidebar",
+        "content",
+        "detail"
+      ],
+      "doc": "On a direct child of <split>: the pane role. Explicit roles win; the rest fill positionally (2 panes: sidebar+detail, 3: sidebar+content+detail)."
     },
     "pin": {
       "enum": [
@@ -210,6 +218,15 @@
       "type": "action",
       "doc": "Tap handler; on any element it is a tap gesture (announces as a button to assistive tech)."
     },
+    "passthrough": {
+      "type": "bool",
+      "default": false,
+      "doc": "Decorative and non-interactive: the finger falls through this element and its subtree to whatever is behind (a legibility scrim over a tappable video, a fade bar over a scroller). iOS .allowsHitTesting(false), Compose a Box that does not consume, web pointer-events: none."
+    },
+    "ref": {
+      "type": "string",
+      "doc": "Name this element so a MODULE can reach its live view: publishes the backing platform view under ref.<name> and withdraws on unmount. Consumers resolve it over the bus (capture.element, scroll.toElement, Spotlight). Exact case; whitespace-only is no ref; never published or since gone resolves as the typed unknown_ref absence. In a recycled list the last provider wins. Law: Conformance/input/ref.json."
+    },
     "settle": {
       "type": "enum",
       "enum": [
@@ -337,6 +354,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "label": {
           "type": "string",
           "default": null
@@ -359,7 +385,7 @@
         "ios",
         "android"
       ],
-      "webClass": "dsx-unsupported",
+      "webClass": "dsx-view",
       "children": "none",
       "attributes": {
         "origin": {
@@ -379,16 +405,17 @@
       "notes": "Remote/native DSX surface (remote-cached via DSXRemoteCache)."
     },
     "DSXWebView": {
-      "kind": "native",
+      "kind": "module",
       "category": "web",
       "aliases": [
 
       ],
+      "module": "dsxwebview",
       "platforms": [
         "ios",
         "android"
       ],
-      "webClass": "dsx-unsupported",
+      "webClass": "dsx-webview",
       "children": "none",
       "attributes": {
         "on:commit": {
@@ -445,8 +472,8 @@
         "start"
       ],
       "example": "<DSXWebView path=\"/\"/>",
-      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/DSXWebView/swift/DSXWebView.swift",
-      "notes": "The composed app web surface (bare construction + BridgeKit). Android twin: Mandatory/Dom/android/DSXWebViewComponent.kt registers the same tag."
+      "source": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/DSXWebView/swift/DSXWebView.swift",
+      "notes": "The composed app web surface (bare construction + BridgeKit). Android twin: Core/Dom/android/DSXWebViewComponent.kt registers the same tag."
     },
     "Drawer": {
       "kind": "native",
@@ -472,31 +499,6 @@
       "example": "<Drawer on:close=\"dsx.variable.open = false\"><text value=\"Drawer content\"/></Drawer>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Drawer.swift",
       "notes": ""
-    },
-    "Godot": {
-      "kind": "module",
-      "category": "scene",
-      "aliases": [
-        "GodotView"
-      ],
-      "module": "godot",
-      "platforms": [
-        "ios"
-      ],
-      "webClass": "dsx-unsupported",
-      "children": "none",
-      "attributes": {
-        "src": {
-          "type": "string",
-          "default": null
-        }
-      },
-      "events": [
-
-      ],
-      "example": "<Godot src=\"main.pck\"/>",
-      "source": "ClosedSource/DSX/Modules/Core/Godot/swift/GodotComponent.swift",
-      "notes": "Embedded Godot runtime surface; content delivered via dsx.content."
     },
     "LevelMeter": {
       "kind": "module",
@@ -638,6 +640,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "labelField": {
           "type": "string",
           "default": "label"
@@ -714,6 +725,73 @@
       "example": "<Scene3D models=\"{{ dsx.variable.models }}\"/>",
       "source": "ClosedSource/DSX/Modules/Core/Scene3D/swift/Scene3DComponent.swift",
       "notes": "RealityKit scene — D-class on Android (android-status.md section 3: not rebuilt on Filament)."
+    },
+    "Signature": {
+      "kind": "native",
+      "category": "input",
+      "aliases": [
+
+      ],
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "webClass": "dsx-signature dsx-signature-ruled dsx-signature-empty",
+      "children": "none",
+      "attributes": {
+        "baseline": {
+          "type": "bool",
+          "default": true
+        },
+        "bind": {
+          "type": "expression",
+          "default": null
+        },
+        "color": {
+          "type": "color",
+          "default": "label"
+        },
+        "height": {
+          "type": "number",
+          "default": 180
+        },
+        "on:begin": {
+          "type": "action",
+          "default": null
+        },
+        "on:change": {
+          "type": "action",
+          "default": null
+        },
+        "on:end": {
+          "type": "action",
+          "default": null
+        },
+        "placeholder": {
+          "type": "string",
+          "default": null
+        },
+        "radius": {
+          "type": "number",
+          "default": 12
+        },
+        "readOnly": {
+          "type": "bool",
+          "default": false
+        },
+        "strokeWidth": {
+          "type": "number",
+          "default": 3
+        }
+      },
+      "events": [
+        "begin",
+        "change",
+        "end"
+      ],
+      "example": "<Signature bind=\"dsx.variable.signature\" placeholder=\"Sign here\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift",
+      "notes": "THE PAD IS CHROME OVER THE INK PRIMITIVE. The box, the signing rule, the hint and the a11y wrapper are this element's; the ink is `<canvas>`'s `<ink>` child, whose law - the wire shape, the capture folds and the curve - lives once per language in the kernel (InkCore / @despia/kernel ink-core.ts) and is pinned by OpenSource/Conformance/canvas/ink.json. Anything this fixture used to say about capture now lives there. WHY THE ELEMENT EXISTS at all, when `<canvas><ink bind=\"sig\"/></canvas>` draws the same thing: a component boundary cannot forward a two-way binding (a component's state is its own), so a ready-made pad that writes back into the CONSUMER's `sig` has to be a real element. VALUE SHAPE: `bind` holds `[{ \"points\": [[x, y], …], \"width\": <pt> }]`, x/y normalized 0…1 and rounded at capture, so a signature captured on a phone replays on a desktop pad. COMMIT LAW: one store write per stroke, on pointer-up. There is no clear()/undo() control channel: clearing is `sig = []`, undo is `sig.slice(0, sig.length - 1)`, and export is `ref` + `dsx.module.capture.element({ ref: \"sig\" })`. ACCESSIBILITY: a pointer-drawn pad has no keyboard or switch-control equivalent on any platform; it exposes `a11yLabel` (default \"Signature\") and an empty/signed value, and the documented pattern is to pair it with a typed-name field rather than to pretend the canvas is operable."
     },
     "Skeleton": {
       "kind": "native",
@@ -976,11 +1054,12 @@
       "notes": ""
     },
     "WebView": {
-      "kind": "native",
+      "kind": "module",
       "category": "web",
       "aliases": [
 
       ],
+      "module": "dom",
       "platforms": [
         "ios",
         "android"
@@ -1047,7 +1126,7 @@
         "start"
       ],
       "example": "<WebView name=\"checkout\" src=\"https://example.com/pay\"/>",
-      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/WebView/swift/WebView.swift",
+      "source": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/WebView/swift/WebView.swift",
       "notes": "The bare web-surface primitive — NO bridge by construction (web-surface-policy.md)."
     },
     "action": {
@@ -1316,6 +1395,15 @@
           "type": "color",
           "default": "white"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "href": {
           "type": "string",
           "default": null
@@ -1382,6 +1470,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "markColorField": {
           "type": "string",
           "default": "color"
@@ -1414,6 +1511,71 @@
       "example": "<calendar bind=\"dsx.variable.day\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Calendar/swift/Calendar.swift",
       "notes": "Wire format fixed at en_US_POSIX yyyy-MM-dd (Calendar.swift:40-44) — Android-identical by design; display localization from the system calendar."
+    },
+    "canvas": {
+      "kind": "native",
+      "category": "scene",
+      "aliases": [
+
+      ],
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "webClass": "dsx-canvas",
+      "children": "none",
+      "attributes": {
+        "a11yChildren": {
+          "type": "expression",
+          "default": null
+        },
+        "a11yLabel": {
+          "type": "string",
+          "default": null
+        },
+        "commands": {
+          "type": "expression",
+          "default": null
+        },
+        "on:draw": {
+          "type": "action",
+          "default": null
+        },
+        "on:frame": {
+          "type": "action",
+          "default": null
+        },
+        "on:layout": {
+          "type": "action",
+          "default": null
+        },
+        "on:strokeEnd": {
+          "type": "action",
+          "default": null
+        },
+        "on:strokeStart": {
+          "type": "action",
+          "default": null
+        },
+        "opaque": {
+          "type": "boolean",
+          "default": "false"
+        },
+        "scale": {
+          "type": "string",
+          "default": "device"
+        }
+      },
+      "events": [
+        "draw",
+        "frame",
+        "layout",
+        "strokeEnd",
+        "strokeStart"
+      ],
+      "example": "<canvas height=\"200\" a11yLabel=\"Revenue sparkline\"><path d=\"M0 80 L60 40 L120 60 L180 12\" stroke=\"accent\" strokeWidth=\"2\" fill=\"none\"/></canvas>",
+      "source": "OpenSource/Engine/iOS/StackCanvas.swift",
+      "notes": "The 2-D drawing surface. TIER 1 is the declarative child set - path / rect / circle / ellipse / line / polygon / polyline / text / image, the group / blur / shadow / blend wrappers and gradient / stop - reconciled as a keyed display list; attribute naming is SVG's exactly. TIER 2 is the Canvas2D subset as a command LIST replayed through the kernel recorder (corpus tier2.json), not a live ctx object. No Skia, no shader language, no pixel readback: each platform's own rasteriser draws the same kernel display list. Numbers live in CanvasCore.swift / CanvasCore.kt / canvas-core.ts; corpus OpenSource/Conformance/canvas/. FOUR RENDERERS, no exceptions: SwiftUI, Compose (Android), Compose Desktop (DesktopCanvas.kt - Windows and Linux) and the DOM. Each replays the same kernel display list through its own rasteriser, so a picture drawn on a phone is the picture a desktop window draws. DRAWN ON: the `<ink>` child makes the surface a pointer target - the committed strokes fold back into ordinary tier-1 stroked paths, the in-flight stroke is transient native paint, and the bound value is written exactly once per stroke on pointer-up. The two stroke events belong to the SURFACE, not to `<ink>`, because a canvas can carry ink beside other geometry."
     },
     "carousel": {
       "kind": "native",
@@ -1618,6 +1780,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "labelField": {
           "type": "string",
           "default": "label"
@@ -1768,6 +1939,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "label": {
           "type": "string",
           "default": null
@@ -1894,6 +2074,15 @@
           "type": "color",
           "default": "label"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "form": {
           "type": "string",
           "default": "form (inherited from enclosing <form as=>)"
@@ -1970,6 +2159,14 @@
       "webClass": "dsx-flow",
       "children": "children",
       "attributes": {
+        "bind": {
+          "type": "expression",
+          "default": null
+        },
+        "key": {
+          "type": "string",
+          "default": "id"
+        },
         "lineSpacing": {
           "type": "number",
           "default": 8
@@ -1984,7 +2181,7 @@
       ],
       "example": "<flow spacing=\"8\"><text value=\"swift\"/><text value=\"kotlin\"/></flow>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Flow/swift/Flow.swift",
-      "notes": "Greedy flow-wrap: pack left-to-right at ideal sizes, break on overflow (FlowLayout, Flow.swift:43-90)."
+      "notes": "Greedy flow-wrap: pack left-to-right at ideal sizes, break on overflow (FlowLayout, Flow.swift:43-90). REPEATER (2026-08-26): `<flow bind= key=>` drives the wrap from data. The packer never learns a repeater exists, because the rows ARE the subviews - which is why bind cost no layout change on any renderer."
     },
     "form": {
       "kind": "native",
@@ -2120,7 +2317,7 @@
       ],
       "example": "<vstack><head><variable as=\"count\">return 0</variable></head><text value=\"{{ dsx.variable.count }}\"/></vstack>",
       "source": "OpenSource/Documentation/reference/dsx-anatomy.md",
-      "doc": "The ONE place declarations live — first child of the root, at most one per element. Renders nothing; its children are declarations in canonical order: attribute → expects → event → variable (plain → computed) → formula → action → script → watch → style → component."
+      "doc": "The ONE place declarations live — first child of the root, at most one per element. Renders nothing; its children are declarations in canonical order: attribute → expects → event/input/tool → api/variable (plain → computed) → formula → action → script → watch → style → component."
     },
     "hstack": {
       "kind": "native",
@@ -2173,9 +2370,19 @@
           "type": "string",
           "default": null
         },
+        "allowDownscaling": {
+          "type": "bool",
+          "default": true,
+          "source": "reference-doc"
+        },
         "asset": {
           "type": "string",
           "default": null
+        },
+        "blurRadius": {
+          "type": "number",
+          "default": 0,
+          "source": "reference-doc"
         },
         "cache": {
           "type": "enum",
@@ -2185,9 +2392,46 @@
             "none"
           ]
         },
+        "cachePolicy": {
+          "type": "enum",
+          "default": "memoryDisk",
+          "enum": [
+            "memory",
+            "disk",
+            "memoryDisk",
+            "none"
+          ],
+          "doc": "`cache` remains the legacy alias.",
+          "source": "reference-doc"
+        },
         "color": {
           "type": "color",
           "default": "label"
+        },
+        "contentFit": {
+          "type": "enum",
+          "default": "cover",
+          "enum": [
+            "cover",
+            "contain",
+            "fill",
+            "none",
+            "scaleDown"
+          ],
+          "doc": "How the image fills its box.",
+          "source": "reference-doc"
+        },
+        "contentPosition": {
+          "type": "string",
+          "default": "center",
+          "doc": "Which part survives the crop.",
+          "source": "reference-doc"
+        },
+        "fallback": {
+          "type": "string",
+          "default": "none",
+          "doc": "Shown when the source fails.",
+          "source": "reference-doc"
         },
         "fontSize": {
           "type": "number",
@@ -2201,6 +2445,43 @@
           "type": "number",
           "default": 24
         },
+        "on:error": {
+          "type": "action",
+          "default": "none",
+          "source": "reference-doc"
+        },
+        "on:load": {
+          "type": "action",
+          "default": "none",
+          "source": "reference-doc"
+        },
+        "placeholder": {
+          "type": "string",
+          "default": "none",
+          "doc": "A blurhash, a thumbhash, or a URL. Decoded and shown until the real bytes land.",
+          "source": "reference-doc"
+        },
+        "placeholderFit": {
+          "type": "string",
+          "default": "cover",
+          "source": "reference-doc"
+        },
+        "priority": {
+          "type": "enum",
+          "default": "normal",
+          "enum": [
+            "low",
+            "normal",
+            "high"
+          ],
+          "source": "reference-doc"
+        },
+        "recyclingKey": {
+          "type": "string",
+          "default": "none",
+          "doc": "Identity across a recycled row, so a reused view does not flash the previous image.",
+          "source": "reference-doc"
+        },
         "src": {
           "type": "url",
           "default": null
@@ -2208,10 +2489,16 @@
         "systemImage": {
           "type": "sf-symbol",
           "default": null
+        },
+        "tint": {
+          "type": "color",
+          "default": "none",
+          "source": "reference-doc"
         }
       },
       "events": [
-
+        "error",
+        "load"
       ],
       "example": "<image icon=\"heart.fill\" iconSize=\"24\" color=\"accent\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Image/swift/Image.swift",
@@ -2412,7 +2699,7 @@
       "aliases": [
 
       ],
-      "module": "maps",
+      "module": "map",
       "platforms": [
         "ios",
         "android"
@@ -2597,6 +2884,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "length": {
           "type": "number",
           "default": 6
@@ -2686,6 +2982,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "label": {
           "type": "string",
           "default": null
@@ -2773,6 +3078,15 @@
       "webClass": "dsx-pressable",
       "children": "children",
       "attributes": {
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "href": {
           "type": "string",
           "default": null
@@ -2917,6 +3231,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "max": {
           "type": "number",
           "default": 1
@@ -2966,6 +3289,91 @@
       "example": "<refreshable on:refresh=\"fetch: feed = GET https://api.example.com/feed\" busy=\"feed.loading\"><list bind=\"feed.data\" scroll=\"false\"><text bind=\"item.title\"/></list></refreshable>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Refreshable/swift/Refreshable.swift",
       "notes": ""
+    },
+    "rive": {
+      "kind": "module",
+      "category": "media",
+      "aliases": [
+
+      ],
+      "module": "rive",
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "webClass": "dsx-unsupported",
+      "children": "none",
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "default": null
+        },
+        "alignment": {
+          "type": "string",
+          "default": "center"
+        },
+        "animation": {
+          "type": "string",
+          "default": null
+        },
+        "artboard": {
+          "type": "string",
+          "default": null
+        },
+        "autoplay": {
+          "type": "boolean",
+          "default": "true"
+        },
+        "fit": {
+          "type": "string",
+          "default": "contain"
+        },
+        "inputs": {
+          "type": "expression",
+          "default": null
+        },
+        "on:error": {
+          "type": "action",
+          "default": null
+        },
+        "on:event": {
+          "type": "action",
+          "default": null
+        },
+        "on:load": {
+          "type": "action",
+          "default": null
+        },
+        "on:stateChange": {
+          "type": "action",
+          "default": null
+        },
+        "ref": {
+          "type": "string",
+          "default": null
+        },
+        "speed": {
+          "type": "number",
+          "default": 1
+        },
+        "src": {
+          "type": "url",
+          "default": null
+        },
+        "stateMachine": {
+          "type": "string",
+          "default": null
+        }
+      },
+      "events": [
+        "error",
+        "event",
+        "load",
+        "stateChange"
+      ],
+      "example": "<rive src=\"cart.riv\" stateMachine=\"Cart\" inputs=\"{{ { itemCount: 3 } }}\" a11yLabel=\"Shopping cart\"/>",
+      "source": "ClosedSource/DSX/Modules/Core/Rive/swift/RiveElement.swift",
+      "notes": "STATE-MACHINE animation, rendered by Rive's own runtime on every target (rive-ios, rive-android, @rive-app/canvas) - so pixels are the vendor's and are pinned nowhere. Everything AROUND the vendor is the shared kernel core (RiveCore.swift / RiveCore.kt / rive-core.ts, corpus OpenSource/Conformance/rive/) and IS pinned: the input fold and its trigger edges, the artboard/machine/animation selection and its refusals, fit and alignment, the playback and residency lifecycle, the payload shapes and the accessibility verdict. A timeline is <lottie>; a state machine is <rive>. Provided by the excludable Core/Rive module: with the module dropped the tag is unresolved, and on the NATIVE renderers its children render instead (the author's own fallback). The web renderer mounts its dsx-unsupported box for any unresolved tag and ignores the children today - the same behaviour <lottie> has there, and a cross-cutting mount.ts decision rather than this element's."
     },
     "scaffold": {
       "kind": "native",
@@ -3127,6 +3535,22 @@
             "horizontal"
           ]
         },
+        "bind": {
+          "type": "state-key",
+          "default": "none",
+          "doc": "Two-way offset. Writing it scrolls; scrolling writes it.",
+          "source": "reference-doc"
+        },
+        "bounces": {
+          "type": "bool",
+          "default": "platform",
+          "source": "reference-doc"
+        },
+        "contentInset": {
+          "type": "string",
+          "default": "none",
+          "source": "reference-doc"
+        },
         "direction": {
           "type": "enum",
           "default": "vertical",
@@ -3134,10 +3558,84 @@
             "vertical",
             "horizontal"
           ]
+        },
+        "indicators": {
+          "type": "bool",
+          "default": true,
+          "source": "reference-doc"
+        },
+        "keyboardDismiss": {
+          "type": "enum",
+          "default": "interactive",
+          "enum": [
+            "none",
+            "onDrag",
+            "interactive"
+          ],
+          "source": "reference-doc"
+        },
+        "maintainPosition": {
+          "type": "bool",
+          "default": false,
+          "doc": "Keep the visible row anchored when content is prepended.",
+          "source": "reference-doc"
+        },
+        "on:reachEnd": {
+          "type": "action",
+          "default": "none",
+          "doc": "Fires once per approach within `threshold` of the end, and re-arms only after leaving.",
+          "source": "reference-doc"
+        },
+        "on:scroll": {
+          "type": "action",
+          "default": "none",
+          "doc": "Coalesced to one dispatch per frame; `dsx.this` carries offset, size and direction.",
+          "source": "reference-doc"
+        },
+        "on:scrollEnd": {
+          "type": "action",
+          "default": "none",
+          "doc": "Fires once the scroll settles, not on every deceleration frame.",
+          "source": "reference-doc"
+        },
+        "overscroll": {
+          "type": "enum",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "never",
+            "always"
+          ],
+          "source": "reference-doc"
+        },
+        "paging": {
+          "type": "bool",
+          "default": false,
+          "source": "reference-doc"
+        },
+        "snap": {
+          "type": "enum",
+          "default": "none",
+          "enum": [
+            "none",
+            "start",
+            "center",
+            "end"
+          ],
+          "source": "reference-doc"
+        },
+        "threshold": {
+          "type": "number",
+          "default": 0,
+          "unit": "pt",
+          "doc": "Distance from the end that counts as reaching it.",
+          "source": "reference-doc"
         }
       },
       "events": [
-
+        "reachEnd",
+        "scroll",
+        "scrollEnd"
       ],
       "example": "<scroll axis=\"vertical\"><vstack spacing=\"8\"><text value=\"Row\"/></vstack></scroll>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Scroll/swift/Scroll.swift",
@@ -3164,6 +3662,15 @@
         "color": {
           "type": "color",
           "default": "accent"
+        },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
         },
         "on:clear": {
           "type": "action",
@@ -3203,6 +3710,15 @@
           "type": "expr",
           "default": null,
           "of": "string"
+        },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
         },
         "label": {
           "type": "string",
@@ -3259,6 +3775,15 @@
         "color": {
           "type": "color",
           "default": "accent"
+        },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
         },
         "icons": {
           "type": "csv",
@@ -3395,6 +3920,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "max": {
           "type": "number",
           "default": 1
@@ -3493,6 +4027,96 @@
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Spinner/swift/SpinnerElement.swift",
       "notes": "SYSTEM IDENTITY (system-defaults.md, the Android M3-identity wave): iOS renders the native ProgressView always — untinted when no color is authored, .tint(color) otherwise (SpinnerElement.swift); web is the .dsx-spinner control; Android renders the real M3 CircularProgressIndicator when unstyled OR color-only (StackSystemControls.kt SystemControl.SPINNER). THE TINT DECISION (stated): an authored color rides the M3 component as its indicator color — the compatible tint, the iOS ProgressView().tint twin — it never ejects the system rendering; every other styling attr (scale= included, it rides the style chain) ejects to the legacy 270-degree arc byte-identically. Metrics follow the cross-platform contract (the StackButtons iconSize precedent): the M3 indicator renders at the fixture's 20dp/2dp stroke, not M3's native 40dp. Uncolored = the component's own theme color (M3 primary — the platform's own choice; iOS's untinted spinner is ITS gray, which colors.tint above pins for the legacy path). Android joining COMPLETES the three-renderer parity for this element."
     },
+    "split": {
+      "kind": "native",
+      "category": "structure",
+      "aliases": [
+
+      ],
+      "platforms": [
+        "ios",
+        "android",
+        "web",
+        "macos",
+        "windows",
+        "linux"
+      ],
+      "webClass": "dsx-split",
+      "children": "children",
+      "attributes": {
+        "collapseAt": {
+          "type": "number",
+          "default": 760
+        },
+        "contentIdeal": {
+          "type": "number",
+          "default": 340
+        },
+        "contentMax": {
+          "type": "number",
+          "default": 480
+        },
+        "contentMin": {
+          "type": "number",
+          "default": 280
+        },
+        "detailMin": {
+          "type": "number",
+          "default": 360
+        },
+        "expandAt": {
+          "type": "number",
+          "default": 1104
+        },
+        "on:change": {
+          "type": "action",
+          "default": null
+        },
+        "paneRole": {
+          "type": "enum",
+          "default": null,
+          "enum": [
+            "sidebar",
+            "content",
+            "detail"
+          ],
+          "perChild": true
+        },
+        "panes": {
+          "type": "number",
+          "default": null,
+          "min": 2,
+          "max": 3
+        },
+        "resizable": {
+          "type": "bool",
+          "default": true
+        },
+        "sidebarIdeal": {
+          "type": "number",
+          "default": 280
+        },
+        "sidebarMax": {
+          "type": "number",
+          "default": 360
+        },
+        "sidebarMin": {
+          "type": "number",
+          "default": 220
+        },
+        "value": {
+          "type": "expr",
+          "default": null,
+          "of": "string"
+        }
+      },
+      "events": [
+        "change"
+      ],
+      "example": "<split value=\"dsx.variable.note\"><list paneRole=\"sidebar\" bind=\"dsx.variable.notes\"><text bind=\"item.title\"/></list><vstack paneRole=\"detail\"><text value=\"{{ dsx.variable.note }}\"/></vstack></split>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Split/swift/Split.swift",
+      "notes": "The two/three-pane adaptive container (component-library.md W9) — the shared planner is OpenSource/Engine/iOS/SplitPlan.swift with corpus OpenSource/Conformance/split/split.json (TS packages/dom/src/split.ts and Kotlin :core SplitPlan.kt run the same file). Apple renders a real NavigationSplitView (two panes = two columns, three = three; iOS 17+/macOS 14+ bridge value= to preferredCompactColumn so a non-empty selection pushes the detail on compact and the platform Back pop clears it + fires on:change). Android renders the plan's list-detail shape with Compose (:render SplitElement) — compact stack push, medium pinned pair + overlay sidebar, expanded all-pane row with the M3 readable margin. Web plans from the CONTAINER width via ResizeObserver (collapseAt/expandAt are live attributes) and adds draggable hairline dividers on fine pointers; native delegates the compact/regular switch to the platform split host, per system-defaults.md — the same division as <tabs>."
+    },
     "stack": {
       "kind": "native",
       "category": "layout",
@@ -3575,6 +4199,15 @@
           "type": "number",
           "default": 5
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "readonly": {
           "type": "bool",
           "default": false
@@ -3612,6 +4245,15 @@
         "color": {
           "type": "color",
           "default": "accent"
+        },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
         },
         "label": {
           "type": "string",
@@ -3766,7 +4408,7 @@
       ],
       "example": "<tabs value=\"dsx.variable.tab\" color=\"accent\"><vstack tabTitle=\"Home\" tabIcon=\"house.fill\"><text value=\"Home\"/></vstack><vstack tabTitle=\"Library\" tabIcon=\"books.vertical\"><text value=\"Library\"/></vstack></tabs>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Tabs/swift/Tabs.swift",
-      "notes": ""
+      "notes": "Desktop class (Tabs.swift:57 adaptive): iOS 18 / macOS 15+ adopt .tabViewStyle(.sidebarAdaptable) - iPhone keeps the bottom bar, regular-width iPad presents the top tab bar with the user-toggleable sidebar, macOS the sidebar; older OSes keep the classic TabView. Android (StackNodeView.kt Tabs) adopts the same shape through Material 3 NavigationSuiteScaffold - compact width renders the bottom navigation bar, medium/expanded the navigation rail, per the platform's own WindowSizeClass; color= rides the suite's item colors, tabIcon the sf-map subset, tabBadge the M3 Badge. All attributes are presentation-independent (same value Binding, same tabItem/badge). Native delegates the compact/regular switch to the OS size class, where web uses its >= 69rem rail breakpoint."
     },
     "text": {
       "kind": "native",
@@ -3797,6 +4439,10 @@
           "type": "bool",
           "default": false
         },
+        "type": {
+          "type": "enum",
+          "default": "body"
+        },
         "value": {
           "type": "string",
           "default": null
@@ -3805,9 +4451,9 @@
       "events": [
 
       ],
-      "example": "<text value=\"Hello, DSX\" color=\"white\"/>",
+      "example": "<text type=\"headline\" value=\"Hello, DSX\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift",
-      "notes": "PLATFORM GAP, DECLARED (no silent gaps): `markdown` is implemented on the iOS reference (Text.swift — Text(AttributedString(markdown:))) and on web (packages/dom/src/markdown.ts, the same INLINE vocabulary: emphasis · strong · code · strikethrough · links; block intents deliberately collapse). :render has NO twin — StackNodeView's \"text\" branch renders a plain String through BasicText, so on Android `markdown=\"true\"` shows the RAW SOURCE. That is a missing implementation, not an OS floor: Compose can express the same spans through AnnotatedString, so this is a DEFERRAL and must not be ratified as a permanent divergence (contrast fontDesign=\"rounded\"/wheelpicker/stars, which have no Material equivalent). The twin lands with the block-level <Markdown> wave (v4-launch execution-plan A4/A4b), which brings a shared markdown corpus all three renderers answer; until then the attribute is iOS+web and this fixture says so rather than implying parity."
+      "notes": "`markdown` is the same INLINE vocabulary on all three renderers: iOS Text(AttributedString(markdown:)), web packages/dom/src/markdown.ts, Android markdownInlineAnnotated (MarkdownBlocks.parseInline into AnnotatedString). Block intents still collapse on <text>; the block-level <markdown> element answers OpenSource/Conformance/markdown/blocks.json."
     },
     "textarea": {
       "kind": "native",
@@ -3831,6 +4477,15 @@
           "type": "color",
           "default": "label"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "maxLines": {
           "type": "number",
           "default": 8
@@ -3843,18 +4498,40 @@
           "type": "action",
           "default": null
         },
+        "on:change": {
+          "type": "action",
+          "default": null
+        },
         "on:focus": {
+          "type": "action",
+          "default": null
+        },
+        "on:submit": {
           "type": "action",
           "default": null
         },
         "placeholder": {
           "type": "string",
           "default": null
+        },
+        "resize": {
+          "type": "enum",
+          "default": "vertical",
+          "enum": [
+            "vertical",
+            "none"
+          ]
+        },
+        "submitOnEnter": {
+          "type": "bool",
+          "default": false
         }
       },
       "events": [
         "blur",
-        "focus"
+        "change",
+        "focus",
+        "submit"
       ],
       "example": "<textarea bind=\"dsx.variable.notes\" placeholder=\"Notes\" minLines=\"3\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift",
@@ -3885,6 +4562,15 @@
         "contentType": {
           "type": "enum",
           "default": null
+        },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
         },
         "keyboard": {
           "type": "enum",
@@ -3957,6 +4643,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "on:change": {
           "type": "action",
           "default": null,
@@ -3969,7 +4664,48 @@
       ],
       "example": "<toggle bind=\"dsx.variable.dark\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Toggle/swift/Toggle.swift",
-      "notes": "on:change fires from setBound's write seam on actual change only (Toggle.swift:15). SYSTEM IDENTITY (system-defaults.md, the Android M3-identity wave): iOS renders the native UISwitch always (SwiftUI Toggle, tint= compatible — Toggle.swift:16-18); web renders the real <input type=checkbox role=switch> (elements.ts toggle); Android renders the real M3 Switch when the element is FULLY unstyled (StackSystemControls.kt SystemControl.TOGGLE — bind + safe base only), at the Switch's own 52x32 metric with explicit role colors (selected onPrimary/primary, unselected outline/surfaceContainerHighest); ANY styling attr — color= included, the SystemButton word-less rule — ejects to the legacy 51x31 capsule byte-identically (the pinned geometry above IS that legacy path + the iOS metric). Android joining COMPLETES the three-renderer native-control parity for this element. Token slots: system track/thumb ride the platform's own switch roles, never re-specified here; colors.tint stays the legacy path's accent."
+      "notes": "on:change fires from setBound's write seam on actual change only (Toggle.swift:15). SYSTEM IDENTITY (system-defaults.md, the Android M3-identity wave): iOS renders the native UISwitch always (SwiftUI Toggle, tint= compatible — Toggle.swift:16-18); web renders the real <input type=checkbox role=switch> (elements.ts toggle) with a token-overridable iOS-26-ish capsule polyfill (63x28, pill thumb; --dsx-toggle-* / color=); Android renders the real M3 Switch when the element is FULLY unstyled (StackSystemControls.kt SystemControl.TOGGLE — bind + safe base only), at the Switch's own 52x32 metric with explicit role colors (selected onPrimary/primary, unselected outline/surfaceContainerHighest); ANY styling attr — color= included, the SystemButton word-less rule — ejects to the legacy 51x31 capsule byte-identically (the pinned geometry above IS that legacy path + the iOS metric). Android joining COMPLETES the three-renderer native-control parity for this element. Token slots: system track/thumb ride the platform's own switch roles, never re-specified here; colors.tint stays the legacy path's accent."
+    },
+    "tool": {
+      "kind": "structural",
+      "category": "structural",
+      "aliases": [
+
+      ],
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "webClass": null,
+      "children": "none",
+      "attributes": {
+        "action": {
+          "type": "string",
+          "default": null,
+          "doc": "The action this tool exposes. Must be declared by this same document (a stale target fails the build)."
+        },
+        "as": {
+          "type": "string",
+          "default": null,
+          "doc": "The tool name an agent sees. Defaults to the action name; 1 to 128 characters of ASCII letters, digits, \"_\", \"-\" or \".\"."
+        },
+        "description": {
+          "type": "string",
+          "default": null,
+          "doc": "What the tool does, in plain language. This is what an agent reads to choose it, and it is untrusted text that changes no policy."
+        },
+        "mutates": {
+          "type": "string",
+          "default": null,
+          "doc": "What this action changes when it changes anything. Its ABSENCE is what emits the read-only hint, and its presence is the approval gate."
+        }
+      },
+      "events": [
+
+      ],
+      "example": "<tool action=\"addTodo\" description=\"Add a new item to the user's todo list.\" mutates=\"todos\"/>",
+      "source": "OpenSource/Documentation/reference/dsx-anatomy.md",
+      "doc": "Declares an action this document exposes to an AI AGENT (WebMCP, proposals/webmcp.md). The row names one action the same head declares and carries NO schema: the descriptor an agent reads is derived from that action's declared inputs. On the web renderer the rows register with document.modelContext while the document is mounted; on a native surface the row is declarative."
     },
     "toolbar": {
       "kind": "native",
@@ -4294,6 +5030,15 @@
           "type": "color",
           "default": "accent"
         },
+        "disabled": {
+          "type": "bool",
+          "default": false
+        },
+        "disabled-if": {
+          "type": "expr",
+          "default": null,
+          "doc": "Disabled when this expression is truthy. `disabled=` binds as TEXT, and the string \"false\" is TRUE - so a bound boolean belongs here, never there."
+        },
         "label": {
           "type": "string",
           "default": null
@@ -4361,6 +5106,257 @@
     }
   },
   "components": {
+    "Actions": {
+      "kind": "xml-component",
+      "tag": "Actions",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "copied": {
+          "default": "'false'",
+          "doc": "flip briefly after a copy"
+        },
+        "copy": {
+          "default": "'true'"
+        },
+        "feedback": {
+          "default": "'true'"
+        },
+        "retry": {
+          "default": "'true'"
+        },
+        "share": {
+          "default": "'false'"
+        },
+        "voted": {
+          "default": null,
+          "doc": "'up' | 'down' | empty"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "copy": {
+          "payload": [
+
+          ]
+        },
+        "down": {
+          "payload": [
+
+          ]
+        },
+        "retry": {
+          "payload": [
+
+          ]
+        },
+        "share": {
+          "payload": [
+
+          ]
+        },
+        "up": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Actions a11yLabel=\"…\" copied=\"false\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Actions.dsx"
+    },
+    "Answer": {
+      "kind": "xml-component",
+      "tag": "Answer",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": "'Answer'"
+        },
+        "streaming": {
+          "default": "'false'"
+        },
+        "text": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+        "default"
+      ],
+      "example": "<Answer a11yLabel=\"Answer\" streaming=\"false\"><text value=\"…\"/></Answer>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Answer.dsx"
+    },
+    "Artifact": {
+      "kind": "xml-component",
+      "tag": "Artifact",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "collapsible": {
+          "default": "'false'"
+        },
+        "copy": {
+          "default": "'true'"
+        },
+        "download": {
+          "default": "'false'"
+        },
+        "kind": {
+          "default": "'document'",
+          "doc": "code | document | image | data | preview"
+        },
+        "open": {
+          "default": "'false'"
+        },
+        "subtitle": {
+          "default": null
+        },
+        "title": {
+          "default": null
+        },
+        "version": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "close": {
+          "payload": [
+
+          ]
+        },
+        "copy": {
+          "payload": [
+
+          ]
+        },
+        "download": {
+          "payload": [
+
+          ]
+        },
+        "open": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+        "default"
+      ],
+      "example": "<Artifact a11yLabel=\"…\" collapsible=\"false\"><text value=\"…\"/></Artifact>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Artifact.dsx"
+    },
+    "Attachment": {
+      "kind": "xml-component",
+      "tag": "Attachment",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "icon": {
+          "default": null,
+          "doc": "override the derived glyph"
+        },
+        "name": {
+          "default": null
+        },
+        "removable": {
+          "default": "'true'"
+        },
+        "size": {
+          "default": null,
+          "doc": "bytes"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "remove": {
+          "payload": [
+
+          ]
+        },
+        "tap": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Attachment icon=\"…\" name=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Attachment.dsx"
+    },
+    "AudioLevel": {
+      "kind": "xml-component",
+      "tag": "AudioLevel",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "bars": {
+          "default": "5"
+        },
+        "color": {
+          "default": "'accent'"
+        },
+        "height": {
+          "default": "24",
+          "doc": "the tallest a bar can stand"
+        },
+        "level": {
+          "default": "0",
+          "doc": "0..1"
+        },
+        "width": {
+          "default": "3"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<AudioLevel bars=\"5\" color=\"accent\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/AudioLevel.dsx"
+    },
     "AuthLogin": {
       "kind": "xml-component",
       "tag": "AuthLogin",
@@ -4579,6 +5575,89 @@
       "example": "<Avatar bg=\"accent\" initials=\"…\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Avatar.dsx"
     },
+    "AvatarGroup": {
+      "kind": "xml-component",
+      "tag": "AvatarGroup",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "items": {
+          "default": null,
+          "doc": "the roster (required): [{ name, src, initials }] - JSON text or a typed array"
+        },
+        "max": {
+          "default": "3",
+          "doc": "faces drawn before the overflow disc takes over"
+        },
+        "overlap": {
+          "default": "10",
+          "doc": "points each face tucks under the one before it"
+        },
+        "size": {
+          "default": "32",
+          "doc": "avatar diameter in points"
+        },
+        "tappable": {
+          "default": "'false'",
+          "doc": "\"true\" -> the row is one button raising `tap`"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "tap": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<AvatarGroup items=\"…\" max=\"3\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/AvatarGroup.dsx"
+    },
+    "Badge": {
+      "kind": "xml-component",
+      "tag": "Badge",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "color": {
+          "default": "'destructive'",
+          "doc": "fill (semantic token name)"
+        },
+        "dot": {
+          "default": null,
+          "doc": "\"true\" → a bare status dot, no text"
+        },
+        "max": {
+          "default": "99",
+          "doc": "numeric fold ceiling - a larger count renders \"99+\""
+        },
+        "value": {
+          "default": null,
+          "doc": "count or short text (required unless dot=\"true\")"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Badge value=\"…\" color=\"destructive\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Badge.dsx"
+    },
     "Banner": {
       "kind": "xml-component",
       "tag": "Banner",
@@ -4621,6 +5700,84 @@
       "example": "<Banner title=\"…\" action=\"…\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Banner.dsx"
     },
+    "Breadcrumb": {
+      "kind": "xml-component",
+      "tag": "Breadcrumb",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "bind": {
+          "default": null,
+          "doc": "the rows (required): [{ label, path }] - JSON text or a typed rows array"
+        },
+        "separator": {
+          "default": "'chevron.right'",
+          "doc": "the SF Symbol drawn between rows"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Breadcrumb bind=\"…\" separator=\"chevron.right\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Breadcrumb.dsx"
+    },
+    "ButtonGroup": {
+      "kind": "xml-component",
+      "tag": "ButtonGroup",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "color": {
+          "default": "'accent'"
+        },
+        "iconField": {
+          "default": "'icon'"
+        },
+        "idField": {
+          "default": "'id'"
+        },
+        "items": {
+          "default": null,
+          "doc": "rows: { id, label, icon, disabled }"
+        },
+        "labelField": {
+          "default": "'label'"
+        },
+        "size": {
+          "default": "'regular'",
+          "doc": "regular | small"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "tap": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<ButtonGroup a11yLabel=\"…\" color=\"accent\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/ButtonGroup.dsx"
+    },
     "Callout": {
       "kind": "xml-component",
       "tag": "Callout",
@@ -4647,6 +5804,27 @@
 
       ],
       "events": {
+      },
+      "overrides": {
+        "barWidth": {
+          "type": "number",
+          "default": "4",
+          "min": "0",
+          "max": "12",
+          "doc": "accent bar thickness; 0 hides the bar"
+        },
+        "radius": {
+          "type": "number",
+          "default": "10",
+          "min": "0",
+          "max": "32",
+          "doc": "corner radius of the panel surface"
+        },
+        "surface": {
+          "type": "color",
+          "default": "fill",
+          "doc": "the panel fill (semantic token or color)"
+        }
       },
       "slots": [
         "default"
@@ -4732,6 +5910,224 @@
       ],
       "example": "<Chip label=\"…\" color=\"accent\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Chip.dsx"
+    },
+    "Citation": {
+      "kind": "xml-component",
+      "tag": "Citation",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "color": {
+          "default": "'secondary'"
+        },
+        "n": {
+          "default": null
+        },
+        "site": {
+          "default": null
+        },
+        "title": {
+          "default": null
+        },
+        "url": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "open": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Citation color=\"secondary\" n=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Citation.dsx"
+    },
+    "CodeBlock": {
+      "kind": "xml-component",
+      "tag": "CodeBlock",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "copy": {
+          "default": "'false'",
+          "doc": "\"true\" -> a labelled copy button in the header"
+        },
+        "highlight": {
+          "default": null,
+          "doc": "comma-separated ONE-BASED line numbers to emphasise"
+        },
+        "language": {
+          "default": null,
+          "doc": "js | ts | json | swift | kotlin | css | html | shell | dsx - unknown = plain"
+        },
+        "lineNumbers": {
+          "default": "'false'",
+          "doc": "\"true\" -> a gutter of line numbers"
+        },
+        "value": {
+          "default": null,
+          "doc": "the source text (required)"
+        },
+        "wrap": {
+          "default": "'false'",
+          "doc": "\"true\" -> wrapped plain lines instead of a scrolling tokenised row"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "copy": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<CodeBlock value=\"…\" copy=\"false\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/CodeBlock.dsx"
+    },
+    "ColorPicker": {
+      "kind": "xml-component",
+      "tag": "ColorPicker",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "preview": {
+          "default": "'true'"
+        },
+        "sliders": {
+          "default": "'true'"
+        },
+        "swatches": {
+          "default": null,
+          "doc": "\"#RRGGBB,…\" or rows of { color, label }"
+        },
+        "value": {
+          "default": "'#0A84FF'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "change": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<ColorPicker a11yLabel=\"…\" preview=\"true\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/ColorPicker.dsx"
+    },
+    "Confetti": {
+      "kind": "xml-component",
+      "tag": "Confetti",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "colors": {
+          "default": null,
+          "doc": "comma-separated colour words; defaults to accent + destructive + label"
+        },
+        "count": {
+          "default": "24",
+          "doc": "particles per burst (clamped to 1..120)"
+        },
+        "duration": {
+          "default": "1.6",
+          "doc": "seconds the burst stays on screen"
+        },
+        "fire": {
+          "default": null,
+          "doc": "bump to play; any changing value"
+        },
+        "origin": {
+          "default": "'top'",
+          "doc": "top | center | bottom - where the scatter starts"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Confetti colors=\"…\" count=\"24\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Confetti.dsx"
+    },
+    "ContextMeter": {
+      "kind": "xml-component",
+      "tag": "ContextMeter",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "compact": {
+          "default": "'false'",
+          "doc": "the bar only, no line of text"
+        },
+        "cost": {
+          "default": null,
+          "doc": "in whole currency units"
+        },
+        "currency": {
+          "default": "'$'"
+        },
+        "label": {
+          "default": "'Context'"
+        },
+        "max": {
+          "default": null
+        },
+        "used": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<ContextMeter a11yLabel=\"…\" compact=\"false\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/ContextMeter.dsx"
     },
     "DSXNativeUnavailable": {
       "kind": "xml-component",
@@ -4896,6 +6292,93 @@
       "example": "<DSXWebUnavailable message=\"DSX could not reach the configured app origin. Check your connection and try again.\" retry=\"true\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/System/DSXWebUnavailable.dsx"
     },
+    "Diagram": {
+      "kind": "xml-component",
+      "tag": "Diagram",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "color": {
+          "default": "'accent'"
+        },
+        "columnGap": {
+          "default": "56"
+        },
+        "edges": {
+          "default": null
+        },
+        "nodeHeight": {
+          "default": "52"
+        },
+        "nodeWidth": {
+          "default": "128"
+        },
+        "nodes": {
+          "default": null
+        },
+        "rowGap": {
+          "default": "20"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "tap": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Diagram a11yLabel=\"…\" color=\"accent\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Diagram.dsx"
+    },
+    "Diff": {
+      "kind": "xml-component",
+      "tag": "Diff",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null,
+          "doc": "the block's own name; defaults to \"Differences\""
+        },
+        "after": {
+          "default": null,
+          "doc": "the changed text (required)"
+        },
+        "before": {
+          "default": null,
+          "doc": "the original text (required)"
+        },
+        "mode": {
+          "default": "'unified'",
+          "doc": "unified | split"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Diff after=\"…\" before=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Diff.dsx"
+    },
     "EmptyState": {
       "kind": "xml-component",
       "tag": "EmptyState",
@@ -4988,6 +6471,351 @@
       "example": "<FAB a11yLabel=\"…\" color=\"accent\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/FAB.dsx"
     },
+    "Gauge": {
+      "kind": "xml-component",
+      "tag": "Gauge",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null,
+          "doc": "overrides `label` for assistive tech only"
+        },
+        "bind": {
+          "default": null,
+          "doc": "accepted alias of `value`"
+        },
+        "currentLabel": {
+          "default": null,
+          "doc": "the formatted value, shown and announced"
+        },
+        "label": {
+          "default": null,
+          "doc": "the gauge's own name, announced first"
+        },
+        "max": {
+          "default": "1",
+          "doc": "the high bound"
+        },
+        "maxLabel": {
+          "default": null,
+          "doc": "the high bound as text"
+        },
+        "min": {
+          "default": "0",
+          "doc": "the low bound"
+        },
+        "minLabel": {
+          "default": null,
+          "doc": "the low bound as text (circular and linear only)"
+        },
+        "size": {
+          "default": "88",
+          "doc": "the circular diameter in points"
+        },
+        "style": {
+          "default": "'circular'",
+          "doc": "circular | accessoryCircular | linear | accessoryLinear"
+        },
+        "tint": {
+          "default": "'accent'",
+          "doc": "one colour, or `a|b|c` for a value-following ramp"
+        },
+        "value": {
+          "default": null,
+          "doc": "the measured quantity (defaults to 0)"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "tap": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Gauge a11yLabel=\"…\" bind=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Gauge.dsx"
+    },
+    "ImageGeneration": {
+      "kind": "xml-component",
+      "tag": "ImageGeneration",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "error": {
+          "default": null,
+          "doc": "a message; presence alone means failed"
+        },
+        "fit": {
+          "default": "'cover'"
+        },
+        "label": {
+          "default": "'Generating'"
+        },
+        "placeholder": {
+          "default": null,
+          "doc": "blurhash / thumbhash / preview URL"
+        },
+        "progress": {
+          "default": null,
+          "doc": "0..1; absent means indeterminate"
+        },
+        "prompt": {
+          "default": null
+        },
+        "radius": {
+          "default": "12"
+        },
+        "ratio": {
+          "default": "'1:1'",
+          "doc": "16:9 · 16/9 · 1.5 · square/portrait/landscape/story"
+        },
+        "retryLabel": {
+          "default": "'Try again'"
+        },
+        "src": {
+          "default": null,
+          "doc": "arrives when the image is made"
+        },
+        "status": {
+          "default": null,
+          "doc": "generating | ready | failed (overrides)"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "error": {
+          "payload": [
+
+          ]
+        },
+        "load": {
+          "payload": [
+
+          ]
+        },
+        "retry": {
+          "payload": [
+
+          ]
+        },
+        "tap": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<ImageGeneration a11yLabel=\"…\" error=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/ImageGeneration.dsx"
+    },
+    "InputGroup": {
+      "kind": "xml-component",
+      "tag": "InputGroup",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "background": {
+          "default": "'background'"
+        },
+        "icon": {
+          "default": null,
+          "doc": "leading glyph, drawn before `prefix`"
+        },
+        "prefix": {
+          "default": null,
+          "doc": "leading text addon"
+        },
+        "suffix": {
+          "default": null,
+          "doc": "trailing text addon"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+        "default",
+        "leading",
+        "trailing"
+      ],
+      "example": "<InputGroup a11yLabel=\"…\" background=\"background\"><text value=\"…\"/></InputGroup>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/InputGroup.dsx"
+    },
+    "MarkdownEditor": {
+      "kind": "xml-component",
+      "tag": "MarkdownEditor",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": "'Markdown'"
+        },
+        "count": {
+          "default": "'true'"
+        },
+        "max": {
+          "default": null,
+          "doc": "character budget; the count turns red past it"
+        },
+        "minLines": {
+          "default": "8"
+        },
+        "placeholder": {
+          "default": "'Write something'"
+        },
+        "value": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "change": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<MarkdownEditor a11yLabel=\"Markdown\" count=\"true\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/MarkdownEditor.dsx"
+    },
+    "Marquee": {
+      "kind": "xml-component",
+      "tag": "Marquee",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "direction": {
+          "default": "'normal'"
+        },
+        "duration": {
+          "default": "20"
+        },
+        "gap": {
+          "default": "3"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+        "default"
+      ],
+      "example": "<Marquee direction=\"normal\" duration=\"20\"><text value=\"…\"/></Marquee>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Marquee.dsx"
+    },
+    "MultiSelect": {
+      "kind": "xml-component",
+      "tag": "MultiSelect",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null,
+          "doc": "overrides `label` for assistive tech only"
+        },
+        "chips": {
+          "default": "'true'",
+          "doc": "\"false\" hides the removable chip row"
+        },
+        "label": {
+          "default": null,
+          "doc": "the control's visible name"
+        },
+        "labelField": {
+          "default": "'label'",
+          "doc": "which field of an object row is the label"
+        },
+        "max": {
+          "default": "0",
+          "doc": "how many may be selected; 0 is unlimited"
+        },
+        "options": {
+          "default": null,
+          "doc": "comma-separated labels, the simple form"
+        },
+        "optionsKey": {
+          "default": null,
+          "doc": "a bound list of objects, the rich form"
+        },
+        "placeholder": {
+          "default": null,
+          "doc": "trigger text while nothing is selected"
+        },
+        "searchable": {
+          "default": null,
+          "doc": "\"true\" adds a filter field above the options"
+        },
+        "valueField": {
+          "default": "'id'",
+          "doc": "which field of an object row is the value"
+        },
+        "values": {
+          "default": null,
+          "doc": "the current selection: a bound list, or comma-separated"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "change": {
+          "payload": [
+            "selected",
+            "value",
+            "reason"
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<MultiSelect a11yLabel=\"…\" chips=\"true\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/MultiSelect.dsx"
+    },
     "NavBar": {
       "kind": "xml-component",
       "tag": "NavBar",
@@ -5066,6 +6894,335 @@
       "example": "<Notes/>",
       "source": "ClosedSource/DSX/Modules/Custom/Notes/Components/Notes.dsx"
     },
+    "Pagination": {
+      "kind": "xml-component",
+      "tag": "Pagination",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "bind": {
+          "default": null,
+          "doc": "accepted alias of `page`"
+        },
+        "page": {
+          "default": null,
+          "doc": "the current page, ONE-BASED (defaults to 1)"
+        },
+        "perPage": {
+          "default": "25",
+          "doc": "items per page"
+        },
+        "siblings": {
+          "default": "1",
+          "doc": "pages kept on each side of the current one"
+        },
+        "total": {
+          "default": "0",
+          "doc": "total ITEM count (not page count)"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "change": {
+          "payload": [
+            "page"
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Pagination bind=\"…\" page=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Pagination.dsx"
+    },
+    "Plot": {
+      "kind": "xml-component",
+      "tag": "Plot",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "close": {
+          "default": "'close'"
+        },
+        "colors": {
+          "default": null,
+          "doc": "CSV of colour words/hexes; defaults to the plot palette"
+        },
+        "columns": {
+          "default": "7",
+          "doc": "heatmap grid width"
+        },
+        "data": {
+          "default": null,
+          "doc": "the rows"
+        },
+        "height": {
+          "default": "220"
+        },
+        "high": {
+          "default": "'high'"
+        },
+        "label": {
+          "default": "'label'",
+          "doc": "row field holding the name"
+        },
+        "legend": {
+          "default": "'false'"
+        },
+        "low": {
+          "default": "'low'"
+        },
+        "max": {
+          "default": null,
+          "doc": "ring/radar/polar scale; defaults to the largest value"
+        },
+        "open": {
+          "default": "'open'",
+          "doc": "candlestick fields"
+        },
+        "type": {
+          "default": "'pie'",
+          "doc": "pie · donut · ring · polar · radar · heatmap · funnel · treemap · waterfall · candlestick"
+        },
+        "value": {
+          "default": "'value'",
+          "doc": "row field holding the number"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Plot a11yLabel=\"…\" close=\"close\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Plot.dsx"
+    },
+    "Post": {
+      "kind": "xml-component",
+      "tag": "Post",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "actions": {
+          "default": "'true'",
+          "doc": "hide the bar for a read-only feed"
+        },
+        "avatar": {
+          "default": null,
+          "doc": "an image url; falls back to initials"
+        },
+        "comments": {
+          "default": "0"
+        },
+        "handle": {
+          "default": null
+        },
+        "image": {
+          "default": null,
+          "doc": "one attached image, full width under the body"
+        },
+        "liked": {
+          "default": "'false'"
+        },
+        "likes": {
+          "default": "0"
+        },
+        "name": {
+          "default": null
+        },
+        "text": {
+          "default": null
+        },
+        "time": {
+          "default": null,
+          "doc": "ISO string or epoch millis"
+        },
+        "timeText": {
+          "default": null,
+          "doc": "pre-formatted, wins over `time`"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "comment": {
+          "payload": [
+
+          ]
+        },
+        "like": {
+          "payload": [
+
+          ]
+        },
+        "open": {
+          "payload": [
+
+          ]
+        },
+        "share": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+        "default"
+      ],
+      "example": "<Post actions=\"true\" avatar=\"…\"><text value=\"…\"/></Post>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Post.dsx"
+    },
+    "PromptInput": {
+      "kind": "xml-component",
+      "tag": "PromptInput",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": "'Message'"
+        },
+        "attach": {
+          "default": "'true'"
+        },
+        "attachments": {
+          "default": null,
+          "doc": "rows: { name, size, id }"
+        },
+        "busy": {
+          "default": "'false'",
+          "doc": "an answer is streaming: send becomes stop"
+        },
+        "elapsed": {
+          "default": "0",
+          "doc": "seconds, for the running count"
+        },
+        "enterSends": {
+          "default": "'true'"
+        },
+        "level": {
+          "default": "0",
+          "doc": "0..1, the live input level"
+        },
+        "max": {
+          "default": null,
+          "doc": "character budget"
+        },
+        "maxLines": {
+          "default": "8"
+        },
+        "minLines": {
+          "default": "1"
+        },
+        "model": {
+          "default": null
+        },
+        "models": {
+          "default": null,
+          "doc": "\"a,b,c\" or rows of { value, label }"
+        },
+        "placeholder": {
+          "default": "'Ask anything'"
+        },
+        "recording": {
+          "default": "'false'",
+          "doc": "the caller is capturing right now"
+        },
+        "surface": {
+          "default": "'glass'"
+        },
+        "transcript": {
+          "default": null,
+          "doc": "what has been heard so far"
+        },
+        "value": {
+          "default": null
+        },
+        "voice": {
+          "default": "'false'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "attach": {
+          "payload": [
+
+          ]
+        },
+        "change": {
+          "payload": [
+
+          ]
+        },
+        "modelChange": {
+          "payload": [
+
+          ]
+        },
+        "remove": {
+          "payload": [
+
+          ]
+        },
+        "stop": {
+          "payload": [
+
+          ]
+        },
+        "submit": {
+          "payload": [
+
+          ]
+        },
+        "voice": {
+          "payload": [
+
+          ]
+        },
+        "voiceCancel": {
+          "payload": [
+
+          ]
+        },
+        "voiceStart": {
+          "payload": [
+
+          ]
+        },
+        "voiceStop": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<PromptInput a11yLabel=\"Message\" attach=\"true\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/PromptInput.dsx"
+    },
     "ProofShell": {
       "kind": "xml-component",
       "tag": "ProofShell",
@@ -5085,6 +7242,331 @@
       ],
       "example": "<ProofShell/>",
       "source": "ClosedSource/DSX/Modules/Custom/ProofSurface/Components/ProofShell.dsx"
+    },
+    "Questionnaire": {
+      "kind": "xml-component",
+      "tag": "Questionnaire",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "progress": {
+          "default": "'true'"
+        },
+        "questions": {
+          "default": null
+        },
+        "submitLabel": {
+          "default": "'Finish'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "answer": {
+          "payload": [
+
+          ]
+        },
+        "done": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Questionnaire progress=\"true\" questions=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Questionnaire.dsx"
+    },
+    "Rating": {
+      "kind": "xml-component",
+      "tag": "Rating",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null,
+          "doc": "the control's own name; defaults to \"Rating\""
+        },
+        "bind": {
+          "default": null,
+          "doc": "accepted alias of `value`"
+        },
+        "color": {
+          "default": "'accent'",
+          "doc": "the earned-glyph tint"
+        },
+        "count": {
+          "default": null,
+          "doc": "number of ratings behind the score (optional)"
+        },
+        "half": {
+          "default": "'false'",
+          "doc": "\"true\" -> draw and adjust in half steps"
+        },
+        "icon": {
+          "default": "'star'",
+          "doc": "base SF Symbol; the filled form is `<icon>.fill`"
+        },
+        "max": {
+          "default": "5",
+          "doc": "how many glyphs"
+        },
+        "readOnly": {
+          "default": "'false'",
+          "doc": "\"true\" -> display only, no taps, no adjust"
+        },
+        "value": {
+          "default": null,
+          "doc": "the score (defaults to 0)"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "change": {
+          "payload": [
+            "value"
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Rating a11yLabel=\"…\" bind=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Rating.dsx"
+    },
+    "Reasoning": {
+      "kind": "xml-component",
+      "tag": "Reasoning",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "busy": {
+          "default": "'false'",
+          "doc": "still thinking"
+        },
+        "open": {
+          "default": "'false'"
+        },
+        "seconds": {
+          "default": null,
+          "doc": "optional \"thought for 4s\""
+        },
+        "text": {
+          "default": null,
+          "doc": "the reasoning body (markdown)"
+        },
+        "title": {
+          "default": null,
+          "doc": "header; defaults to a busy/idle phrase"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+        "default"
+      ],
+      "example": "<Reasoning busy=\"false\" open=\"false\"><text value=\"…\"/></Reasoning>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Reasoning.dsx"
+    },
+    "ScrollFade": {
+      "kind": "xml-component",
+      "tag": "ScrollFade",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "axis": {
+          "default": "'vertical'"
+        },
+        "color": {
+          "default": "'systemBackground'",
+          "doc": "what is BEHIND the list"
+        },
+        "edges": {
+          "default": "'both'",
+          "doc": "both | start | end"
+        },
+        "range": {
+          "default": "24",
+          "doc": "points of travel to full strength"
+        },
+        "size": {
+          "default": "32",
+          "doc": "how deep each bar is, in points"
+        },
+        "source": {
+          "default": null,
+          "doc": "the scroller's ref="
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<ScrollFade axis=\"vertical\" color=\"systemBackground\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/ScrollFade.dsx"
+    },
+    "ScrollText": {
+      "kind": "xml-component",
+      "tag": "ScrollText",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "color": {
+          "default": "'label'"
+        },
+        "dim": {
+          "default": "0.2",
+          "doc": "resting opacity of an unread line"
+        },
+        "from": {
+          "default": "0.15",
+          "doc": "progress where the first line lights"
+        },
+        "lineGap": {
+          "default": "10"
+        },
+        "overlap": {
+          "default": "2",
+          "doc": "how many lines are in flight at once"
+        },
+        "text": {
+          "default": null
+        },
+        "to": {
+          "default": "0.75",
+          "doc": "progress where the last one is done"
+        },
+        "type": {
+          "default": "'title2'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<ScrollText color=\"label\" dim=\"0.2\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/ScrollText.dsx"
+    },
+    "SectionRail": {
+      "kind": "xml-component",
+      "tag": "SectionRail",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "active": {
+          "default": null,
+          "doc": "the letter the list is currently showing"
+        },
+        "color": {
+          "default": "'accent'"
+        },
+        "letters": {
+          "default": null,
+          "doc": "array, \"A,B,C\", or empty for A-Z"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "select": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<SectionRail a11yLabel=\"…\" active=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/SectionRail.dsx"
+    },
+    "SelectionBar": {
+      "kind": "xml-component",
+      "tag": "SelectionBar",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "always": {
+          "default": "'false'",
+          "doc": "keep the bar mounted with nothing chosen"
+        },
+        "noun": {
+          "default": "'selected'",
+          "doc": "\"3 selected\" / \"3 photos\""
+        },
+        "selected": {
+          "default": null,
+          "doc": "the chosen ids: an array (or a count)"
+        },
+        "total": {
+          "default": null,
+          "doc": "how many rows exist, for \"Select all\""
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "all": {
+          "payload": [
+
+          ]
+        },
+        "clear": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+        "default"
+      ],
+      "example": "<SelectionBar a11yLabel=\"…\" always=\"false\"><text value=\"…\"/></SelectionBar>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/SelectionBar.dsx"
     },
     "SettingsRow": {
       "kind": "xml-component",
@@ -5140,6 +7622,597 @@
       "example": "<SettingsRow title=\"…\" chevron=\"…\"><text value=\"…\"/></SettingsRow>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/SettingsRow.dsx"
     },
+    "Sources": {
+      "kind": "xml-component",
+      "tag": "Sources",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "items": {
+          "default": null,
+          "doc": "rows: { title, url, site }"
+        },
+        "label": {
+          "default": "'Sources'"
+        },
+        "max": {
+          "default": "6"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "open": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Sources items=\"…\" label=\"Sources\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Sources.dsx"
+    },
+    "Spotlight": {
+      "kind": "xml-component",
+      "tag": "Spotlight",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "active": {
+          "default": "'true'",
+          "doc": "\"true\" -> shown; flip it to dismiss from outside"
+        },
+        "backLabel": {
+          "default": "'Back'"
+        },
+        "current": {
+          "default": "1",
+          "doc": "the starting step, ONE-BASED"
+        },
+        "doneLabel": {
+          "default": "'Done'"
+        },
+        "nextLabel": {
+          "default": "'Next'",
+          "doc": "localizable button copy"
+        },
+        "skipLabel": {
+          "default": "'Skip'"
+        },
+        "steps": {
+          "default": null,
+          "doc": "the walk (required): [{ title, body, x?, y?, width?, height? }]"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "finish": {
+          "payload": [
+
+          ]
+        },
+        "skip": {
+          "payload": [
+
+          ]
+        },
+        "step": {
+          "payload": [
+            "step"
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Spotlight steps=\"…\" active=\"true\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Spotlight.dsx"
+    },
+    "Stat": {
+      "kind": "xml-component",
+      "tag": "Stat",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "delta": {
+          "default": null,
+          "doc": "the change, already formatted (\"+12%\", \"-0.4pt\") - optional"
+        },
+        "icon": {
+          "default": null,
+          "doc": "leading SF Symbol (optional, decorative)"
+        },
+        "label": {
+          "default": null,
+          "doc": "the metric's name (required)"
+        },
+        "tone": {
+          "default": "'secondary'",
+          "doc": "the leading icon's tint"
+        },
+        "trend": {
+          "default": null,
+          "doc": "up | down | flat - omit to derive it from `delta`'s sign"
+        },
+        "value": {
+          "default": null,
+          "doc": "the headline figure, already formatted (required)"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Stat label=\"…\" value=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Stat.dsx"
+    },
+    "Steps": {
+      "kind": "xml-component",
+      "tag": "Steps",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null,
+          "doc": "the bar's own name; defaults to \"Progress\""
+        },
+        "bind": {
+          "default": null,
+          "doc": "the steps (required): [\"Cart\", …] or [{ label }]"
+        },
+        "clickable": {
+          "default": "'false'",
+          "doc": "\"true\" -> each step is a button raising `select`"
+        },
+        "current": {
+          "default": "1",
+          "doc": "the step in progress, ONE-BASED"
+        },
+        "orientation": {
+          "default": "'horizontal'",
+          "doc": "horizontal | vertical"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "select": {
+          "payload": [
+            "step",
+            "label"
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Steps bind=\"…\" a11yLabel=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Steps.dsx"
+    },
+    "Swipe": {
+      "kind": "xml-component",
+      "tag": "Swipe",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yHint": {
+          "default": "'Swipe left for actions'"
+        },
+        "actionWidth": {
+          "default": "80",
+          "doc": "total width of the revealed action strip"
+        },
+        "disabled": {
+          "default": "'false'"
+        },
+        "fullSwipe": {
+          "default": "'true'",
+          "doc": "a far swipe fires `action` on release"
+        },
+        "haptics": {
+          "default": "'true'",
+          "doc": "one tick when the full-swipe threshold is crossed"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "action": {
+          "payload": [
+
+          ]
+        },
+        "close": {
+          "payload": [
+
+          ]
+        },
+        "open": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+        "actions",
+        "default"
+      ],
+      "example": "<Swipe a11yHint=\"Swipe left for actions\" actionWidth=\"80\"><text value=\"…\"/></Swipe>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Swipe.dsx"
+    },
+    "TagsField": {
+      "kind": "xml-component",
+      "tag": "TagsField",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null,
+          "doc": "overrides `label` for assistive tech only"
+        },
+        "keyboard": {
+          "default": null,
+          "doc": "the field's keyboard type, e.g. emailAddress"
+        },
+        "label": {
+          "default": null,
+          "doc": "the control's visible name"
+        },
+        "max": {
+          "default": "0",
+          "doc": "how many chips are allowed; 0 is unlimited"
+        },
+        "placeholder": {
+          "default": null,
+          "doc": "the empty-field prompt"
+        },
+        "separator": {
+          "default": "','",
+          "doc": "every character here splits; Return always commits"
+        },
+        "suggestions": {
+          "default": null,
+          "doc": "comma-separated completions"
+        },
+        "suggestionsKey": {
+          "default": null,
+          "doc": "a bound list of completion strings"
+        },
+        "tags": {
+          "default": null,
+          "doc": "the current chips: a bound list, or comma-separated"
+        },
+        "validate": {
+          "default": null,
+          "doc": "a regex every chip must match"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "add": {
+          "payload": [
+            "tags",
+            "added",
+            "rejected"
+          ]
+        },
+        "remove": {
+          "payload": [
+            "tags",
+            "tag"
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<TagsField a11yLabel=\"…\" keyboard=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/TagsField.dsx"
+    },
+    "TextAnimation": {
+      "kind": "xml-component",
+      "tag": "TextAnimation",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "duration": {
+          "default": "0.45"
+        },
+        "gap": {
+          "default": "0.25"
+        },
+        "lines": {
+          "default": "[]"
+        },
+        "stagger": {
+          "default": "0.09"
+        },
+        "type": {
+          "default": "'body'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<TextAnimation duration=\"0.45\" gap=\"0.25\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/TextAnimation.dsx"
+    },
+    "ThinkingOrb": {
+      "kind": "xml-component",
+      "tag": "ThinkingOrb",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "color": {
+          "default": "'accent'"
+        },
+        "label": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<ThinkingOrb color=\"accent\" label=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/ThinkingOrb.dsx"
+    },
+    "Timeline": {
+      "kind": "xml-component",
+      "tag": "Timeline",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null,
+          "doc": "the rail's own name; defaults to \"Timeline\""
+        },
+        "bind": {
+          "default": null,
+          "doc": "the rows (required): JSON text or a typed array"
+        },
+        "iconField": {
+          "default": "'icon'",
+          "doc": "row key carrying an SF Symbol drawn inside the dot (optional)"
+        },
+        "stateField": {
+          "default": "'state'",
+          "doc": "row key carrying done | active | pending"
+        },
+        "timeField": {
+          "default": "'time'",
+          "doc": "row key carrying the timestamp text (optional per row)"
+        },
+        "titleField": {
+          "default": "'title'",
+          "doc": "row key carrying the headline"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Timeline bind=\"…\" a11yLabel=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Timeline.dsx"
+    },
+    "ToggleButton": {
+      "kind": "xml-component",
+      "tag": "ToggleButton",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "color": {
+          "default": "'accent'"
+        },
+        "disabled": {
+          "default": "'false'"
+        },
+        "icon": {
+          "default": null
+        },
+        "label": {
+          "default": null
+        },
+        "pressed": {
+          "default": "'false'"
+        },
+        "size": {
+          "default": "'regular'",
+          "doc": "regular | small"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "tap": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<ToggleButton a11yLabel=\"…\" color=\"accent\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/ToggleButton.dsx"
+    },
+    "ToolCall": {
+      "kind": "xml-component",
+      "tag": "ToolCall",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "args": {
+          "default": null,
+          "doc": "an object, or JSON text"
+        },
+        "duration": {
+          "default": null,
+          "doc": "milliseconds"
+        },
+        "error": {
+          "default": null
+        },
+        "name": {
+          "default": null
+        },
+        "open": {
+          "default": "'false'"
+        },
+        "result": {
+          "default": null,
+          "doc": "an object, JSON text, or plain text"
+        },
+        "status": {
+          "default": null,
+          "doc": "running | done | error (overrides)"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "retry": {
+          "payload": [
+
+          ]
+        },
+        "toggle": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<ToolCall a11yLabel=\"…\" args=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/ToolCall.dsx"
+    },
+    "Tree": {
+      "kind": "xml-component",
+      "tag": "Tree",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "bind": {
+          "default": null,
+          "doc": "the roots: JSON text or a typed array"
+        },
+        "childrenField": {
+          "default": "'children'"
+        },
+        "expanded": {
+          "default": null,
+          "doc": "ids open on first paint: \"src\" or \"src,lib\""
+        },
+        "iconField": {
+          "default": "'icon'"
+        },
+        "idField": {
+          "default": "'id'"
+        },
+        "indent": {
+          "default": "18",
+          "doc": "points per level"
+        },
+        "labelField": {
+          "default": "'label'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "select": {
+          "payload": [
+
+          ]
+        },
+        "toggle": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<Tree a11yLabel=\"…\" bind=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Tree.dsx"
+    },
     "VipCard": {
       "kind": "xml-component",
       "tag": "VipCard",
@@ -5182,6 +8255,58 @@
       "example": "<VipCard price=\"…\" productId=\"…\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/VipCard.dsx"
     },
+    "VoiceInput": {
+      "kind": "xml-component",
+      "tag": "VoiceInput",
+      "module": null,
+      "platforms": [
+        "ios",
+        "android"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": null
+        },
+        "label": {
+          "default": "'Hold to speak'"
+        },
+        "level": {
+          "default": "0",
+          "doc": "0..1, the live input level"
+        },
+        "listening": {
+          "default": "'false'"
+        },
+        "transcript": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "cancel": {
+          "payload": [
+
+          ]
+        },
+        "start": {
+          "payload": [
+
+          ]
+        },
+        "stop": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<VoiceInput a11yLabel=\"…\" label=\"Hold to speak\"/>",
+      "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/VoiceInput.dsx"
+    },
     "applock.AppLock": {
       "kind": "xml-component",
       "tag": "AppLock",
@@ -5219,6 +8344,70 @@
       "example": "<AppLock background=\"…\" button=\"…\"/>",
       "source": "ClosedSource/DSX/Modules/Core/AppLock/Components/AppLock.dsx"
     },
+    "apps.StudioAppSurface": {
+      "kind": "xml-component",
+      "tag": "StudioAppSurface",
+      "module": "apps",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "api": {
+          "default": "''"
+        },
+        "app": {
+          "default": null
+        },
+        "collapsible": {
+          "default": "''"
+        },
+        "contribution": {
+          "default": null
+        },
+        "dock": {
+          "default": "full"
+        },
+        "kind": {
+          "default": "''"
+        },
+        "selection": {
+          "default": "''"
+        },
+        "title": {
+          "default": "''"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "close": {
+          "payload": [
+
+          ]
+        },
+        "collapse": {
+          "payload": [
+
+          ]
+        },
+        "expand": {
+          "payload": [
+
+          ]
+        },
+        "toast": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<StudioAppSurface api=\"\" app=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Core/Apps/Components/StudioAppSurface.dsx"
+    },
     "cdn.SyncProgress": {
       "kind": "xml-component",
       "tag": "SyncProgress",
@@ -5249,6 +8438,53 @@
       ],
       "example": "<SyncProgress background=\"…\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/ContentServer/Components/SyncProgress.dsx"
+    },
+    "clerk.AccountChip": {
+      "kind": "xml-component",
+      "tag": "AccountChip",
+      "module": "clerk",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": "'Account'"
+        },
+        "profileLabel": {
+          "default": "'Account'"
+        },
+        "signOutLabel": {
+          "default": "'Sign out'"
+        },
+        "signedOutLabel": {
+          "default": "'Sign in'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "change": {
+          "payload": [
+
+          ]
+        },
+        "error": {
+          "payload": [
+
+          ]
+        },
+        "ready": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<AccountChip a11yLabel=\"Account\" profileLabel=\"Account\"/>",
+      "source": "ClosedSource/DSX/Modules/Core/Clerk/Components/AccountChip.dsx"
     },
     "demo.Appearance": {
       "kind": "xml-component",
@@ -5374,6 +8610,26 @@
       ],
       "example": "<Commerce/>",
       "source": "ClosedSource/DSX/Modules/Custom/Demo/Components/Commerce.dsx"
+    },
+    "demo.Dashboard": {
+      "kind": "xml-component",
+      "tag": "Dashboard",
+      "module": "demo",
+      "platforms": [
+
+      ],
+      "attributes": {
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Dashboard/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Demo/Components/Dashboard.dsx"
     },
     "demo.Data": {
       "kind": "xml-component",
@@ -5743,6 +8999,67 @@
       "example": "<Sensors/>",
       "source": "ClosedSource/DSX/Modules/Custom/Demo/Components/Sensors.dsx"
     },
+    "demo.StatCard": {
+      "kind": "xml-component",
+      "tag": "StatCard",
+      "module": "demo",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "data": {
+          "default": null
+        },
+        "delta": {
+          "default": "0"
+        },
+        "label": {
+          "default": null
+        },
+        "unit": {
+          "default": "''"
+        },
+        "value": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<StatCard data=\"…\" delta=\"0\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Demo/Components/StatCard.dsx"
+    },
+    "demo.StatusPill": {
+      "kind": "xml-component",
+      "tag": "StatusPill",
+      "module": "demo",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "label": {
+          "default": null
+        },
+        "tone": {
+          "default": "'neutral'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<StatusPill label=\"…\" tone=\"neutral\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Demo/Components/StatusPill.dsx"
+    },
     "demo.System": {
       "kind": "xml-component",
       "tag": "System",
@@ -5963,6 +9280,602 @@
       "example": "<StateDetail/>",
       "source": "ClosedSource/DSX/Modules/Core/DevSettings/Components/StateDetail.dsx"
     },
+    "dev.Stream": {
+      "kind": "xml-component",
+      "tag": "Stream",
+      "module": "dev",
+      "platforms": [
+
+      ],
+      "attributes": {
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Stream/>",
+      "source": "ClosedSource/DSX/Modules/Core/DevSettings/Components/Stream.dsx"
+    },
+    "editor.Editor": {
+      "kind": "xml-component",
+      "tag": "Editor",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Editor/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/Editor.dsx"
+    },
+    "editor.EditorApps": {
+      "kind": "xml-component",
+      "tag": "EditorApps",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "rev": {
+          "default": "0"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "changed": {
+          "payload": [
+
+          ]
+        },
+        "open": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorApps rev=\"0\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorApps.dsx"
+    },
+    "editor.EditorCanvas": {
+      "kind": "xml-component",
+      "tag": "EditorCanvas",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "open": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorCanvas/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorCanvas.dsx"
+    },
+    "editor.EditorChat": {
+      "kind": "xml-component",
+      "tag": "EditorChat",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "document": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "busy": {
+          "payload": [
+
+          ]
+        },
+        "landed": {
+          "payload": [
+
+          ]
+        },
+        "minimize": {
+          "payload": [
+
+          ]
+        },
+        "touch": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorChat document=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorChat.dsx"
+    },
+    "editor.EditorElements": {
+      "kind": "xml-component",
+      "tag": "EditorElements",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "document": {
+          "default": null
+        },
+        "selected": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "close": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorElements document=\"…\" selected=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorElements.dsx"
+    },
+    "editor.EditorEmpty": {
+      "kind": "xml-component",
+      "tag": "EditorEmpty",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "action": {
+          "default": null
+        },
+        "size": {
+          "default": "row"
+        },
+        "subject": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "act": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorEmpty action=\"…\" size=\"row\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorEmpty.dsx"
+    },
+    "editor.EditorExpression": {
+      "kind": "xml-component",
+      "tag": "EditorExpression",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "at": {
+          "default": null
+        },
+        "body": {
+          "default": null
+        },
+        "document": {
+          "default": null
+        },
+        "label": {
+          "default": null
+        },
+        "to": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "close": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorExpression at=\"…\" body=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorExpression.dsx"
+    },
+    "editor.EditorFlowWindow": {
+      "kind": "xml-component",
+      "tag": "EditorFlowWindow",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "body": {
+          "default": null
+        },
+        "document": {
+          "default": null
+        },
+        "title": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "close": {
+          "payload": [
+
+          ]
+        },
+        "openFull": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorFlowWindow body=\"…\" document=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorFlowWindow.dsx"
+    },
+    "editor.EditorInspector": {
+      "kind": "xml-component",
+      "tag": "EditorInspector",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "document": {
+          "default": null
+        },
+        "rev": {
+          "default": "0"
+        },
+        "selected": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "changed": {
+          "payload": [
+
+          ]
+        },
+        "openFlow": {
+          "payload": [
+
+          ]
+        },
+        "toast": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorInspector document=\"…\" rev=\"0\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorInspector.dsx"
+    },
+    "editor.EditorLogic": {
+      "kind": "xml-component",
+      "tag": "EditorLogic",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "document": {
+          "default": null
+        },
+        "focus": {
+          "default": null
+        },
+        "panels": {
+          "default": "'full'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorLogic document=\"…\" focus=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorLogic.dsx"
+    },
+    "editor.EditorPreview": {
+      "kind": "xml-component",
+      "tag": "EditorPreview",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "document": {
+          "default": null
+        },
+        "startTool": {
+          "default": "'select'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "changed": {
+          "payload": [
+
+          ]
+        },
+        "select": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorPreview document=\"…\" startTool=\"select\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorPreview.dsx"
+    },
+    "editor.EditorServer": {
+      "kind": "xml-component",
+      "tag": "EditorServer",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "openAction": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorServer/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorServer.dsx"
+    },
+    "editor.EditorState": {
+      "kind": "xml-component",
+      "tag": "EditorState",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "document": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "openBody": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorState document=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorState.dsx"
+    },
+    "editor.EditorStrings": {
+      "kind": "xml-component",
+      "tag": "EditorStrings",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "document": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorStrings document=\"…\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorStrings.dsx"
+    },
+    "editor.EditorStyles": {
+      "kind": "xml-component",
+      "tag": "EditorStyles",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "document": {
+          "default": null
+        },
+        "rev": {
+          "default": "0"
+        },
+        "selected": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "changed": {
+          "payload": [
+
+          ]
+        },
+        "toast": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorStyles document=\"…\" rev=\"0\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorStyles.dsx"
+    },
+    "editor.EditorTheme": {
+      "kind": "xml-component",
+      "tag": "EditorTheme",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorTheme/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorTheme.dsx"
+    },
+    "editor.EditorTools": {
+      "kind": "xml-component",
+      "tag": "EditorTools",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "document": {
+          "default": "null"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorTools document=\"null\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorTools.dsx"
+    },
+    "editor.EditorTree": {
+      "kind": "xml-component",
+      "tag": "EditorTree",
+      "module": "editor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "document": {
+          "default": null
+        },
+        "rev": {
+          "default": "0"
+        },
+        "selected": {
+          "default": null
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "changed": {
+          "payload": [
+
+          ]
+        },
+        "openState": {
+          "payload": [
+
+          ]
+        },
+        "select": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<EditorTree document=\"…\" rev=\"0\"/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Editor/Components/EditorTree.dsx"
+    },
     "licensecheck.License": {
       "kind": "xml-component",
       "tag": "License",
@@ -6083,6 +9996,46 @@
       ],
       "example": "<Sidebar background=\"…\" tint=\"…\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/MenuBar/Components/Sidebar.dsx"
+    },
+    "platform.AppDetail": {
+      "kind": "xml-component",
+      "tag": "AppDetail",
+      "module": "platform",
+      "platforms": [
+
+      ],
+      "attributes": {
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<AppDetail/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Platform/Components/AppDetail.dsx"
+    },
+    "platform.Apps": {
+      "kind": "xml-component",
+      "tag": "Apps",
+      "module": "platform",
+      "platforms": [
+
+      ],
+      "attributes": {
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Apps/>",
+      "source": "ClosedSource/DSX/Modules/Custom/Platform/Components/Apps.dsx"
     },
     "splash.Splash": {
       "kind": "xml-component",
@@ -6583,6 +10536,117 @@
       "example": "<PaywallVIP/>",
       "source": "ClosedSource/DSX/Modules/Core/Store/Components/core/PaywallVIP.dsx"
     },
+    "stream.StreamCaptionStrip": {
+      "kind": "xml-component",
+      "tag": "StreamCaptionStrip",
+      "module": "stream",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": "'Call captions'"
+        },
+        "emptyCopy": {
+          "default": "'Captions will appear here.'"
+        },
+        "idleLabel": {
+          "default": "'Show captions'"
+        },
+        "liveLabel": {
+          "default": "'Hide captions'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "change": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<StreamCaptionStrip a11yLabel=\"Call captions\" emptyCopy=\"Captions will appear here.\"/>",
+      "source": "ClosedSource/DSX/Modules/Core/Stream/Components/StreamCaptionStrip.dsx"
+    },
+    "stream.StreamLobby": {
+      "kind": "xml-component",
+      "tag": "StreamLobby",
+      "module": "stream",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": "'Call lobby'"
+        },
+        "joinLabel": {
+          "default": "'Join call'"
+        },
+        "previewHeight": {
+          "default": "240"
+        },
+        "title": {
+          "default": "'Ready to join?'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "join": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<StreamLobby a11yLabel=\"Call lobby\" joinLabel=\"Join call\"/>",
+      "source": "ClosedSource/DSX/Modules/Core/Stream/Components/StreamLobby.dsx"
+    },
+    "stream.StreamRecordingBadge": {
+      "kind": "xml-component",
+      "tag": "StreamRecordingBadge",
+      "module": "stream",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "default": "'Call recording'"
+        },
+        "idleLabel": {
+          "default": "'Start recording'"
+        },
+        "liveCopy": {
+          "default": "'This call is being recorded.'"
+        },
+        "liveLabel": {
+          "default": "'Stop recording'"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+        "change": {
+          "payload": [
+
+          ]
+        }
+      },
+      "slots": [
+
+      ],
+      "example": "<StreamRecordingBadge a11yLabel=\"Call recording\" idleLabel=\"Start recording\"/>",
+      "source": "ClosedSource/DSX/Modules/Core/Stream/Components/StreamRecordingBadge.dsx"
+    },
     "studioeditor.AgentCard": {
       "kind": "xml-component",
       "tag": "AgentCard",
@@ -6651,6 +10715,49 @@
       ],
       "example": "<AgentCard status=\"idle\" title=\"AI Auto-Tune\" subtitle=\"Analyze and tune this track\" chips=\"true\" doneSubtitle=\"Tuning complete\"/>",
       "source": "ClosedSource/DSX/Modules/Core/StudioEditor/Components/AgentCard.dsx"
+    },
+    "studioeditor.LevelMeter": {
+      "kind": "xml-component",
+      "tag": "LevelMeter",
+      "module": "studioeditor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "height": {
+          "default": "8"
+        },
+        "high": {
+          "default": "'#FF453A'",
+          "doc": "SwiftUI .red (dark)"
+        },
+        "level": {
+          "default": "0",
+          "doc": "0..1"
+        },
+        "low": {
+          "default": "'#30D158'",
+          "doc": "SwiftUI .green (dark)"
+        },
+        "mid": {
+          "default": "'#FFD60A'",
+          "doc": "SwiftUI .yellow (dark)"
+        },
+        "track": {
+          "default": "'fill'",
+          "doc": "the unlit rail"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<LevelMeter height=\"8\" high=\"#FF453A\"/>",
+      "source": "ClosedSource/DSX/Modules/Core/StudioEditor/Components/LevelMeter.dsx"
     },
     "studioeditor.StudioEditor": {
       "kind": "xml-component",
@@ -6848,6 +10955,48 @@
       ],
       "example": "<StudioEditor/>",
       "source": "ClosedSource/DSX/Modules/Core/StudioEditor/Components/StudioEditor.dsx"
+    },
+    "studioeditor.Waveform": {
+      "kind": "xml-component",
+      "tag": "Waveform",
+      "module": "studioeditor",
+      "platforms": [
+
+      ],
+      "attributes": {
+        "barWidth": {
+          "default": "3"
+        },
+        "height": {
+          "default": "48"
+        },
+        "lane": {
+          "default": "'fill'"
+        },
+        "muted": {
+          "default": "false"
+        },
+        "peaks": {
+          "default": null,
+          "doc": "\"0.30,0.81,…\""
+        },
+        "seed": {
+          "default": "0"
+        },
+        "selected": {
+          "default": "false"
+        }
+      },
+      "expects": [
+
+      ],
+      "events": {
+      },
+      "slots": [
+
+      ],
+      "example": "<Waveform barWidth=\"3\" height=\"48\"/>",
+      "source": "ClosedSource/DSX/Modules/Core/StudioEditor/Components/Waveform.dsx"
     },
     "verticalplayer.Episodes": {
       "kind": "xml-component",
@@ -7424,6 +11573,1507 @@
       ],
       "example": "<Speed playbackSpeed=\"…\"/>",
       "source": "ClosedSource/DSX/Modules/Custom/VerticalPlayerStack/Components/player/Speed.dsx"
+    }
+  },
+  "nativeComponents": {
+    "admob.Banner": {
+      "kind": "native-component",
+      "tag": "Banner",
+      "module": "admob",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "autoload": {
+          "type": "boolean",
+          "optional": true,
+          "default": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "refresh": {
+          "type": "number",
+          "optional": true,
+          "default": 0
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "size": {
+          "type": "string",
+          "optional": true,
+          "default": "adaptive"
+        },
+        "unit": {
+          "type": "string",
+          "optional": true
+        }
+      },
+      "events": [
+        "click",
+        "error",
+        "impression",
+        "ready",
+        "unavailable"
+      ],
+      "state": {
+        "errorMessage": {
+          "type": "string"
+        },
+        "filled": {
+          "type": "boolean"
+        },
+        "height": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        }
+      },
+      "example": "<admob.Banner/>",
+      "source": "ClosedSource/DSX/Modules/Core/AdMob/dsx.json"
+    },
+    "admob.Native": {
+      "kind": "native-component",
+      "tag": "Native",
+      "module": "admob",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "autoload": {
+          "type": "boolean",
+          "optional": true,
+          "default": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true,
+          "default": 120
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "template": {
+          "type": "string",
+          "optional": true,
+          "default": "medium"
+        },
+        "unit": {
+          "type": "string",
+          "optional": true
+        }
+      },
+      "events": [
+        "click",
+        "error",
+        "impression",
+        "ready",
+        "unavailable"
+      ],
+      "state": {
+        "advertiser": {
+          "type": "string"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "filled": {
+          "type": "boolean"
+        },
+        "headline": {
+          "type": "string"
+        }
+      },
+      "example": "<admob.Native/>",
+      "source": "ClosedSource/DSX/Modules/Core/AdMob/dsx.json"
+    },
+    "apps.AppMount": {
+      "kind": "native-component",
+      "tag": "AppMount",
+      "module": "apps",
+      "platforms": [
+
+      ],
+      "attributes": {
+      },
+      "events": [
+
+      ],
+      "state": {
+      },
+      "example": "<apps.AppMount/>",
+      "source": "ClosedSource/DSX/Modules/Core/Apps/dsx.json"
+    },
+    "clerk.AccountChip": {
+      "kind": "native-component",
+      "tag": "AccountChip",
+      "module": "clerk",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "profileLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "signOutLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "signedOutLabel": {
+          "type": "string",
+          "optional": true
+        }
+      },
+      "events": [
+        "change",
+        "error",
+        "ready"
+      ],
+      "state": {
+        "signedIn": {
+          "type": "boolean"
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "example": "<clerk.AccountChip/>",
+      "source": "ClosedSource/DSX/Modules/Core/Clerk/dsx.json"
+    },
+    "clerk.OrganizationList": {
+      "kind": "native-component",
+      "tag": "OrganizationList",
+      "module": "clerk",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "hidePersonal": {
+          "type": "string",
+          "optional": true,
+          "default": "false"
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        }
+      },
+      "events": [
+        "change",
+        "error",
+        "ready"
+      ],
+      "state": {
+        "orgId": {
+          "type": "string"
+        },
+        "orgRole": {
+          "type": "string"
+        },
+        "orgSlug": {
+          "type": "string"
+        },
+        "pendingTask": {
+          "type": "string"
+        },
+        "signedIn": {
+          "type": "boolean"
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "example": "<clerk.OrganizationList/>",
+      "source": "ClosedSource/DSX/Modules/Core/Clerk/dsx.json"
+    },
+    "clerk.OrganizationProfile": {
+      "kind": "native-component",
+      "tag": "OrganizationProfile",
+      "module": "clerk",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        }
+      },
+      "events": [
+        "change",
+        "error",
+        "ready"
+      ],
+      "state": {
+        "orgId": {
+          "type": "string"
+        },
+        "orgRole": {
+          "type": "string"
+        },
+        "orgSlug": {
+          "type": "string"
+        },
+        "pendingTask": {
+          "type": "string"
+        },
+        "signedIn": {
+          "type": "boolean"
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "example": "<clerk.OrganizationProfile/>",
+      "source": "ClosedSource/DSX/Modules/Core/Clerk/dsx.json"
+    },
+    "clerk.OrganizationSwitcher": {
+      "kind": "native-component",
+      "tag": "OrganizationSwitcher",
+      "module": "clerk",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "display": {
+          "type": "string",
+          "optional": true,
+          "default": "normal"
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "hidePersonal": {
+          "type": "string",
+          "optional": true,
+          "default": "false"
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        }
+      },
+      "events": [
+        "change",
+        "error",
+        "ready"
+      ],
+      "state": {
+        "orgId": {
+          "type": "string"
+        },
+        "orgRole": {
+          "type": "string"
+        },
+        "orgSlug": {
+          "type": "string"
+        },
+        "pendingTask": {
+          "type": "string"
+        },
+        "signedIn": {
+          "type": "boolean"
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "example": "<clerk.OrganizationSwitcher/>",
+      "source": "ClosedSource/DSX/Modules/Core/Clerk/dsx.json"
+    },
+    "clerk.SignIn": {
+      "kind": "native-component",
+      "tag": "SignIn",
+      "module": "clerk",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "mode": {
+          "type": "string",
+          "optional": true,
+          "default": "signinorup"
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        }
+      },
+      "events": [
+        "cancel",
+        "error",
+        "ready",
+        "step",
+        "success"
+      ],
+      "state": {
+        "errorMessage": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array"
+        },
+        "signedIn": {
+          "type": "boolean"
+        },
+        "step": {
+          "type": "string"
+        },
+        "strategies": {
+          "type": "array"
+        }
+      },
+      "example": "<clerk.SignIn/>",
+      "source": "ClosedSource/DSX/Modules/Core/Clerk/dsx.json"
+    },
+    "clerk.SignUp": {
+      "kind": "native-component",
+      "tag": "SignUp",
+      "module": "clerk",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        }
+      },
+      "events": [
+        "cancel",
+        "error",
+        "ready",
+        "step",
+        "success"
+      ],
+      "state": {
+        "errorMessage": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array"
+        },
+        "signedIn": {
+          "type": "boolean"
+        },
+        "step": {
+          "type": "string"
+        },
+        "strategies": {
+          "type": "array"
+        }
+      },
+      "example": "<clerk.SignUp/>",
+      "source": "ClosedSource/DSX/Modules/Core/Clerk/dsx.json"
+    },
+    "clerk.UserButton": {
+      "kind": "native-component",
+      "tag": "UserButton",
+      "module": "clerk",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        }
+      },
+      "events": [
+        "change",
+        "error",
+        "ready"
+      ],
+      "state": {
+        "orgId": {
+          "type": "string"
+        },
+        "orgRole": {
+          "type": "string"
+        },
+        "orgSlug": {
+          "type": "string"
+        },
+        "pendingTask": {
+          "type": "string"
+        },
+        "signedIn": {
+          "type": "boolean"
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "example": "<clerk.UserButton/>",
+      "source": "ClosedSource/DSX/Modules/Core/Clerk/dsx.json"
+    },
+    "clerk.UserProfile": {
+      "kind": "native-component",
+      "tag": "UserProfile",
+      "module": "clerk",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        }
+      },
+      "events": [
+        "change",
+        "error",
+        "ready"
+      ],
+      "state": {
+        "errorMessage": {
+          "type": "string"
+        },
+        "signedIn": {
+          "type": "boolean"
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "example": "<clerk.UserProfile/>",
+      "source": "ClosedSource/DSX/Modules/Core/Clerk/dsx.json"
+    },
+    "fileviewer.Preview": {
+      "kind": "native-component",
+      "tag": "Preview",
+      "module": "fileviewer",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true,
+          "default": 320
+        },
+        "src": {
+          "type": "string"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true
+        }
+      },
+      "events": [
+        "error",
+        "ready"
+      ],
+      "state": {
+      },
+      "example": "<fileviewer.Preview/>",
+      "source": "ClosedSource/DSX/Modules/Core/FileViewer/dsx.json"
+    },
+    "pay.Button": {
+      "kind": "native-component",
+      "tag": "Button",
+      "module": "pay",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "buttonTheme": {
+          "type": "string",
+          "optional": true,
+          "default": "black"
+        },
+        "buttonType": {
+          "type": "string",
+          "optional": true,
+          "default": "pay"
+        },
+        "cornerRadius": {
+          "type": "number",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true,
+          "default": 48
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "wallet": {
+          "type": "string",
+          "optional": true,
+          "default": "auto"
+        }
+      },
+      "events": [
+        "cancel",
+        "click",
+        "error",
+        "ready",
+        "success",
+        "unavailable"
+      ],
+      "state": {
+        "available": {
+          "type": "boolean"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "wallet": {
+          "type": "string"
+        }
+      },
+      "example": "<pay.Button/>",
+      "source": "ClosedSource/DSX/Modules/Core/Pay/dsx.json"
+    },
+    "revenuecat.Paywall": {
+      "kind": "native-component",
+      "tag": "Paywall",
+      "module": "revenuecat",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "footer": {
+          "type": "boolean",
+          "optional": true,
+          "default": false
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "offering": {
+          "type": "string",
+          "optional": true
+        },
+        "selected": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        }
+      },
+      "events": [
+        "cancel",
+        "error",
+        "ready",
+        "select",
+        "success"
+      ],
+      "state": {
+        "badge": {
+          "type": "string"
+        },
+        "entitled": {
+          "type": "boolean"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "packages": {
+          "type": "array"
+        },
+        "savings": {
+          "type": "number"
+        },
+        "selected": {
+          "type": "string"
+        }
+      },
+      "example": "<revenuecat.Paywall/>",
+      "source": "ClosedSource/DSX/Modules/Core/RevenueCat/dsx.json"
+    },
+    "scanner.Preview": {
+      "kind": "native-component",
+      "tag": "Preview",
+      "module": "scanner",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "debounce": {
+          "type": "number",
+          "optional": true,
+          "default": 1500
+        },
+        "facing": {
+          "type": "string",
+          "optional": true,
+          "default": "back"
+        },
+        "formats": {
+          "type": "string",
+          "optional": true,
+          "default": "qr|ean8|ean13"
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "mode": {
+          "type": "string",
+          "optional": true,
+          "default": "once"
+        },
+        "paused": {
+          "type": "boolean",
+          "optional": true,
+          "default": false
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "torch": {
+          "type": "boolean",
+          "optional": true,
+          "default": false
+        }
+      },
+      "events": [
+        "error",
+        "permission",
+        "ready",
+        "scan",
+        "unavailable"
+      ],
+      "state": {
+        "active": {
+          "type": "boolean"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "lastFormat": {
+          "type": "string"
+        },
+        "lastValue": {
+          "type": "string"
+        },
+        "permission": {
+          "type": "string"
+        }
+      },
+      "example": "<scanner.Preview/>",
+      "source": "ClosedSource/DSX/Modules/Core/QRScanner/dsx.json"
+    },
+    "stream.CallControls": {
+      "kind": "native-component",
+      "tag": "CallControls",
+      "module": "stream",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "controls": {
+          "type": "string",
+          "optional": true,
+          "default": "mic|camera|end"
+        },
+        "height": {
+          "type": "number",
+          "optional": true,
+          "default": 56
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        }
+      },
+      "events": [
+        "end",
+        "error",
+        "ready",
+        "toggle"
+      ],
+      "state": {
+        "cameraOn": {
+          "type": "boolean"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "micOn": {
+          "type": "boolean"
+        }
+      },
+      "example": "<stream.CallControls/>",
+      "source": "ClosedSource/DSX/Modules/Core/Stream/dsx.json"
+    },
+    "stream.CallView": {
+      "kind": "native-component",
+      "tag": "CallView",
+      "module": "stream",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "autojoin": {
+          "type": "boolean",
+          "optional": true,
+          "default": false
+        },
+        "container": {
+          "type": "string",
+          "optional": true,
+          "default": "dsx"
+        },
+        "height": {
+          "type": "number",
+          "optional": true,
+          "default": 320
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "layout": {
+          "type": "string",
+          "optional": true,
+          "default": "grid"
+        },
+        "max": {
+          "type": "number",
+          "optional": true,
+          "default": 0
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        }
+      },
+      "events": [
+        "end",
+        "error",
+        "join",
+        "participants",
+        "ready",
+        "unavailable"
+      ],
+      "state": {
+        "columns": {
+          "type": "number"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "joined": {
+          "type": "boolean"
+        },
+        "overflow": {
+          "type": "number"
+        },
+        "participants": {
+          "type": "array"
+        }
+      },
+      "example": "<stream.CallView/>",
+      "source": "ClosedSource/DSX/Modules/Core/Stream/dsx.json"
+    },
+    "stream.ParticipantTile": {
+      "kind": "native-component",
+      "tag": "ParticipantTile",
+      "module": "stream",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true,
+          "default": 120
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "mirror": {
+          "type": "boolean",
+          "optional": true,
+          "default": true
+        },
+        "participant": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        }
+      },
+      "events": [
+        "error",
+        "ready",
+        "speaking",
+        "unavailable"
+      ],
+      "state": {
+        "audio": {
+          "type": "boolean"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "screenShare": {
+          "type": "boolean"
+        },
+        "speaking": {
+          "type": "boolean"
+        },
+        "track": {
+          "type": "string"
+        },
+        "video": {
+          "type": "boolean"
+        }
+      },
+      "example": "<stream.ParticipantTile/>",
+      "source": "ClosedSource/DSX/Modules/Core/Stream/dsx.json"
+    },
+    "stream.StreamCaptionStrip": {
+      "kind": "native-component",
+      "tag": "StreamCaptionStrip",
+      "module": "stream",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "emptyCopy": {
+          "type": "string",
+          "optional": true
+        },
+        "idleLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "liveLabel": {
+          "type": "string",
+          "optional": true
+        }
+      },
+      "events": [
+        "change"
+      ],
+      "state": {
+      },
+      "example": "<stream.StreamCaptionStrip/>",
+      "source": "ClosedSource/DSX/Modules/Core/Stream/dsx.json"
+    },
+    "stream.StreamRecordingBadge": {
+      "kind": "native-component",
+      "tag": "StreamRecordingBadge",
+      "module": "stream",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "idleLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "liveCopy": {
+          "type": "string",
+          "optional": true
+        },
+        "liveLabel": {
+          "type": "string",
+          "optional": true
+        }
+      },
+      "events": [
+        "change"
+      ],
+      "state": {
+      },
+      "example": "<stream.StreamRecordingBadge/>",
+      "source": "ClosedSource/DSX/Modules/Core/Stream/dsx.json"
+    },
+    "stripe.AddressElement": {
+      "kind": "native-component",
+      "tag": "AddressElement",
+      "module": "stripe",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "accentColor": {
+          "type": "string",
+          "optional": true
+        },
+        "autocomplete": {
+          "type": "boolean",
+          "optional": true,
+          "default": true
+        },
+        "cornerRadius": {
+          "type": "number",
+          "optional": true
+        },
+        "countries": {
+          "type": "string",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "mode": {
+          "type": "string",
+          "optional": true,
+          "default": "shipping"
+        },
+        "name": {
+          "type": "string",
+          "optional": true,
+          "default": "address"
+        },
+        "phone": {
+          "type": "string",
+          "optional": true,
+          "default": "optional"
+        },
+        "required": {
+          "type": "boolean",
+          "optional": true,
+          "default": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        }
+      },
+      "events": [
+        "change",
+        "error",
+        "ready"
+      ],
+      "state": {
+        "address": {
+          "type": "object"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "errorMessage": {
+          "type": "string"
+        }
+      },
+      "example": "<stripe.AddressElement/>",
+      "source": "ClosedSource/DSX/Modules/Core/Payments/Stripe/dsx.json"
+    },
+    "stripe.CardInput": {
+      "kind": "native-component",
+      "tag": "CardInput",
+      "module": "stripe",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "accentColor": {
+          "type": "string",
+          "optional": true
+        },
+        "autofocus": {
+          "type": "boolean",
+          "optional": true,
+          "default": false
+        },
+        "cornerRadius": {
+          "type": "number",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "name": {
+          "type": "string",
+          "optional": true,
+          "default": "card"
+        },
+        "placeholder": {
+          "type": "string",
+          "optional": true
+        },
+        "postal": {
+          "type": "boolean",
+          "optional": true,
+          "default": false
+        },
+        "required": {
+          "type": "boolean",
+          "optional": true,
+          "default": true
+        },
+        "returnKey": {
+          "type": "string",
+          "optional": true,
+          "default": "done"
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        }
+      },
+      "events": [
+        "blur",
+        "change",
+        "error",
+        "focus",
+        "ready",
+        "submit"
+      ],
+      "state": {
+        "brand": {
+          "type": "string"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "valid": {
+          "type": "boolean"
+        }
+      },
+      "example": "<stripe.CardInput/>",
+      "source": "ClosedSource/DSX/Modules/Core/Payments/Stripe/dsx.json"
+    },
+    "stripe.ExpressCheckout": {
+      "kind": "native-component",
+      "tag": "ExpressCheckout",
+      "module": "stripe",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "buttonTheme": {
+          "type": "string",
+          "optional": true,
+          "default": "black"
+        },
+        "buttonType": {
+          "type": "string",
+          "optional": true,
+          "default": "pay"
+        },
+        "cornerRadius": {
+          "type": "number",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "wallets": {
+          "type": "string",
+          "optional": true,
+          "default": "applePay|googlePay"
+        }
+      },
+      "events": [
+        "cancel",
+        "click",
+        "error",
+        "ready",
+        "success",
+        "unavailable"
+      ],
+      "state": {
+        "available": {
+          "type": "boolean"
+        },
+        "wallet": {
+          "type": "string"
+        }
+      },
+      "example": "<stripe.ExpressCheckout/>",
+      "source": "ClosedSource/DSX/Modules/Core/Payments/Stripe/dsx.json"
+    },
+    "stripe.PaymentElement": {
+      "kind": "native-component",
+      "tag": "PaymentElement",
+      "module": "stripe",
+      "platforms": [
+        "android",
+        "ios",
+        "web"
+      ],
+      "attributes": {
+        "a11yLabel": {
+          "type": "string",
+          "optional": true
+        },
+        "accentColor": {
+          "type": "string",
+          "optional": true
+        },
+        "cornerRadius": {
+          "type": "number",
+          "optional": true
+        },
+        "height": {
+          "type": "number",
+          "optional": true
+        },
+        "key": {
+          "type": "string",
+          "optional": true
+        },
+        "layout": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        },
+        "name": {
+          "type": "string",
+          "optional": true,
+          "default": "payment"
+        },
+        "required": {
+          "type": "boolean",
+          "optional": true,
+          "default": true
+        },
+        "savePaymentMethod": {
+          "type": "boolean",
+          "optional": true,
+          "default": false
+        },
+        "session": {
+          "type": "string",
+          "optional": true,
+          "role": "secret"
+        },
+        "theme": {
+          "type": "string",
+          "optional": true,
+          "default": "automatic"
+        }
+      },
+      "events": [
+        "cancel",
+        "change",
+        "error",
+        "ready",
+        "success"
+      ],
+      "state": {
+        "complete": {
+          "type": "boolean"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        }
+      },
+      "example": "<stripe.PaymentElement/>",
+      "source": "ClosedSource/DSX/Modules/Core/Payments/Stripe/dsx.json"
     }
   },
   "styleProperties": {

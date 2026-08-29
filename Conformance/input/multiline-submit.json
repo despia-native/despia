@@ -1,0 +1,237 @@
+{
+  "version": 1,
+  "_note": "Return in a MULTILINE field, decided once for every renderer.\n\nA single-line `<textfield>` has an unambiguous Return: there is nothing to insert, so it\nsubmits, and `on:submit` has always worked there. `<textarea>` had no submit at all, and the\ncomposer that needed one (an AI prompt box) is the most common multiline field there is.\n\nThe reason it is not simply \"Return submits\" is that Return already MEANS something in a\nmultiline field, and on a phone soft keyboard it should keep meaning it: a newline. Enter-to-send\nis a HARDWARE-keyboard convention - web, desktop, an iPad or tablet with a keyboard attached - and\nthe platform's own chat apps agree, which is why every one of them still shows a send button on\nthe phone. So this grammar decides a HARDWARE key event and never touches the soft keyboard.\n\nThe rules, in the order they are applied:\n\n  1. Not a Return key at all -> `ignore`. The field keeps whatever the key already did.\n  2. Shift or Alt held -> `newline`, ALWAYS, and before anything else. These are the two chords\n     every editor on every platform uses to mean \"I want a line break here\", and an author who\n     turns Enter-to-send on must not take them away.\n  3. The primary modifier (Cmd on Apple, Ctrl elsewhere) -> `submit` when a handler is bound.\n     This is the universal send chord; it is never ambiguous, so it works whether or not the\n     author asked for Enter-to-send.\n  4. Bare Return -> `submit` only when the author wrote `submitOnEnter` AND a handler is bound.\n  5. Anything else -> `newline`.\n\n`ignore` and `newline` are deliberately DIFFERENT answers. `ignore` means this grammar has no\nopinion and the renderer must not consume the event; `newline` means Return was handled and\nresolved to inserting a break. A renderer that collapses the two will eat keystrokes it was\nnever asked about.\n\nWith no `on:submit` bound, nothing here can ever return `submit` - a field cannot swallow a\nReturn into a handler that does not exist.",
+  "actions": [
+    "submit",
+    "newline",
+    "ignore"
+  ],
+  "returnKeys": [
+    "enter",
+    "return",
+    "numpadenter"
+  ],
+  "cases": [
+    {
+      "name": "a bare Return is a newline by default",
+      "event": {
+        "key": "Enter",
+        "shift": false,
+        "meta": false,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": false,
+      "hasSubmit": true,
+      "expect": "newline"
+    },
+    {
+      "name": "submitOnEnter makes a bare Return send",
+      "event": {
+        "key": "Enter",
+        "shift": false,
+        "meta": false,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": true,
+      "hasSubmit": true,
+      "expect": "submit"
+    },
+    {
+      "name": "submitOnEnter with nothing bound still cannot send",
+      "event": {
+        "key": "Enter",
+        "shift": false,
+        "meta": false,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": true,
+      "hasSubmit": false,
+      "expect": "newline"
+    },
+    {
+      "name": "Shift+Return is a newline even with submitOnEnter",
+      "event": {
+        "key": "Enter",
+        "shift": true,
+        "meta": false,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": true,
+      "hasSubmit": true,
+      "expect": "newline"
+    },
+    {
+      "name": "Alt+Return is a newline even with submitOnEnter",
+      "event": {
+        "key": "Enter",
+        "shift": false,
+        "meta": false,
+        "ctrl": false,
+        "alt": true
+      },
+      "submitOnEnter": true,
+      "hasSubmit": true,
+      "expect": "newline"
+    },
+    {
+      "name": "Cmd+Return sends without submitOnEnter - the universal chord",
+      "event": {
+        "key": "Enter",
+        "shift": false,
+        "meta": true,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": false,
+      "hasSubmit": true,
+      "expect": "submit"
+    },
+    {
+      "name": "Ctrl+Return sends too: cmd is the PRIMARY modifier, not the Apple one",
+      "event": {
+        "key": "Enter",
+        "shift": false,
+        "meta": false,
+        "ctrl": true,
+        "alt": false
+      },
+      "submitOnEnter": false,
+      "hasSubmit": true,
+      "expect": "submit"
+    },
+    {
+      "name": "Cmd+Return with no handler is ignored, never swallowed",
+      "event": {
+        "key": "Enter",
+        "shift": false,
+        "meta": true,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": false,
+      "hasSubmit": false,
+      "expect": "ignore"
+    },
+    {
+      "name": "Cmd+Shift+Return is a newline: the explicit break chord wins",
+      "event": {
+        "key": "Enter",
+        "shift": true,
+        "meta": true,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": false,
+      "hasSubmit": true,
+      "expect": "newline"
+    },
+    {
+      "name": "Cmd+Alt+Return is a newline for the same reason",
+      "event": {
+        "key": "Enter",
+        "shift": false,
+        "meta": true,
+        "ctrl": false,
+        "alt": true
+      },
+      "submitOnEnter": false,
+      "hasSubmit": true,
+      "expect": "newline"
+    },
+    {
+      "name": "Return is the key on every toolkit spelling",
+      "event": {
+        "key": "Return",
+        "shift": false,
+        "meta": false,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": true,
+      "hasSubmit": true,
+      "expect": "submit"
+    },
+    {
+      "name": "NumpadEnter is a Return",
+      "event": {
+        "key": "NumpadEnter",
+        "shift": false,
+        "meta": false,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": true,
+      "hasSubmit": true,
+      "expect": "submit"
+    },
+    {
+      "name": "the spelling compares case-insensitively",
+      "event": {
+        "key": "enter",
+        "shift": false,
+        "meta": false,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": true,
+      "hasSubmit": true,
+      "expect": "submit"
+    },
+    {
+      "name": "any other key is not this grammar's business",
+      "event": {
+        "key": "a",
+        "shift": false,
+        "meta": false,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": true,
+      "hasSubmit": true,
+      "expect": "ignore"
+    },
+    {
+      "name": "Escape is not this grammar's business either",
+      "event": {
+        "key": "Escape",
+        "shift": false,
+        "meta": true,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": true,
+      "hasSubmit": true,
+      "expect": "ignore"
+    },
+    {
+      "name": "Tab is not a Return",
+      "event": {
+        "key": "Tab",
+        "shift": false,
+        "meta": false,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": true,
+      "hasSubmit": true,
+      "expect": "ignore"
+    },
+    {
+      "name": "an empty key name decides nothing",
+      "event": {
+        "key": "",
+        "shift": false,
+        "meta": false,
+        "ctrl": false,
+        "alt": false
+      },
+      "submitOnEnter": true,
+      "hasSubmit": true,
+      "expect": "ignore"
+    }
+  ]
+}

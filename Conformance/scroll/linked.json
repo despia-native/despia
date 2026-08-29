@@ -1,0 +1,1151 @@
+{
+  "_note": "SCROLL-LINKED CUSTOM PROPERTIES — the substrate, and the reason U01 exists. The nearest scroll ancestor publishes its plane as CSS custom properties, computed by a PURE FUNCTION of one sample, so every renderer resolves them inside its own frame callback and NOTHING crosses the bus. That is the whole performance argument against a worklet: there is no second thread model because there is no second thread. TWO SPELLINGS PER LENGTH, and this is a CORRECTION to the U01 plan, whose example is not valid CSS. `--scroll-y` is UNITLESS points, so `calc(1 - var(--scroll-y) / 280)` types as a number; `--scroll-y-px` is the same value carrying `px`, so `translateY(calc(var(--scroll-y-px) * 0.5))` types as a length. The plan's `translateY(calc(var(--scroll-y) * 0.5))` with a unitless property produces a unitless length, which no CSS engine accepts, and `1 - <length>/280` is a unit mismatch. Both spellings are published for both axes. AXIS PLANES ARE INDEPENDENT: a scroll node contributes ONLY the plane of its own axis, so a horizontal rail inside a vertical page leaves `--scroll-y` to the page and owns `--scroll-x` itself, resolved from the NEAREST ancestor per axis. With no ancestor on an axis the keys are ABSENT rather than zero, so `var(--scroll-y, 0)` can tell 'no scroller' from 'at the top'. THE EVALUATOR is the native twin of what a browser does for free: substitute var() (with fallbacks, cycle-budgeted), then fold every calc() with CSS's own unit algebra — length+length only when the units match, zero being the one unitless length, at most one operand of a product carrying a unit, no division by a dimension. Anything it cannot type DROPS the declaration (invalid at computed value), which is what CSS itself does and what CssValue already does for a cyclic var(). Cases are three groups: publication, nested per-axis scope resolution, and evaluation.",
+  "cases": [
+    {
+      "name": "at rest, every published value is its resting value",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 0,
+      "expect": {
+        "--scroll-y": "0",
+        "--scroll-y-px": "0px",
+        "--scroll-progress": "0",
+        "--scroll-velocity": "0",
+        "--scroll-remaining": "1200",
+        "--scroll-remaining-px": "1200px"
+      }
+    },
+    {
+      "name": "mid-scroll: the raw offset, the same value with px, and the 0..1 progress",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 600,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 1200,
+      "expect": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-remaining": "600",
+        "--scroll-remaining-px": "600px"
+      }
+    },
+    {
+      "name": "at the bottom, progress is exactly 1",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 1200,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 0,
+      "expect": {
+        "--scroll-y": "1200",
+        "--scroll-y-px": "1200px",
+        "--scroll-progress": "1",
+        "--scroll-velocity": "0",
+        "--scroll-remaining": "0",
+        "--scroll-remaining-px": "0px"
+      }
+    },
+    {
+      "name": "over-scroll above the top publishes a NEGATIVE offset (this is what `stretch` reads) and progress 0",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": -120,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": -900,
+      "expect": {
+        "--scroll-y": "-120",
+        "--scroll-y-px": "-120px",
+        "--scroll-progress": "0",
+        "--scroll-velocity": "-900",
+        "--scroll-remaining": "1200",
+        "--scroll-remaining-px": "1200px"
+      }
+    },
+    {
+      "name": "a fractional offset is published to four decimals and no further",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 133.33333,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 0,
+      "expect": {
+        "--scroll-y": "133.3333",
+        "--scroll-y-px": "133.3333px",
+        "--scroll-progress": "0.1111",
+        "--scroll-velocity": "0",
+        "--scroll-remaining": "1066.6667",
+        "--scroll-remaining-px": "1066.6667px"
+      }
+    },
+    {
+      "name": "a page with nothing to scroll publishes progress 0 — the resting state, never 1",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 400
+      },
+      "velocity": 0,
+      "expect": {
+        "--scroll-y": "0",
+        "--scroll-y-px": "0px",
+        "--scroll-progress": "0",
+        "--scroll-velocity": "0",
+        "--scroll-remaining": "0",
+        "--scroll-remaining-px": "0px"
+      }
+    },
+    {
+      "name": "a horizontal rail publishes the HORIZONTAL plane and nothing else",
+      "axis": "horizontal",
+      "geometry": {
+        "x": 240,
+        "y": 0,
+        "viewportWidth": 390,
+        "viewportHeight": 200,
+        "contentWidth": 1200,
+        "contentHeight": 200
+      },
+      "velocity": 640,
+      "expect": {
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640",
+        "--scroll-remaining-x": "570",
+        "--scroll-remaining-x-px": "570px"
+      }
+    },
+    {
+      "name": "negative velocity keeps its sign so a header can tell up from down",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 600,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": -1800,
+      "expect": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "-1800",
+        "--scroll-remaining": "600",
+        "--scroll-remaining-px": "600px"
+      }
+    },
+    {
+      "name": "one vertical ancestor publishes the vertical plane only — the horizontal keys are ABSENT, not zero",
+      "ancestors": [
+        {
+          "axis": "vertical",
+          "properties": {
+            "--scroll-y": "600",
+            "--scroll-y-px": "600px",
+            "--scroll-progress": "0.5",
+            "--scroll-velocity": "1200"
+          }
+        }
+      ],
+      "expect": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200"
+      }
+    },
+    {
+      "name": "a horizontal rail INSIDE a vertical page: each axis resolves from its own nearest ancestor",
+      "ancestors": [
+        {
+          "axis": "horizontal",
+          "properties": {
+            "--scroll-x": "240",
+            "--scroll-x-px": "240px",
+            "--scroll-progress-x": "0.2963",
+            "--scroll-velocity-x": "640"
+          }
+        },
+        {
+          "axis": "vertical",
+          "properties": {
+            "--scroll-y": "600",
+            "--scroll-y-px": "600px",
+            "--scroll-progress": "0.5",
+            "--scroll-velocity": "1200"
+          }
+        }
+      ],
+      "expect": {
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640",
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200"
+      }
+    },
+    {
+      "name": "the NEAREST vertical ancestor wins over an outer one",
+      "ancestors": [
+        {
+          "axis": "vertical",
+          "properties": {
+            "--scroll-y": "600",
+            "--scroll-y-px": "600px",
+            "--scroll-progress": "0.5",
+            "--scroll-velocity": "1200"
+          }
+        },
+        {
+          "axis": "vertical",
+          "properties": {
+            "--scroll-y": "200",
+            "--scroll-y-px": "200px",
+            "--scroll-progress": "0.1667",
+            "--scroll-velocity": "-300"
+          }
+        }
+      ],
+      "expect": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200"
+      }
+    },
+    {
+      "name": "no scroll ancestor at all publishes nothing, so var(--scroll-y, 0) can supply the fallback",
+      "ancestors": [],
+      "expect": {}
+    },
+    {
+      "name": "the parallax line from the plan, corrected: a px-carrying property times a ratio",
+      "expression": "translateY(calc(var(--scroll-y-px) * 0.5))",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "translateY(300px)"
+    },
+    {
+      "name": "the fade line: a UNITLESS property divided by a number stays a number",
+      "expression": "calc(1 - var(--scroll-y) / 280)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "-1.1429"
+    },
+    {
+      "name": "progress drives an opacity directly",
+      "expression": "calc(1 - var(--scroll-progress))",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "0.5"
+    },
+    {
+      "name": "a var() fallback supplies the value when the property is absent",
+      "expression": "calc(var(--scroll-x-px, 0px) + 10px)",
+      "properties": {
+        "--scroll-y": "600"
+      },
+      "expect": "10px"
+    },
+    {
+      "name": "an ABSENT property with no fallback DROPS the declaration (invalid at computed value)",
+      "expression": "calc(var(--nope) * 2)",
+      "properties": {
+        "--scroll-y": "600"
+      },
+      "expect": null
+    },
+    {
+      "name": "operator precedence is CSS's, not left-to-right",
+      "expression": "calc(1 + 2 * 3)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "7"
+    },
+    {
+      "name": "parentheses group",
+      "expression": "calc((1 + 2) * 3)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "9"
+    },
+    {
+      "name": "nested calc folds to one value",
+      "expression": "calc(calc(var(--scroll-y) / 2) * 2)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "600"
+    },
+    {
+      "name": "a unit survives multiplication by a scalar on either side",
+      "expression": "calc(2 * 8px)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "16px"
+    },
+    {
+      "name": "length times length is refused — CSS has no square pixels",
+      "expression": "calc(8px * 8px)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": null
+    },
+    {
+      "name": "division BY a dimension is refused",
+      "expression": "calc(8px / 2px)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": null
+    },
+    {
+      "name": "division by zero drops the declaration instead of producing an infinity",
+      "expression": "calc(8px / 0)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": null
+    },
+    {
+      "name": "adding a length to a bare number is refused",
+      "expression": "calc(8px + 2)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": null
+    },
+    {
+      "name": "adding a length to ZERO is allowed — zero is the one unitless length",
+      "expression": "calc(8px + 0)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "8px"
+    },
+    {
+      "name": "mismatched units are refused",
+      "expression": "calc(8px + 2rem)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": null
+    },
+    {
+      "name": "a unary minus is a value, not a syntax error",
+      "expression": "calc(-1 * var(--scroll-y))",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "-600"
+    },
+    {
+      "name": "several calc() calls in one declaration each fold independently",
+      "expression": "translate(calc(var(--scroll-y) * 0px), calc(var(--scroll-y-px) * -0.5))",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "translate(0px, -300px)"
+    },
+    {
+      "name": "a declaration with no calc() and no var() passes through untouched",
+      "expression": "translateY(12px)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "translateY(12px)"
+    },
+    {
+      "name": "a bare var() with no calc() still substitutes",
+      "expression": "translateY(var(--scroll-y-px))",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "translateY(600px)"
+    },
+    {
+      "name": "the result is formatted to at most four decimals, trailing zeros trimmed",
+      "expression": "calc(var(--scroll-y-px) / 3)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "200px"
+    },
+    {
+      "name": "clamp() bounds a scroll-driven ratio - the reason the fold learned it: an opacity out of range is not a fade",
+      "expression": "clamp(0, calc(var(--scroll-y) / 200), 1)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "1"
+    },
+    {
+      "name": "clamp() below the low bound resolves to the low bound",
+      "expression": "clamp(0.2, calc(var(--scroll-y) * 0 - 5), 1)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "0.2"
+    },
+    {
+      "name": "clamp() in range passes the value through",
+      "expression": "clamp(0, calc(var(--scroll-progress) * 1), 1)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "0.5"
+    },
+    {
+      "name": "clamp() with the bounds inverted resolves to the LOW bound - max(low, min(value, high))",
+      "expression": "clamp(1, 0.5, 0)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "1"
+    },
+    {
+      "name": "min() takes the smallest of any number of arguments",
+      "expression": "min(3px, 1px, 2px)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "1px"
+    },
+    {
+      "name": "max() takes the largest",
+      "expression": "max(0px, calc(var(--scroll-y-px) - 800px))",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "0px"
+    },
+    {
+      "name": "a math function nests inside calc() and calc() nests inside it",
+      "expression": "calc(clamp(0, calc(var(--scroll-progress) * 4), 1) * 20px)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "20px"
+    },
+    {
+      "name": "mixing units inside min() is refused - CSS compares like with like",
+      "expression": "min(1, 2px)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": null
+    },
+    {
+      "name": "clamp() with two arguments is refused - it is exactly three",
+      "expression": "clamp(0, 1)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": null
+    },
+    {
+      "name": "a math function with no arguments is refused",
+      "expression": "min()",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": null
+    },
+    {
+      "name": "an identifier merely ENDING in a function name is left alone",
+      "expression": "admin(1, 2)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": "admin(1, 2)"
+    },
+    {
+      "name": "a comma outside a math function is not calc syntax and drops the declaration",
+      "expression": "calc(1, 2)",
+      "properties": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "1200",
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "640"
+      },
+      "expect": null
+    },
+    {
+      "_note": "`--scroll-remaining` is the distance to the END in points, the mirror of `--scroll-y`'s distance from the start. Without it a bottom-anchored effect can only be written against `--scroll-progress`, which is a FRACTION of the content: the same declaration then fades over 40pt on a short list and over 400pt on a long one, which is not the effect anybody meant to write.",
+      "name": "remaining is the points still to travel, the mirror of the offset",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 600,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 0,
+      "expect": {
+        "--scroll-y": "600",
+        "--scroll-y-px": "600px",
+        "--scroll-progress": "0.5",
+        "--scroll-velocity": "0",
+        "--scroll-remaining": "600",
+        "--scroll-remaining-px": "600px"
+      }
+    },
+    {
+      "_note": "Rubber-band over-scroll is REAL in `--scroll-y` (that sign is what `stretch` reads) and must not leak into a distance: remaining is measured from the CLAMPED offset, exactly as progress is, so it stays inside [0, max].",
+      "name": "over-scrolling above the top leaves remaining at the full extent, not more",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": -60,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": -900,
+      "expect": {
+        "--scroll-y": "-60",
+        "--scroll-y-px": "-60px",
+        "--scroll-progress": "0",
+        "--scroll-velocity": "-900",
+        "--scroll-remaining": "1200",
+        "--scroll-remaining-px": "1200px"
+      }
+    },
+    {
+      "name": "over-scrolling past the bottom leaves remaining at 0, never negative",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 1240,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 900,
+      "expect": {
+        "--scroll-y": "1240",
+        "--scroll-y-px": "1240px",
+        "--scroll-progress": "1",
+        "--scroll-velocity": "900",
+        "--scroll-remaining": "0",
+        "--scroll-remaining-px": "0px"
+      }
+    },
+    {
+      "name": "a page with nothing to scroll has nothing remaining",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 600
+      },
+      "velocity": 0,
+      "expect": {
+        "--scroll-y": "0",
+        "--scroll-y-px": "0px",
+        "--scroll-progress": "0",
+        "--scroll-velocity": "0",
+        "--scroll-remaining": "0",
+        "--scroll-remaining-px": "0px"
+      }
+    },
+    {
+      "name": "the horizontal plane carries its own remaining, in both spellings",
+      "axis": "horizontal",
+      "geometry": {
+        "x": 240,
+        "y": 0,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 1200,
+        "contentHeight": 800
+      },
+      "velocity": 0,
+      "expect": {
+        "--scroll-x": "240",
+        "--scroll-x-px": "240px",
+        "--scroll-progress-x": "0.2963",
+        "--scroll-velocity-x": "0",
+        "--scroll-remaining-x": "570",
+        "--scroll-remaining-x-px": "570px"
+      }
+    },
+    {
+      "_note": "R27. Pinned chrome sits OVER a scroller and is never inside it, so no cascade can reach it, and every way to make it a descendant makes it scroll away. A scroll node that carries a `ref` therefore publishes its whole plane a SECOND time under that name, at document root, where anything can read it. Same numbers, same spellings, one namespace.",
+      "name": "a scroller named `feed` publishes its whole vertical plane under that name",
+      "ref": "feed",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 600,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 1200,
+      "expect": {
+        "--scroll-feed-y": "600",
+        "--scroll-feed-y-px": "600px",
+        "--scroll-feed-progress": "0.5",
+        "--scroll-feed-velocity": "1200",
+        "--scroll-feed-remaining": "600",
+        "--scroll-feed-remaining-px": "600px"
+      }
+    },
+    {
+      "name": "a named horizontal rail publishes the horizontal plane and nothing else",
+      "ref": "rail",
+      "axis": "horizontal",
+      "geometry": {
+        "x": 240,
+        "y": 0,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 1200,
+        "contentHeight": 800
+      },
+      "velocity": 640,
+      "expect": {
+        "--scroll-rail-x": "240",
+        "--scroll-rail-x-px": "240px",
+        "--scroll-rail-progress-x": "0.2963",
+        "--scroll-rail-velocity-x": "640",
+        "--scroll-rail-remaining-x": "570",
+        "--scroll-rail-remaining-x-px": "570px"
+      }
+    },
+    {
+      "name": "digits, underscores and hyphens are all legal in a plane name",
+      "ref": "col_2-left",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 600,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 0,
+      "expect": {
+        "--scroll-col_2-left-y": "600",
+        "--scroll-col_2-left-y-px": "600px",
+        "--scroll-col_2-left-progress": "0.5",
+        "--scroll-col_2-left-velocity": "0",
+        "--scroll-col_2-left-remaining": "600",
+        "--scroll-col_2-left-remaining-px": "600px"
+      }
+    },
+    {
+      "_note": "The reserved keys win. `ref=\"progress\"` on a HORIZONTAL scroller would otherwise spell `--scroll-progress-x` and quietly become the horizontal progress of whatever page it sits on - action at a distance from a name somebody chose for an unrelated reason. The colliding key is simply not published; the other five are, so the collision costs one key and not the whole plane.",
+      "name": "a name that would spell a reserved key drops THAT key and keeps the rest",
+      "ref": "progress",
+      "axis": "horizontal",
+      "geometry": {
+        "x": 240,
+        "y": 0,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 1200,
+        "contentHeight": 800
+      },
+      "velocity": 640,
+      "expect": {
+        "--scroll-progress-x-px": "240px",
+        "--scroll-progress-progress-x": "0.2963",
+        "--scroll-progress-velocity-x": "640",
+        "--scroll-progress-remaining-x": "570",
+        "--scroll-progress-remaining-x-px": "570px"
+      }
+    },
+    {
+      "name": "`ref=\"remaining\"` on a horizontal rail loses both remaining spellings and no more",
+      "ref": "remaining",
+      "axis": "horizontal",
+      "geometry": {
+        "x": 240,
+        "y": 0,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 1200,
+        "contentHeight": 800
+      },
+      "velocity": 0,
+      "expect": {
+        "--scroll-remaining-progress-x": "0.2963",
+        "--scroll-remaining-velocity-x": "0",
+        "--scroll-remaining-remaining-x": "570",
+        "--scroll-remaining-remaining-x-px": "570px"
+      }
+    },
+    {
+      "name": "the same name on the VERTICAL plane collides with nothing and publishes all six",
+      "ref": "progress",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 600,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 0,
+      "expect": {
+        "--scroll-progress-y": "600",
+        "--scroll-progress-y-px": "600px",
+        "--scroll-progress-progress": "0.5",
+        "--scroll-progress-velocity": "0",
+        "--scroll-progress-remaining": "600",
+        "--scroll-progress-remaining-px": "600px"
+      }
+    },
+    {
+      "_note": "A ref is opaque to the ref registry, but a published key is a CSS custom property. A name that cannot spell one publishes NOTHING rather than a key no declaration can name, or - worse - a mangled one that a second ref could also spell. The imperative surface behind the same ref is untouched.",
+      "name": "a name with a space cannot spell a custom property, so it publishes nothing",
+      "ref": "back to top",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 600,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 0,
+      "expect": {}
+    },
+    {
+      "name": "a dotted name publishes nothing",
+      "ref": "header.top",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 600,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 0,
+      "expect": {}
+    },
+    {
+      "name": "an empty name publishes nothing",
+      "ref": "",
+      "axis": "vertical",
+      "geometry": {
+        "x": 0,
+        "y": 600,
+        "viewportWidth": 390,
+        "viewportHeight": 800,
+        "contentWidth": 390,
+        "contentHeight": 2000
+      },
+      "velocity": 0,
+      "expect": {}
+    },
+    {
+      "_note": "The case R27 was opened for, in one line: an element with NO scroll ancestor at all still reads the named plane. That is what makes fade edges, a floating back-to-top and a progress rail declarative instead of an `on:scroll` handler writing a store key sixty times a second.",
+      "name": "a named plane reaches an element that is not a descendant of any scroller",
+      "ancestors": [],
+      "named": [
+        {
+          "ref": "feed",
+          "properties": {
+            "--scroll-feed-y": "600",
+            "--scroll-feed-y-px": "600px",
+            "--scroll-feed-progress": "0.5",
+            "--scroll-feed-velocity": "1200",
+            "--scroll-feed-remaining": "600",
+            "--scroll-feed-remaining-px": "600px"
+          }
+        }
+      ],
+      "expect": {
+        "--scroll-feed-y": "600",
+        "--scroll-feed-y-px": "600px",
+        "--scroll-feed-progress": "0.5",
+        "--scroll-feed-velocity": "1200",
+        "--scroll-feed-remaining": "600",
+        "--scroll-feed-remaining-px": "600px"
+      }
+    },
+    {
+      "name": "named planes and the ancestor cascade coexist, each owning its own keys",
+      "ancestors": [
+        {
+          "axis": "vertical",
+          "properties": {
+            "--scroll-y": "120",
+            "--scroll-y-px": "120px",
+            "--scroll-progress": "0.1",
+            "--scroll-velocity": "40",
+            "--scroll-remaining": "1080",
+            "--scroll-remaining-px": "1080px"
+          }
+        }
+      ],
+      "named": [
+        {
+          "ref": "feed",
+          "properties": {
+            "--scroll-feed-y": "600",
+            "--scroll-feed-y-px": "600px",
+            "--scroll-feed-progress": "0.5",
+            "--scroll-feed-velocity": "1200",
+            "--scroll-feed-remaining": "600",
+            "--scroll-feed-remaining-px": "600px"
+          }
+        }
+      ],
+      "expect": {
+        "--scroll-feed-y": "600",
+        "--scroll-feed-y-px": "600px",
+        "--scroll-feed-progress": "0.5",
+        "--scroll-feed-velocity": "1200",
+        "--scroll-feed-remaining": "600",
+        "--scroll-feed-remaining-px": "600px",
+        "--scroll-y": "120",
+        "--scroll-y-px": "120px",
+        "--scroll-progress": "0.1",
+        "--scroll-velocity": "40",
+        "--scroll-remaining": "1080",
+        "--scroll-remaining-px": "1080px"
+      }
+    },
+    {
+      "_note": "Two nodes carrying one ref is the recycled-list case, and the answer is already law: `Conformance/input/ref.json` gives the name to the LAST provider. The plane follows the registry rather than holding a second opinion about it.",
+      "name": "a duplicated ref resolves to its LAST provider, as the ref registry does",
+      "ancestors": [],
+      "named": [
+        {
+          "ref": "feed",
+          "properties": {
+            "--scroll-feed-y": "0",
+            "--scroll-feed-y-px": "0px",
+            "--scroll-feed-progress": "0",
+            "--scroll-feed-velocity": "0",
+            "--scroll-feed-remaining": "1200",
+            "--scroll-feed-remaining-px": "1200px"
+          }
+        },
+        {
+          "ref": "feed",
+          "properties": {
+            "--scroll-feed-y": "600",
+            "--scroll-feed-y-px": "600px",
+            "--scroll-feed-progress": "0.5",
+            "--scroll-feed-velocity": "1200",
+            "--scroll-feed-remaining": "600",
+            "--scroll-feed-remaining-px": "600px"
+          }
+        }
+      ],
+      "expect": {
+        "--scroll-feed-y": "600",
+        "--scroll-feed-y-px": "600px",
+        "--scroll-feed-progress": "0.5",
+        "--scroll-feed-velocity": "1200",
+        "--scroll-feed-remaining": "600",
+        "--scroll-feed-remaining-px": "600px"
+      }
+    },
+    {
+      "_note": "The reserved filter runs at RESOLUTION as well as at publication, so a presenter that hand-builds a plane still cannot shadow an axis. Belt and braces on purpose: the failure it prevents is invisible - a page whose parallax silently reads a sidebar's offset.",
+      "name": "a hand-built named plane carrying a reserved key cannot shadow the axis",
+      "ancestors": [
+        {
+          "axis": "vertical",
+          "properties": {
+            "--scroll-y": "120",
+            "--scroll-y-px": "120px",
+            "--scroll-progress": "0.1",
+            "--scroll-velocity": "40",
+            "--scroll-remaining": "1080",
+            "--scroll-remaining-px": "1080px"
+          }
+        }
+      ],
+      "named": [
+        {
+          "ref": "feed",
+          "properties": {
+            "--scroll-y": "999",
+            "--scroll-feed-y": "600"
+          }
+        }
+      ],
+      "expect": {
+        "--scroll-y": "120",
+        "--scroll-y-px": "120px",
+        "--scroll-progress": "0.1",
+        "--scroll-velocity": "40",
+        "--scroll-remaining": "1080",
+        "--scroll-remaining-px": "1080px",
+        "--scroll-feed-y": "600"
+      }
+    }
+  ]
+}

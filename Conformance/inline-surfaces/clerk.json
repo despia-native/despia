@@ -1,0 +1,1779 @@
+{
+  "version": 1,
+  "_note": "V03 - Core/Clerk inline auth surfaces (architecture/proposals/inline-native-surfaces.md). The same law as stripe.json: the module owns the sign-in ATTEMPT, and the overlay face (dsx.module.clerk.authview, the vendor's presented sheet) and the component face (<clerk.SignIn/> and friends) are two views onto it. Two attempt models that disagree is a user signed in on one face and stuck on a password screen on the other, so a second submit while one is in flight is refused `busy`. ladder[] is what an inline auth form puts on screen for the status the vendor last reported: a wrong password is NOT terminal, and an unknown status degrades to a restart with a code rather than to a form with no fields.",
+  "sessionRef": {
+    "_note": "The security boundary for <clerk.SignIn/> session=. Clerk's publishable key is a pk_ token, so a literal one is refused AND named - the family only sharpens the message, the allowlist is what does the refusing. A Clerk session id (sess_...) parses as a bare word and is refused just as hard, which is the whole point: the rule accepts reference SHAPES, not values that look safe.",
+    "kinds": [
+      "implicit",
+      "module-context",
+      "store-var",
+      "global",
+      "config",
+      "attribute",
+      "scope"
+    ],
+    "refusals": [
+      "missing_reference",
+      "literal_secret",
+      "literal_value",
+      "compound_template",
+      "unknown_reference"
+    ],
+    "families": [
+      "publishable_key",
+      "secret_key"
+    ],
+    "cases": [
+      {
+        "name": "omitted binds the module's current attempt",
+        "value": null,
+        "expect": {
+          "kind": "implicit",
+          "path": ""
+        }
+      },
+      {
+        "name": "the canonical module-context reference",
+        "value": "dsx.module.clerk.context.session",
+        "expect": {
+          "kind": "module-context",
+          "path": "dsx.module.clerk.context.session"
+        }
+      },
+      {
+        "name": "a store variable holding the attempt handle",
+        "value": "dsx.variable.signIn",
+        "expect": {
+          "kind": "store-var",
+          "path": "dsx.variable.signIn"
+        }
+      },
+      {
+        "name": "a config value, for a build-time attempt binding",
+        "value": "{{ dsx.config.clerkSession }}",
+        "expect": {
+          "kind": "config",
+          "path": "dsx.config.clerkSession"
+        }
+      },
+      {
+        "name": "an empty attribute is an author mistake",
+        "value": "",
+        "expect": {
+          "error": "missing_reference"
+        }
+      },
+      {
+        "name": "a publishable key is refused, and named",
+        "value": "pk_live_fixture_640ccdbe",
+        "expect": {
+          "error": "literal_secret",
+          "family": "publishable_key"
+        }
+      },
+      {
+        "name": "a secret key is refused, and named",
+        "value": "sk_live_fixture_486afff1",
+        "expect": {
+          "error": "literal_secret",
+          "family": "secret_key"
+        }
+      },
+      {
+        "name": "a Clerk session id is refused as hard as a key",
+        "value": "sess_2abcDEF456",
+        "expect": {
+          "error": "unknown_reference"
+        }
+      },
+      {
+        "name": "a JWT template value is refused",
+        "value": "https://example.clerk.accounts.dev/v1/client",
+        "expect": {
+          "error": "literal_value"
+        }
+      },
+      {
+        "name": "two interpolations are not one reference",
+        "value": "{{ dsx.variable.a }}{{ dsx.variable.b }}",
+        "expect": {
+          "error": "compound_template"
+        }
+      }
+    ]
+  },
+  "machine": {
+    "_note": "One sign-in attempt, two views. `start` is a factor SUBMIT, `fail` is a rejected credential and is NOT terminal (an app that tells a user their password is wrong and then refuses to let them try another is the bug this pins), `cancel` while submitting abandons the submit and keeps the attempt, and `cancel` with nothing in flight abandons the ATTEMPT, which is terminal.",
+    "views": [
+      "overlay",
+      "inline"
+    ],
+    "states": [
+      "idle",
+      "ready",
+      "confirming",
+      "succeeded",
+      "failed",
+      "canceled"
+    ],
+    "refusals": [
+      "already_open",
+      "not_ready",
+      "busy",
+      "settled",
+      "not_confirming",
+      "detached_view"
+    ],
+    "cases": [
+      {
+        "name": "the inline form alone: open, attach, submit, signed in",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "started in the sheet, finished inline - ONE attempt, both faces told",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "overlay"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "overlay"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "overlay"
+          }
+        ]
+      },
+      {
+        "name": "THE DOUBLE-SUBMIT GUARD: a second submit while one is in flight is refused",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "error": "busy",
+            "state": "confirming"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "a wrong password is retryable: the attempt survives",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "fail",
+            "code": "form_password_incorrect"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "failed",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "failed",
+            "by": "inline",
+            "code": "form_password_incorrect"
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "the form unmounts mid-submit and is STILL told the outcome",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "detach",
+            "view": "inline"
+          },
+          {
+            "op": "fail",
+            "code": "form_password_incorrect"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "confirming",
+            "notify": [],
+            "attempts": 1
+          },
+          {
+            "state": "failed",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "failed",
+            "by": "inline",
+            "code": "form_password_incorrect"
+          }
+        ]
+      },
+      {
+        "name": "abandoning the attempt is terminal, and reopening is refused",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "cancel"
+          },
+          {
+            "op": "open"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "canceled",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 0,
+            "outcome": "canceled"
+          },
+          {
+            "error": "settled",
+            "state": "canceled"
+          }
+        ]
+      },
+      {
+        "name": "a second factor is another submit on the SAME attempt",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "fail",
+            "code": "needs_second_factor"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "failed",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "failed",
+            "by": "inline",
+            "code": "needs_second_factor"
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "submitting before the module opened an attempt is not_ready",
+        "steps": [
+          {
+            "op": "start",
+            "view": "inline"
+          }
+        ],
+        "expect": [
+          {
+            "error": "not_ready",
+            "state": "idle"
+          }
+        ]
+      }
+    ]
+  },
+  "ladder": {
+    "_note": "One rung of a vendor sign-in attempt, as an inline component renders it. The vendor owns the attempt; this decides only what is on screen for the status the vendor last reported. Strategy order puts the cheapest gesture first (a passkey beats a password beats a code the user has to go and fetch), unknown strategies are KEPT and sorted after the known ones so a vendor adding one next quarter still renders it, and an unknown STATUS restarts with a code rather than rendering an empty form.",
+    "steps": [
+      "identifier",
+      "first_factor",
+      "second_factor",
+      "new_password",
+      "requirements",
+      "complete",
+      "restart"
+    ],
+    "strategyOrder": [
+      "passkey",
+      "password",
+      "email_code",
+      "phone_code",
+      "email_link",
+      "reset_password_email_code"
+    ],
+    "cases": [
+      {
+        "name": "the first rung asks for the identifier",
+        "input": {
+          "status": "needs_identifier",
+          "strategies": [
+            "password",
+            "email_code"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "identifier",
+          "fields": [
+            "identifier"
+          ],
+          "strategies": [
+            "password",
+            "email_code"
+          ],
+          "terminal": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "a password account shows a password field",
+        "input": {
+          "status": "needs_first_factor",
+          "strategies": [
+            "password",
+            "email_code"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "first_factor",
+          "fields": [
+            "password"
+          ],
+          "strategies": [
+            "password",
+            "email_code"
+          ],
+          "terminal": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "a passwordless account shows the code field instead",
+        "input": {
+          "status": "needs_first_factor",
+          "strategies": [
+            "email_code",
+            "phone_code"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "first_factor",
+          "fields": [
+            "code"
+          ],
+          "strategies": [
+            "email_code",
+            "phone_code"
+          ],
+          "terminal": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "the second factor is always a code",
+        "input": {
+          "status": "needs_second_factor",
+          "strategies": [
+            "phone_code",
+            "totp"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "second_factor",
+          "fields": [
+            "code"
+          ],
+          "strategies": [
+            "phone_code",
+            "totp"
+          ],
+          "terminal": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "a forced reset asks twice",
+        "input": {
+          "status": "needs_new_password",
+          "strategies": [
+            "password"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "new_password",
+          "fields": [
+            "password",
+            "confirmation"
+          ],
+          "strategies": [
+            "password"
+          ],
+          "terminal": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "sign-up requirements come from the vendor",
+        "input": {
+          "status": "missing_requirements",
+          "strategies": [
+            "password"
+          ],
+          "missing": [
+            "email_address",
+            "username"
+          ]
+        },
+        "expect": {
+          "step": "requirements",
+          "fields": [
+            "email_address",
+            "username"
+          ],
+          "strategies": [
+            "password"
+          ],
+          "terminal": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "requirements with nothing named fall back to the identifier",
+        "input": {
+          "status": "missing_requirements",
+          "strategies": [
+            "password"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "requirements",
+          "fields": [
+            "identifier"
+          ],
+          "strategies": [
+            "password"
+          ],
+          "terminal": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "complete is terminal and has no fields",
+        "input": {
+          "status": "complete",
+          "strategies": [
+            "password"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "complete",
+          "fields": [],
+          "strategies": [
+            "password"
+          ],
+          "terminal": true,
+          "code": ""
+        }
+      },
+      {
+        "name": "abandoned is terminal and restarts",
+        "input": {
+          "status": "abandoned",
+          "strategies": [
+            "password"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "restart",
+          "fields": [],
+          "strategies": [
+            "password"
+          ],
+          "terminal": true,
+          "code": ""
+        }
+      },
+      {
+        "name": "a status this build does not know restarts, and says so",
+        "input": {
+          "status": "needs_teleport",
+          "strategies": [
+            "password"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "restart",
+          "fields": [],
+          "strategies": [
+            "password"
+          ],
+          "terminal": false,
+          "code": "unknown_status"
+        }
+      },
+      {
+        "name": "strategy order is the ladder's, not the vendor's",
+        "input": {
+          "status": "needs_first_factor",
+          "strategies": [
+            "email_link",
+            "password",
+            "passkey",
+            "phone_code"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "first_factor",
+          "fields": [
+            "password"
+          ],
+          "strategies": [
+            "passkey",
+            "password",
+            "phone_code",
+            "email_link"
+          ],
+          "terminal": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "unknown strategies are kept, sorted, and put after the known ones",
+        "input": {
+          "status": "needs_first_factor",
+          "strategies": [
+            "oauth_google",
+            "password",
+            "oauth_apple",
+            "totp"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "first_factor",
+          "fields": [
+            "password"
+          ],
+          "strategies": [
+            "password",
+            "oauth_apple",
+            "oauth_google",
+            "totp"
+          ],
+          "terminal": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "duplicates collapse",
+        "input": {
+          "status": "needs_first_factor",
+          "strategies": [
+            "password",
+            "password",
+            "email_code"
+          ],
+          "missing": []
+        },
+        "expect": {
+          "step": "first_factor",
+          "fields": [
+            "password"
+          ],
+          "strategies": [
+            "password",
+            "email_code"
+          ],
+          "terminal": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "no strategies at all is still a real rung",
+        "input": {
+          "status": "needs_first_factor",
+          "strategies": [],
+          "missing": []
+        },
+        "expect": {
+          "step": "first_factor",
+          "fields": [
+            "code"
+          ],
+          "strategies": [],
+          "terminal": false,
+          "code": ""
+        }
+      }
+    ]
+  },
+  "retain": {
+    "_note": "Keyed identity. An auth form holds a half-typed identifier and a vendor attempt handle; rebuilding it on an unrelated re-render loses both and reads to the user as the app forgetting what they typed.",
+    "keys": [
+      {
+        "name": "an explicit key wins outright",
+        "input": {
+          "tag": "clerk.SignIn",
+          "key": "login",
+          "session": "dsx.module.clerk.context.session",
+          "index": 0
+        },
+        "expect": "clerk.SignIn#login"
+      },
+      {
+        "name": "no key derives from tag, session reference and position",
+        "input": {
+          "tag": "clerk.UserProfile",
+          "session": "dsx.variable.signIn",
+          "index": 1
+        },
+        "expect": "clerk.UserProfile@dsx.variable.signIn[1]"
+      },
+      {
+        "name": "the implicit session still derives a stable key",
+        "input": {
+          "tag": "clerk.UserButton",
+          "index": 0
+        },
+        "expect": "clerk.UserButton@[0]"
+      }
+    ]
+  },
+  "session": {
+    "_note": "A2 - THE CONTEXT PROJECTION. Given a vendor session/user snapshot, what each of the twelve declared context vars reads. This is the fold that keeps three lanes from drifting on the plane the whole A2 plan depends on: `<DSXView/>` markup binds dsx.module.clerk.context.signedIn with no web view anywhere in the build, so the three renderers must agree on what `signed in` MEANS. THE THREE LAWS pinned here. (1) NO SESSION, NO IDENTITY: a signed-out client publishes empty for every identity var even when the lane still holds a cached User object - a stale name on screen after sign-out is the leak this row exists to stop. (2) A PENDING TASK IS NOT SIGNED IN: Clerk returns a session in `pending` status carrying tasks[] when the instance forces MFA or organization selection; that session has an id and a user and is NOT usable, so signedIn stays false while sessionId/userId/pendingTask are published - the app can render the task rather than a dashboard the API will refuse. (3) AN UNKNOWN TASK IS `unknown`, NEVER EMPTY: a task key this build has never heard of must not read as `no task pending`, for the same reason the sign-in ladder degrades to `restart` and not to an empty form. The task keys are the vendor's own raw wire strings and are BYTE-IDENTICAL on all three SDKs: ClerkKit Session.Task.rawValue, clerk-android SessionTask.key, and clerk-js SessionTask['key'] all spell them choose-organization / setup-mfa / reset-password. The map carries the UNDERSCORE and `mfa-required` spellings beside the hyphen ones and the lookup lowercases first, because clerk-android's own `SessionTaskKey.fromRaw` normalises all of them: a fold that only knew the hyphen form would answer `unknown` on Android for a task the vendor itself resolves.",
+    "vars": [
+      "signedIn",
+      "userId",
+      "sessionId",
+      "email",
+      "name",
+      "imageUrl",
+      "orgId",
+      "orgRole",
+      "orgSlug",
+      "pendingTask",
+      "loaded",
+      "lastError"
+    ],
+    "tasks": [
+      "",
+      "chooseOrganization",
+      "setupMFA",
+      "resetPassword",
+      "unknown"
+    ],
+    "taskKeys": {
+      "choose-organization": "chooseOrganization",
+      "choose_organization": "chooseOrganization",
+      "setup-mfa": "setupMFA",
+      "setup_mfa": "setupMFA",
+      "mfa-required": "setupMFA",
+      "mfa_required": "setupMFA",
+      "reset-password": "resetPassword",
+      "reset_password": "resetPassword"
+    },
+    "signedInStatus": "active",
+    "secretVars": [],
+    "cases": [
+      {
+        "name": "nothing loaded yet reads empty, not signed out",
+        "input": {},
+        "expect": {
+          "signedIn": false,
+          "userId": "",
+          "sessionId": "",
+          "email": "",
+          "name": "",
+          "imageUrl": "",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": false,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "loaded and signed out: every identity var is empty",
+        "input": {
+          "loaded": true
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "",
+          "sessionId": "",
+          "email": "",
+          "name": "",
+          "imageUrl": "",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "a signed-in personal account, no organization",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "an active organization publishes id, role and slug",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          },
+          "organization": {
+            "id": "org_9",
+            "slug": "acme"
+          },
+          "membership": {
+            "role": "org:admin"
+          }
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "org_9",
+          "orgRole": "org:admin",
+          "orgSlug": "acme",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "an organization with no slug reads empty, never null",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          },
+          "organization": {
+            "id": "org_9"
+          },
+          "membership": {
+            "role": "org:member"
+          }
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "org_9",
+          "orgRole": "org:member",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "a pending choose-organization task is observable and is NOT signed in",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "pending",
+            "tasks": [
+              "choose-organization"
+            ]
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "chooseOrganization",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "a pending setup-mfa task",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "pending",
+            "tasks": [
+              "setup-mfa"
+            ]
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "setupMFA",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "a pending reset-password task",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "pending",
+            "tasks": [
+              "reset-password"
+            ]
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "resetPassword",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "a task key this build has never heard of is `unknown`, never empty",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "pending",
+            "tasks": [
+              "accept-terms-of-service"
+            ]
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "unknown",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "the FIRST task is the one on screen when the vendor queues several",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "pending",
+            "tasks": [
+              "setup-mfa",
+              "choose-organization"
+            ]
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "setupMFA",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "a task on an `active` session still refuses signedIn - the union, not the status alone",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active",
+            "tasks": [
+              "choose-organization"
+            ]
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "chooseOrganization",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "an ended session is not signed in",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "ended"
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "a session with no user yet publishes the session and no identity",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "",
+          "sessionId": "sess_1",
+          "email": "",
+          "name": "",
+          "imageUrl": "",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "SIGN-OUT: the session is gone and a cached user object cannot survive in context",
+        "input": {
+          "loaded": true,
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          },
+          "organization": {
+            "id": "org_9",
+            "slug": "acme"
+          },
+          "membership": {
+            "role": "org:admin"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "",
+          "sessionId": "",
+          "email": "",
+          "name": "",
+          "imageUrl": "",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "the display name falls back to the username when there is no real name",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "username": "ada"
+          }
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "ada",
+          "imageUrl": "",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "the display name falls back to the email when there is no username either",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com"
+          }
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "ada@example.com",
+          "imageUrl": "",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "a first name alone is the whole display name",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          },
+          "user": {
+            "id": "user_2b",
+            "firstName": "Ada"
+          }
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "",
+          "name": "Ada",
+          "imageUrl": "",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "an anonymous-looking user still reads empty rather than null",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          },
+          "user": {
+            "id": "user_2b"
+          }
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "",
+          "name": "",
+          "imageUrl": "",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "lastError is carried through verbatim and is never invented",
+        "input": {
+          "loaded": true,
+          "lastError": "That password is incorrect."
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "",
+          "sessionId": "",
+          "email": "",
+          "name": "",
+          "imageUrl": "",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": "That password is incorrect."
+        }
+      },
+      {
+        "name": "a signed-in session carries the module's standing lastError unchanged",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          },
+          "lastError": "That password is incorrect."
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": "That password is incorrect."
+        }
+      },
+      {
+        "name": "an organization with no membership row publishes the org and an empty role",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          },
+          "organization": {
+            "id": "org_9",
+            "slug": "acme"
+          }
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "org_9",
+          "orgRole": "",
+          "orgSlug": "acme",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "whitespace around a vendor name never reaches the display name",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active"
+          },
+          "user": {
+            "id": "user_2b",
+            "firstName": "  Ada  ",
+            "lastName": "  Lovelace "
+          }
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "",
+          "name": "Ada Lovelace",
+          "imageUrl": "",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "an empty task list is no task at all",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "active",
+            "tasks": []
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": true,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "the underscore spelling clerk-android normalises folds the same way",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "pending",
+            "tasks": [
+              "choose_organization"
+            ]
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "chooseOrganization",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "clerk-android's `mfa_required` alias is the same task as `setup-mfa`",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "pending",
+            "tasks": [
+              "mfa_required"
+            ]
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "setupMFA",
+          "loaded": true,
+          "lastError": ""
+        }
+      },
+      {
+        "name": "a task key is matched case-insensitively, as the vendor matches it",
+        "input": {
+          "loaded": true,
+          "session": {
+            "id": "sess_1",
+            "status": "pending",
+            "tasks": [
+              "Reset-Password"
+            ]
+          },
+          "user": {
+            "id": "user_2b",
+            "email": "ada@example.com",
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "username": "ada",
+            "imageUrl": "https://img.clerk.com/ada"
+          }
+        },
+        "expect": {
+          "signedIn": false,
+          "userId": "user_2b",
+          "sessionId": "sess_1",
+          "email": "ada@example.com",
+          "name": "Ada Lovelace",
+          "imageUrl": "https://img.clerk.com/ada",
+          "orgId": "",
+          "orgRole": "",
+          "orgSlug": "",
+          "pendingTask": "resetPassword",
+          "loaded": true,
+          "lastError": ""
+        }
+      }
+    ]
+  }
+}

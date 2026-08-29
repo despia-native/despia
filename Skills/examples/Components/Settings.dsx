@@ -1,0 +1,74 @@
+<!-- Settings in the platform's grammar: grouped background, plain rows in cards, the
+     destructive action alone at the bottom in its own group, confirmed before it acts. -->
+<scroll background="groupedBackground">
+  <head>
+    <expects variable="nav"/>   <!-- the runtime's navigation state: canPop, depth -->
+
+    <event as="cleared"/>
+
+    <variable as="notify">return true</variable>
+    <variable as="metric">return true</variable>
+    <variable as="confirming">return false</variable>
+
+    <action as="back">
+      if (dsx.variable.nav.canPop) { dsx.module.route.pop() }
+      else { dsx.module.route.replace({ path: '/' }) }
+    </action>
+    <action as="clear">
+      dsx.variable.confirming = false;
+      dsx.event('cleared')
+    </action>
+
+    <style as="sectionTitle" fontSize="13" fontWeight="semibold" color="secondary"/>
+    <style as="card" background="secondaryGroupedBackground" radius="16"/>
+  </head>
+
+  <vstack padding="16" spacing="16">
+    <hstack spacing="12">
+      <button icon="chevron.left" on:tap="dsx.action.back()" a11yLabel="Back"/>
+      <text value="Settings" fontSize="24" fontWeight="bold" a11yTrait="header"/>
+    </hstack>
+
+    <vstack spacing="8">
+      <text value="PREFERENCES" class="sectionTitle" a11yTrait="header"/>
+      <vstack class="card">
+        <hstack padding="16" spacing="12">
+          <image icon="bell" iconSize="17" color="secondary"/>
+          <text value="New trail alerts" fontSize="17"/>
+          <spacer/>
+          <toggle bind="dsx.variable.notify"/>
+        </hstack>
+        <divider/>
+        <hstack padding="16" spacing="12">
+          <image icon="globe" iconSize="17" color="secondary"/>
+          <text value="Metric distances" fontSize="17"/>
+          <spacer/>
+          <toggle bind="dsx.variable.metric"/>
+        </hstack>
+      </vstack>
+    </vstack>
+
+    <vstack spacing="8">
+      <text value="ABOUT" class="sectionTitle" a11yTrait="header"/>
+      <vstack class="card">
+        <hstack padding="16" spacing="12" a11yGroup="true">
+          <text value="Version" fontSize="17"/>
+          <spacer/>
+          <text value="0.1.0" fontSize="17" color="secondary"/>
+        </hstack>
+      </vstack>
+    </vstack>
+
+    <vstack class="card">
+      <pressable on:tap="dsx.variable.confirming = true">
+        <hstack padding="16">
+          <text value="Clear saved trails" fontSize="17" color="destructive"/>
+        </hstack>
+      </pressable>
+    </vstack>
+  </vstack>
+
+  <confirmDialog present="dsx.variable.confirming" title="Clear saved trails?" message="Saved trails are removed from this device."
+                 on:confirm="dsx.action.clear()"
+                 on:dismiss="dsx.variable.confirming = false"/>
+</scroll>

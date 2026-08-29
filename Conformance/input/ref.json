@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "_note": "`ref=\"name\"` — the universal attribute that publishes an element's backing platform view into the shared-handle registry so a MODULE can reach it (Core/Capture's element/pdf, <scroll>.toElement, <Spotlight>'s target rect). The whole point is that the kernel names no consumer: it publishes under a derived key and any module resolves it through the bus. keys[] pins the derivation — trimmed, exact case, prefixed `ref.` so a ref can never collide with a first-class handle like `web` or `view`; a whitespace-only name is NO ref rather than a handle named the empty string, which would be a registry slot every anonymous element fought over. lifecycle[] pins provide-on-appear / clear-on-disappear and the two cases that make the typed absence honest: a name nothing ever published (`unknown_ref`) versus a name that WAS published and whose view has gone (also `unknown_ref`, because the registry holds handles WEAKLY and a dead view must not read as a live one). reuse[] pins the case a recycled list row creates: the same name re-provided replaces, and the LAST provider wins, so a scrolled-away row cannot keep ownership of a ref a visible row now claims.",
+
+  "keys": [
+    { "name": "a plain name is prefixed", "ref": "card", "expect": "ref.card" },
+    { "name": "whitespace is trimmed", "ref": "  card  ", "expect": "ref.card" },
+    { "name": "case is exact, never folded", "ref": "Card", "expect": "ref.Card" },
+    { "name": "inner spaces survive (a name is opaque)", "ref": "score card", "expect": "ref.score card" },
+    { "name": "a dotted name is not a chain, just a name", "ref": "a.b", "expect": "ref.a.b" },
+    { "name": "empty is no ref", "ref": "", "expect": null },
+    { "name": "whitespace-only is no ref", "ref": "   ", "expect": null },
+    { "name": "absent is no ref", "expect": null },
+    { "name": "a name may not shadow a first-class handle, because it is namespaced", "ref": "web", "expect": "ref.web" }
+  ],
+
+  "lifecycle": [
+    { "name": "appear publishes, disappear clears",
+      "steps": [{ "appear": "card" }, { "resolve": "card" }, { "disappear": "card" }, { "resolve": "card" }],
+      "expect": [null, "live", null, "unknown_ref"] },
+
+    { "name": "resolving a name that never appeared is unknown_ref",
+      "steps": [{ "resolve": "ghost" }],
+      "expect": ["unknown_ref"] },
+
+    { "name": "a collected view reads as unknown_ref, never as a live handle",
+      "steps": [{ "appear": "card" }, { "collect": "card" }, { "resolve": "card" }],
+      "expect": [null, null, "unknown_ref"] },
+
+    { "name": "two different names coexist",
+      "steps": [{ "appear": "a" }, { "appear": "b" }, { "resolve": "a" }, { "resolve": "b" }],
+      "expect": [null, null, "live", "live"] },
+
+    { "name": "clearing one name leaves the other",
+      "steps": [{ "appear": "a" }, { "appear": "b" }, { "disappear": "a" }, { "resolve": "b" }],
+      "expect": [null, null, null, "live"] }
+  ],
+
+  "reuse": [
+    { "name": "re-providing the same name replaces, and the last provider wins",
+      "steps": [{ "appear": "row", "view": 1 }, { "appear": "row", "view": 2 }, { "resolveView": "row" }],
+      "expect": [null, null, 2] },
+
+    { "name": "a recycled row that disappears AFTER a new one claimed the name does not clear it",
+      "_note": "The list-recycling order: the incoming row mounts before the outgoing row unmounts. A naive clear-on-disappear would leave the visible row's ref dead.",
+      "steps": [{ "appear": "row", "view": 1 }, { "appear": "row", "view": 2 }, { "disappear": "row", "view": 1 }, { "resolveView": "row" }],
+      "expect": [null, null, null, 2] },
+
+    { "name": "the current provider disappearing does clear it",
+      "steps": [{ "appear": "row", "view": 1 }, { "appear": "row", "view": 2 }, { "disappear": "row", "view": 2 }, { "resolve": "row" }],
+      "expect": [null, null, null, "unknown_ref"] }
+  ]
+}

@@ -1,0 +1,646 @@
+{
+  "_note": "THE STATE-MACHINE INPUT PLANE — the fold that turns a bound `inputs` object into the smallest set of writes a Rive state machine needs. THE LAW. (1) A machine declares its inputs and their types (boolean | number | trigger); markup binds VALUES. The declared list is authority: a bound key the machine does not declare is refused (`unknown_input`) and never guessed at. (2) A boolean takes a bool, the strings 'true'/'false' (trimmed, case-insensitive) or a number (0 is false); a number takes a finite number or a numeric string, and REFUSES a boolean, because `count: true` is a shape mistake worth naming, not a 1. (3) LEVELS ARE DIFFED: an unchanged boolean or number produces NO op, so a re-render that changed nothing does not churn the machine. (4) A TRIGGER IS AN EDGE, never a level: it fires when its bound value CHANGES and the new value is truthy ('', 'false' and '0' are the falsy tokens). That is what makes `inputs=\"{{ { celebrate: order.justPlaced } }}\"` fire once per order instead of once per frame, and it is why the fold carries `values` forward: the previous token map IS the edge detector. (5) A REFUSAL NEVER ABORTS THE PLAN — the other inputs still apply, because one bad binding must not freeze an animation. (6) ORDER IS DETERMINISTIC: ops follow the machine's DECLARED order (never a hash map's), and unknown-name refusals follow sorted order, so three renderers emit the same list. Function: riveInputPlan(declared, bound, previous) on all three.",
+  "cases": [
+    {
+      "name": "the first fold writes every bound input the machine declares",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "itemCount": 3,
+        "isEmpty": false,
+        "celebrate": false
+      },
+      "previous": {},
+      "plan": {
+        "ops": [
+          {
+            "name": "itemCount",
+            "kind": "number",
+            "value": 3.0
+          },
+          {
+            "name": "isEmpty",
+            "kind": "boolean",
+            "value": false
+          }
+        ],
+        "refusals": [],
+        "values": {
+          "itemCount": "3",
+          "isEmpty": "false",
+          "celebrate": "false"
+        }
+      }
+    },
+    {
+      "name": "an identical re-render writes nothing",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "itemCount": 3,
+        "isEmpty": false,
+        "celebrate": false
+      },
+      "previous": {
+        "itemCount": "3",
+        "isEmpty": "false",
+        "celebrate": "false"
+      },
+      "plan": {
+        "ops": [],
+        "refusals": [],
+        "values": {
+          "itemCount": "3",
+          "isEmpty": "false",
+          "celebrate": "false"
+        }
+      }
+    },
+    {
+      "name": "a number that moved is one op",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "itemCount": 4,
+        "isEmpty": false,
+        "celebrate": false
+      },
+      "previous": {
+        "itemCount": "3",
+        "isEmpty": "false",
+        "celebrate": "false"
+      },
+      "plan": {
+        "ops": [
+          {
+            "name": "itemCount",
+            "kind": "number",
+            "value": 4.0
+          }
+        ],
+        "refusals": [],
+        "values": {
+          "itemCount": "4",
+          "isEmpty": "false",
+          "celebrate": "false"
+        }
+      }
+    },
+    {
+      "name": "a boolean that flipped is one op",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "itemCount": 0,
+        "isEmpty": true,
+        "celebrate": false
+      },
+      "previous": {
+        "itemCount": "0",
+        "isEmpty": "false",
+        "celebrate": "false"
+      },
+      "plan": {
+        "ops": [
+          {
+            "name": "isEmpty",
+            "kind": "boolean",
+            "value": true
+          }
+        ],
+        "refusals": [],
+        "values": {
+          "itemCount": "0",
+          "isEmpty": "true",
+          "celebrate": "false"
+        }
+      }
+    },
+    {
+      "name": "a trigger fires on the falsy to truthy transition",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "celebrate": true
+      },
+      "previous": {
+        "celebrate": "false"
+      },
+      "plan": {
+        "ops": [
+          {
+            "name": "celebrate",
+            "kind": "trigger",
+            "value": null
+          }
+        ],
+        "refusals": [],
+        "values": {
+          "celebrate": "true"
+        }
+      }
+    },
+    {
+      "name": "a trigger does NOT fire on a repeated truthy value",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "celebrate": true
+      },
+      "previous": {
+        "celebrate": "true"
+      },
+      "plan": {
+        "ops": [],
+        "refusals": [],
+        "values": {
+          "celebrate": "true"
+        }
+      }
+    },
+    {
+      "name": "a trigger does NOT fire going truthy to falsy, but records the edge",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "celebrate": false
+      },
+      "previous": {
+        "celebrate": "true"
+      },
+      "plan": {
+        "ops": [],
+        "refusals": [],
+        "values": {
+          "celebrate": "false"
+        }
+      }
+    },
+    {
+      "name": "a trigger counter fires on every distinct truthy value",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "celebrate": 2
+      },
+      "previous": {
+        "celebrate": "1"
+      },
+      "plan": {
+        "ops": [
+          {
+            "name": "celebrate",
+            "kind": "trigger",
+            "value": null
+          }
+        ],
+        "refusals": [],
+        "values": {
+          "celebrate": "2"
+        }
+      }
+    },
+    {
+      "name": "a trigger counter does not fire on zero",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "celebrate": 0
+      },
+      "previous": {
+        "celebrate": "3"
+      },
+      "plan": {
+        "ops": [],
+        "refusals": [],
+        "values": {
+          "celebrate": "0"
+        }
+      }
+    },
+    {
+      "name": "an unknown input name is refused and the declared ones still apply",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "itemCount": 7,
+        "nope": true
+      },
+      "previous": {},
+      "plan": {
+        "ops": [
+          {
+            "name": "itemCount",
+            "kind": "number",
+            "value": 7.0
+          }
+        ],
+        "refusals": [
+          {
+            "name": "nope",
+            "code": "unknown_input",
+            "message": "the state machine declares no input named 'nope'"
+          }
+        ],
+        "values": {
+          "itemCount": "7"
+        }
+      }
+    },
+    {
+      "name": "a boolean input coerces the string true",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "isEmpty": " TRUE "
+      },
+      "previous": {},
+      "plan": {
+        "ops": [
+          {
+            "name": "isEmpty",
+            "kind": "boolean",
+            "value": true
+          }
+        ],
+        "refusals": [],
+        "values": {
+          "isEmpty": "true"
+        }
+      }
+    },
+    {
+      "name": "a boolean input coerces a number",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "isEmpty": 2
+      },
+      "previous": {},
+      "plan": {
+        "ops": [
+          {
+            "name": "isEmpty",
+            "kind": "boolean",
+            "value": true
+          }
+        ],
+        "refusals": [],
+        "values": {
+          "isEmpty": "true"
+        }
+      }
+    },
+    {
+      "name": "a number input coerces a numeric string",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "itemCount": " 12.5 "
+      },
+      "previous": {},
+      "plan": {
+        "ops": [
+          {
+            "name": "itemCount",
+            "kind": "number",
+            "value": 12.5
+          }
+        ],
+        "refusals": [],
+        "values": {
+          "itemCount": "12.5"
+        }
+      }
+    },
+    {
+      "name": "a number input refuses a word and keeps the previous value",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "itemCount": "many"
+      },
+      "previous": {
+        "itemCount": "3"
+      },
+      "plan": {
+        "ops": [],
+        "refusals": [
+          {
+            "name": "itemCount",
+            "code": "input_type",
+            "message": "input 'itemCount' expects a number"
+          }
+        ],
+        "values": {
+          "itemCount": "3"
+        }
+      }
+    },
+    {
+      "name": "a number input refuses a boolean",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "itemCount": true
+      },
+      "previous": {},
+      "plan": {
+        "ops": [],
+        "refusals": [
+          {
+            "name": "itemCount",
+            "code": "input_type",
+            "message": "input 'itemCount' expects a number"
+          }
+        ],
+        "values": {}
+      }
+    },
+    {
+      "name": "a null value is neither an op nor a refusal",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "itemCount": null,
+        "isEmpty": null,
+        "celebrate": null
+      },
+      "previous": {
+        "itemCount": "3"
+      },
+      "plan": {
+        "ops": [],
+        "refusals": [],
+        "values": {
+          "itemCount": "3"
+        }
+      }
+    },
+    {
+      "name": "ops follow the DECLARED order, never the bound object's key order",
+      "declared": [
+        {
+          "name": "itemCount",
+          "type": "number"
+        },
+        {
+          "name": "isEmpty",
+          "type": "boolean"
+        },
+        {
+          "name": "celebrate",
+          "type": "trigger"
+        }
+      ],
+      "bound": {
+        "celebrate": true,
+        "isEmpty": true,
+        "itemCount": 1
+      },
+      "previous": {},
+      "plan": {
+        "ops": [
+          {
+            "name": "itemCount",
+            "kind": "number",
+            "value": 1.0
+          },
+          {
+            "name": "isEmpty",
+            "kind": "boolean",
+            "value": true
+          },
+          {
+            "name": "celebrate",
+            "kind": "trigger",
+            "value": null
+          }
+        ],
+        "refusals": [],
+        "values": {
+          "itemCount": "1",
+          "isEmpty": "true",
+          "celebrate": "true"
+        }
+      }
+    },
+    {
+      "name": "every bound key is unknown when the machine declares nothing",
+      "declared": [],
+      "bound": {
+        "zeta": 1,
+        "alpha": 2
+      },
+      "previous": {},
+      "plan": {
+        "ops": [],
+        "refusals": [
+          {
+            "name": "alpha",
+            "code": "unknown_input",
+            "message": "the state machine declares no input named 'alpha'"
+          },
+          {
+            "name": "zeta",
+            "code": "unknown_input",
+            "message": "the state machine declares no input named 'zeta'"
+          }
+        ],
+        "values": {}
+      }
+    }
+  ]
+}

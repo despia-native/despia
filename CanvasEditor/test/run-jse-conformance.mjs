@@ -25,7 +25,9 @@ import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const StackCanvas = require(join(here, "../src/canvas-editor.js"));
+// DSX_EDITOR_SDK points the same runner at a PUBLISHED copy of the SDK (the cold-start
+// gate runs the corpus against the packed tarball's bytes); unset = the working tree.
+const StackCanvas = require(process.env.DSX_EDITOR_SDK ?? join(here, "../src/canvas-editor.js"));
 
 // Two layouts, one runner: the MONOREPO (the corpus lives with the engines)
 // and the PUBLIC MIRROR (mirror_public.rb vendors the corpus as ./conformance/jse

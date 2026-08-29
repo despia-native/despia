@@ -36,7 +36,12 @@ class StackButtonsTest {
         val dispatch = File(
             "src/main/kotlin/despia/engine/render/StackNodeView.kt",
         ).readText()
-        assertTrue(dispatch.contains("disabled = interp(a[\"disabled\"]) == \"true\""))
+        // The W9 disabled grammar: truthy `disabled` OR a `disabled-if` expression.
+        assertTrue(
+            dispatch.contains(
+                "disabled = JSE.truthy(interp(a[\"disabled\"])) || JSE.truthy(interp(a[\"disabled-if\"]))",
+            ),
+        )
     }
 
     // ── BUTTON_ROLES mirrors the web reference exactly ────────────────────────────────

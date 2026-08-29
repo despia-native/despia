@@ -1,0 +1,32 @@
+[
+  {
+    "line": 5,
+    "level": "error",
+    "rule": "attr-unknown"
+  },
+  {
+    "line": 5,
+    "level": "notice",
+    "rule": "input-value-inert"
+  },
+  {
+    "line": 6,
+    "level": "error",
+    "rule": "attr-unknown"
+  },
+  {
+    "line": 6,
+    "level": "notice",
+    "rule": "input-value-inert"
+  },
+  {
+    "line": 7,
+    "level": "error",
+    "rule": "attr-unknown"
+  },
+  {
+    "line": 7,
+    "level": "notice",
+    "rule": "input-value-inert"
+  }
+]

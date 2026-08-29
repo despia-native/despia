@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "_note": "The `requires` words of a declared background task, mapped to each platform's real constraint object and folded against a live device state (parity/F08-background.md). Two pure facts per renderer: `map[]` pins the translation (iOS BGProcessingTaskRequest has exactly two switches, so three of the six words have NO iOS twin and the fixture records that honestly instead of pretending; Android WorkManager Constraints carries all six), and `satisfy[]` pins the fold that decides whether a run may start. A task whose constraints are unmet does not run and does not count as a failure: it stays scheduled, and `status` reports the unmet words so an author can see WHY nothing has happened rather than guessing.",
+
+  "map": [
+    { "requirement": "network",
+      "ios": { "requiresNetworkConnectivity": "true" },
+      "android": { "networkType": "CONNECTED" } },
+
+    { "requirement": "unmeteredNetwork",
+      "_note": "iOS cannot express unmetered: BGProcessingTaskRequest has one network switch. The stricter intent degrades to `any network` there and is recorded as a pinned divergence, never silently dropped.",
+      "ios": { "requiresNetworkConnectivity": "true" },
+      "android": { "networkType": "UNMETERED" } },
+
+    { "requirement": "charging",
+      "ios": { "requiresExternalPower": "true" },
+      "android": { "requiresCharging": "true" } },
+
+    { "requirement": "batteryNotLow",
+      "_note": "No iOS twin. The OS already withholds background execution in Low Power Mode, so the intent is served by the platform rather than by a request flag.",
+      "ios": {},
+      "android": { "requiresBatteryNotLow": "true" } },
+
+    { "requirement": "storageNotLow",
+      "_note": "No iOS twin.",
+      "ios": {},
+      "android": { "requiresStorageNotLow": "true" } },
+
+    { "requirement": "idle",
+      "_note": "No iOS twin as a request flag: BGProcessingTask is already scheduled for idle time by the OS.",
+      "ios": {},
+      "android": { "requiresDeviceIdle": "true" } }
+  ],
+
+  "fold": [
+    { "name": "no requirements produce no constraints",
+      "requires": [], "ios": {}, "android": {} },
+
+    { "name": "network and charging fold into both platforms",
+      "requires": ["network", "charging"],
+      "ios": { "requiresNetworkConnectivity": "true", "requiresExternalPower": "true" },
+      "android": { "networkType": "CONNECTED", "requiresCharging": "true" } },
+
+    { "name": "unmetered wins over plain network when both are declared",
+      "requires": ["network", "unmeteredNetwork"],
+      "ios": { "requiresNetworkConnectivity": "true" },
+      "android": { "networkType": "UNMETERED" } },
+
+    { "name": "the three Android-only words leave iOS empty",
+      "requires": ["batteryNotLow", "storageNotLow", "idle"],
+      "ios": {},
+      "android": { "requiresBatteryNotLow": "true", "requiresStorageNotLow": "true", "requiresDeviceIdle": "true" } }
+  ],
+
+  "satisfy": [
+    { "name": "nothing required is always satisfied",
+      "requires": [],
+      "state": { "network": "none", "charging": false, "batteryLow": true, "storageLow": true, "idle": false },
+      "expect": { "satisfied": true, "unmet": [] } },
+
+    { "name": "network on a metered connection is satisfied",
+      "requires": ["network"],
+      "state": { "network": "metered", "charging": false, "batteryLow": false, "storageLow": false, "idle": false },
+      "expect": { "satisfied": true, "unmet": [] } },
+
+    { "name": "network with no connection is unmet",
+      "requires": ["network"],
+      "state": { "network": "none", "charging": true, "batteryLow": false, "storageLow": false, "idle": true },
+      "expect": { "satisfied": false, "unmet": ["network"] } },
+
+    { "name": "unmeteredNetwork is unmet on a metered connection",
+      "requires": ["unmeteredNetwork"],
+      "state": { "network": "metered", "charging": true, "batteryLow": false, "storageLow": false, "idle": true },
+      "expect": { "satisfied": false, "unmet": ["unmeteredNetwork"] } },
+
+    { "name": "unmeteredNetwork is met on wifi",
+      "requires": ["unmeteredNetwork"],
+      "state": { "network": "unmetered", "charging": false, "batteryLow": false, "storageLow": false, "idle": false },
+      "expect": { "satisfied": true, "unmet": [] } },
+
+    { "name": "charging is unmet on battery",
+      "requires": ["charging"],
+      "state": { "network": "unmetered", "charging": false, "batteryLow": false, "storageLow": false, "idle": true },
+      "expect": { "satisfied": false, "unmet": ["charging"] } },
+
+    { "name": "batteryNotLow is unmet in the red",
+      "requires": ["batteryNotLow"],
+      "state": { "network": "unmetered", "charging": false, "batteryLow": true, "storageLow": false, "idle": true },
+      "expect": { "satisfied": false, "unmet": ["batteryNotLow"] } },
+
+    { "name": "storageNotLow is unmet on a full disk",
+      "requires": ["storageNotLow"],
+      "state": { "network": "unmetered", "charging": true, "batteryLow": false, "storageLow": true, "idle": true },
+      "expect": { "satisfied": false, "unmet": ["storageNotLow"] } },
+
+    { "name": "idle is unmet while the device is in use",
+      "requires": ["idle"],
+      "state": { "network": "unmetered", "charging": true, "batteryLow": false, "storageLow": false, "idle": false },
+      "expect": { "satisfied": false, "unmet": ["idle"] } },
+
+    { "name": "every unmet word is reported, in canonical order",
+      "requires": ["idle", "charging", "unmeteredNetwork"],
+      "state": { "network": "metered", "charging": false, "batteryLow": false, "storageLow": false, "idle": false },
+      "expect": { "satisfied": false, "unmet": ["unmeteredNetwork", "charging", "idle"] } },
+
+    { "name": "a partially met set still reports only what is missing",
+      "requires": ["network", "charging"],
+      "state": { "network": "metered", "charging": false, "batteryLow": false, "storageLow": false, "idle": false },
+      "expect": { "satisfied": false, "unmet": ["charging"] } }
+  ]
+}

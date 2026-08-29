@@ -1,0 +1,61 @@
+<!-- The detail screen. The selected trail arrives via dsx.global.trail (set by the feed);
+     a direct deep link finds no selection, so the absent state is a real screen, not a
+     crash. One accent job here: the primary action. -->
+<scroll background="background">
+  <head>
+    <expects variable="nav"/>   <!-- the runtime's navigation state: canPop, depth -->
+
+    <variable as="started">return false</variable>
+    <variable as="saved">return false</variable>
+    <variable as="trail" computed="true">dsx.global.trail</variable>
+    <variable as="present" computed="true">dsx.variable.trail != null</variable>
+
+    <!-- the back that always works: pop when there is history, replace when deep-linked.
+         A back affordance is never href= — href pushes, and a back that pushes stacks a
+         second copy of where you came from under every tap. -->
+    <action as="back">
+      if (dsx.variable.nav.canPop) { dsx.module.route.pop() }
+      else { dsx.module.route.replace({ path: '/' }) }
+    </action>
+  </head>
+
+  <vstack padding="16" spacing="16">
+    <hstack>
+      <button icon="chevron.left" on:tap="dsx.action.back()" a11yLabel="Back"/>
+      <spacer/>
+      <button icon="{{ dsx.variable.saved ? 'heart.fill' : 'heart' }}" visible-if="dsx.variable.present" on:tap="dsx.variable.saved = !dsx.variable.saved" a11yLabel="Save trail"/>
+    </hstack>
+
+    <!-- absent: a deep link with no selection gets words and a way forward -->
+    <vstack spacing="8" padding="32" visible-if="!dsx.variable.present">
+      <image icon="tray" iconSize="34" color="tertiary"/>
+      <text value="No trail selected" fontSize="17" fontWeight="semibold"/>
+      <text value="Pick a trail from the list to see it here." fontSize="15" color="secondary"/>
+      <button label="Back to trails" href="/"/>
+    </vstack>
+
+    <vstack spacing="16" visible-if="dsx.variable.present">
+      <vstack height="180" background="fill" radius="20" align="center" alignY="center">
+        <image icon="arrow.right" iconSize="44" color="accent" a11yHidden="true"/>
+      </vstack>
+
+      <vstack spacing="4">
+        <text value="{{ dsx.variable.trail.title }}" fontSize="24" fontWeight="bold" a11yTrait="header"/>
+        <text value="{{ dsx.variable.trail.region }} · {{ dsx.variable.trail.km }} km · {{ dsx.variable.trail.minutes }} min" fontSize="15" color="secondary"/>
+      </vstack>
+
+      <text value="A steady climb through open meadow to the ridgeline, with the long water views the region is known for. Exposed after the halfway mark; carry sun cover in summer." fontSize="15" color="label"/>
+
+      <vstack spacing="8" padding="12" background="fill" radius="12" visible-if="dsx.variable.trail.pro &amp;&amp; !dsx.variable.started" a11yGroup="true">
+        <hstack spacing="8">
+          <image icon="lock.fill" iconSize="15" color="tertiary"/>
+          <text value="Offline maps for this trail are part of Pro." fontSize="13" color="secondary"/>
+        </hstack>
+        <button label="See Trails Pro" variant="bordered" href="/paywall"/>
+      </vstack>
+
+      <button label="{{ dsx.variable.started ? 'Finish hike' : 'Start hike' }}" variant="prominent" on:tap="dsx.variable.started = !dsx.variable.started"/>
+      <progress value="0.32" color="accent" visible-if="dsx.variable.started"/>
+    </vstack>
+  </vstack>
+</scroll>

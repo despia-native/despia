@@ -1,0 +1,918 @@
+{
+  "version": 1,
+  "_note": "V04 - Core/AdMob inline placements (architecture/proposals/inline-native-surfaces.md). The same law: the module owns the placement, and the overlay face (dsx.module.admob.banner, the window-anchored banner the module already ships) and the component face (<admob.Banner/>, <admob.Native/>) are two views onto ONE state machine. Two placement models that disagree is two requests for one impression, which is an invalid-traffic flag rather than a rendering bug, so a second load while one is in flight is refused `busy`. slot[] is the GEOMETRY, and it deliberately refuses to invent an adaptive height: Google computes that from the device at request time, and a number guessed here is a layout that jumps the first time a real ad lands. request[] is the POLICY GATE - a build that requests while a consent form is outstanding is a policy violation, not a missed impression.",
+  "sessionRef": {
+    "_note": "The security boundary for <admob.Banner/> session=. An ad unit id is not a secret, but it is not a reference either, and the rule refuses it for the shape it has rather than for the danger it carries. That is the allowlist doing its job: an author who wanted a per-screen unit id declares it in the module's config and references it, which is also what makes the id swappable over the air without a rebuild.",
+    "kinds": [
+      "implicit",
+      "module-context",
+      "store-var",
+      "global",
+      "config",
+      "attribute",
+      "scope"
+    ],
+    "refusals": [
+      "missing_reference",
+      "literal_secret",
+      "literal_value",
+      "compound_template",
+      "unknown_reference"
+    ],
+    "families": [],
+    "cases": [
+      {
+        "name": "omitted binds the module's current placement",
+        "value": null,
+        "expect": {
+          "kind": "implicit",
+          "path": ""
+        }
+      },
+      {
+        "name": "the canonical module-context reference",
+        "value": "dsx.module.admob.context.session",
+        "expect": {
+          "kind": "module-context",
+          "path": "dsx.module.admob.context.session"
+        }
+      },
+      {
+        "name": "a config value, the spelling an ad unit actually wants",
+        "value": "dsx.config.bannerUnit",
+        "expect": {
+          "kind": "config",
+          "path": "dsx.config.bannerUnit"
+        }
+      },
+      {
+        "name": "a row field, for a native ad in a feed",
+        "value": "item.slot",
+        "expect": {
+          "kind": "scope",
+          "path": "item.slot"
+        }
+      },
+      {
+        "name": "an empty attribute is an author mistake",
+        "value": "",
+        "expect": {
+          "error": "missing_reference"
+        }
+      },
+      {
+        "name": "an ad unit id is refused: it is a literal, not a reference",
+        "value": "ca-app-pub-3940256099942544/6300978111",
+        "expect": {
+          "error": "literal_value"
+        }
+      },
+      {
+        "name": "a bare slot name is refused too",
+        "value": "feedSlot",
+        "expect": {
+          "error": "unknown_reference"
+        }
+      },
+      {
+        "name": "a template with text around it is refused",
+        "value": "unit-{{ dsx.variable.slot }}",
+        "expect": {
+          "error": "compound_template"
+        }
+      }
+    ]
+  },
+  "machine": {
+    "_note": "One placement, two views. `start` is the LOAD REQUEST, `complete` is a filled impression, `fail` is a no-fill and is NOT terminal (no-fill is the normal case, and a placement that gave up on the first one would never show an ad again), `cancel` while loading abandons the request and keeps the placement, and `cancel` with nothing in flight retires the placement, which is terminal.",
+    "views": [
+      "overlay",
+      "inline"
+    ],
+    "states": [
+      "idle",
+      "ready",
+      "confirming",
+      "succeeded",
+      "failed",
+      "canceled"
+    ],
+    "refusals": [
+      "already_open",
+      "not_ready",
+      "busy",
+      "settled",
+      "not_confirming",
+      "detached_view"
+    ],
+    "cases": [
+      {
+        "name": "the inline banner alone: configure, attach, load, filled",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "the anchored banner and the inline banner share ONE placement",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "overlay"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "overlay"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "overlay"
+          }
+        ]
+      },
+      {
+        "name": "THE DOUBLE-REQUEST GUARD: one impression, one request",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "overlay"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "error": "busy",
+            "state": "confirming"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "a no-fill is retryable: the next refresh asks again",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "fail",
+            "code": "no_fill"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "failed",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "failed",
+            "by": "inline",
+            "code": "no_fill"
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "the banner scrolls out of the tree mid-request and is STILL told",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "detach",
+            "view": "inline"
+          },
+          {
+            "op": "fail",
+            "code": "no_fill"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "confirming",
+            "notify": [],
+            "attempts": 1
+          },
+          {
+            "state": "failed",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "failed",
+            "by": "inline",
+            "code": "no_fill"
+          }
+        ]
+      },
+      {
+        "name": "retiring the placement is terminal, and a later load is refused",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "cancel"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "canceled",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 0,
+            "outcome": "canceled"
+          },
+          {
+            "error": "settled",
+            "state": "canceled"
+          }
+        ]
+      },
+      {
+        "name": "loading before the placement is configured is not_ready",
+        "steps": [
+          {
+            "op": "start",
+            "view": "inline"
+          }
+        ],
+        "expect": [
+          {
+            "error": "not_ready",
+            "state": "idle"
+          }
+        ]
+      }
+    ]
+  },
+  "slot": {
+    "_note": "Ad slot geometry in density-independent pixels. These are the vendor's numbers and all three renderers hardcode the same ones. `adaptive` is answered honestly: the SDK measures the height from the device at request time, so the fold returns adaptive=true and a zero height rather than a guess, and a slot asked for before layout has measured a width says `unknown_width` instead of pretending.",
+    "sizes": [
+      "banner",
+      "largeBanner",
+      "mediumRectangle",
+      "fullBanner",
+      "leaderboard",
+      "skyscraper",
+      "adaptive"
+    ],
+    "codes": [
+      "",
+      "unknown_size",
+      "unknown_width"
+    ],
+    "cases": [
+      {
+        "name": "the standard banner",
+        "input": {
+          "size": "banner",
+          "width": 0
+        },
+        "expect": {
+          "width": 320,
+          "height": 50,
+          "adaptive": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "the large banner",
+        "input": {
+          "size": "largeBanner",
+          "width": 0
+        },
+        "expect": {
+          "width": 320,
+          "height": 100,
+          "adaptive": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "the medium rectangle, the native-feed size",
+        "input": {
+          "size": "mediumRectangle",
+          "width": 0
+        },
+        "expect": {
+          "width": 300,
+          "height": 250,
+          "adaptive": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "the full banner",
+        "input": {
+          "size": "fullBanner",
+          "width": 0
+        },
+        "expect": {
+          "width": 468,
+          "height": 60,
+          "adaptive": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "the leaderboard",
+        "input": {
+          "size": "leaderboard",
+          "width": 0
+        },
+        "expect": {
+          "width": 728,
+          "height": 90,
+          "adaptive": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "the skyscraper",
+        "input": {
+          "size": "skyscraper",
+          "width": 0
+        },
+        "expect": {
+          "width": 120,
+          "height": 600,
+          "adaptive": false,
+          "code": ""
+        }
+      },
+      {
+        "name": "adaptive with a measured width defers the HEIGHT to the SDK",
+        "input": {
+          "size": "adaptive",
+          "width": 412
+        },
+        "expect": {
+          "width": 412,
+          "height": 0,
+          "adaptive": true,
+          "code": ""
+        }
+      },
+      {
+        "name": "adaptive before layout has measured anything says so",
+        "input": {
+          "size": "adaptive",
+          "width": 0
+        },
+        "expect": {
+          "width": 0,
+          "height": 0,
+          "adaptive": true,
+          "code": "unknown_width"
+        }
+      },
+      {
+        "name": "no size at all is adaptive",
+        "input": {
+          "size": "",
+          "width": 390
+        },
+        "expect": {
+          "width": 390,
+          "height": 0,
+          "adaptive": true,
+          "code": ""
+        }
+      },
+      {
+        "name": "a size word this build does not know is typed absence, never a guessed box",
+        "input": {
+          "size": "banner-ish",
+          "width": 0
+        },
+        "expect": {
+          "width": 0,
+          "height": 0,
+          "adaptive": false,
+          "code": "unknown_size"
+        }
+      },
+      {
+        "name": "a fixed size ignores the measured width",
+        "input": {
+          "size": "mediumRectangle",
+          "width": 412
+        },
+        "expect": {
+          "width": 300,
+          "height": 250,
+          "adaptive": false,
+          "code": ""
+        }
+      }
+    ]
+  },
+  "request": {
+    "_note": "Whether an ad request may leave the device. ORDER IS THE LAW and the consent rows are the reason: `consent_required` must be answered before anything that could read as a reason to proceed. A missing unit id is checked first only because it is a build mistake, and telling an author 'ads are disabled' when they forgot the id sends them to the wrong file. THE CONSENT INPUT IS A FOLD, not a caller's word: `consent` is the MODULE's answer (the UMP platform's, via canRequestAds/consentStatus) and `asserted` is what a caller - a component attribute, a page, a `session()` arg - claimed. `adConsentFold` takes the MINIMUM of the two on the rank unknown < required < not_required < obtained, so an assertion may only NARROW. The rows below pin the direction: a caller can refuse an ad the module would have allowed, and can never turn an `unknown` module answer into `obtained`. An assertion that is absent, empty or not one of the four words is not a consent statement, so the module's answer stands rather than being dragged to the floor by a typo.",
+    "consent": [
+      "obtained",
+      "required",
+      "not_required",
+      "unknown"
+    ],
+    "codes": [
+      "",
+      "missing_ad_unit",
+      "ads_disabled",
+      "consent_required",
+      "consent_pending"
+    ],
+    "cases": [
+      {
+        "name": "a configured, consented, enabled slot may request",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "obtained"
+        },
+        "expect": {
+          "request": true,
+          "code": "",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "consent not required in this region may request",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "not_required"
+        },
+        "expect": {
+          "request": true,
+          "code": "",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "an outstanding consent form blocks the request",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "required"
+        },
+        "expect": {
+          "request": false,
+          "code": "consent_required",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "consent not yet resolved blocks the request",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "unknown"
+        },
+        "expect": {
+          "request": false,
+          "code": "consent_pending",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "ads switched off in config never request",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": false,
+          "consent": "obtained"
+        },
+        "expect": {
+          "request": false,
+          "code": "ads_disabled",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "a missing ad unit is a BUILD mistake and is named as one",
+        "input": {
+          "unitId": "",
+          "enabled": true,
+          "consent": "obtained"
+        },
+        "expect": {
+          "request": false,
+          "code": "missing_ad_unit",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "a missing ad unit outranks a disabled flag: the author is sent to the right file",
+        "input": {
+          "unitId": "",
+          "enabled": false,
+          "consent": "obtained"
+        },
+        "expect": {
+          "request": false,
+          "code": "missing_ad_unit",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "a disabled slot outranks an outstanding consent form",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": false,
+          "consent": "required"
+        },
+        "expect": {
+          "request": false,
+          "code": "ads_disabled",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "an unknown module answer never becomes obtained because a caller said so",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "unknown",
+          "asserted": "obtained"
+        },
+        "expect": {
+          "request": false,
+          "code": "consent_pending",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "a required module answer is not widened by a not_required assertion",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "required",
+          "asserted": "not_required"
+        },
+        "expect": {
+          "request": false,
+          "code": "consent_required",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "a caller may NARROW: an obtained module answer with a required assertion is refused",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "obtained",
+          "asserted": "required"
+        },
+        "expect": {
+          "request": false,
+          "code": "consent_required",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "a caller may narrow all the way to unknown",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "obtained",
+          "asserted": "unknown"
+        },
+        "expect": {
+          "request": false,
+          "code": "consent_pending",
+          "recoverable": true
+        }
+      },
+      {
+        "name": "an absent assertion leaves the module's answer standing",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "obtained",
+          "asserted": ""
+        },
+        "expect": {
+          "request": true,
+          "code": "",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "an unrecognised caller word is not a consent statement and is ignored",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "obtained",
+          "asserted": "yes"
+        },
+        "expect": {
+          "request": true,
+          "code": "",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "two permissive words fold to the lower one and both still request",
+        "input": {
+          "unitId": "ca-app-pub-3940256099942544/6300978111",
+          "enabled": true,
+          "consent": "not_required",
+          "asserted": "obtained"
+        },
+        "expect": {
+          "request": true,
+          "code": "",
+          "recoverable": false
+        }
+      },
+      {
+        "name": "the fold runs AFTER the build checks: a missing unit id still outranks a narrowed consent",
+        "input": {
+          "unitId": "",
+          "enabled": true,
+          "consent": "obtained",
+          "asserted": "required"
+        },
+        "expect": {
+          "request": false,
+          "code": "missing_ad_unit",
+          "recoverable": false
+        }
+      }
+    ],
+    "asserted": [
+      "",
+      "obtained",
+      "required",
+      "not_required",
+      "unknown",
+      "<any other word>"
+    ],
+    "consentRank": {
+      "unknown": 0,
+      "required": 1,
+      "not_required": 2,
+      "obtained": 3
+    }
+  },
+  "retain": {
+    "_note": "Keyed identity. An ad view that is rebuilt has to re-request, which burns an impression opportunity and, in a feed, reads to the network as invalid traffic.",
+    "keys": [
+      {
+        "name": "an explicit key wins outright",
+        "input": {
+          "tag": "admob.Banner",
+          "key": "feed-top",
+          "session": "dsx.module.admob.context.session",
+          "index": 0
+        },
+        "expect": "admob.Banner#feed-top"
+      },
+      {
+        "name": "a native ad in a row derives its identity from the row reference",
+        "input": {
+          "tag": "admob.Native",
+          "session": "item.slot",
+          "index": 4
+        },
+        "expect": "admob.Native@item.slot[4]"
+      },
+      {
+        "name": "the implicit placement still derives a stable key",
+        "input": {
+          "tag": "admob.Banner",
+          "index": 0
+        },
+        "expect": "admob.Banner@[0]"
+      }
+    ]
+  }
+}

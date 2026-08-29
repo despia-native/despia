@@ -1,0 +1,48 @@
+/*
+  Flow's own skin: the dot grid, the cluster, the three buttons. Everything is the ambient
+  semantic token plane, so the library follows whatever theme the consuming app ships -
+  light, dark, or a brand layer - without a single value of its own to drift.
+*/
+
+.flow {
+  background:
+    radial-gradient(circle at 1px 1px,
+      color-mix(in srgb, var(--dsx-separator) 55%, transparent) 1px, transparent 0)
+    0 0 / 24px 24px,
+    var(--dsx-background);
+}
+
+.flow-cluster {
+  background: var(--dsx-background);
+  border: 1px solid var(--dsx-separator);
+  border-radius: var(--dsx-radius-card, 12px);
+  box-shadow: var(--dsx-shadow-2);
+  padding: 4px;
+  align-items: center;
+}
+
+.flow-button {
+  min-height: 28px;
+  border-radius: var(--dsx-radius-sm, 6px);
+  align-items: center;
+  justify-content: center;
+  transition-property: background-color;
+  transition-duration: var(--dsx-duration-fast);
+}
+.flow-button:hover { background: color-mix(in srgb, var(--dsx-fill) 60%, transparent); }
+.flow-square { width: 32px; padding-left: 0px; padding-right: 0px; }
+
+.flow-button-label {
+  font-size: var(--dsx-type-footnote-size);
+  color: var(--dsx-label);
+  white-space: nowrap;
+}
+/* The readout is also the fit button; caption-size so three digits and the sign fit a square. */
+.flow-readout {
+  font-size: var(--dsx-type-caption-size);
+  color: var(--dsx-secondary-label);
+}
+
+@media (forced-colors: active) {
+  .flow-cluster { border-color: CanvasText; }
+}

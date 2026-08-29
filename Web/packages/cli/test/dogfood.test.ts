@@ -40,12 +40,32 @@ const healthy = {
 test("the command table comes from the document, not from this host", () => {
   assert.deepEqual(
     CLI_DOCUMENT.commands.map((c) => c.name).sort(),
-    ["build", "dev", "doctor", "lint"],
+    // add/list/remove/search landed with the registry (v4-launch/registry/00-plan.md W3);
+    // review is the design lint (Skills/designing-an-app.md, its objective floor).
+    // `mcp` serves this same table to a coding agent (mcp.ts): parity is derived, not kept -
+    // which is why `shot` (platform/10-screenshot-execution.md W6) became an MCP tool the
+    // moment it was declared here, with no second registration anywhere.
+    // `film` landed with the marketing compiler (platform/12-marketing-video.md Phase 0/1)
+    // and became an MCP tool the same way.
+    // `deploy` landed with plan E1 - the second markup-authored command, so the shipped
+    // product finally has a way to take the backend it emits live.
+    // `provision` landed with the reserved-namespace plane (cost-guardrails.md): Despia owns
+    // its own tables inside the customer's database, so nobody is asked to write that SQL. It
+    // ejects to a host handler because opening a database connection is exactly the reach the
+    // document's seam list refuses.
+    // `app` and `submit` landed with Despia Apps (studio-apps.md §9): the app plane's read
+    // face plus the headless run door, and the shelf submission recipe. Both became MCP tools
+    // the moment they were declared here, which is the parity this test exists to hold.
+    ["add", "app", "build", "deploy", "dev", "doctor", "edit", "export", "film", "licence", "lint", "list", "mcp", "ota", "provision", "remove", "report", "review", "search", "shot", "submit"],
   );
-  // build/dev/lint eject to host handlers; doctor is markup all the way down.
+  // build/dev/edit/export/lint/review/ota eject to host handlers; doctor and deploy are
+  // markup all the way down.
   assert.equal(CLI_DOCUMENT.commands.find((c) => c.name === "doctor")?.action, "doctor");
+  assert.equal(CLI_DOCUMENT.commands.find((c) => c.name === "deploy")?.action, "deploy");
   assert.equal(CLI_DOCUMENT.commands.find((c) => c.name === "build")?.handler, "build");
+  assert.equal(CLI_DOCUMENT.commands.find((c) => c.name === "ota")?.handler, "ota");
   assert.ok(CLI_DOCUMENT.actions.has("doctor"), "the doctor body lives in the document");
+  assert.ok(CLI_DOCUMENT.actions.has("deploy"), "the deploy body lives in the document");
 });
 
 test("usage is generated, so every declared command and flag appears in --help", () => {
@@ -62,7 +82,7 @@ test("the document's version and the host's version cannot drift", () => {
   assert.equal(CLI_DOCUMENT.version, VERSION);
 });
 
-test("`dsx doctor` passes a healthy project, in DSX with no host code", async () => {
+test("`despia doctor` passes a healthy project, in DSX with no host code", async () => {
   const io = capture();
   const root = project(healthy);
   assert.equal(await runCli(["doctor", "--project", root], io), 0, io.errors.join("\n"));
@@ -73,7 +93,7 @@ test("`dsx doctor` passes a healthy project, in DSX with no host code", async ()
   assert.deepEqual(io.errors, []);
 });
 
-test("`dsx doctor` fails a broken project, names each problem, and exits non-zero", async () => {
+test("`despia doctor` fails a broken project, names each problem, and exits non-zero", async () => {
   const io = capture();
   const root = project({
     "dsx.json": JSON.stringify({ name: "app" }),

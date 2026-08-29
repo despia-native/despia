@@ -19,9 +19,12 @@ import {
   type Dict, type StackLambda, type LambdaParam, type StackFormula,
 } from "./values.ts";
 import { tokenize, cachedTokens, type Token } from "./tokens.ts";
+import { highlightLines } from "./highlight.ts";
 import { JSERegex, reDoSProne } from "./regex.ts";
 import { DSXPathMatch } from "./pathmatch.ts";
 import { JSECore, JSECrypto } from "./core.ts";
+import { higherOrderFns, methodFns } from "./dispatch.ts";
+import { resolveOverride, resolveOverridePlane, type OverrideDecl } from "../style-overrides.ts";
 
 /** The evaluator-visible subset of the surface's reactive store. The reactive/UI
  *  members (signals, handlers, watches) live in store.ts; JSE reads exactly these. */
@@ -35,6 +38,7 @@ export class StackStore {
   fnDepth = 0;                                       // guards user-function recursion (capped at 32)
   evalDepth = 0;                                     // guards expression-evaluator recursion (capped at 64)
   attrDefaults: Map<string, string> = new Map();     // declared prop defaults: <attribute as="x" default="…"/>
+  overrideDecls: Map<string, OverrideDecl> = new Map(); // declared style knobs: <override as="x" type="…" default="…"/>
   /** signal read hook — store.ts wires this so `lookup` reads track dependencies. */
   onVarRead: ((name: string) => void) | null = null;
 }
@@ -67,30 +71,6 @@ export const JSESeams = {
  *  the platform corpus). Derived, never an os value of its own — `os` stays exact. */
 export const DESKTOP_OSES: readonly string[] = ["macos", "windows", "linux"];
 export function isDesktopOS(os: string): boolean { return DESKTOP_OSES.includes(os); }
-
-const higherOrderFns = new Set([
-  "filter", "reject", "map", "find", "some", "every", "sortBy", "sumBy", "reduce", "forEach",
-  "sort", "flatMap", "findIndex", "groupBy", "keyBy",
-  "findLast", "findLastIndex", "reduceRight", "toSorted",
-]);
-const methodFns = new Set([
-  "includes", "indexOf", "join", "reverse", "slice", "toUpperCase", "toLowerCase", "trim",
-  "startsWith", "endsWith", "localeCompare",
-  "toString", "padStart", "padEnd", "toHex", "toBase64", "encode", "decode",
-  "get", "getAll", "has", "set", "append", "delete", "format", "json", "text", "abort",
-  "getTime", "toISOString", "toJSON", "getFullYear", "getMonth", "getDate", "getDay",
-  "getHours", "getMinutes", "getSeconds", "getMilliseconds",
-  "getUTCFullYear", "getUTCMonth", "getUTCDate", "getUTCDay", "getUTCHours",
-  "getUTCMinutes", "getUTCSeconds", "getUTCMilliseconds", "getTimezoneOffset",
-  "setTime", "setFullYear", "setMonth", "setDate", "setHours", "setMinutes",
-  "setSeconds", "setMilliseconds",
-  "toLocaleDateString", "toLocaleTimeString", "toLocaleString",
-  "flat", "concat", "at", "add",
-  "test", "match", "replace", "replaceAll", "split", "search",
-  "repeat", "substring", "lastIndexOf", "trimStart", "trimEnd", "charAt", "charCodeAt",
-  "codePointAt", "normalize", "matchAll", "fill", "toReversed", "with", "toSpliced",
-  "entries", "keys", "values", "toFixed",
-]);
 
 function makeLambda(params: LambdaParam[], body: Token[], block: boolean, captured: Dict): StackLambda {
   return { __lambda: true, params, body, block, captured };
@@ -427,7 +407,47 @@ export function bindPattern(
   }
 }
 
+/** What an author meant by one `name="…"` attribute. The corpus is
+ *  `OpenSource/Conformance/composition/attribute-binding.json`; the Kotlin and Swift twins
+ *  are both `JSE.attributeBinding`. */
+export type AttributeBinding =
+  | { kind: "static" }
+  | { kind: "value"; expr: string }
+  | { kind: "text" };
+
+/** The attribute-binding FOLD - pure syntax, no store, no evaluation.
+ *
+ *  A sole `{{ … }}` carries the expression's VALUE; anything mixed carries the
+ *  string. Without the distinction every consumer prop arrives interpolated, which is
+ *  invisible for a label and fatal for structure: a component that renders its own
+ *  children cannot hand them down, so a tree, an outliner or a comment thread is
+ *  unbuildable. The facet path had already made this call privately, so the two kinds of
+ *  component disagreed about what a prop is; this is that decision, shared.
+ *
+ *  A hole ends at the FIRST `}}`, matching `interpolate`'s own scan exactly. The two must
+ *  never disagree about where an expression stops - that disagreement is a silent type
+ *  change, and one shared wrong answer is repairable where a split one is not. */
+export function attributeBinding(template: string): AttributeBinding {
+  if (!template.includes("{{")) return { kind: "static" };
+  const t = template.trim();
+  if (!t.startsWith("{{")) return { kind: "text" };
+  const close = t.indexOf("}}", 2);
+  if (close < 0 || close !== t.length - 2) return { kind: "text" };
+  return { kind: "value", expr: t.substring(2, close) };
+}
+
 export const JSE = {
+  attributeBinding,
+
+  /** Resolve one consumer attribute to the value it should carry: typed when the template
+   *  is a sole hole, its own text when it has none, the interpolated sentence otherwise. */
+  bindAttribute(template: string, store: StackStore, item: Item): unknown {
+    const b = attributeBinding(template);
+    if (b.kind === "static") return template;
+    if (b.kind === "value") return JSE.eval(b.expr, store, item);
+    return JSE.interpolate(template, store, item);
+  },
+
   interpolate(s: string, store: StackStore, item: Item): string {
     if (!s.includes("{{")) return s;
     let out = "";
@@ -470,7 +490,8 @@ export const JSE = {
 
   /** Evaluate a `<variable>`/function body as a VALUE — a **bounded-JS** block.
    *  PURE: `const`/`let`/`x = e` write a throwaway local scope, never the store.
-   *  Branches only — no `for`/`while` — so it always terminates. */
+   *  The full statement grammar incl. BUDGETED loops (10000 iterations per evaluation,
+   *  corpus core-004) — so it always terminates. */
   evalBlock(body: string, store: StackStore, item: Item): unknown {
     const trimmed = body.trim();
     if (trimmed.length === 0) return null;
@@ -569,6 +590,16 @@ export const JSE = {
     // The JS core globals (URL / Date / Intl / JSON / Math / …) — see core.ts.
     if (JSECore.handles(name)) return JSECore.call(name, a);
     switch (name) {
+      // SOURCE, DRAWN. The `<code>` surface needs token spans in markup, and a page cannot
+      // reach the scanner any other way - so the kernel exposes it instead of every caller
+      // shipping a fourth tokenizer. Pure: text in, rows of {text, kind} out.
+      //
+      // An OPTIONAL PLANE, like the regex engine beside it: almost no document draws source,
+      // and a self-contained embed has a byte budget that a scanner nobody called would eat.
+      // The define folds the branch, and the import goes with it.
+      case "highlight":
+        return (globalThis as typeof globalThis & { __DSX_OPTIONAL_HIGHLIGHT__?: boolean })
+          .__DSX_OPTIONAL_HIGHLIGHT__ !== false ? highlightLines(s(0)) : [];
       case "upper": return s(0).toUpperCase();
       case "lower": return s(0).toLowerCase();
       case "cap": case "capitalize": return capitalizedSwift(s(0));
@@ -653,6 +684,10 @@ export const JSE = {
       case "minLength": return (Array.isArray(a[0]) ? (a[0] as unknown[]).length : charCount(s(0))) >= safeInt(n(1));
       case "maxLength": return (Array.isArray(a[0]) ? (a[0] as unknown[]).length : charCount(s(0))) <= safeInt(n(1));
       case "regex": {
+        // rides __DSX_OPTIONAL_REGEX__ (regex.ts): the detection keeps the engine for
+        // any slice spelling the word, so a folded build can never reach this rule.
+        if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_REGEX__?: boolean })
+          .__DSX_OPTIONAL_REGEX__ === false) return false;
         const pat = s(1);
         if (reDoSProne(pat)) { console.warn(`[JSE] regex() rejected a potentially-catastrophic pattern: /${pat}/`); return false; }
         try { return new RegExp(pat).test(s(0)); } catch { return false; }
@@ -886,6 +921,11 @@ export const JSE = {
         return arr;
       }
       case "toReversed": return [...asArray(base)].reverse();
+      // JS pop()/shift() mutate; JSE values are value-typed on the native runtimes, so
+      // the JSE spelling is the PURE read (the toReversed/toSpliced family's law): last/
+      // first element out, receiver untouched. Corpus: stdlib-002.
+      case "pop": return asArray(base).at(-1) ?? null;
+      case "shift": return asArray(base).at(0) ?? null;
       case "with": {
         const arr = [...asArray(base)];
         let i = safeInt(number(a[0]) ?? 0);
@@ -903,6 +943,18 @@ export const JSE = {
       case "entries": return asArray(base).map((e, i) => [i, e ?? NSNull]);
       case "keys": return asArray(base).map((_, i) => i);
       case "values": return [...asArray(base)];
+      case "toLocaleString": {
+        // NUMBER grouping (corpus stdlib-002): deterministic en-US-style thousands
+        // separators over the JSE string of the value — hand-rolled, so no platform
+        // locale reaches it and three renderers print one string. Date dicts keep the
+        // real locale formatting (JSECore); any other receiver keeps the null law.
+        const v = number(base);
+        if (v === null || isDict(base)) break;
+        const txt = string(v);
+        const dot = txt.indexOf(".");
+        const whole = dot < 0 ? txt : txt.substring(0, dot);
+        return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (dot < 0 ? "" : txt.substring(dot));
+      }
       case "toFixed": {
         const v = number(base);
         if (v === null || !Number.isFinite(v)) return string(base);
@@ -1028,6 +1080,11 @@ export const JSE = {
     const head = dot >= 0 ? body.substring(0, dot) : body;
     const rest = dot >= 0 ? body.substring(dot + 1) : "";
     const join = (base: string): string => (rest.length === 0 ? base : `${base}.${rest}`);
+    // the style-override plane's scope word, ahead of the switch so the whole line folds
+    // with its lookup branch below (define read in-condition, the markdown-fold pattern);
+    // a folded build's sources author no dsx.override read, so the default arm serves
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_STYLE_OVERRIDES__?: boolean })
+      .__DSX_OPTIONAL_STYLE_OVERRIDES__ !== false && head === "override") return join("override");
     switch (head) {
       case "variable": case "formula": return rest.length === 0 ? body : rest;
       case "global": return join("global");
@@ -1091,11 +1148,44 @@ export const JSE = {
       JSESeams.onGlobalRead?.("route");
       return walk(parts, JSESeams.stateVars());
     }
+    // `nav.*` — the router's published back-affordance plane (canPop · depth · stack),
+    // the same reserved view the native runtimes give it (Kotlin Router publishes
+    // `nav` beside `route`; StackReference: "Read nav.canPop / nav.depth for back
+    // affordances"). Read-only by design: the router writes it, an author reads it.
+    if (first === "nav") {
+      JSESeams.onGlobalRead?.("nav");
+      return walk(parts, JSESeams.stateVars());
+    }
     // `cookie.*` — the live cookie jar.
     if (first === "cookie") {
       JSESeams.onGlobalRead?.("cookie");
       const jar = JSESeams.cookieJar();
       return parts.length === 1 ? jar : walk(parts.slice(1), jar);
+    }
+    // The style-override plane: `dsx.override.<name>` — the component's declared style
+    // knobs, resolved through the shared core (item __overrides -> store var -> default,
+    // typed fail-open coercion; corpus OpenSource/Conformance/overrides). Reads track the
+    // "dsx.override" pseudo-key, so the consumer's reactive re-seed re-runs every effect
+    // that read any knob — the dsx.attribute discipline, applied to the style contract.
+    // The define is read INSIDE the condition (the markdown-fold pattern): an embed build
+    // pins __DSX_OPTIONAL_STYLE_OVERRIDES__ false and esbuild deletes the block, which
+    // tree-shakes style-overrides.ts out of a slice that authors no knob; the read then
+    // falls through to the generic lookup and answers null — fail-open, like the full path.
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_STYLE_OVERRIDES__?: boolean })
+      .__DSX_OPTIONAL_STYLE_OVERRIDES__ !== false && first === "override") {
+      store.onVarRead?.("dsx.override");
+      const itemRaw = item ? item["__overrides"] : undefined;
+      const itemOv = isDict(itemRaw) ? itemRaw : null;
+      const storeRaw = store.vars.get("dsx.override");
+      const storeOv = isDict(storeRaw) ? storeRaw : null;
+      if (parts.length === 1) return resolveOverridePlane(store.overrideDecls.values(), itemOv, storeOv);
+      const name = parts[1]!;
+      const decl = store.overrideDecls.get(name);
+      if (decl === undefined) return null;
+      const fromItem = itemOv?.[name];
+      const raw = fromItem !== undefined && fromItem !== null ? fromItem : storeOv?.[name];
+      const v = resolveOverride(decl, raw);
+      return parts.length === 2 ? v : walk(parts.slice(2), v);
     }
     // Explicit local scope: `item.*` / `attribute.*`.
     if (first === "item" || first === "attribute") {
@@ -1110,7 +1200,12 @@ export const JSE = {
       }
       if (v === null && first === "attribute" && parts.length === 2) {
         const def = store.attrDefaults.get(parts[1]!);
-        if (def !== undefined) return JSE.eval(def, store, item);
+        //  `default=""` MEANS THE EMPTY STRING. It is an expression everywhere else, and an
+        //  empty expression evaluated to null - so every `<attribute as="x" default=""/>` in
+        //  the tree (27 of them, the Studio's own surfaces included) read as absent, and the
+        //  usual guard `dsx.attribute.x != ''` was true for an attribute nobody set. The
+        //  author wrote the empty string; this is that sentence, not a special case.
+        if (def !== undefined) return def.trim() === "" ? "" : JSE.eval(def, store, item);
       }
       return v;
     }
@@ -1453,7 +1548,12 @@ export class Parser {
     if (t.kind === "str") { this.advance(); return t.v; }
     if (t.kind === "regex") {
       this.advance();
-      return { __regex: true, source: t.pattern, flags: t.flags };
+      // the dict shape rides __DSX_OPTIONAL_REGEX__ (regex.ts): a folded lexer never
+      // mints a regex token, so the null arm is unreachable there by construction
+      return (globalThis as typeof globalThis & { __DSX_OPTIONAL_REGEX__?: boolean })
+        .__DSX_OPTIONAL_REGEX__ !== false
+        ? { __regex: true, source: t.pattern, flags: t.flags }
+        : null;
     }
     if (t.kind === "template") {
       // parts string-coerce and CONCATENATE (never the numeric-first `+`): `${1}${2}` = "12"
@@ -1746,19 +1846,359 @@ export class Parser {
   }
 }
 
-/** The bounded-JS statement interpreter for a `{ }` body — branches only, always total. */
+/** Split a token run on top-level commas (argument lists in block statements). */
+function splitTopLevel(toks: Token[]): Token[][] {
+  const out: Token[][] = [];
+  let cur: Token[] = [];
+  let d = 0;
+  for (const tk of toks) {
+    if (tk.kind === "op") {
+      if (tk.v === "(" || tk.v === "[" || tk.v === "{") d += 1;
+      else if (tk.v === ")" || tk.v === "]" || tk.v === "}") d -= 1;
+      else if (d === 0 && tk.v === ",") { out.push(cur); cur = []; continue; }
+    }
+    cur.push(tk);
+  }
+  out.push(cur);
+  return out;
+}
+
+/** Rebuild `container` with `parts` set to `value` — BY COPY at every level (value
+ *  semantics: a block-scope path write never aliases another binding). A numeric part
+ *  indexes an array (in bounds, or appends at exactly length); anything else keys a
+ *  dict; a missing nest is created as a dict — total, never a throw. Corpus core-003. */
+function setInLocal(container: unknown, parts: unknown[], value: unknown): unknown {
+  if (parts.length === 0) return value;
+  const head = parts[0];
+  const rest = parts.slice(1);
+  if (Array.isArray(container)) {
+    const idx = number(head);
+    if (idx !== null) {
+      const i = Math.trunc(idx);
+      const copy = [...container];
+      if (i >= 0 && i < copy.length) copy[i] = setInLocal(copy[i], rest, value);
+      else if (i === copy.length) copy.push(setInLocal(null, rest, value));
+      return copy;
+    }
+  }
+  const d: Dict = isDict(container) ? { ...(container as Dict) } : {};
+  const key = string(head);
+  d[key] = setInLocal(d[key] ?? null, rest, value);
+  return d;
+}
+
+/** Walk `parts` into `container` — the read twin of setInLocal; missing → null. */
+function getInLocal(container: unknown, parts: unknown[]): unknown {
+  let cur: unknown = container;
+  for (const p of parts) {
+    if (Array.isArray(cur)) {
+      const idx = number(p);
+      cur = idx !== null && idx >= 0 && idx < cur.length ? cur[Math.trunc(idx)] : null;
+    } else if (isDict(cur)) {
+      cur = (cur as Dict)[string(p)] ?? null;
+    } else {
+      return null;
+    }
+  }
+  return cur ?? null;
+}
+
+// ── BLOCK ITERATION — the optional fold (__DSX_OPTIONAL_BLOCK_ITERATION__) ──────────
+//
+//  Loops (corpus core-004) and block-scope mutation (corpus core-003) in expression
+//  blocks. A static embed slice that the build PROVED authors no iteration folds this
+//  whole module out (the __DSX_OPTIONAL_* pattern): the two impl functions below become
+//  unreferenced and the minifier drops them, buying the G10 widget budget back. Folded,
+//  a loop statement parses and skips and a path assignment falls to the bare-expression
+//  arm — the pre-core-003/004 silence, only ever reachable where nothing authored it.
+
+/** One loop iteration on the SHARED ledger — 10000 per block evaluation, the action
+ *  runner's bounded-execution law. Past it every loop stops; the block stays total. */
+function loopStep(e: JSEval): boolean {
+  const b = (e.budget ??= { used: 0 });
+  b.used += 1;
+  return b.used <= 10000;
+}
+
+/** Run captured statements against the block's scope (shared, not copied) and its
+ *  shared budget; a `return` in the body settles the block, break/continue surface
+ *  as flow for the owning loop to consume. */
+function runCaptured(e: JSEval, body: Token[]): void {
+  const sub = new JSEval(body, e.store, e.scope, true);
+  sub.budget = (e.budget ??= { used: 0 });
+  sub.runBlock();
+  if (sub.done) { e.result = sub.result; e.done = true; }
+  e.flow = sub.flow;
+}
+
+/** Capture a loop body: a `{ … }` group (braces consumed) or one bare statement. */
+function captureBranchTokens(e: JSEval): Token[] {
+  if (e.isOp("{")) {
+    e.i += 1;
+    const out: Token[] = [];
+    let d = 1;
+    for (;;) {
+      const tk = e.cur();
+      if (tk === null) break;
+      if (tk.kind === "op" && tk.v === "{") d += 1;
+      else if (tk.kind === "op" && tk.v === "}") { d -= 1; if (d === 0) { e.i += 1; break; } }
+      out.push(tk);
+      e.i += 1;
+    }
+    return out;
+  }
+  const out = e.capture(new Set([";"]));
+  if (e.isOp(";")) e.i += 1;
+  return out;
+}
+
+function splitOnSemis(toks: Token[]): Token[][] {
+  const out: Token[][] = [];
+  let cur: Token[] = [];
+  let d = 0;
+  for (const tk of toks) {
+    if (tk.kind === "op") {
+      if (tk.v === "(" || tk.v === "[" || tk.v === "{") d += 1;
+      else if (tk.v === ")" || tk.v === "]" || tk.v === "}") d -= 1;
+      else if (d === 0 && tk.v === ";") { out.push(cur); cur = []; continue; }
+    }
+    cur.push(tk);
+  }
+  out.push(cur);
+  return out;
+}
+
+/** The container a path write rebuilds from: the block's own binding, else the normal
+ *  lookup (a caller-scope name copies in on first write — the evalBlock purity
+ *  contract: reads shadow, writes stay local). */
+function baseFor(e: JSEval, name: string): unknown {
+  return Object.prototype.hasOwnProperty.call(e.scope, name)
+    ? e.scope[name]
+    : e.evalExpr([{ kind: "ident", v: name } as Token]);
+}
+
+/** Evaluate path segments to keys: a static ident stays a string, a computed `[e]`
+ *  evaluates in this scope. */
+function evalSegs(e: JSEval, segs: Array<string | Token[]>): unknown[] {
+  return segs.map((s) => (typeof s === "string" ? s : e.evalExpr(s)));
+}
+
+/** Read the value at `name.parts…` through the block's own view (scope first, then the
+ *  normal lookup), missing → null — total, never a throw. */
+function readAt(e: JSEval, name: string, parts: unknown[]): unknown {
+  return getInLocal(baseFor(e, name), parts);
+}
+
+/** Parse and perform `NAME(seg…) op= rhs` / `NAME(seg…).push(args)`; true when handled.
+ *  A dotted ident is ONE token here (`m.k`, `m.xs.push` — the tokenizer's dotted-ident
+ *  rule), so static segments split out of the leading token and out of every
+ *  post-bracket `.ident` run. */
+function mutation(e: JSEval, toks: Token[]): boolean {
+  const t0 = toks[0];
+  if (toks.length < 2 || t0 === undefined || t0.kind !== "ident") return false;
+  const head = t0.v.split(".");
+  const name = head[0]!;
+  // dsx.* / global.* / route.* / cookie.* are NAMESPACES, not block locals — a block
+  // body never writes them (the evalBlock purity contract); leave those statements to
+  // the bare-expression arm exactly as before.
+  if (name.length === 0 || name === "dsx" || name === "global" || name === "route" || name === "cookie") return false;
+  const segs: Array<string | Token[]> = head.slice(1);
+  let j = 1;
+  for (;;) {
+    const a = toks[j];
+    const b = toks[j + 1];
+    if (a !== undefined && a.kind === "op" && a.v === "." && b !== undefined && b.kind === "ident") {
+      for (const part of b.v.split(".")) segs.push(part);
+      j += 2;
+      continue;
+    }
+    if (a !== undefined && a.kind === "op" && a.v === "[") {
+      const inner: Token[] = [];
+      let d = 1;
+      let k = j + 1;
+      while (k < toks.length) {
+        const tk = toks[k]!;
+        if (tk.kind === "op" && (tk.v === "[" || tk.v === "(" || tk.v === "{")) d += 1;
+        if (tk.kind === "op" && (tk.v === "]" || tk.v === ")" || tk.v === "}")) { d -= 1; if (d === 0) break; }
+        inner.push(tk);
+        k += 1;
+      }
+      if (k >= toks.length) return false;
+      segs.push(inner);
+      j = k + 1;
+      continue;
+    }
+    break;
+  }
+  // `x++` / `m.n--` — read-modify-write through the same path law.
+  const bump = toks[j];
+  if (bump !== undefined && bump.kind === "op" && (bump.v === "++" || bump.v === "--") && j === toks.length - 1) {
+    const parts = evalSegs(e, segs);
+    const value = arith(readAt(e, name, parts), 1, bump.v === "++" ? "+" : "-");
+    if (parts.length === 0) e.scope[name] = value ?? NSNull;
+    else e.scope[name] = setInLocal(baseFor(e, name), parts, value ?? NSNull);
+    return true;
+  }
+  // `path.push(a, b)` — statement-position growth of the local array (push has no pure
+  // reading; pop/shift stay pure reads, stdlib-002). The whole statement must be
+  // exactly the call — anything after the closing paren is a bare expression instead.
+  const last = segs.length > 0 ? segs[segs.length - 1] : undefined;
+  const after = toks[j];
+  if (last === "push" && after !== undefined && after.kind === "op" && after.v === "(") {
+    let d = 1;
+    let k = j + 1;
+    const inner: Token[] = [];
+    while (k < toks.length) {
+      const tk = toks[k]!;
+      if (tk.kind === "op" && (tk.v === "(" || tk.v === "[" || tk.v === "{")) d += 1;
+      if (tk.kind === "op" && (tk.v === ")" || tk.v === "]" || tk.v === "}")) { d -= 1; if (d === 0) break; }
+      inner.push(tk);
+      k += 1;
+    }
+    if (d !== 0 || k !== toks.length - 1) return false;
+    segs.pop();
+    const parts = evalSegs(e, segs);
+    const arr = [...asArray(readAt(e, name, parts))];
+    for (const argToks of splitTopLevel(inner)) if (argToks.length > 0) arr.push(e.evalExpr(argToks) ?? NSNull);
+    e.scope[name] = setInLocal(baseFor(e, name), parts, arr);
+    return true;
+  }
+  const op = toks[j];
+  if (op === undefined || op.kind !== "op") return false;
+  if (op.v !== "=" && op.v !== "+=" && op.v !== "-=" && op.v !== "*=" && op.v !== "/=" && op.v !== "%=") return false;
+  const rhsToks = toks.slice(j + 1);
+  if (rhsToks.length === 0) return false;
+  const rhs = e.evalExpr(rhsToks);
+  const parts = evalSegs(e, segs);
+  const value = op.v === "="
+    ? rhs
+    : arith(readAt(e, name, parts), rhs, op.v.substring(0, 1));
+  if (parts.length === 0) {
+    e.scope[name] = value ?? NSNull;
+    return true;
+  }
+  e.scope[name] = setInLocal(baseFor(e, name), parts, value ?? NSNull);
+  return true;
+}
+
+/** `for (init; cond; step)` · `for ([const] pattern of expr)` · `for ([const] k in expr)`
+ *  — the loop grammar in expression blocks (corpus core-004), budgeted, with the
+ *  classic form gated on top-level `;` (a classic cond may contain the `in` OPERATOR). */
+function forStmt(e: JSEval, execute: boolean): void {
+  e.i += 1; // 'for'
+  const head = e.captureParen();
+  const body = captureBranchTokens(e);
+  if (!execute) return;
+  const parts = splitOnSemis(head);
+  if (parts.length === 3) {
+    runCaptured(e, parts[0]!);
+    if (e.done) return;
+    e.flow = undefined;
+    for (;;) {
+      if (parts[1]!.length > 0 && !truthy(e.evalExpr(parts[1]!))) break;
+      if (!loopStep(e)) break;
+      runCaptured(e, body);
+      if (e.done) return;
+      if (e.flow === "break") { e.flow = undefined; break; }
+      e.flow = undefined;
+      runCaptured(e, parts[2]!);
+      if (e.done) return;
+      e.flow = undefined;
+    }
+    return;
+  }
+  let p = 0;
+  const first = head[p];
+  if (first !== undefined && first.kind === "ident" && (first.v === "const" || first.v === "let" || first.v === "var")) p += 1;
+  let kwAt = -1;
+  let kind: "of" | "in" | null = null;
+  let d = 0;
+  for (let k = p; k < head.length; k += 1) {
+    const tk = head[k]!;
+    if (tk.kind === "op") {
+      if (tk.v === "(" || tk.v === "[" || tk.v === "{") d += 1;
+      else if (tk.v === ")" || tk.v === "]" || tk.v === "}") d -= 1;
+    }
+    if (d === 0 && tk.kind === "ident" && (tk.v === "of" || tk.v === "in")) { kwAt = k; kind = tk.v; break; }
+  }
+  if (kwAt < 0 || kind === null) return;
+  const patToks = head.slice(p, kwAt);
+  const exprToks = head.slice(kwAt + 1);
+  const decls = parseDeclarators([...patToks, { kind: "op", v: "=" }, { kind: "num", v: 0 }]);
+  if (decls.length !== 1) return;
+  const pattern = decls[0]!.pattern;
+  const seq = kind === "of" ? spreadValues(e.evalExpr(exprToks)) : forInKeys(e.evalExpr(exprToks));
+  for (const el of seq) {
+    if (!loopStep(e)) break;
+    bindPattern(pattern, el, (n, v) => { e.scope[n] = v ?? NSNull; }, (dts) => e.evalExpr(dts));
+    runCaptured(e, body);
+    if (e.done) return;
+    if (e.flow === "break") { e.flow = undefined; break; }
+    e.flow = undefined;
+  }
+}
+
+function whileStmt(e: JSEval, execute: boolean): void {
+  e.i += 1; // 'while'
+  const cond = e.captureParen();
+  const body = captureBranchTokens(e);
+  if (!execute) return;
+  while (truthy(e.evalExpr(cond))) {
+    if (!loopStep(e)) break;
+    runCaptured(e, body);
+    if (e.done) return;
+    if (e.flow === "break") { e.flow = undefined; break; }
+    e.flow = undefined;
+  }
+}
+
+function doStmt(e: JSEval, execute: boolean): void {
+  e.i += 1; // 'do'
+  const body = captureBranchTokens(e);
+  let cond: Token[] = [];
+  if (e.isKw("while")) {
+    e.i += 1;
+    cond = e.captureParen();
+    if (e.isOp(";")) e.i += 1;
+  }
+  if (!execute) return;
+  do {
+    if (!loopStep(e)) break;
+    runCaptured(e, body);
+    if (e.done) return;
+    if (e.flow === "break") { e.flow = undefined; break; }
+    e.flow = undefined;
+  } while (truthy(e.evalExpr(cond)));
+}
+
+// Every gate below reads the flag INLINE (never through a const): esbuild's define
+// substitutes the member access, `false !== false` folds, the gated branch drops, and
+// with every reference gone the impl functions above DCE out of a folded slice.
+const BLOCK_ITERATION_IMPL = {
+  loop(e: JSEval, kind: "for" | "while" | "do", execute: boolean): void {
+    if (kind === "for") forStmt(e, execute);
+    else if (kind === "while") whileStmt(e, execute);
+    else doStmt(e, execute);
+  },
+  mutation,
+};
+
+/** The bounded-JS statement interpreter for a `{ }` body — branches + BUDGETED loops
+ *  (10000 iterations per evaluation, corpus core-004), always total. */
 class JSEval {
   i = 0;
   scope: Dict;
   result: unknown = null;
   done = false;
+  flow?: "break" | "continue";                // loop control in flight (consumed by its loop; absent = none)
+  budget?: { used: number };                  // iteration ledger, created lazily by the impl (10k, the runner's law)
 
   readonly t: Token[];
   readonly store: StackStore;
-  constructor(t: Token[], store: StackStore, scope: Dict) {
+  constructor(t: Token[], store: StackStore, scope: Dict, share = false) {
     this.t = t;
     this.store = store;
-    this.scope = { ...scope }; // value-copy, like the twins
+    this.scope = share ? scope : { ...scope }; // value-copy, like the twins
   }
 
   cur(): Token | null { return this.i < this.t.length ? this.t[this.i]! : null; }
@@ -1766,7 +2206,7 @@ class JSEval {
   isKw(s: string): boolean { const tk = this.cur(); return tk !== null && tk.kind === "ident" && tk.v === s; }
 
   runBlock(): void {
-    while (!this.done) {
+    while (!this.done && (!((globalThis as typeof globalThis & { __DSX_OPTIONAL_BLOCK_ITERATION__?: boolean }).__DSX_OPTIONAL_BLOCK_ITERATION__ !== false) || this.flow === undefined)) {
       const tk = this.cur();
       if (tk === null) return;
       if (tk.kind === "op" && tk.v === "}") return;
@@ -1807,6 +2247,24 @@ class JSEval {
   private statement(execute: boolean): void {
     if (this.isKw("function")) { this.skipFunction(); return; }
     if (this.isKw("if")) { this.ifStmt(execute); return; }
+    // BLOCK ITERATION is an optional fold (__DSX_OPTIONAL_BLOCK_ITERATION__): a static
+    // embed slice the build PROVED authors no iteration sheds the machinery; folded,
+    // a loop keyword falls through to the generic statement arm — byte-for-byte the
+    // pre-core-004 behavior, only ever reachable where nothing authored a loop.
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_BLOCK_ITERATION__?: boolean }).__DSX_OPTIONAL_BLOCK_ITERATION__ !== false
+        && (this.isKw("for") || this.isKw("while") || this.isKw("do"))) {
+      const kind = this.isKw("for") ? "for" : this.isKw("while") ? "while" : "do";
+      BLOCK_ITERATION_IMPL.loop(this, kind, execute);
+      return;
+    }
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_BLOCK_ITERATION__?: boolean }).__DSX_OPTIONAL_BLOCK_ITERATION__ !== false
+        && (this.isKw("break") || this.isKw("continue"))) {
+      const f = this.isKw("break") ? "break" : "continue";
+      this.i += 1;
+      if (this.isOp(";")) this.i += 1;
+      if (execute) this.flow = f;
+      return;
+    }
     if (this.isKw("const") || this.isKw("let") || this.isKw("var")) { this.declStmt(execute); return; }
     if (this.isKw("return")) { this.returnStmt(execute); return; }
     const toks = this.capture(new Set([";"]));
@@ -1846,6 +2304,10 @@ class JSEval {
       this.done = true;
     }
   }
+
+
+
+
   private skipFunction(): void {
     for (;;) {
       const tk = this.cur();
@@ -1870,18 +2332,35 @@ class JSEval {
         return;
       }
     }
-    // local assignment `x = e` (single ident LHS), else a bare expression (implicit value).
+    // local assignment `x = e` (single ident LHS) — the always-on core write. With the
+    // fold LIVE a dotted lead ident belongs to the mutation impl below; FOLDED, the
+    // historic literal-key write stands (only reachable where nothing authored iteration).
     if (toks.length >= 2) {
       const t0 = toks[0]!;
       const t1 = toks[1]!;
-      if (t0.kind === "ident" && t1.kind === "op" && t1.v === "=") {
+      if (t0.kind === "ident" && (!((globalThis as typeof globalThis & { __DSX_OPTIONAL_BLOCK_ITERATION__?: boolean }).__DSX_OPTIONAL_BLOCK_ITERATION__ !== false) || !t0.v.includes(".")) && t1.kind === "op" && t1.v === "=") {
         this.scope[t0.v] = this.evalExpr(toks.slice(2)) ?? NSNull;
         return;
       }
     }
+    // BLOCK-SCOPE MUTATION (corpus core-003): dotted / computed-key / indexed assignment
+    // into a scope name (`m.k = 5` · `m[r.id] = 1` · `xs[1] = 9`), compound assignment,
+    // ++/--, and statement-position `.push(…)` all REBUILD the local (value semantics —
+    // never an alias, never the store). This is what makes the accumulator idioms real.
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_BLOCK_ITERATION__?: boolean }).__DSX_OPTIONAL_BLOCK_ITERATION__ !== false) {
+      const lead = toks[0];
+      if (lead !== undefined && lead.kind === "op" && (lead.v === "++" || lead.v === "--")) {
+        if (BLOCK_ITERATION_IMPL.mutation(this, [...toks.slice(1), lead])) return;   // prefix form → the postfix shape
+      }
+      if (BLOCK_ITERATION_IMPL.mutation(this, toks)) return;
+    }
     this.result = this.evalExpr(toks);
   }
-  private capture(stops: Set<string>): Token[] {
+
+
+
+
+  capture(stops: Set<string>): Token[] {
     const out: Token[] = [];
     let d = 0;
     for (;;) {
@@ -1898,7 +2377,7 @@ class JSEval {
     }
     return out;
   }
-  private captureParen(): Token[] {
+  captureParen(): Token[] {
     const out: Token[] = [];
     if (!this.isOp("(")) return out;
     this.i += 1;
@@ -1913,11 +2392,11 @@ class JSEval {
     }
     return out;
   }
-  private evalExpr(toks: Token[]): unknown {
+  evalExpr(toks: Token[]): unknown {
     const p = new Parser(toks, this.store, this.scope);
     return p.expression();
   }
 }
 
-export { NSNull, isNSNull, isDict, isLambda, watchKey };
+export { NSNull, isNSNull, isDict, isLambda, watchKey, setInLocal, getInLocal };
 export type { Dict, StackLambda };

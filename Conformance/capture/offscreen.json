@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "_note": "`capture.offscreen` is the differentiated action (parity/F11-capture.md 3a): render a component that was NEVER on screen, at an arbitrary size, without flashing it at the user. React Native cannot do this cleanly because its renderer is bound to a mounted host view; our component tree is data until it is rendered, so a detached host can mount it, lay it out once, rasterise and dispose. This corpus pins the arithmetic (a 1200x630 card is 1200x630, and the same budget applies) and the invariants that make the feature real rather than a screenshot of something briefly visible.",
+
+  "sizes": [
+    { "name": "the Open Graph card everyone actually wants",
+      "width": 1200, "height": 630, "scale": 1, "expect": { "width": 1200, "height": 630 } },
+    { "name": "the same card at 2x for a retina share sheet",
+      "width": 1200, "height": 630, "scale": 2, "expect": { "width": 2400, "height": 1260 } },
+    { "name": "a square story card", "width": 1080, "height": 1080, "scale": 1,
+      "expect": { "width": 1080, "height": 1080 } },
+    { "name": "a tall story frame", "width": 1080, "height": 1920, "scale": 1,
+      "expect": { "width": 1080, "height": 1920 } },
+    { "name": "a thumbnail", "width": 320, "height": 180, "scale": 1, "expect": { "width": 320, "height": 180 } },
+    { "name": "an offscreen size the screen could never have held",
+      "width": 4000, "height": 4000, "scale": 1, "expect": { "width": 4000, "height": 4000 } },
+    { "name": "a zero width is not a size", "width": 0, "height": 630, "scale": 1,
+      "expect": { "error": "invalid_size" } },
+    { "name": "a negative height is not a size", "width": 1200, "height": -1, "scale": 1,
+      "expect": { "error": "invalid_size" } },
+    { "name": "the budget applies offscreen exactly as it does on screen",
+      "width": 1200, "height": 630, "scale": 8, "expect": { "error": "too_large" } },
+    { "name": "and a huge offscreen request is refused before allocation",
+      "width": 20000, "height": 20000, "scale": 1, "expect": { "error": "too_large" } }
+  ],
+
+  "attrs": {
+    "_note": "`attrs` is the component's input contract, the same one a mounted `<Tag attr=...>` fills. It is data, never markup: there is no path by which a caller's string becomes an element.",
+    "cases": [
+      { "name": "a string attribute", "attrs": { "title": "Level complete" }, "expect": { "title": "Level complete" } },
+      { "name": "a number attribute stays a number", "attrs": { "score": 4200 }, "expect": { "score": 4200 } },
+      { "name": "a boolean attribute stays a boolean", "attrs": { "featured": true }, "expect": { "featured": true } },
+      { "name": "a nested object rides through", "attrs": { "player": { "name": "Ada", "rank": 1 } },
+        "expect": { "player": { "name": "Ada", "rank": 1 } } },
+      { "name": "an omitted attrs block is an empty contract", "attrs": null, "expect": {} }
+    ],
+    "neverMarkup": "an attribute value that looks like markup arrives as a STRING. `attrs: { title: \"<b>hi</b>\" }` renders the five characters, never a bold element"
+  },
+
+  "invariants": {
+    "_note": "The properties that make offscreen rendering worth having. Each facet asserts them in its own tests.",
+    "neverVisible": "the detached host is never added to the window, never presented, and never takes the first responder. A user watching the screen while 100 cards render sees nothing at all, no flash and no layout jump on the live surface",
+    "sizeIsIndependentOfScreen": "the requested size is honoured exactly whether or not any screen is that size, including sizes larger than the device. Nothing is clipped to the window and nothing is scaled to fit",
+    "oneLayoutPass": "the host is measured and laid out at the requested size before rasterising, so an image loaded from the component's own state is not captured mid-load as an empty box",
+    "disposal": "the host, its store and its api blocks are released before the action resolves. 100 sequential offscreen captures leave no retained hosts, no growing observer list and no leaked bitmaps",
+    "sameComponentRegistry": "`component` resolves through the ordinary component registry, package-local first then global, exactly as a `<Tag/>` in markup does. There is no separate offscreen component list to keep in sync",
+    "noSideEffects": "the offscreen mount does not touch the router, does not publish window metrics, and does not become the surface `dsx.screen.*` reports. It is a rasteriser, not a navigation"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "_note": "Folder-owned PUBLIC MIRROR declaration for the installable agent-skills pack (ClosedSource/scripts/mirror_public.rb; OpenSource/Engine/mirror.json documents the schema). The tree here is GENERATED from the app-authoring skills in OpenSource/Skills by generate_agent_skills.rb, and the `check` is that generator's --check, so a stale staging can never publish. No tag_from on purpose: the pack is installed by branch head (`npx skills add despia-native/skills`), prose has no ABI, and a version ceremony would be a second thing to forget. mirror.json itself stays out of the generator's diff because manifests are authored, never emitted.",
+  "repo": "despia-native/skills",
+  "branch": "main",
+  "include": [
+    "README.md",
+    "LICENSE",
+    "writing-dsx-apps/",
+    "designing-dsx-apps/",
+    "thinking-in-dsx/"
+  ],
+  "check": "ruby ClosedSource/scripts/generate_agent_skills.rb --check"
+}

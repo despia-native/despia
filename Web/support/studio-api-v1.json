@@ -1,0 +1,92 @@
+{
+  "_note": "THE STUDIO API CONTRACT, major 1 (architecture/proposals/studio-apps.md §5-§7). This file is the one pinned statement of what an app may name: the slot vocabulary, the grant vocabulary, the event lists, the scoped seam chains and the execution ceilings. packages/cli/test/studio-apps-contract.test.ts asserts it byte-agrees with the validator's exported constants AND with the conformance corpus vocabulary, so the artifact, the corpus and the code cannot drift apart. Within major 1 every change is ADDITIVE (a new slot, a new seam, a new event); a removal or rename bumps the major and retires this file beside a studio-api-v2.json. An app pins the major it was built for via `\"studioApi\": 1`; a host refuses a foreign major per-contribution, typed, never a blank pane.",
+  "studioApi": 1,
+  "slots": [
+    "studio.panel",
+    "studio.rail",
+    "studio.inspector.section",
+    "studio.style.section",
+    "dashboard.card",
+    "tool",
+    "automation"
+  ],
+  "grants": {
+    "fixed": [
+      "project:read",
+      "project:write",
+      "selection:read",
+      "automation:deploy",
+      "automation:auto"
+    ],
+    "parameterized": [
+      "net:<host>",
+      "secret:<NAME>",
+      "data:<entity>"
+    ]
+  },
+  "events": {
+    "editor": [
+      "document.saved",
+      "document.opened",
+      "selection.changed",
+      "build.finished",
+      "lint.finished",
+      "deploy.requested",
+      "deploy.finished",
+      "app.installed",
+      "app.enabled",
+      "app.disabled"
+    ],
+    "platform": [
+      "platform.release.published",
+      "platform.pr.opened",
+      "platform.build.finished",
+      "platform.order.created"
+    ]
+  },
+  "seams": [
+    "studio.project.list",
+    "studio.project.read",
+    "studio.project.tree",
+    "studio.project.edit",
+    "studio.project.create",
+    "studio.catalog.elements",
+    "studio.catalog.styles",
+    "studio.catalog.graph",
+    "studio.selection.get",
+    "studio.ui.toast",
+    "app.storage.get",
+    "app.storage.set",
+    "app.storage.remove",
+    "app.storage.list"
+  ],
+  "budgets": {
+    "loopCap": 200000,
+    "deadlineMs": 30000,
+    "calls": 128
+  },
+  "issueCodes": [
+    "missing_studio_api",
+    "unsupported_studio_api",
+    "bad_contribution_id",
+    "unknown_slot",
+    "missing_component",
+    "forbidden_component",
+    "bad_component_path",
+    "missing_title",
+    "missing_icon",
+    "unknown_grant",
+    "grant_not_slot_legal",
+    "unknown_event",
+    "event_not_slot_legal",
+    "missing_on",
+    "unknown_automation_event",
+    "missing_run",
+    "bad_run",
+    "bad_mode",
+    "auto_needs_grant",
+    "missing_action",
+    "bad_order",
+    "bad_row"
+  ]
+}

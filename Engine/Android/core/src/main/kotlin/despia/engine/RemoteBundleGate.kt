@@ -72,10 +72,16 @@
 //    precedent: the kernel knows nothing about curve math, encodings or verification strategy; that
 //    is wholly the optional, EXCLUDABLE package's concern). An UNFILLED seam REJECTS — byte-for-byte
 //    the pre-fix verdict, fail-closed, never fail-open.
-//    WHO FILLS IT: `ClosedSource/DSX/Modules/Core/LegacyCrypto` — a BACKWARD-COMPAT facet whose
-//    whole reason to exist is Android < 33. It ships included by default and is excluded like any
-//    other module (file-presence is the gate); an app whose `minSdk >= 33` excludes it and then
-//    ships ZERO hand-written crypto, which is the entire point of keeping this out of the kernel.
+//    WHO FILLS IT: `ClosedSource/DSX/Modules/Core/LegacyCrypto`. It ships included by default and is
+//    excluded like any other module (file-presence is the gate).
+//    THE FACET IS NOT ONLY FOR OLD ANDROID, and the header used to say it was. MEASURED on
+//    google/sdk_gphone64_arm64 API 36 (Android 16, Google APIs) by RemoteBundleSigningDeviceTest:
+//    AndroidKeyStore is the ONLY provider on the device publishing an `Ed25519` KeyFactory, and it
+//    throws on import; Conscrypt publishes X25519 HPKE and no Ed25519 KeyFactory; BC 1.77 publishes
+//    none. So `ed25519PlatformAvailable` is FALSE on Android 16 and the seam is what verifies every
+//    signed OTA there. Excluding the facet on a `minSdk >= 33` app therefore refuses every
+//    correctly signed manifest -- fail-closed and silent. Exclude it only for an ECDSA-P256 rotation
+//    set, or after enumerating providers on the devices you actually ship to.
 //    NOT covered by the seam: ECDSA-P256 (`SHA256withECDSA` + `EC` KeyFactory are present on every
 //    supported API level, so that anchor never needs one — a rotation set carrying a P-256 anchor
 //    is the other way to serve Android 7–12) and every signing/keygen path (the private key never
@@ -496,7 +502,7 @@ object RemoteBundleGate {
             Anchor.Algorithm.ed25519 -> {
                 if (anchor.keyData.size != 32 || signature.size != 64) false
                 else if (ed25519PlatformAvailable) {
-                    val key = KeyFactory.getInstance("Ed25519")
+                    val key = (ed25519Factory() ?: KeyFactory.getInstance("Ed25519"))
                         .generatePublic(X509EncodedKeySpec(ed25519SpkiPrefix + anchor.keyData))
                     val v = Signature.getInstance("Ed25519")
                     v.initVerify(key)
@@ -536,12 +542,78 @@ object RemoteBundleGate {
     val ed25519PlatformAvailable: Boolean
         get() = _overrideEd25519PlatformAvailable ?: platformEd25519Probe
 
-    private val platformEd25519Probe: Boolean by lazy {
-        try {
-            KeyFactory.getInstance("Ed25519")
-            Signature.getInstance("Ed25519")
-            true
-        } catch (_: Throwable) { false }
+    private val platformEd25519Probe: Boolean get() = ed25519Factory() != null
+
+    /**
+     * A KeyFactory that can actually IMPORT a raw Ed25519 public key, or null.
+     *
+     * ANDROIDKEYSTORE REGISTERS "Ed25519" AND CANNOT IMPORT ONE. `KeyFactory.getInstance("Ed25519")`
+     * on Android 33+ resolves to AndroidKeyStore, which only ever hands back keys IT generated:
+     * `generatePublic(X509EncodedKeySpec(...))` throws
+     *
+     *     InvalidKeySpecException: To generate a key pair in Android Keystore, use
+     *     KeyPairGenerator initialized with android.security.keystore.KeyGenParameterSpec
+     *
+     * The old probe asked only whether the algorithm could be INSTANTIATED, which AndroidKeyStore
+     * answers yes to, so the gate believed the platform path worked and every verification failed
+     * inside the catch-all below as `false`. Measured 2026-08-22 on an API 36 emulator: a signature
+     * this same key verified in Ruby and on the JVM was refused on device, and the verdict read
+     * "the entitlement was altered or signed by another key". That wording is what a leaked key
+     * looks like, so the failure mode was not just wrong, it was wrong in an alarming direction.
+     * The reach is every Ed25519 verification the gate does, remote-bundle signatures included:
+     * a signed OTA would have been refused on every Android 13+ device.
+     *
+     * So the provider is CHOSEN rather than defaulted: the first one that survives an actual
+     * import of a real 32-byte key, skipping AndroidKeyStore by name. Probed once.
+     */
+    private fun ed25519Factory(): KeyFactory? {
+        cachedEd25519Factory?.let { return it }
+        val chosen = probeEd25519Factory()
+        cachedEd25519Factory = chosen
+        return chosen
+    }
+
+    /// The provider that actually verifies, or null when none can. Diagnostics and tests read
+    /// it; it is the honest answer to "which backend verified this", and on Android it is the
+    /// difference between Conscrypt and the AndroidKeyStore stub that cannot import a key.
+    val ed25519ProviderName: String?
+        get() = ed25519Factory()?.provider?.name
+
+    private var cachedEd25519Factory: KeyFactory? = null
+
+    /// Test seam ONLY, paired with `_overrideEd25519PlatformAvailable` above: the choice is
+    /// memoized for the process, so a suite that installs a provider has to be able to make the
+    /// gate look again. Never called from package or host code.
+    fun _resetEd25519ProviderProbe() {
+        cachedEd25519Factory = null
+    }
+
+    private fun probeEd25519Factory(): KeyFactory? {
+        // A valid Ed25519 public key: the RFC 8032 test vector, so the probe imports something
+        // real rather than 32 zero bytes, which some providers reject as a small-order point.
+        val sample = byteArrayOf(
+            0xd7.toByte(), 0x5a.toByte(), 0x98.toByte(), 0x01.toByte(), 0x82.toByte(), 0xb1.toByte(),
+            0x0a.toByte(), 0xb7.toByte(), 0xd5.toByte(), 0x4b.toByte(), 0xfe.toByte(), 0xd3.toByte(),
+            0xc9.toByte(), 0x64.toByte(), 0x07.toByte(), 0x3a.toByte(), 0x0e.toByte(), 0xe1.toByte(),
+            0x72.toByte(), 0xf3.toByte(), 0xda.toByte(), 0xa6.toByte(), 0x23.toByte(), 0x25.toByte(),
+            0xaf.toByte(), 0x02.toByte(), 0x1a.toByte(), 0x68.toByte(), 0xf7.toByte(), 0x07.toByte(),
+            0x51.toByte(), 0x1a.toByte(),
+        )
+        val candidates: List<KeyFactory> = buildList {
+            java.security.Security.getProviders()
+                .filter { it.name != "AndroidKeyStore" }
+                .forEach { provider ->
+                    runCatching { add(KeyFactory.getInstance("Ed25519", provider)) }
+                }
+            runCatching { add(KeyFactory.getInstance("Ed25519")) }
+        }
+        return candidates.firstOrNull { factory ->
+            runCatching {
+                factory.generatePublic(X509EncodedKeySpec(ed25519SpkiPrefix + sample))
+                Signature.getInstance("Ed25519")
+                true
+            }.getOrDefault(false)
+        }
     }
 
     /**

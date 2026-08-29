@@ -1,5 +1,5 @@
 {
-  "_note": "THE LEGACY VERB CORPUS (legacy-package.md) — one fixture per DECLARED v3 verb: the v3 call shapes in, the expected modern routing ({chain, action, args template}) and the expected v3 response convention out. The v3 API is a CLOSED FINITE set (the owner's enumerate-never-parse law), so this corpus is EXHAUSTIVE over the declared table, not representative. Runners: (1) ruby — dsx_graph_test.rb asserts the tree's aggregated facets.legacy declarations equal these fixtures (drift in either direction fails); (2) node — the shim harness drives the GENERATED page shim per verb and asserts the modern wire envelope + the response delivery; (3) native — LegacyConformance (OpenSource/Engine/iOS/ConformanceHosts.swift, driven by the record lane's RecordMain.swift) replays every `calls` string through the closed-table ROUTER fold the native routers implement — prefix split, args template, response pick — and asserts it lands on this row. The Kotlin :app twin is the one remaining ledgered leg (legacy-package.md §follow-ups). `owner` names the declaring module folder; `defaultExcluded` marks verbs whose owner ships excluded on the template excluded.json (the shim keeps their function and answers the honest not_loaded envelope).",
+  "_note": "THE LEGACY VERB CORPUS (legacy-package.md) \u2014 one fixture per DECLARED v3 verb: the v3 call shapes in, the expected modern routing ({chain, action, args template}) and the expected v3 response convention out. The v3 API is a CLOSED FINITE set (the owner's enumerate-never-parse law), so this corpus is EXHAUSTIVE over the declared table, not representative. Runners: (1) ruby \u2014 dsx_graph_test.rb asserts the tree's aggregated facets.legacy declarations equal these fixtures (drift in either direction fails); (2) node \u2014 the shim harness drives the GENERATED page shim per verb and asserts the modern wire envelope + the response delivery; (3) native \u2014 LegacyConformance (OpenSource/Engine/iOS/ConformanceHosts.swift, driven by the record lane's RecordMain.swift) replays every `calls` string through the closed-table ROUTER fold the native routers implement \u2014 prefix split, args template, response pick \u2014 and asserts it lands on this row. The Kotlin :app twin is the one remaining ledgered leg (legacy-package.md \u00a7follow-ups). `owner` names the declaring module folder; `defaultExcluded` marks verbs whose owner ships excluded on the template excluded.json (the shim keeps their function and answers the honest not_loaded envelope).",
   "verbs": {
     "writevalue": {
       "owner": "Core/Basics/ValueStore",
@@ -10,7 +10,13 @@
         "location.href = \"writevalue://<tail>\" (navigation router)",
         "<appscheme-free deeplink> writevalue://<tail> (openURL router)"
       ],
-      "route": { "chain": "writevalue", "action": "write", "args": { "value": "$tail" } },
+      "route": {
+        "chain": "writevalue",
+        "action": "write",
+        "args": {
+          "value": "$tail"
+        }
+      },
       "response": null
     },
     "readvalue": {
@@ -20,8 +26,15 @@
         "despia(\"readvalue://\", [\"storedValues\"]) (watch-globals convention)",
         "location.href = \"readvalue://\""
       ],
-      "route": { "chain": "writevalue", "action": "read", "args": {} },
-      "response": { "global": "storedValues", "value": "$data" }
+      "route": {
+        "chain": "writevalue",
+        "action": "read",
+        "args": {}
+      },
+      "response": {
+        "global": "storedValues",
+        "value": "$data"
+      }
     },
     "getpushwooshid": {
       "owner": "Core/Pushwoosh",
@@ -31,10 +44,16 @@
         "despia(\"getpushwooshid://\", [\"pushwooshplayerid\"])",
         "location.href = \"getpushwooshid://\""
       ],
-      "route": { "chain": "pushwoosh", "action": "id", "args": {} },
-      "response": { "global": "pushwooshplayerid", "value": "$data.id" }
+      "route": {
+        "chain": "pushwoosh",
+        "action": "id",
+        "args": {}
+      },
+      "response": {
+        "global": "pushwooshplayerid",
+        "value": "$data.id"
+      }
     },
-
     "lighthaptic": {
       "owner": "Core/Basics/Haptics",
       "calls": [
@@ -42,7 +61,11 @@
         "window.despia.lighthaptic()",
         "location.href = \"lighthaptic://\""
       ],
-      "route": { "chain": "haptic", "action": "light", "args": {} },
+      "route": {
+        "chain": "haptic",
+        "action": "light",
+        "args": {}
+      },
       "response": null
     },
     "mediumhaptic": {
@@ -51,7 +74,11 @@
         "window.despia = \"mediumhaptic://\"",
         "window.despia.mediumhaptic()"
       ],
-      "route": { "chain": "haptic", "action": "medium", "args": {} },
+      "route": {
+        "chain": "haptic",
+        "action": "medium",
+        "args": {}
+      },
       "response": null
     },
     "heavyhaptic": {
@@ -60,7 +87,11 @@
         "window.despia = \"heavyhaptic://\"",
         "window.despia.heavyhaptic()"
       ],
-      "route": { "chain": "haptic", "action": "heavy", "args": {} },
+      "route": {
+        "chain": "haptic",
+        "action": "heavy",
+        "args": {}
+      },
       "response": null
     },
     "successhaptic": {
@@ -69,7 +100,11 @@
         "window.despia = \"successhaptic://\"",
         "window.despia.successhaptic()"
       ],
-      "route": { "chain": "haptic", "action": "success", "args": {} },
+      "route": {
+        "chain": "haptic",
+        "action": "success",
+        "args": {}
+      },
       "response": null
     },
     "warninghaptic": {
@@ -78,7 +113,11 @@
         "window.despia = \"warninghaptic://\"",
         "window.despia.warninghaptic()"
       ],
-      "route": { "chain": "haptic", "action": "warning", "args": {} },
+      "route": {
+        "chain": "haptic",
+        "action": "warning",
+        "args": {}
+      },
       "response": null
     },
     "errorhaptic": {
@@ -87,10 +126,13 @@
         "window.despia = \"errorhaptic://\"",
         "window.despia.errorhaptic()"
       ],
-      "route": { "chain": "haptic", "action": "error", "args": {} },
+      "route": {
+        "chain": "haptic",
+        "action": "error",
+        "args": {}
+      },
       "response": null
     },
-
     "statusbarbackgroundcolor": {
       "owner": "Core/Basics/StatusBar",
       "calls": [
@@ -98,7 +140,13 @@
         "window.despia.statusbarbackgroundcolor(\"#FFFFFF\")",
         "location.href = \"statusbarbackgroundcolor://%231A1A1A\""
       ],
-      "route": { "chain": "statusbar", "action": "background", "args": { "color": "$tail" } },
+      "route": {
+        "chain": "statusbar",
+        "action": "background",
+        "args": {
+          "color": "$tail"
+        }
+      },
       "response": null
     },
     "statusbartextcolor": {
@@ -107,7 +155,14 @@
         "window.despia = \"statusbartextcolor://white\"",
         "window.despia.statusbartextcolor(\"black\")"
       ],
-      "route": { "chain": "statusbar", "action": "text", "args": { "color": "$tail", "chrome": "true" } },
+      "route": {
+        "chain": "statusbar",
+        "action": "text",
+        "args": {
+          "color": "$tail",
+          "chrome": "true"
+        }
+      },
       "response": null
     },
     "statusbarcolor": {
@@ -116,7 +171,13 @@
         "window.despia = \"statusbarcolor://26,26,26\"",
         "window.despia.statusbarcolor(\"26,26,26\")"
       ],
-      "route": { "chain": "statusbar", "action": "rgb", "args": { "value": "$tail" } },
+      "route": {
+        "chain": "statusbar",
+        "action": "rgb",
+        "args": {
+          "value": "$tail"
+        }
+      },
       "response": null
     },
     "navbartextcolor": {
@@ -125,7 +186,13 @@
         "window.despia = \"navbartextcolor://white\"",
         "window.despia.navbartextcolor(\"white\")"
       ],
-      "route": { "chain": "statusbar", "action": "navtext", "args": { "color": "$tail" } },
+      "route": {
+        "chain": "statusbar",
+        "action": "navtext",
+        "args": {
+          "color": "$tail"
+        }
+      },
       "response": null
     },
     "hidebars": {
@@ -134,17 +201,28 @@
         "window.despia = \"hidebars://on\"",
         "window.despia.hidebars(\"off\")"
       ],
-      "route": { "chain": "statusbar", "action": "bars", "args": { "hidden": "$tail" } },
+      "route": {
+        "chain": "statusbar",
+        "action": "bars",
+        "args": {
+          "hidden": "$tail"
+        }
+      },
       "response": null
     },
-
     "enableflashlight": {
       "owner": "Core/Basics/Flashlight",
       "calls": [
         "window.despia = \"enableflashlight://\"",
         "window.despia.enableflashlight()"
       ],
-      "route": { "chain": "enableflashlight", "action": "set", "args": { "on": "true" } },
+      "route": {
+        "chain": "enableflashlight",
+        "action": "set",
+        "args": {
+          "on": "true"
+        }
+      },
       "response": null
     },
     "disableflashlight": {
@@ -153,20 +231,30 @@
         "window.despia = \"disableflashlight://\"",
         "window.despia.disableflashlight()"
       ],
-      "route": { "chain": "enableflashlight", "action": "set", "args": { "on": "false" } },
+      "route": {
+        "chain": "enableflashlight",
+        "action": "set",
+        "args": {
+          "on": "false"
+        }
+      },
       "response": null
     },
-
     "bottombarcolor": {
       "owner": "Core/Basics/BottomBar",
       "calls": [
         "window.despia = \"bottombarcolor://30,144,255\"",
         "window.despia.bottombarcolor(\"30,144,255\")"
       ],
-      "route": { "chain": "bottombar", "action": "background", "args": { "color": "$tail" } },
+      "route": {
+        "chain": "bottombar",
+        "action": "background",
+        "args": {
+          "color": "$tail"
+        }
+      },
       "response": null
     },
-
     "stoplocation": {
       "owner": "Core/Basics/Location",
       "calls": [
@@ -174,10 +262,13 @@
         "window.despia.stoplocation()",
         "location.href = \"stoplocation://\""
       ],
-      "route": { "chain": "location", "action": "stop", "args": {} },
+      "route": {
+        "chain": "location",
+        "action": "stop",
+        "args": {}
+      },
       "response": null
     },
-
     "getonesignalplayerid": {
       "owner": "Core/OneSignal",
       "calls": [
@@ -185,8 +276,15 @@
         "despia(\"getonesignalplayerid://\", [\"onesignalplayerid\"])",
         "location.href = \"getonesignalplayerid://\""
       ],
-      "route": { "chain": "onesignal", "action": "id", "args": {} },
-      "response": { "global": "onesignalplayerid", "value": "$data.id" }
+      "route": {
+        "chain": "onesignal",
+        "action": "id",
+        "args": {}
+      },
+      "response": {
+        "global": "onesignalplayerid",
+        "value": "$data.id"
+      }
     },
     "setonesignalplayerid": {
       "owner": "Core/OneSignal",
@@ -194,7 +292,13 @@
         "window.despia = \"setonesignalplayerid://u_12345\"",
         "window.despia.setonesignalplayerid(\"u_12345\")"
       ],
-      "route": { "chain": "onesignal", "action": "login", "args": { "user_id": "$tail" } },
+      "route": {
+        "chain": "onesignal",
+        "action": "login",
+        "args": {
+          "user_id": "$tail"
+        }
+      },
       "response": null
     },
     "registerpush": {
@@ -203,10 +307,13 @@
         "window.despia = \"registerpush://\"",
         "window.despia.registerpush()"
       ],
-      "route": { "chain": "pushrouting", "action": "register", "args": {} },
+      "route": {
+        "chain": "pushrouting",
+        "action": "register",
+        "args": {}
+      },
       "response": null
     },
-
     "getfirebaseplayerid": {
       "owner": "Core/Firebase",
       "calls": [
@@ -214,8 +321,67 @@
         "despia(\"getfirebaseplayerid://\", [\"firebaseplayerid\"])",
         "location.href = \"getfirebaseplayerid://\""
       ],
-      "route": { "chain": "firebase", "action": "id", "args": {} },
-      "response": { "global": "firebaseplayerid", "value": "$data.id" }
+      "route": {
+        "chain": "firebase",
+        "action": "id",
+        "args": {}
+      },
+      "response": {
+        "global": "firebaseplayerid",
+        "value": "$data.id"
+      }
+    },
+    "readhealthkit": {
+      "owner": "Core/HealthKit",
+      "calls": [
+        "window.despia = \"readhealthkit://<TYPES>?days=N&raw=true\"",
+        "despia(\"readhealthkit://<TYPES>?days=N\", [\"healthkitResponse\"]) (watch-globals convention)",
+        "window.despia.readhealthkit(\"<TYPES>?days=N&raw=true\")",
+        "location.href = \"readhealthkit://<TYPES>?days=N&raw=true\" (navigation router)",
+        "<appscheme-free deeplink> readhealthkit://<TYPES>?days=N (openURL router)"
+      ],
+      "route": {
+        "chain": "healthkit",
+        "action": "read",
+        "args": {
+          "query": "$tail"
+        }
+      },
+      "response": {
+        "global": "healthkitResponse",
+        "value": "$data"
+      },
+      "push": {
+        "on": "unavailable",
+        "global": "healthkitResponse",
+        "value": "$data"
+      }
+    },
+    "writehealthkit": {
+      "owner": "Core/HealthKit",
+      "calls": [
+        "window.despia = \"writehealthkit://<Identifier>//<Value>\"",
+        "despia(\"writehealthkit://<Identifier>//<Value>\")",
+        "window.despia.writehealthkit(\"<Identifier>//<Value>\")",
+        "location.href = \"writehealthkit://<Identifier>//<Value>\" (navigation router)",
+        "<appscheme-free deeplink> writehealthkit://<Identifier>//<Value> (openURL router)"
+      ],
+      "route": {
+        "chain": "healthkit",
+        "action": "write",
+        "args": {
+          "body": "$tail"
+        }
+      },
+      "response": {
+        "global": "healthkitWriteResponse",
+        "value": "$data"
+      },
+      "push": {
+        "on": "unavailable",
+        "global": "healthkitWriteResponse",
+        "value": "$data"
+      }
     }
   }
 }

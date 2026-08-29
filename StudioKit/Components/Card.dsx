@@ -1,0 +1,14 @@
+<!-- Card — a bordered surface that floats on the panel ground, with an optional title. For
+     a group that is an OBJECT (a run, a result, a record), where a Section is for a group
+     that is a category. -->
+<vstack class="sk-card" grow="width" style="gap: 0.5rem; min-width: 0">
+  <head>
+    <attribute as="title" default=""/>
+  </head>
+  <hstack grow="width" style="align-items: center; gap: 0.5rem" visible-if="dsx.attribute.title != ''">
+    <text value="{{ dsx.attribute.title }}" class="sk-card-title" lineLimit="1"/>
+    <spacer/>
+    <slot name="actions"/>
+  </hstack>
+  <slot/>
+</vstack>

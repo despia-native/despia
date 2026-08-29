@@ -1,0 +1,501 @@
+{
+ "_note": "THE IMPERATIVE SURFACE, as pure target resolution: `dsx.scroll(ref).to({x,y,animated})` / `.toTop()` / `.toBottom()` / `.toElement({ref,align,animated})` reduce to ONE offset, and this corpus pins that offset. The ref registry and the animation are renderer plumbing; the arithmetic is not, and it is where the bugs are. THREE RULES. An imperative call NEVER over-scrolls: every target clamps to 0..max, so `to({y: 99999})` parks on the rail instead of leaving a band of nothing under the content, and a negative target lands on the origin. `toTop`/`toBottom` name the PRIMARY AXIS, not the vertical one, so on `axis=\"horizontal\"` they mean start and end — the familiar words keep working on a rail. `align=\"nearest\"` is the only alignment that may decide NOT to move: a child already fully visible stays where it is, which is what makes `toElement` safe to call on every selection change. A child taller than the viewport resolves to its start under `nearest`. AN UNREALISED ROW IN A VIRTUALISED LIST REFUSES (null) rather than guessing at an offset it cannot know; a virtualiser that carries an estimate passes the estimated frame and gets a real answer, then re-resolves once the row is realised. Cases are {command, geometry, axis} -> the resolved offset, or null for a refusal.",
+ "cases": [
+  {
+   "name": "to({y}) moves the vertical plane and leaves x alone",
+   "command": {
+    "kind": "to",
+    "y": 900
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 900.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "to() clamps past the end rather than leaving a gap under the content",
+   "command": {
+    "kind": "to",
+    "y": 99999
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 1200.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "to() clamps a negative target to the origin — an imperative call never over-scrolls",
+   "command": {
+    "kind": "to",
+    "y": -400
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 0.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "to({x,y}) on a vertical scroll still clamps x to its (zero) range",
+   "command": {
+    "kind": "to",
+    "x": 300,
+    "y": 100
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 100.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "to() defaults to animated",
+   "command": {
+    "kind": "to",
+    "y": 100
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 100.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "to({animated:false}) is the jump-cut",
+   "command": {
+    "kind": "to",
+    "y": 100,
+    "animated": false
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 100.0,
+    "animated": false
+   }
+  },
+  {
+   "name": "toTop",
+   "command": {
+    "kind": "toTop"
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 0.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toBottom",
+   "command": {
+    "kind": "toBottom"
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 1200.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toBottom on a page with nothing to scroll is a no-op, not a negative offset",
+   "command": {
+    "kind": "toBottom"
+   },
+   "geometry": {
+    "x": 0,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 400
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 0.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toTop on a HORIZONTAL rail means its start — the words name the primary axis",
+   "command": {
+    "kind": "toTop"
+   },
+   "geometry": {
+    "x": 240,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 200,
+    "contentWidth": 1200,
+    "contentHeight": 200
+   },
+   "axis": "horizontal",
+   "expect": {
+    "x": 0.0,
+    "y": 0.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toBottom on a horizontal rail means its end",
+   "command": {
+    "kind": "toBottom"
+   },
+   "geometry": {
+    "x": 240,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 200,
+    "contentWidth": 1200,
+    "contentHeight": 200
+   },
+   "axis": "horizontal",
+   "expect": {
+    "x": 810.0,
+    "y": 0.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toElement align=start",
+   "command": {
+    "kind": "toElement",
+    "align": "start",
+    "child": {
+     "start": 1000,
+     "length": 120
+    }
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 1000.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toElement align=center centres the child in the viewport",
+   "command": {
+    "kind": "toElement",
+    "align": "center",
+    "child": {
+     "start": 1000,
+     "length": 120
+    }
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 660.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toElement align=end parks the child's trailing edge on the viewport's",
+   "command": {
+    "kind": "toElement",
+    "align": "end",
+    "child": {
+     "start": 1000,
+     "length": 120
+    }
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 320.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toElement align=nearest does NOT move when the child is already fully visible",
+   "command": {
+    "kind": "toElement",
+    "align": "nearest",
+    "child": {
+     "start": 700,
+     "length": 120
+    }
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 600.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toElement align=nearest scrolls UP to a child above the viewport",
+   "command": {
+    "kind": "toElement",
+    "align": "nearest",
+    "child": {
+     "start": 200,
+     "length": 120
+    }
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 200.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toElement align=nearest scrolls DOWN just enough to reveal a child below",
+   "command": {
+    "kind": "toElement",
+    "align": "nearest",
+    "child": {
+     "start": 1300,
+     "length": 120
+    }
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 620.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toElement align=center clamps at the top for a child near the start",
+   "command": {
+    "kind": "toElement",
+    "align": "center",
+    "child": {
+     "start": 20,
+     "length": 120
+    }
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 0.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toElement align=center clamps at the bottom for the last child",
+   "command": {
+    "kind": "toElement",
+    "align": "center",
+    "child": {
+     "start": 1880,
+     "length": 120
+    }
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 1200.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toElement for a child TALLER than the viewport pins its start under align=nearest",
+   "command": {
+    "kind": "toElement",
+    "align": "nearest",
+    "child": {
+     "start": 400,
+     "length": 1200
+    }
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 400.0,
+    "animated": true
+   }
+  },
+  {
+   "name": "toElement for an UNREALISED row refuses rather than guessing — the caller realises it first",
+   "command": {
+    "kind": "toElement",
+    "align": "start",
+    "child": null
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": null
+  },
+  {
+   "name": "toElement for an unrealised row, with the virtualiser's ESTIMATE, resolves against the estimate",
+   "command": {
+    "kind": "toElement",
+    "align": "start",
+    "child": {
+     "start": 1740,
+     "length": 60
+    }
+   },
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "axis": "vertical",
+   "expect": {
+    "x": 0.0,
+    "y": 1200.0,
+    "animated": true
+   }
+  }
+ ]
+}

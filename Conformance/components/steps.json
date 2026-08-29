@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "component": "Steps",
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Steps.dsx",
+  "_note": "<Steps> — the navigable progress bar (U11), distinct from <Timeline> because steps are NAVIGABLE and a timeline is history. `current` is ONE-BASED on purpose: it reads exactly as the announcement does, so current=\"2\" is 'Step 2 of 5' with no off-by-one to hold in the author's head. Every step announces its number, the total, its label and its state; the disc, the tick and the connector are decorative. A step bar nobody wired must NOT expose buttons — `a11yTrait` is `static` until clickable=\"true\", because a control that does nothing when activated is worse than a label. Out-of-range `current` clamps into the set rather than announcing 'step 0 of 3' or 'step 9 of 3'.",
+  "cases": [
+    {
+      "name": "a JSON array of plain strings is the shorthand shape",
+      "attributes": { "bind": "[\"Cart\",\"Payment\",\"Review\"]", "current": "2" },
+      "expect": [
+        { "expr": "dsx.variable.stepRows", "value": [
+          { "key": "s0", "label": "Cart" }, { "key": "s1", "label": "Payment" }, { "key": "s2", "label": "Review" }
+        ] },
+        { "expr": "dsx.variable.stepsCurrent", "value": 2 }
+      ],
+      "root": [{ "attr": "role", "value": "list" }, { "attr": "a11yLabel", "value": "Progress" }]
+    },
+    {
+      "name": "a JSON array of { label } rows is the long shape",
+      "attributes": { "bind": "[{\"label\":\"Cart\"},{\"label\":\"Pay\"}]" },
+      "expect": [{ "expr": "dsx.variable.stepRows[1].label", "value": "Pay" }]
+    },
+    {
+      "name": "EMPTY: no steps, and `current` clamps to 1 rather than 0",
+      "attributes": { "bind": "[]" },
+      "expect": [
+        { "expr": "dsx.variable.stepRows", "value": [] },
+        { "expr": "dsx.variable.stepsCurrent", "value": 1 }
+      ]
+    },
+    {
+      "name": "`current` defaults to the first step",
+      "attributes": { "bind": "[\"A\",\"B\"]" },
+      "expect": [{ "expr": "dsx.variable.stepsCurrent", "value": 1 }]
+    },
+    {
+      "name": "a `current` past the end clamps to the last step",
+      "attributes": { "bind": "[\"A\",\"B\",\"C\"]", "current": "9" },
+      "expect": [{ "expr": "dsx.variable.stepsCurrent", "value": 3 }]
+    },
+    {
+      "name": "a zero or negative `current` clamps to the first step",
+      "attributes": { "bind": "[\"A\",\"B\"]", "current": "0" },
+      "expect": [{ "expr": "dsx.variable.stepsCurrent", "value": 1 }]
+    },
+    {
+      "name": "a step before the current one is done and announces 'completed'",
+      "attributes": { "bind": "[\"Cart\",\"Payment\",\"Review\"]", "current": "2" },
+      "item": { "label": "Cart", "index": 0 },
+      "expect": [
+        { "expr": "dsx.formula.stepState", "value": "done" },
+        { "expr": "dsx.formula.stepTint", "value": "accent" },
+        { "expr": "dsx.formula.stepUtterance", "value": "Step 1 of 3: Cart, completed" }
+      ]
+    },
+    {
+      "name": "the current step says so, one-based, exactly as `current` reads",
+      "attributes": { "bind": "[\"Cart\",\"Payment\",\"Review\"]", "current": "2" },
+      "item": { "label": "Payment", "index": 1 },
+      "expect": [
+        { "expr": "dsx.formula.stepState", "value": "current" },
+        { "expr": "dsx.formula.stepTint", "value": "accent" },
+        { "expr": "dsx.formula.stepUtterance", "value": "Step 2 of 3: Payment, current" }
+      ]
+    },
+    {
+      "name": "a later step is upcoming and announces 'not started'",
+      "attributes": { "bind": "[\"Cart\",\"Payment\",\"Review\"]", "current": "2" },
+      "item": { "label": "Review", "index": 2 },
+      "expect": [
+        { "expr": "dsx.formula.stepState", "value": "upcoming" },
+        { "expr": "dsx.formula.stepTint", "value": "fill" },
+        { "expr": "dsx.formula.stepUtterance", "value": "Step 3 of 3: Review, not started" }
+      ]
+    },
+    {
+      "name": "a bar nobody wired is not clickable, so no step exposes a button",
+      "attributes": { "bind": "[\"A\"]" },
+      "expect": [{ "expr": "dsx.variable.stepsClickable", "value": false }]
+    },
+    {
+      "name": "clickable=\"true\" is the only thing that turns the steps into buttons",
+      "attributes": { "bind": "[\"A\"]", "clickable": "true" },
+      "expect": [{ "expr": "dsx.variable.stepsClickable", "value": true }]
+    },
+    {
+      "name": "the bar's own name is caller-replaceable",
+      "attributes": { "bind": "[\"A\"]", "a11yLabel": "Checkout progress" },
+      "root": [{ "attr": "a11yLabel", "value": "Checkout progress" }]
+    }
+  ]
+}

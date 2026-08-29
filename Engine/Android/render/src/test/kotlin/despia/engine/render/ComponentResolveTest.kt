@@ -26,8 +26,11 @@ class ComponentResolveTest {
             "src/main/kotlin/despia/engine/render/StackNodeView.kt",
         ).readText()
 
+        // The XML-component branch builds its runner from an explicit JSERunner(...) over the
+        // instance store rather than copyEnv, so this asserts the INVARIANT — the child env is
+        // remembered on (env, node, owningScope) — not the one-line spelling it used to have.
         assertTrue(source.contains(
-            "remember(env, node, owningScope) { copyEnv(env) }",
+            "val childEnv = remember(env, node, owningScope) {",
         ))
         assertTrue(source.contains(
             "remember(env, node, tag) { copyEnv(env) }",

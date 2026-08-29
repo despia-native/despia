@@ -15,6 +15,10 @@ export type Registry = {
   css: string;
   /** module schemes present in this build (dsx.has) */
   schemes: string[];
+  /** the strings BUILD tier (P12, localization.md): the app root's `Strings.<tag>.json`
+   *  tables, keyed by lowercase BCP-47 tag - the client boot hands DSXStrings a
+   *  synchronous loader over these. Optional: absent means the app ships no tables. */
+  strings?: { [tag: string]: { [key: string]: string } };
   /** the unified route table (/web/04): URLs ↔ component pushes. Optional — a
    *  pathless app (component pushes only) simply omits it. `redirect` entries send
    *  the path elsewhere; `meta` feeds the document title/description (client +
@@ -37,6 +41,21 @@ export type Registry = {
   }>;
   /** component shown for unmatched URLs (the 404 page) */
   notFound?: string;
+  /** The DOCUMENT SHELL the build baked (wave-7 F1): app name, lang, the inlined import
+   *  map, the `./`-relative module src, and the manifest href — everything a live SSR
+   *  host needs to serve a document whose client boot actually loads. `dsx build` writes
+   *  it into registry.json so `createPageHandler`/`createSiteHandler` pick it up when the
+   *  caller passes no shell of their own (explicit caller options win per key). Without
+   *  it, a handler built from the bare registry served dynamic routes with NO `<script>`
+   *  — a dead page on every deep-linked param URL. */
+  shell?: {
+    appName?: string;
+    lang?: string;
+    importMapJson?: string;
+    mainSrc?: string;
+    manifestHref?: string;
+    theme?: string;
+  };
   /** Per-package `web` blocks consumed from each dsx.json (W3/W4): the routes each
    *  package contributed (already merged into `routes` above), plus the styles/assets
    *  a bundler — `dsx build`, the Vite plugin — folds into the application build. */
@@ -57,6 +76,9 @@ export type Registry = {
     dependencies?: { [name: string]: string };
     /** package-relative browser module, bundled into its own chunk (A3) */
     entry?: string;
+    /** the entry's default-export WebModule registers at page boot (opt-in; the lazy
+     *  default stays — studio-apps.md §8, the Apps mount host is the first consumer) */
+    boot?: boolean;
   }>;
   /** OPT-IN router motion (/web/04 + @despia/dom motion.ts): neutral DSX Web transitions,
    *  explicit legacy families, edge swipe-back, and the master-detail split. Config-plane only — markup and the dsx API

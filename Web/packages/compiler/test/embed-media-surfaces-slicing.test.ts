@@ -15,6 +15,7 @@ import {
   embedEntrySource,
   registryFullApplicationTags,
   registryPlaybackMediaTags,
+  embedDefines,
   type EmbedEntryFeatures,
 } from "../bin/embed-entry.ts";
 
@@ -52,29 +53,7 @@ function buildLocked(registry: Registry, component: string, features: EmbedEntry
     write: false,
     absWorkingDir: web,
     logLevel: "silent",
-    define: {
-      "globalThis.__DSX_OPTIONAL_LINK__": "false",
-      "globalThis.__DSX_OPTIONAL_ADOPT__": "false",
-      "globalThis.__DSX_OPTIONAL_APIS__": "false",
-      "globalThis.__DSX_OPTIONAL_GLOBALS__": "false",
-      "globalThis.__DSX_OPTIONAL_RICH__": "false",
-      "globalThis.__DSX_OPTIONAL_ICONS__": "false",
-      "globalThis.__DSX_OPTIONAL_BOUND_COLLECTIONS__": "false",
-      "globalThis.__DSX_OPTIONAL_SURFACES__": "false",
-      "globalThis.__DSX_OPTIONAL_PRESSED__": "false",
-      "globalThis.__DSX_OPTIONAL_ROLE__": "false",
-      "globalThis.__DSX_OPTIONAL_CLASS_FORMULAS__": "false",
-      "globalThis.__DSX_OPTIONAL_THEME__": "false",
-      "globalThis.__DSX_OPTIONAL_DISABLED__": "false",
-      "globalThis.__DSX_OPTIONAL_DESKTOP_INPUT__": "false",
-      "globalThis.__DSX_OPTIONAL_GESTURES__": "false",
-      "globalThis.__DSX_OPTIONAL_SCAFFOLD__": "false",
-      "globalThis.__DSX_OPTIONAL_STATIC_ELEMENTS__": "false",
-      "globalThis.__DSX_OPTIONAL_CONTROLS__": "false",
-      "globalThis.__DSX_OPTIONAL_MARKDOWN__": "false",
-      "globalThis.__DSX_OPTIONAL_JS_GLOBALS__": "false",
-      "globalThis.__DSX_OPTIONAL_FETCH__": "false",
-    },
+    define: embedDefines(),
   });
 }
 

@@ -42,6 +42,8 @@ type Facts = {
   handlerMaxChars: number;
   identifierTags: string[];
   keyedCollections: string[];
+  valuelessInputTags?: string[];
+  harnessAttrs?: string[];
 };
 
 /** Locate the SHARED facts file by walking up from this module (works from src and
@@ -62,11 +64,133 @@ function loadFacts(): Facts {
   throw new Error("lint facts not found — OpenSource/Conformance/lint/facts.json (run from the repo)");
 }
 
+/** The attribute census (R9): per-element vocabulary from the same reference catalogs
+ *  the Ruby gate and the CLI twin read. Walk-up anchored like loadFacts; null when the
+ *  catalogs are out of reach (the rule stands down — a dev-loop runner outside the repo
+ *  cannot judge vocabulary it cannot see). */
+type AttributeCensus = {
+  attrs: Map<string, Set<string>>;
+  aliases: Map<string, string>;
+  structural: Set<string>;
+  universal: Set<string>;
+  childMarkers: Set<string>;
+  styleKeys: Set<string>;
+  harness: Set<string>;
+};
+
+function loadCensus(): AttributeCensus | null {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 10; i++) {
+    const ref = existsSync(join(dir, "OpenSource", "Documentation", "reference", "stack-elements.json"))
+      ? join(dir, "OpenSource", "Documentation", "reference")
+      : existsSync(join(dir, "Documentation", "reference", "stack-elements.json"))
+        ? join(dir, "Documentation", "reference")
+        : null;
+    if (ref !== null) {
+      try {
+        const elements = JSON.parse(readFileSync(join(ref, "stack-elements.json"), "utf8")) as {
+          elements: Record<string, { category?: string; attributes?: Record<string, unknown> }>;
+          aliases: Record<string, string>;
+          universalAttributes: Record<string, unknown>;
+          childMarkers: Record<string, unknown>;
+        };
+        const style = JSON.parse(readFileSync(join(ref, "stack-style-properties.json"), "utf8")) as {
+          groups: Array<{ properties: Array<{ key: string }> }>;
+        };
+        const attrs = new Map<string, Set<string>>();
+        const structural = new Set<string>();
+        for (const [tag, el] of Object.entries(elements.elements)) {
+          attrs.set(tag, new Set(Object.keys(el.attributes ?? {})));
+          if (el.category === "structural") structural.add(tag);
+        }
+        return {
+          attrs,
+          aliases: new Map(Object.entries(elements.aliases)),
+          structural,
+          universal: new Set(Object.keys(elements.universalAttributes)),
+          childMarkers: new Set(Object.keys(elements.childMarkers)),
+          styleKeys: new Set(style.groups.flatMap((g) => g.properties.map((pr) => pr.key))),
+          harness: new Set(FACTS.harnessAttrs ?? []),
+        };
+      } catch {
+        return null;
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+/** The confusions people actually type, mapped to the element's own spelling. */
+const ATTR_CONFUSIONS = new Map<string, string>([
+  ["button value", "label"],
+  ["text label", "value"],
+  ["image source", "src"],
+  ["textfield value", "bind"],
+  ["textarea value", "bind"],
+  ["searchbar value", "bind"],
+]);
+
+function editDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 0; i < a.length; i++) {
+    const cur = [i + 1];
+    for (let j = 0; j < b.length; j++) {
+      cur.push(Math.min(prev[j + 1]! + 1, cur[j]! + 1, prev[j]! + (a[i] === b[j] ? 0 : 1)));
+    }
+    prev = cur;
+  }
+  return prev[b.length]!;
+}
+
 const FACTS = loadFacts();
+const CENSUS = loadCensus();
+
+// ── the style-override plane (Conformance/overrides — twins of lint_dsx.rb's block) ──
+const OVERRIDE_TYPES = ["number", "length", "enum", "multiEnum", "color", "gradient", "ratio", "boolean", "text", "css"];
+const OVERRIDE_RESERVED = ["ios", "android", "web", "watch", "wear", "macos", "windows", "linux", "native", "desktop"] as const;
+const OVERRIDE_NUMERIC_RE = /^[+-]?(\d+\.?\d*|\.\d+)$/;
+
+/** What a LITERAL override value must look like per declared type — the expected
+ *  description on a mismatch, null when fine (bound values are runtime business). */
+function overrideLiteralError(type: string, value: string, options: string | undefined): string | null {
+  const v = value.trim();
+  if (v.length === 0 || v.includes("{{")) return null;
+  const opts = (options ?? "").split(/\s+/).filter((o) => o.length > 0);
+  switch (type) {
+    case "number":
+      return OVERRIDE_NUMERIC_RE.test(v) ? null : "a number";
+    case "length":
+      if (OVERRIDE_NUMERIC_RE.test(v)) return null;
+      return /[;{}]/.test(v) ? "a length (a number, keyword, or unit value — never a declaration list)" : null;
+    case "boolean":
+      return v === "true" || v === "false" ? null : "'true' or 'false'";
+    case "enum":
+      return opts.includes(v) ? null : `one of: ${opts.join(" ")}`;
+    case "multiEnum":
+      return v.split(/\s+/).every((t) => opts.includes(t)) ? null : `space-separated members of: ${opts.join(" ")}`;
+    case "color":
+      if (v.startsWith("#")) return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(v) ? null : "a color (#RGB / #RGBA / #RRGGBB / #AARRGGBB hex)";
+      if (/^(rgb|rgba|hsl|hsla)\([\s\S]*\)$/.test(v)) return null;
+      return /^[A-Za-z]+$/.test(v) ? null : "a color (hex, rgb()/hsl(), or a semantic token name)";
+    case "gradient":
+    case "ratio":
+      return /[;{}]/.test(v) ? `a ${type} value (never a declaration list)` : null;
+    case "css":
+      return /[{}]/.test(v) ? "a declaration list (declarations only — no braces, never a rule)" : null;
+    default:
+      return null;
+  }
+}
 const BUILTIN = new Set(FACTS.builtinTags);
 const DECL = new Set(FACTS.declTags);
 const IDENTIFIER_TAGS = new Set(FACTS.identifierTags);
 const KEYED = new Set(FACTS.keyedCollections);
+const VALUELESS_INPUTS = new Set<string>(FACTS.valuelessInputTags ?? []);
 const STATE_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 
 export type LintOptions = {
@@ -113,6 +237,7 @@ export function lintSource(source: string, opts: LintOptions = {}): LintDiagnost
   };
 
   const lifted = lineStableLift(source);
+  const rawLines = lifted.split("\n");
   type Frame = { tag: string; line: number; lastRank: number; lastRankTag: string | null };
   const stack: Frame[] = [];
   const apiNames = new Map<string, number>();   // as → first line (duplicate detection)
@@ -147,7 +272,7 @@ export function lintSource(source: string, opts: LintOptions = {}): LintDiagnost
     }
     if (inHead && parent !== null) {
       let rank: number | undefined = FACTS.headRank[tag];
-      if (rank === 3 && /computed\s*=\s*["']true["']/.test(attrs)) rank = FACTS.headComputedRank;
+      if (rank === FACTS.headRank["variable"] && /computed\s*=\s*["']true["']/.test(attrs)) rank = FACTS.headComputedRank;
       if (rank === undefined) {
         report(line, "warning", "head-purity", `<${tag}> inside <head> — only declarations belong in the head (${FACTS.headOrderHint})`);
       } else if (rank < parent.lastRank) {
@@ -173,11 +298,146 @@ export function lintSource(source: string, opts: LintOptions = {}): LintDiagnost
     if (tag === "input" && inHead && !/\bas\s*=/.test(attrs)) {
       report(line, "error", "missing-as", "<input> missing as= — registration is a silent no-op at runtime");
     }
+    // <tool action= description= as= mutates=/> — the AGENT interface row
+    // (proposals/webmcp.md). `as` is OPTIONAL and defaults to the action name (the
+    // <server><tool> rule), which is why `tool` is deliberately absent from identifierTags;
+    // `action` is the identifier that must be there, because a row naming nothing has
+    // nothing to expose.
+    if (tag === "tool") {
+      if (!/\baction\s*=/.test(attrs)) {
+        report(line, "error", "tool-action", "<tool> missing action= — an agent tool names the declared action it exposes");
+      }
+      if (!/\bdescription\s*=/.test(attrs)) {
+        report(line, "error", "tool-description", "<tool> missing description= — the description is the whole basis on which an agent chooses this tool");
+      }
+      const tm = attrs.match(/\bas\s*=\s*(?:"([^"]*)"|'([^']*)')/);
+      const toolName = tm === null ? null : (tm[1] ?? tm[2] ?? "");
+      if (toolName !== null && !/^[A-Za-z0-9_.-]{1,128}$/.test(toolName)) {
+        report(line, "error", "tool-name", '<tool as=...> must be 1 to 128 characters of ASCII letters, digits, "_", "-" or "." (the WebMCP tool-name grammar)');
+      }
+    }
     if (tag === "expects" && !/\bvariable\s*=/.test(attrs)) {
       report(line, "error", "expects-variable", "<expects> missing variable= — declare the seeded state it stands for");
     }
+    // <override> declaration discipline (the style contract — Conformance/overrides):
+    // a knob the runtime cannot resolve silently answers its default, so every
+    // declaration fact is checked where it is written. Twin of lint_dsx.rb's block.
+    if (tag === "override") {
+      const attrOf = (name: string): string | undefined => {
+        const m = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`).exec(attrs);
+        return m === null ? undefined : (m[1] ?? m[2]);
+      };
+      const oAs = attrOf("as");
+      const oType = attrOf("type");
+      const oOptions = attrOf("options");
+      const oDefault = attrOf("default");
+      if (oAs !== undefined && oAs.length > 0) {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(oAs)) {
+          report(line, "error", "override-name", `<override as="${oAs}">: an override name is an identifier — dsx.override.${oAs} must be a legal member read`);
+        }
+        if ((OVERRIDE_RESERVED as readonly string[]).includes(oAs)) {
+          report(line, "error", "override-reserved-name", `<override as="${oAs}">: '${oAs}' is a platform-suffix word — the platform fold consumes override:${oAs}= before the split ever runs, so this knob could never be set; pick another name`);
+        }
+      }
+      if (oType !== undefined && !OVERRIDE_TYPES.includes(oType)) {
+        report(line, "error", "override-type", `<override type="${oType}">: not an override type — the vocabulary is ${OVERRIDE_TYPES.join(" ")} (the style catalog's control set + css)`);
+      }
+      if ((oType === "enum" || oType === "multiEnum") && (oOptions === undefined || oOptions.trim().length === 0)) {
+        report(line, "error", "override-options", `<override type="${oType}"> without options= — an enum knob with no members can never accept a value (every read answers the default)`);
+      }
+      for (const bound of ["min", "max"]) {
+        const b = attrOf(bound);
+        if (b !== undefined && !/^[+-]?(\d+\.?\d*|\.\d+)$/.test(b.trim())) {
+          report(line, "error", "override-min-max", `<override ${bound}="${b}">: ${bound}= is a number (the clamp bound)`);
+        }
+      }
+      if (oDefault !== undefined && oDefault.includes("{{")) {
+        report(line, "error", "override-default-bound", '<override default=…>: a default is a LITERAL style value, never a binding — {{ }} belongs at the usage site (override:name="{{ … }}")');
+      } else if (oDefault !== undefined) {
+        const why = overrideLiteralError(oType ?? "text", oDefault, oOptions);
+        if (why !== null) {
+          report(line, "error", "override-default", `<override default="${oDefault}">: the default is not ${why} — an invalid default resolves null, so the knob has no fallback at all`);
+        }
+      }
+    }
+    // sample= — the unit-test sample value (master plan P3). JSON on every runner
+    // (decision 10), v1 kinds only (decision 11): on <formula>/<action> every head parser
+    // today folds unknown attributes into input bindings, so a sample there is ACTIVE
+    // runtime state until all four parsers learn the skip — an error naming the deferral.
+    {
+      const sm = attrs.match(/\bsample\s*=\s*(?:"([^"]*)"|'([^']*)')/);
+      if (sm !== null) {
+        const sampleText = (sm[1] ?? sm[2] ?? "")
+          .replaceAll("&quot;", '"').replaceAll("&#39;", "'")
+          .replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
+        if (tag === "formula" || tag === "action") {
+          report(line, "error", "sample-deferred",
+            `sample= on <${tag}> is deferred — it becomes an input binding evaluated at call time; declare samples on variable/event/api/attribute (master plan P3)`);
+        } else if (["variable", "var", "let", "event", "api", "attribute"].includes(tag)) {
+          try {
+            JSON.parse(sampleText);
+          } catch {
+            report(line, "error", "sample-json",
+              "sample= is not valid JSON — a sample is a JSON literal on every runner; quote strings (sample='\"Spring sale\"'), use [] and {} for structure");
+          }
+        }
+      }
+    }
     if (KEYED.has(tag) && /\bbind\s*=/.test(attrs) && !/\bkey\s*=/.test(attrs)) {
       report(line, "warning", "bind-without-key", `<${tag} bind=…> without key= — rows need a stable identity (key="id", or key="index" for static data)`);
+    }
+    // A text input reads its content from `bind=` and never looks at `value=`, on every
+    // renderer — so `value=` here parses, renders an empty field, and reports nothing. It is
+    // the spelling for what a <text>/<image>/<progress> SHOWS, which is exactly why an author
+    // reaches for it. A NOTICE: `value` is a legal attribute name and someone's own component
+    // may consume it; the rule is aimed at the canonical inputs, where it is provably inert.
+    if (VALUELESS_INPUTS.has(tag) && /(?:^|\s)value\s*=/.test(attrs)) {
+      report(line, "notice", "input-value-inert",
+        `<${tag} value=…> is inert — a text input reads its content from bind= (path-aware, including the current row). value= parses, renders nothing, and reports no error. Did you mean bind=?`);
+    }
+    // R9 — the attribute vocabulary (third runner of the same corpus rule: lint_dsx.rb
+    // is the CI gate, the CLI twin the shipped `dsx lint`, this one the dev loop).
+    // Main-surface dialect only: extension apps and Live Activity layouts (markup
+    // inside a JSE string) keep their own grammars. Stands down without the census.
+    if (CENSUS !== null && !file.includes("/Extensions/")
+        && !(rawLines[line - 1] ?? "").includes("return '<")) {
+      const catalogTag = CENSUS.aliases.get(tag) ?? tag;
+      const known = CENSUS.structural.has(catalogTag) || DECL.has(tag)
+        ? undefined
+        : CENSUS.attrs.get(catalogTag);
+      if (known !== undefined) {
+        for (const am of attrs.matchAll(/([\w:.-]+)\s*=\s*(?:"[^"]*"|'[^']*')/g)) {
+          const key = am[1]!;
+          if (key.startsWith("override:")) {
+            // the style contract is COMPONENT grammar: an element's attributes ARE its
+            // style surface, so an override: here can only be a misplaced habit
+            report(line, "warning", "override-on-element",
+              `<${tag}> ${key}=: override: is the component style contract — <${tag}> is an element; set the style attribute directly (its attributes are the style surface)`);
+            continue;
+          }
+          let base = key.replace(/:(ios|android|watch|web|desktop|macos|windows|linux)$/, "");
+          base = base.replace(/-(web|ios|android|watch|desktop)$/, "");
+          if (base.startsWith("on:") || base.startsWith("__")) continue;
+          if (known.has(base) || CENSUS.universal.has(base) || CENSUS.childMarkers.has(base)) continue;
+          if (CENSUS.harness.has(base) || CENSUS.styleKeys.has(base)) continue;
+          const confusion = ATTR_CONFUSIONS.get(`${catalogTag} ${base}`);
+          const candidates = [...known, ...CENSUS.universal, ...CENSUS.harness, ...CENSUS.styleKeys];
+          let nearest = confusion ?? candidates[0] ?? "";
+          if (confusion === undefined) {
+            for (const c of candidates) if (editDistance(base, c) < editDistance(base, nearest)) nearest = c;
+          }
+          if (confusion !== undefined) {
+            report(line, "error", "attr-unknown",
+              `<${tag}> ${key}=: not an attribute this element honours — this element spells it ${confusion}=. The runtime drops unknown attributes silently, so the element renders as if you never wrote it.`);
+          } else if (nearest !== "" && editDistance(base, nearest) <= 2 && base.length >= 3) {
+            report(line, "error", "attr-unknown",
+              `<${tag}> ${key}=: not an attribute this element honours — did you mean ${nearest}=? The runtime drops unknown attributes silently, so the element renders as if you never wrote it.`);
+          } else {
+            report(line, "notice", "attr-census-gap",
+              `<${tag}> ${key}=: not in the census for this element (stack-elements.json) — a typo dies here, a real word belongs in the census so every surface learns it`);
+          }
+        }
+      }
     }
 
     // ── the `<api>` rules (doc 05 — WEB-ONLY, cases/web) ───────────────────────────

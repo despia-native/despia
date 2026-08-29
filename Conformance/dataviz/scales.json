@@ -1,0 +1,769 @@
+{
+  "version": 1,
+  "_note": "SCALES AND TICKS - the arithmetic every renderer must agree on before a single pixel is drawn. Different tick counts on different platforms is the classic charting drift: the same data shows 5 gridlines on iOS and 6 on Android and nobody notices until a customer screenshots both. Pinned here: the decimal-exponent and power-of-ten primitives (computed by integer loops, NEVER by log10/pow, because libm rounding differs between platforms and floor(log10(1000)) is allowed to be 2), Heckbert nice numbers, the loose-labelling linear domain (the domain EXTENDS to the nice bounds), the d3-shaped band scale, the log decade ladder with its typed refusal on a non-positive domain, and the fixed-duration time ladder (ticks stay INSIDE the domain; no calendar months, because a month is not a duration). Twins: TS @despia/kernel dataviz.ts, Kotlin :core DataViz.kt, Swift Engine/iOS DataViz.swift.",
+  "tolerance": 1e-09,
+  "decExp": [
+    {
+      "name": "one",
+      "x": 1.0,
+      "expect": 0
+    },
+    {
+      "name": "ten",
+      "x": 10.0,
+      "expect": 1
+    },
+    {
+      "name": "a thousand is exponent three, never two",
+      "x": 1000.0,
+      "expect": 3
+    },
+    {
+      "name": "just under a thousand",
+      "x": 999.9,
+      "expect": 2
+    },
+    {
+      "name": "a tenth",
+      "x": 0.1,
+      "expect": -1
+    },
+    {
+      "name": "a hundredth",
+      "x": 0.01,
+      "expect": -2
+    },
+    {
+      "name": "a half",
+      "x": 0.5,
+      "expect": -1
+    },
+    {
+      "name": "twelve",
+      "x": 12.0,
+      "expect": 1
+    }
+  ],
+  "pow10": [
+    {
+      "name": "zero",
+      "n": 0,
+      "expect": 1.0
+    },
+    {
+      "name": "three",
+      "n": 3,
+      "expect": 1000.0
+    },
+    {
+      "name": "minus two",
+      "n": -2,
+      "expect": 0.01
+    },
+    {
+      "name": "minus one",
+      "n": -1,
+      "expect": 0.1
+    }
+  ],
+  "niceNum": [
+    {
+      "name": "loose 100",
+      "x": 100.0,
+      "round": false,
+      "expect": 100.0
+    },
+    {
+      "name": "loose 4.6",
+      "x": 4.6,
+      "round": false,
+      "expect": 5.0
+    },
+    {
+      "name": "loose 9",
+      "x": 9.0,
+      "round": false,
+      "expect": 10.0
+    },
+    {
+      "name": "round 25",
+      "x": 25.0,
+      "round": true,
+      "expect": 20.0
+    },
+    {
+      "name": "round 2.5",
+      "x": 2.5,
+      "round": true,
+      "expect": 2.0
+    },
+    {
+      "name": "round 1.25",
+      "x": 1.25,
+      "round": true,
+      "expect": 1.0
+    },
+    {
+      "name": "round 8",
+      "x": 8.0,
+      "round": true,
+      "expect": 10.0
+    },
+    {
+      "name": "non-positive is zero",
+      "x": 0.0,
+      "round": true,
+      "expect": 0.0
+    }
+  ],
+  "niceDomain": [
+    {
+      "name": "zero to a hundred",
+      "lo": 0.0,
+      "hi": 100.0,
+      "count": 5,
+      "expect": {
+        "lo": 0.0,
+        "hi": 100.0,
+        "step": 20.0,
+        "ticks": [
+          0.0,
+          20.0,
+          40.0,
+          60.0,
+          80.0,
+          100.0
+        ]
+      }
+    },
+    {
+      "name": "zero to ten",
+      "lo": 0.0,
+      "hi": 10.0,
+      "count": 5,
+      "expect": {
+        "lo": 0.0,
+        "hi": 10.0,
+        "step": 2.0,
+        "ticks": [
+          0.0,
+          2.0,
+          4.0,
+          6.0,
+          8.0,
+          10.0
+        ]
+      }
+    },
+    {
+      "name": "a fractional window extends to whole numbers",
+      "lo": 3.2,
+      "hi": 7.8,
+      "count": 5,
+      "expect": {
+        "lo": 3.0,
+        "hi": 8.0,
+        "step": 1.0,
+        "ticks": [
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          8.0
+        ]
+      }
+    },
+    {
+      "name": "a zero span is padded then made nice",
+      "lo": 5.0,
+      "hi": 5.0,
+      "count": 5,
+      "expect": {
+        "lo": 4.4,
+        "hi": 5.6000000000000005,
+        "step": 0.2,
+        "ticks": [
+          4.4,
+          4.6000000000000005,
+          4.800000000000001,
+          5.0,
+          5.2,
+          5.4,
+          5.6000000000000005
+        ]
+      }
+    },
+    {
+      "name": "a negative domain keeps zero on a tick",
+      "lo": -30.0,
+      "hi": 70.0,
+      "count": 5,
+      "expect": {
+        "lo": -40.0,
+        "hi": 80.0,
+        "step": 20.0,
+        "ticks": [
+          -40.0,
+          -20.0,
+          0.0,
+          20.0,
+          40.0,
+          60.0,
+          80.0
+        ]
+      }
+    },
+    {
+      "name": "three ticks requested",
+      "lo": 0.0,
+      "hi": 100.0,
+      "count": 3,
+      "expect": {
+        "lo": 0.0,
+        "hi": 100.0,
+        "step": 50.0,
+        "ticks": [
+          0.0,
+          50.0,
+          100.0
+        ]
+      }
+    },
+    {
+      "name": "reversed bounds are ordered first",
+      "lo": 100.0,
+      "hi": 0.0,
+      "count": 5,
+      "expect": {
+        "lo": 0.0,
+        "hi": 100.0,
+        "step": 20.0,
+        "ticks": [
+          0.0,
+          20.0,
+          40.0,
+          60.0,
+          80.0,
+          100.0
+        ]
+      }
+    }
+  ],
+  "valueDomain": [
+    {
+      "name": "bars anchor at zero",
+      "values": [
+        3.0,
+        7.0,
+        12.0
+      ],
+      "includeZero": true,
+      "count": 5,
+      "expect": {
+        "lo": 0.0,
+        "hi": 15.0,
+        "step": 5.0,
+        "ticks": [
+          0.0,
+          5.0,
+          10.0,
+          15.0
+        ]
+      }
+    },
+    {
+      "name": "a line does not invent a zero",
+      "values": [
+        3.0,
+        7.0,
+        12.0
+      ],
+      "includeZero": false,
+      "count": 5,
+      "expect": {
+        "lo": 2.0,
+        "hi": 12.0,
+        "step": 2.0,
+        "ticks": [
+          2.0,
+          4.0,
+          6.0,
+          8.0,
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "name": "all-negative data with a zero anchor",
+      "values": [
+        -3.0,
+        -7.0,
+        -12.0
+      ],
+      "includeZero": true,
+      "count": 5,
+      "expect": {
+        "lo": -15.0,
+        "hi": 0.0,
+        "step": 5.0,
+        "ticks": [
+          -15.0,
+          -10.0,
+          -5.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "an empty series is a unit domain",
+      "values": [],
+      "includeZero": false,
+      "count": 5,
+      "expect": {
+        "lo": 0.0,
+        "hi": 1.0,
+        "step": 0.2,
+        "ticks": [
+          0.0,
+          0.2,
+          0.4,
+          0.6000000000000001,
+          0.8,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "a single datum is padded",
+      "values": [
+        42.0
+      ],
+      "includeZero": false,
+      "count": 5,
+      "expect": {
+        "lo": 41.400000000000006,
+        "hi": 42.6,
+        "step": 0.2,
+        "ticks": [
+          41.400000000000006,
+          41.6,
+          41.800000000000004,
+          42.0,
+          42.2,
+          42.400000000000006,
+          42.6
+        ]
+      }
+    }
+  ],
+  "linear": [
+    {
+      "name": "midpoint",
+      "v": 50.0,
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "range": [
+        0.0,
+        400.0
+      ],
+      "expect": 200.0
+    },
+    {
+      "name": "inverted range is the y axis",
+      "v": 25.0,
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "range": [
+        200.0,
+        0.0
+      ],
+      "expect": 150.0
+    },
+    {
+      "name": "below the domain extrapolates",
+      "v": -10.0,
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "range": [
+        0.0,
+        100.0
+      ],
+      "expect": -10.0
+    },
+    {
+      "name": "a degenerate domain lands mid-range",
+      "v": 5.0,
+      "domain": [
+        5.0,
+        5.0
+      ],
+      "range": [
+        0.0,
+        100.0
+      ],
+      "expect": 50.0
+    }
+  ],
+  "band": [
+    {
+      "name": "four bars in four hundred points",
+      "count": 4,
+      "range": [
+        0.0,
+        400.0
+      ],
+      "paddingInner": 0.2,
+      "paddingOuter": 0.1,
+      "align": 0.5,
+      "expect": {
+        "step": 100.0,
+        "bandwidth": 80.0,
+        "start": 10.0,
+        "positions": [
+          10.0,
+          110.0,
+          210.0,
+          310.0
+        ],
+        "centers": [
+          50.0,
+          150.0,
+          250.0,
+          350.0
+        ]
+      }
+    },
+    {
+      "name": "a single bar is centred",
+      "count": 1,
+      "range": [
+        0.0,
+        300.0
+      ],
+      "paddingInner": 0.2,
+      "paddingOuter": 0.1,
+      "align": 0.5,
+      "expect": {
+        "step": 300.0,
+        "bandwidth": 240.0,
+        "start": 30.0,
+        "positions": [
+          30.0
+        ],
+        "centers": [
+          150.0
+        ]
+      }
+    },
+    {
+      "name": "no padding fills the range",
+      "count": 3,
+      "range": [
+        0.0,
+        300.0
+      ],
+      "paddingInner": 0.0,
+      "paddingOuter": 0.0,
+      "align": 0.5,
+      "expect": {
+        "step": 100.0,
+        "bandwidth": 100.0,
+        "start": 0.0,
+        "positions": [
+          0.0,
+          100.0,
+          200.0
+        ],
+        "centers": [
+          50.0,
+          150.0,
+          250.0
+        ]
+      }
+    },
+    {
+      "name": "seven categories",
+      "count": 7,
+      "range": [
+        40.0,
+        600.0
+      ],
+      "paddingInner": 0.2,
+      "paddingOuter": 0.1,
+      "align": 0.5,
+      "expect": {
+        "step": 80.0,
+        "bandwidth": 64.0,
+        "start": 48.0,
+        "positions": [
+          48.0,
+          128.0,
+          208.0,
+          288.0,
+          368.0,
+          448.0,
+          528.0
+        ],
+        "centers": [
+          80.0,
+          160.0,
+          240.0,
+          320.0,
+          400.0,
+          480.0,
+          560.0
+        ]
+      }
+    }
+  ],
+  "log": [
+    {
+      "name": "three clean decades",
+      "lo": 1.0,
+      "hi": 1000.0,
+      "maxTicks": 6,
+      "expect": {
+        "valid": true,
+        "reason": "",
+        "lo": 1.0,
+        "hi": 1000.0,
+        "ticks": [
+          1.0,
+          10.0,
+          100.0,
+          1000.0
+        ]
+      }
+    },
+    {
+      "name": "two decades get the one-two-five ladder",
+      "lo": 2.0,
+      "hi": 90.0,
+      "maxTicks": 6,
+      "expect": {
+        "valid": true,
+        "reason": "",
+        "lo": 1.0,
+        "hi": 100.0,
+        "ticks": [
+          1.0,
+          2.0,
+          5.0,
+          10.0,
+          20.0,
+          50.0,
+          100.0
+        ]
+      }
+    },
+    {
+      "name": "a sub-unit domain",
+      "lo": 0.5,
+      "hi": 5.0,
+      "maxTicks": 6,
+      "expect": {
+        "valid": true,
+        "reason": "",
+        "lo": 0.1,
+        "hi": 10.0,
+        "ticks": [
+          0.1,
+          0.2,
+          0.5,
+          1.0,
+          2.0,
+          5.0,
+          10.0
+        ]
+      }
+    },
+    {
+      "name": "zero is a typed refusal, not a silent clamp",
+      "lo": 0.0,
+      "hi": 100.0,
+      "maxTicks": 6,
+      "expect": {
+        "valid": false,
+        "reason": "nonpositive_domain",
+        "lo": 0.0,
+        "hi": 0.0,
+        "ticks": []
+      }
+    },
+    {
+      "name": "a negative bound is a typed refusal",
+      "lo": -5.0,
+      "hi": 100.0,
+      "maxTicks": 6,
+      "expect": {
+        "valid": false,
+        "reason": "nonpositive_domain",
+        "lo": 0.0,
+        "hi": 0.0,
+        "ticks": []
+      }
+    },
+    {
+      "name": "six decades stride",
+      "lo": 1.0,
+      "hi": 1000000.0,
+      "maxTicks": 6,
+      "expect": {
+        "valid": true,
+        "reason": "",
+        "lo": 1.0,
+        "hi": 1000000.0,
+        "ticks": [
+          1.0,
+          10.0,
+          100.0,
+          1000.0,
+          10000.0,
+          100000.0,
+          1000000.0
+        ]
+      }
+    }
+  ],
+  "logScale": [
+    {
+      "name": "a decade is half the range over two decades",
+      "v": 10.0,
+      "domain": [
+        1.0,
+        100.0
+      ],
+      "range": [
+        0.0,
+        200.0
+      ],
+      "expect": 100.0
+    },
+    {
+      "name": "the low bound is the range start",
+      "v": 1.0,
+      "domain": [
+        1.0,
+        100.0
+      ],
+      "range": [
+        0.0,
+        200.0
+      ],
+      "expect": 0.0
+    },
+    {
+      "name": "a non-positive value pins to the range start",
+      "v": 0.0,
+      "domain": [
+        1.0,
+        100.0
+      ],
+      "range": [
+        0.0,
+        200.0
+      ],
+      "expect": 0.0
+    }
+  ],
+  "time": [
+    {
+      "name": "an hour ticks every quarter",
+      "lo": 0.0,
+      "hi": 3600.0,
+      "count": 5,
+      "expect": {
+        "step": 900.0,
+        "ticks": [
+          0.0,
+          900.0,
+          1800.0,
+          2700.0,
+          3600.0
+        ]
+      }
+    },
+    {
+      "name": "an hour off a real epoch snaps to the step grid, not to the start",
+      "lo": 1700000000.0,
+      "hi": 1700003600.0,
+      "count": 5,
+      "expect": {
+        "step": 900.0,
+        "ticks": [
+          1700000100.0,
+          1700001000.0,
+          1700001900.0,
+          1700002800.0
+        ]
+      }
+    },
+    {
+      "name": "a day ticks every six hours",
+      "lo": 0.0,
+      "hi": 86400.0,
+      "count": 5,
+      "expect": {
+        "step": 21600.0,
+        "ticks": [
+          0.0,
+          21600.0,
+          43200.0,
+          64800.0,
+          86400.0
+        ]
+      }
+    },
+    {
+      "name": "a minute ticks every fifteen seconds",
+      "lo": 0.0,
+      "hi": 60.0,
+      "count": 5,
+      "expect": {
+        "step": 15.0,
+        "ticks": [
+          0.0,
+          15.0,
+          30.0,
+          45.0,
+          60.0
+        ]
+      }
+    },
+    {
+      "name": "three weeks falls off the fixed ladder onto nice days",
+      "lo": 0.0,
+      "hi": 1814400.0,
+      "count": 5,
+      "expect": {
+        "step": 604800.0,
+        "ticks": [
+          0.0,
+          604800.0,
+          1209600.0,
+          1814400.0
+        ]
+      }
+    },
+    {
+      "name": "a zero span is one tick",
+      "lo": 1700000000.0,
+      "hi": 1700000000.0,
+      "count": 5,
+      "expect": {
+        "step": 1.0,
+        "ticks": [
+          1700000000.0
+        ]
+      }
+    }
+  ]
+}

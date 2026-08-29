@@ -1,4 +1,4 @@
-# Native components — the custom-coded component primitive
+# Native components: the custom-coded component primitive
 
 > Audience: component authors whose component's **essence is platform machinery** — a
 > video player, a web surface, a camera preview, a map — rather than markup. How ONE

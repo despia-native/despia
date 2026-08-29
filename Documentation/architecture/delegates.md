@@ -140,7 +140,7 @@ event plane whose name is not its scheme, which every host plane needs:
 
 | plane | declaring owner | why the plane ≠ the scheme |
 |---|---|---|
-| `web.*` | `Mandatory/Dom` | Dom's scheme `dom` is its CALL face; `web.*` is the surface's EVENT face |
+| `web.*` | `Core/Dom` | Dom's scheme `dom` is its CALL face; `web.*` is the surface's EVENT face |
 | `lifecycle.*` | `Mandatory/Lifecycle` | OS/app lifecycle coordination; bootloaders emit it but own no behavior |
 | `screen.*` | `Mandatory/Lifecycle` | scheme-less on purpose (pure coordination) |
 | `surface.*` | `Mandatory/Lifecycle` | the surfaces' PRIVATE readiness reports, which Lifecycle folds into `screen.*`. It spans BOTH surfaces — `surface.dom*` is the web surface's, `surface.view*` a native DSXView frame's — so it cannot live under Dom's `web.*` call plane. Declared by the coordinator, EMITTED by Dom (`dom*`) and the kernel (`view*`): the one plane whose declarer is not its emitter |

@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "_note": "accessibleTable - the differentiator, and the reason it is CHEAP: the data is already structured, <Table> already exists, so a blind user gets the numbers, a sighted user gets the chart, and the author writes one element. Default ON. The pivot is the whole trick: a multi-series chart becomes one row per x with one column per series, in FIRST APPEARANCE order on both axes (never sorted, because the author's row order is the author's intent). A missing (x, series) cell is an EMPTY STRING, never a zero - a datum that was not measured is not a measurement of nothing. A duplicate (x, series) pair is last-wins. The `summary` line is the same sentence the figure's aria-label already speaks, so the two can never drift apart.",
+  "table": [
+    {
+      "name": "a single series is a two-column table",
+      "rows": [
+        {
+          "month": "Jan",
+          "revenue": 1200
+        },
+        {
+          "month": "Feb",
+          "revenue": 1500.5
+        }
+      ],
+      "x": "month",
+      "y": "revenue",
+      "series": "",
+      "type": "line",
+      "xTitle": "Month",
+      "yTitle": "Revenue",
+      "expect": {
+        "caption": "line chart. 2 data points. Revenue by Month.",
+        "columns": [
+          "Month",
+          "Revenue"
+        ],
+        "rows": [
+          [
+            "Jan",
+            "1200"
+          ],
+          [
+            "Feb",
+            "1500.50"
+          ]
+        ],
+        "summary": "line chart with 2 points; values range from 1200 to 1500.50"
+      }
+    },
+    {
+      "name": "no titles falls back to the field names",
+      "rows": [
+        {
+          "a": "x",
+          "b": 1
+        }
+      ],
+      "x": "a",
+      "y": "b",
+      "series": "",
+      "type": "bar",
+      "xTitle": "",
+      "yTitle": "",
+      "expect": {
+        "caption": "bar chart. 1 data points. b by a.",
+        "columns": [
+          "a",
+          "b"
+        ],
+        "rows": [
+          [
+            "x",
+            "1"
+          ]
+        ],
+        "summary": "bar chart with 1 points; values range from 1 to 1"
+      }
+    },
+    {
+      "name": "a multi-series chart pivots to one column per series",
+      "rows": [
+        {
+          "month": "Jan",
+          "region": "NA",
+          "revenue": 1200
+        },
+        {
+          "month": "Jan",
+          "region": "EU",
+          "revenue": 900
+        },
+        {
+          "month": "Feb",
+          "region": "NA",
+          "revenue": 1500
+        },
+        {
+          "month": "Feb",
+          "region": "EU",
+          "revenue": 1100
+        }
+      ],
+      "x": "month",
+      "y": "revenue",
+      "series": "region",
+      "type": "line",
+      "xTitle": "Month",
+      "yTitle": "Revenue",
+      "expect": {
+        "caption": "line chart. 4 data points in 2 series. Revenue by Month.",
+        "columns": [
+          "Month",
+          "NA",
+          "EU"
+        ],
+        "rows": [
+          [
+            "Jan",
+            "1200",
+            "900"
+          ],
+          [
+            "Feb",
+            "1500",
+            "1100"
+          ]
+        ],
+        "summary": "line chart with 4 points; values range from 900 to 1500"
+      }
+    },
+    {
+      "name": "a missing cell is blank, never zero",
+      "rows": [
+        {
+          "month": "Jan",
+          "region": "NA",
+          "revenue": 1200
+        },
+        {
+          "month": "Feb",
+          "region": "EU",
+          "revenue": 900
+        }
+      ],
+      "x": "month",
+      "y": "revenue",
+      "series": "region",
+      "type": "bar",
+      "xTitle": "Month",
+      "yTitle": "Revenue",
+      "expect": {
+        "caption": "bar chart. 2 data points in 2 series. Revenue by Month.",
+        "columns": [
+          "Month",
+          "NA",
+          "EU"
+        ],
+        "rows": [
+          [
+            "Jan",
+            "1200",
+            ""
+          ],
+          [
+            "Feb",
+            "",
+            "900"
+          ]
+        ],
+        "summary": "bar chart with 2 points; values range from 900 to 1200"
+      }
+    },
+    {
+      "name": "a duplicate x and series pair is last-wins",
+      "rows": [
+        {
+          "month": "Jan",
+          "region": "NA",
+          "revenue": 1
+        },
+        {
+          "month": "Jan",
+          "region": "NA",
+          "revenue": 2
+        }
+      ],
+      "x": "month",
+      "y": "revenue",
+      "series": "region",
+      "type": "bar",
+      "xTitle": "",
+      "yTitle": "",
+      "expect": {
+        "caption": "bar chart. 2 data points in 1 series. revenue by month.",
+        "columns": [
+          "month",
+          "NA"
+        ],
+        "rows": [
+          [
+            "Jan",
+            "2"
+          ]
+        ],
+        "summary": "bar chart with 2 points; values range from 1 to 2"
+      }
+    },
+    {
+      "name": "an empty series still produces headers and a summary",
+      "rows": [],
+      "x": "month",
+      "y": "revenue",
+      "series": "",
+      "type": "area",
+      "xTitle": "Month",
+      "yTitle": "Revenue",
+      "expect": {
+        "caption": "area chart. 0 data points. Revenue by Month.",
+        "columns": [
+          "Month",
+          "Revenue"
+        ],
+        "rows": [],
+        "summary": "area chart with 0 points"
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-# Action contracts — inputs in, events out
+# Action contracts: inputs in, events out
 
 **Foundational best practice.** How to write an action so it stays testable, reusable and
 debuggable. This is not style: it is the difference between logic you can reason about and logic

@@ -30,6 +30,16 @@
       "type": "bool",
       "default": false,
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:35"
+    },
+    "disabled": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Stars/swift/Stars.swift:40 (the W9 disabled-grammar pair \u2014 `disabled` OR `disabled-if` truthy disables; all three renderers)"
+    },
+    "disabled-if": {
+      "type": "expr",
+      "default": null,
+      "_src": "the conditional half of the W9 disabled-grammar pair, ratified with `disabled` and implemented on all three renderers - see the `disabled` row above"
     }
   },
   "geometry": {

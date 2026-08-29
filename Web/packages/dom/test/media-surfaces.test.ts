@@ -15,6 +15,7 @@ import {
   mediaErrorMessage,
   normalizeLightboxColor,
   normalizeLightboxImages,
+  normalizeAudioSessionCategory,
   normalizeMediaRate,
   parseLightboxUrls,
   registerMediaSurfaces,
@@ -22,6 +23,7 @@ import {
   safeMediaUrl,
   sanitizeSvgMarkup,
   sanitizeSvgSource,
+  svgBundleKey,
   svgFromPath,
 } from "../src/media-surfaces.ts";
 
@@ -131,6 +133,26 @@ test("SVG sanitizer emits only the bounded static DSX shape subset", () => {
     "intrinsic SVG dimensions are bounded before DOM insertion");
   assert.equal(boundedMediaText("😀".repeat(2_000)).length, MEDIA_SURFACE_LIMITS.eventMessageCharacters * 2,
     "bounded text counts code points without splitting surrogate pairs");
+});
+
+test("the AVAudioSession category pair normalizes to the fixture defaults per kind", () => {
+  assert.equal(normalizeAudioSessionCategory("playback", "audio"), "playback");
+  assert.equal(normalizeAudioSessionCategory("ambient", "audio"), "ambient");
+  assert.equal(normalizeAudioSessionCategory(" Ambient ", "video"), "ambient");
+  assert.equal(normalizeAudioSessionCategory("", "audio"), "playback", "audio.json default");
+  assert.equal(normalizeAudioSessionCategory("", "video"), "ambient", "video.json audio= default");
+  assert.equal(normalizeAudioSessionCategory("solo", "audio"), "playback", "unknown degrades to the kind default");
+  assert.equal(normalizeAudioSessionCategory("solo", "video"), "ambient", "video claimsAudio only on exactly playback");
+});
+
+test("a native SVG bundle key is reported, never silently swallowed (the image precedent)", () => {
+  assert.equal(svgBundleKey("logo", ""), "asset");
+  assert.equal(svgBundleKey("", "media/logo.svg"), "src");
+  assert.equal(svgBundleKey("logo", "media/logo.svg"), "asset", "asset outranks src, the native resolve order");
+  assert.equal(svgBundleKey("<svg><rect width='1' height='1'/></svg>", ""), null, "inline markup is not a bundle key");
+  assert.equal(svgBundleKey("", "<path d='M0 0L1 1'/>"), null);
+  assert.equal(svgBundleKey("", ""), null);
+  assert.equal(svgBundleKey("   ", "\n"), null, "whitespace is not a key");
 });
 
 test("SVG sanitizer rejects active content, references, unknown grammar and hostile allocation", () => {

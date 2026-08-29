@@ -1,0 +1,649 @@
+{
+ "_note": "THE ATTRIBUTE TABLE, folded. Every `<scroll>` attribute resolves through ONE total function: no input throws, no unrecognised word fails a build, and every unknown value falls back to the documented default — the same law the keyboard corpus states for its mode word, and for the same reason (these values come from authored markup and a dashboard, not from a schema). Notes on the three that are not obvious. `bounces` is TRISTATE: unset is not `true`, it means the PLATFORM decides, and collapsing that to a boolean is how a framework ends up overriding iOS's default bounce on every scroll view it renders. `paging` and `snap` are one setting with two spellings, so paging resolves to snap=\"page\" and outranks a declared snap word rather than silently fighting it. `contentInset` follows CSS edge shorthand exactly (1/2/3/4 values), because an author who has written CSS already knows it. Defaults worth stating: indicators on, keyboardDismiss `interactive` (the messaging-app idiom, and the one almost nobody implements), overscroll `auto`, threshold 0.",
+ "cases": [
+  {
+   "name": "every default, from an empty tag",
+   "attributes": {},
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "axis=horizontal",
+   "attributes": {
+    "axis": "horizontal"
+   },
+   "expect": {
+    "axis": "horizontal",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "`direction` is the legacy alias of `axis`",
+   "attributes": {
+    "direction": "horizontal"
+   },
+   "expect": {
+    "axis": "horizontal",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "`axis` wins when both are present",
+   "attributes": {
+    "axis": "vertical",
+    "direction": "horizontal"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "an unknown axis word falls back to the default rather than failing a build",
+   "attributes": {
+    "axis": "sideways"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "indicators=false",
+   "attributes": {
+    "indicators": "false"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": false,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "a bare boolean attribute reads as true",
+   "attributes": {
+    "indicators": ""
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "bounces is TRISTATE: unset means the platform decides",
+   "attributes": {},
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "bounces=false is a real answer, distinct from unset",
+   "attributes": {
+    "bounces": "false"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": false,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "paging implies snap=page and outranks a declared snap word",
+   "attributes": {
+    "paging": "true",
+    "snap": "center"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": true,
+    "snap": "page",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "snap=center",
+   "attributes": {
+    "snap": "center"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "center",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "an unknown snap word is `none`, never a half-applied snap",
+   "attributes": {
+    "snap": "magnetic"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "keyboardDismiss defaults to interactive — the messaging-app idiom",
+   "attributes": {},
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "keyboardDismiss=onDrag",
+   "attributes": {
+    "keyboardDismiss": "onDrag"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "onDrag",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "keyboardDismiss matching is case-insensitive",
+   "attributes": {
+    "keyboardDismiss": "ONDRAG"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "onDrag",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "overscroll=never",
+   "attributes": {
+    "overscroll": "never"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "never",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "contentInset with one value applies to all four edges",
+   "attributes": {
+    "contentInset": "12"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 12.0,
+     "right": 12.0,
+     "bottom": 12.0,
+     "left": 12.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "two values are vertical then horizontal, like CSS",
+   "attributes": {
+    "contentInset": "12 16"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 12.0,
+     "right": 16.0,
+     "bottom": 12.0,
+     "left": 16.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "three values are top, horizontal, bottom",
+   "attributes": {
+    "contentInset": "12 16 20"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 12.0,
+     "right": 16.0,
+     "bottom": 20.0,
+     "left": 16.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "four values are top, right, bottom, left",
+   "attributes": {
+    "contentInset": "12 16 20 8"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 12.0,
+     "right": 16.0,
+     "bottom": 20.0,
+     "left": 8.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "commas and units are tolerated",
+   "attributes": {
+    "contentInset": "12px, 16px"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 12.0,
+     "right": 16.0,
+     "bottom": 12.0,
+     "left": 16.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "garbage in an inset edge reads as zero, not as a build failure",
+   "attributes": {
+    "contentInset": "12 nope"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 12.0,
+     "right": 0.0,
+     "bottom": 12.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "maintainPosition=true",
+   "attributes": {
+    "maintainPosition": "true"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": true,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "threshold in points",
+   "attributes": {
+    "threshold": "400"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 400.0
+   }
+  },
+  {
+   "name": "a negative threshold is floored at zero",
+   "attributes": {
+    "threshold": "-40"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "a non-numeric threshold falls back to the default",
+   "attributes": {
+    "threshold": "soon"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": null,
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  },
+  {
+   "name": "bind carries the two-way expression through untouched",
+   "attributes": {
+    "bind": "feed.offset"
+   },
+   "expect": {
+    "axis": "vertical",
+    "bind": "feed.offset",
+    "indicators": true,
+    "bounces": null,
+    "paging": false,
+    "snap": "none",
+    "keyboardDismiss": "interactive",
+    "overscroll": "auto",
+    "contentInset": {
+     "top": 0.0,
+     "right": 0.0,
+     "bottom": 0.0,
+     "left": 0.0
+    },
+    "maintainPosition": false,
+    "threshold": 0.0
+   }
+  }
+ ]
+}

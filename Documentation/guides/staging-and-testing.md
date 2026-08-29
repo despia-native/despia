@@ -2,9 +2,11 @@
 
 > **A note on paths.** This guide is written in the Despia monorepo, where the open tree
 > you are reading lives under `OpenSource/` and the commercial layer (the production
-> module catalog, host shells, and build machinery) lives under `ClosedSource/`. Paths
-> with those prefixes refer to the monorepo; only the open tree ships in the public
-> repository, and an `OpenSource/X` path is `X/` there.
+> module catalog, host shells, and build machinery) lives in a sibling PRIVATE tree that
+> is not part of this drop. An `OpenSource/X` path is `X/` in the public repository. A
+> command or file named below as `scripts/…`, `DSX/Modules/…` or `Documentation/…`
+> without the `OpenSource/` prefix belongs to that private tree: it is named for the
+> record, never as something to run from what you have.
 
 How to test a Despia app against staging environments — inside the **same TestFlight binary**
 that later ships to the App Store — plus the environment plane every surface can branch on,
@@ -37,6 +39,22 @@ Read it on any surface:
 | Native (module) | `dsx.env.channel` · `guard !dsx.env.isProduction` | `dsx.app.build >= 260` |
 | DSX markup | `visible-if="env != 'appstore'"` · `{{ dsx.app.env }}` | `visible-if="dsx.app.build >= 260"` |
 | Web | `window.dsx.global.app.env` / `.production` | `window.dsx.global.app.build` |
+
+**Android channels.** The debug bit is Android's only certain runtime signal, so a debuggable
+build reads `debug` and everything else fails closed to `appstore` — Play exposes no trustworthy
+"testing track" API at runtime. A release **beta** build therefore *declares* its channel: stamp
+the manifest meta-data `despia.channel` per build variant (a `manifestPlaceholder`) with
+`testflight` (the internal-testing analog) or `adhoc` (dev-signed / side-load). Only those two
+names are accepted; an unstamped or unrecognized value stays `appstore`, so a store build can
+never be talked into a test channel.
+
+```groovy
+// build.gradle.kts, the beta variant
+manifestPlaceholders["despiaChannel"] = "testflight"
+```
+```xml
+<meta-data android:name="despia.channel" android:value="${despiaChannel}"/>
+```
 
 Rules of thumb:
 
@@ -171,9 +189,9 @@ system is fully dynamic — each module declares its pods/SPM packages in its ow
 un-excluding modules you must materialize the new set before building locally:
 
 ```bash
-ruby ClosedSource/scripts/select_release_profile.rb --profile qa-expanded
-ruby ClosedSource/scripts/prepare_modules.rb          # regenerates the Podfile for the new set
-cd ClosedSource && pod install                        # materializes it (RUBYOPT=-rlogger on system Ruby 2.6)
+ruby scripts/select_release_profile.rb --profile qa-expanded    # private tree
+ruby scripts/prepare_modules.rb                       # regenerates the Podfile for the new set
+pod install                                           # materializes it (RUBYOPT=-rlogger on system Ruby 2.6)
 ```
 
 Skipping `pod install` after expanding the set fails the build with
@@ -313,7 +331,7 @@ targets deception). Zero-risk builds can drop every byte: add `"DevSettings"` to
 
 ## Reference
 
-- Module docs: `ClosedSource/DSX/Modules/Core/DevSettings/README.md` (web API, config,
+- Module docs: the DevSettings module's `README.md` (`DSX/Modules/Core/DevSettings/`, private tree) (web API, config,
   cross-module use, error codes).
 - The environment primitive + host seam: `OpenSource/Skills/runtime-api.md` (`dsx.env`,
   `motionShake`), `OpenSource/Documentation/architecture/app-manifest.md` (the resolution

@@ -1,4 +1,4 @@
-# Surface bridges — mounting a RENDER SURFACE on the bus (`dsx.messenger`)
+# Surface bridges: mounting a RENDER SURFACE on the bus (`dsx.messenger`)
 
 Some screens don't render DSX markup or web HTML — they run **foreign content on an
 embedded runtime**: a web page in a `WKWebView` (`<DSXWebView/>`), a game in the Godot
@@ -15,7 +15,7 @@ Two shipped reference implementations, deliberately twins:
 
 | | web (`<DSXWebView/>`) | game (`<Godot/>`) |
 |---|---|---|
-| surface owner (mounts) | `Mandatory/Dom` | `Core/Godot` |
+| surface owner (mounts) | `Core/Dom` | `Core/Godot` |
 | mount id | `"web"` | `"godot"` |
 | transport | WK message handler / `evaluateJavaScript` | SwiftGodotKit host bridge |
 | content-side SDK | `runtime.js` → `window.despia` | `despia.gd` → `Despia` |

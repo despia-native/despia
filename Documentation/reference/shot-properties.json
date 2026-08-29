@@ -1,0 +1,611 @@
+{
+  "version": 1,
+  "title": "DSX shot properties",
+  "description": "The machine-readable property schema for STORE SCREENSHOT slides: every editable field of a shot profile, typed and constrained, so a visual editor renders real controls instead of a JSON textarea. This is the shot plane's twin of stack-style-properties.json, and it is a CONTRACT rather than documentation: check_shot_properties.rb fails when the templates read a field the schema does not describe, or the schema offers a control the templates never read.",
+  "source": {
+    "slide": "OpenSource/Shots/Components/ShotPro.dsx",
+    "decor": "OpenSource/Shots/Components/ShotDecorItem.dsx",
+    "declarations": "OpenSource/Web/packages/cli/src/shot-render.ts",
+    "profiles": "dsx.shots.json (the project's shot profiles - what an editor writes)"
+  },
+  "controlTypes": {
+    "text": "single-line string",
+    "textarea": "multi-line string",
+    "number": "number with unit/min/max/step",
+    "length": "CSS length string - the unit is part of the value. A control whose `units` lists more than one may be switched between them, and switching CONVERTS the number rather than reinterpreting it (16px is 1rem, never 16rem): a switch that silently made a headline sixteen times larger would be a unit picker nobody could trust. rem is the default the editor writes for a bare number, because rem is root-relative and the root is accessibility-scaled.",
+    "color": "colour value (hex or rgba)",
+    "enum": "one of options",
+    "bool": "true/false",
+    "icon": "a kernel icon name (star.fill, bolt.fill, ...)",
+    "asset": "a project-relative image path",
+    "parts": "the two-tone headline array: [{t, accent?, box?}]",
+    "region": "a {x,y,w,h} rectangle in percent of the source screenshot"
+  },
+  "groups": [
+    {
+      "id": "theme",
+      "label": "Theme",
+      "help": "Set once for the whole strip: shared values are most of what makes a set read as designed.",
+      "properties": [
+        {
+          "key": "ground",
+          "label": "Page",
+          "control": "color",
+          "default": "#eceef6",
+          "help": "The neutral behind the slide. Only visible with a gutter, since a full-bleed slide covers it."
+        },
+        {
+          "key": "card",
+          "label": "Card",
+          "control": "color",
+          "default": "#ffffff",
+          "help": "The slide surface, edge to edge at gutter 0. The dissolve fades into this exact colour."
+        },
+        {
+          "key": "ink",
+          "label": "Ink",
+          "control": "color",
+          "default": "#0d0f14",
+          "help": "Headline and copy colour."
+        },
+        {
+          "key": "accent",
+          "label": "Accent",
+          "control": "color",
+          "default": "#22c55e",
+          "help": "The emphasis colour for headline parts, rings and panels."
+        }
+      ]
+    },
+    {
+      "id": "copy",
+      "label": "Copy",
+      "properties": [
+        {
+          "key": "parts",
+          "label": "Headline",
+          "control": "parts",
+          "help": "Two-tone headline. Each part: t (text), accent (accent ink) or box (filled highlight)."
+        },
+        {
+          "key": "inset",
+          "label": "Gutter",
+          "control": "length",
+          "default": "0px",
+          "units": [
+            "rem",
+            "px"
+          ],
+          "min": 0,
+          "max": 64,
+          "help": "Margin around the whole slide. 0 is full bleed, which is what a store uploads; a gutter turns the slide into an inset card on the page colour."
+        },
+        {
+          "key": "radius",
+          "label": "Corner",
+          "control": "length",
+          "default": "0px",
+          "units": [
+            "rem",
+            "px"
+          ],
+          "min": 0,
+          "max": 64,
+          "help": "Corner radius of the slide. Only visible with a gutter, since a full-bleed image has no corner to round."
+        },
+        {
+          "key": "headlineSize",
+          "label": "Headline",
+          "control": "length",
+          "default": "40px",
+          "min": 24,
+          "max": 64,
+          "unit": "px",
+          "units": [
+            "rem",
+            "px"
+          ]
+        },
+        {
+          "key": "sub",
+          "label": "Tagline",
+          "control": "textarea",
+          "help": "One line of support under the headline."
+        },
+        {
+          "key": "subSize",
+          "label": "Size",
+          "control": "length",
+          "default": "17px",
+          "min": 12,
+          "max": 24,
+          "unit": "px",
+          "units": [
+            "rem",
+            "px"
+          ]
+        },
+        {
+          "key": "subMeasure",
+          "label": "Measure",
+          "unit": "em",
+          "control": "length",
+          "default": "17em",
+          "min": 10,
+          "max": 30,
+          "unit": "em",
+          "help": "Line length in em, so it holds characters-per-line and rebalances when the size changes. This is what kills a one-word last line.",
+          "units": [
+            "em"
+          ]
+        },
+        {
+          "key": "align",
+          "label": "Alignment",
+          "control": "enum",
+          "options": [
+            "left",
+            "center",
+            "right"
+          ],
+          "default": "center"
+        }
+      ]
+    },
+    {
+      "id": "device",
+      "label": "Device",
+      "properties": [
+        {
+          "key": "screen",
+          "label": "Screen",
+          "control": "asset",
+          "help": "The captured app screenshot this slide shows."
+        },
+        {
+          "key": "deviceWidth",
+          "label": "Width",
+          "control": "length",
+          "default": "88%",
+          "min": 40,
+          "max": 100,
+          "unit": "%",
+          "help": "Percent of the SAFE width. 100% is the largest lawful phone - the safe inset is structural."
+        },
+        {
+          "key": "deviceTop",
+          "label": "Gap",
+          "control": "length",
+          "default": "24px",
+          "min": 0,
+          "max": 120,
+          "unit": "px",
+          "units": [
+            "rem",
+            "px"
+          ]
+        },
+        {
+          "key": "deviceCrop",
+          "label": "Crop",
+          "control": "length",
+          "default": "",
+          "min": 0,
+          "max": 1400,
+          "unit": "px",
+          "help": "Empty shows the whole device. Set it and the phone runs past the edge and dissolves.",
+          "units": [
+            "rem",
+            "px"
+          ]
+        },
+        {
+          "key": "deviceFade",
+          "label": "Dissolve",
+          "control": "bool",
+          "default": true,
+          "help": "The progressive blur at the crop edge."
+        },
+        {
+          "key": "lean",
+          "label": "Lean",
+          "control": "number",
+          "default": 0,
+          "min": -30,
+          "max": 30,
+          "step": 1,
+          "unit": "deg",
+          "help": "Turn the device about its own Y axis, with real foreshortening."
+        },
+        {
+          "key": "shine",
+          "label": "Specular",
+          "control": "bool",
+          "default": true,
+          "help": "One raking highlight across the cover glass."
+        },
+        {
+          "key": "safeInset",
+          "label": "Safe inset",
+          "control": "length",
+          "default": "16px",
+          "min": 0,
+          "max": 48,
+          "unit": "px",
+          "help": "The breathing room the card keeps around its content. G-safe enforces it on the rendered frame.",
+          "units": [
+            "rem",
+            "px"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chips",
+      "label": "Feature chips",
+      "help": "Flow content: chips reserve their own band, so they can never land on the app screen.",
+      "properties": [
+        {
+          "key": "chips",
+          "label": "Chips",
+          "control": "list",
+          "itemFields": [
+            {
+              "key": "label",
+              "label": "Label",
+              "control": "text"
+            },
+            {
+              "key": "icon",
+              "label": "Icon",
+              "control": "icon"
+            },
+            {
+              "key": "tint",
+              "label": "Icon tint",
+              "control": "color",
+              "default": "#ffd166"
+            }
+          ],
+          "max": 4
+        }
+      ]
+    }
+  ],
+  "placement": {
+    "label": "Placement",
+    "help": "Every decoration carries these. x/y/w/h are percentages of the card, so a decoration means the same thing at every device size.",
+    "properties": [
+      {
+        "key": "x",
+        "label": "X",
+        "control": "length",
+        "unit": "%",
+        "min": -20,
+        "max": 120
+      },
+      {
+        "key": "y",
+        "label": "Y",
+        "control": "length",
+        "unit": "%",
+        "min": -20,
+        "max": 120
+      },
+      {
+        "key": "w",
+        "label": "Width",
+        "control": "length",
+        "unit": "%",
+        "min": 1,
+        "max": 140
+      },
+      {
+        "key": "h",
+        "label": "Height",
+        "control": "length",
+        "unit": "%",
+        "min": 1,
+        "max": 140
+      },
+      {
+        "key": "rotate",
+        "label": "Rotate",
+        "control": "number",
+        "unit": "deg",
+        "min": -45,
+        "max": 45,
+        "step": 1,
+        "default": 0
+      },
+      {
+        "key": "lean",
+        "label": "Lean",
+        "control": "number",
+        "unit": "deg",
+        "min": -30,
+        "max": 30,
+        "step": 1,
+        "default": 0,
+        "help": "Share the device's camera. A flat card beside a turned phone is the tell that reads as collage."
+      },
+      {
+        "key": "at",
+        "label": "Anchor",
+        "control": "enum",
+        "options": [
+          "card",
+          "device"
+        ],
+        "default": "card",
+        "help": "card: the decoration is placed on the slide. device: it rides the phone and the crop clips it with it."
+      },
+      {
+        "key": "over",
+        "label": "Over UI",
+        "control": "enum",
+        "options": [
+          "",
+          "screen"
+        ],
+        "default": "",
+        "help": "Covering readable app UI is legal only when declared. Undeclared, the render REFUSES (G-cover)."
+      },
+      {
+        "key": "bleed",
+        "label": "Bleed",
+        "control": "bool",
+        "default": false,
+        "help": "Running off the card edge is legal only when declared, or the render refuses (G-safe)."
+      }
+    ]
+  },
+  "decorKinds": [
+    {
+      "id": "asset",
+      "label": "Image",
+      "help": "The customer's own artwork - a logo, a mascot, a product shot.",
+      "properties": [
+        {
+          "key": "src",
+          "label": "Image",
+          "control": "asset"
+        },
+        {
+          "key": "label",
+          "label": "Alt text",
+          "control": "text"
+        }
+      ]
+    },
+    {
+      "id": "badge",
+      "label": "Rating badge",
+      "help": "A claim the customer can substantiate. There is no store-award badge here, on purpose.",
+      "properties": [
+        {
+          "key": "label",
+          "label": "Headline",
+          "control": "text"
+        },
+        {
+          "key": "sub",
+          "label": "Sub",
+          "control": "text"
+        },
+        {
+          "key": "icon",
+          "label": "Icon",
+          "control": "icon",
+          "default": "star.fill"
+        },
+        {
+          "key": "tint",
+          "label": "Icon tint",
+          "control": "color",
+          "default": "#ffd166"
+        }
+      ]
+    },
+    {
+      "id": "chip",
+      "label": "Chip",
+      "help": "One short factual feature label.",
+      "properties": [
+        {
+          "key": "label",
+          "label": "Label",
+          "control": "text"
+        },
+        {
+          "key": "icon",
+          "label": "Icon",
+          "control": "icon"
+        },
+        {
+          "key": "tint",
+          "label": "Icon tint",
+          "control": "color",
+          "default": "#9dffb0"
+        }
+      ]
+    },
+    {
+      "id": "laurel",
+      "label": "Laurel",
+      "help": "A generic decorative wreath: it carries no store mark, no Play laurel, no App Store wording.",
+      "properties": [
+        {
+          "key": "label",
+          "label": "Headline",
+          "control": "text"
+        },
+        {
+          "key": "sub",
+          "label": "Sub",
+          "control": "text"
+        },
+        {
+          "key": "src",
+          "label": "Wreath art",
+          "control": "asset",
+          "default": "laurel-dark.png"
+        },
+        {
+          "key": "tint",
+          "label": "Ink",
+          "control": "color",
+          "default": "#12141a"
+        },
+        {
+          "key": "size",
+          "label": "Headline",
+          "control": "length",
+          "default": "15px",
+          "unit": "px",
+          "min": 10,
+          "max": 28,
+          "units": [
+            "rem",
+            "px"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arrow",
+      "label": "Arrow",
+      "help": "A ring says look here; an arrow says look here, from over there.",
+      "properties": [
+        {
+          "key": "src",
+          "label": "Arrow art",
+          "control": "asset"
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review card",
+      "properties": [
+        {
+          "key": "label",
+          "label": "Quote",
+          "control": "textarea"
+        },
+        {
+          "key": "sub",
+          "label": "By",
+          "control": "text"
+        },
+        {
+          "key": "tone",
+          "label": "Card colour",
+          "control": "color",
+          "default": "#ffffff"
+        }
+      ]
+    },
+    {
+      "id": "panel",
+      "label": "Panel",
+      "help": "An accent-tinted block behind supporting copy.",
+      "properties": [
+        {
+          "key": "label",
+          "label": "Headline",
+          "control": "text"
+        },
+        {
+          "key": "sub",
+          "label": "Sub",
+          "control": "text"
+        },
+        {
+          "key": "tone",
+          "label": "Fill",
+          "control": "color",
+          "default": "rgba(34,197,94,0.16)"
+        },
+        {
+          "key": "tint",
+          "label": "Ink",
+          "control": "color",
+          "default": "#0d0f14"
+        }
+      ]
+    },
+    {
+      "id": "callout",
+      "label": "Callout ring",
+      "help": "The ring has NO fill: annotation must never obscure the UI it points at.",
+      "properties": [
+        {
+          "key": "label",
+          "label": "Label",
+          "control": "text"
+        },
+        {
+          "key": "tint",
+          "label": "Ring colour",
+          "control": "color",
+          "default": "#ffd166"
+        },
+        {
+          "key": "radius",
+          "label": "Corner",
+          "control": "length",
+          "default": "14px",
+          "unit": "px",
+          "min": 0,
+          "max": 40,
+          "units": [
+            "rem",
+            "px"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoom",
+      "label": "Zoom",
+      "help": "A magnified crop of the SAME render the device shows - real UI at real fidelity, never a mock.",
+      "properties": [
+        {
+          "key": "src",
+          "label": "Source",
+          "control": "asset"
+        },
+        {
+          "key": "region",
+          "label": "Region",
+          "control": "region"
+        },
+        {
+          "key": "label",
+          "label": "Alt text",
+          "control": "text"
+        },
+        {
+          "key": "tint",
+          "label": "Ring colour",
+          "control": "color"
+        },
+        {
+          "key": "radius",
+          "label": "Corner",
+          "control": "length",
+          "default": "18px",
+          "unit": "px",
+          "min": 0,
+          "max": 40,
+          "units": [
+            "rem",
+            "px"
+          ]
+        }
+      ]
+    }
+  ],
+  "rootFontSizePx": 16
+}

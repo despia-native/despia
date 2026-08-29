@@ -13,9 +13,16 @@
 //  • The `dsx.*` call surface is identical: module calls ride the ONE funnel
 //    (envelope-normalized, exclusion-safe), action calls re-enter the depth-guarded
 //    runner, events fan out through the same emitters.
-//  • The sandbox holds: the body closes over NOTHING ambient — a `with` proxy fences
-//    every free identifier (window/document/globalThis unreachable; a curated stdlib
-//    allowlist passes through), and the /web/12 timeout watchdog bounds the body.
+//  • The AMBIENT-ISOLATION FENCE holds for what it is: a `with` proxy claims every
+//    FREE IDENTIFIER, so a body cannot name window/document/globalThis and a curated
+//    stdlib allowlist passes through. Say plainly what it is NOT: a security sandbox.
+//    The value plane is real JS — `Object.constructor("return globalThis")()` walks
+//    out, exactly the escape class packages.ts refuses on the server — which is fine
+//    HERE because this tier runs AUTHORED first-party bodies only (OTA escalation is
+//    flagged off below; hostile code never routes here). And the /web/12 watchdog
+//    RELEASES THE AWAITER on timeout — it cannot interrupt a synchronous loop, and an
+//    async body keeps running after the caller is released. Correctness fence, not a
+//    trust boundary; the trust boundary work is the OTA provenance consult below.
 //
 //  The scoping trick is the classic `with (proxy)` fence: `has` claims EVERY name, so
 //  no lookup ever escapes to the real global scope; `get` serves the stdlib allowlist,

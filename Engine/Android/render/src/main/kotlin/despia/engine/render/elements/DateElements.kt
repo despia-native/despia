@@ -73,6 +73,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -188,6 +189,8 @@ private fun M3DatePickerView(ctx: ComposeStackComponentContext) {
     val context = LocalContext.current
     val iso = CalendarMath.iso8601Formatter()
     val current = CalendarMath.parseInstant((ctl.boundValue(key) as? String)) ?: Date()
+    // disabled= / disabled-if= (W9): the pills gate their dialogs
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     var showDate by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
 
@@ -214,8 +217,8 @@ private fun M3DatePickerView(ctx: ComposeStackComponentContext) {
                                                           StackStyle.color("label")))
         }
         Spacer(Modifier.weight(1f))
-        if (mode != "time") DatePill(dateText, tint) { showDate = true }
-        if (mode == "time" || mode == "datetime") DatePill(timeText, tint) { showTime = true }
+        if (mode != "time") DatePill(dateText, tint, enabled = !disabled) { showDate = true }
+        if (mode == "time" || mode == "datetime") DatePill(timeText, tint, enabled = !disabled) { showTime = true }
     }
 
     if (showDate) {
@@ -282,6 +285,8 @@ private fun LegacyDatePickerView(ctx: ComposeStackComponentContext) {
     val context = LocalContext.current
     val iso = CalendarMath.iso8601Formatter()
     val current = CalendarMath.parseInstant((ctl.boundValue(key) as? String)) ?: Date()
+    // disabled= / disabled-if= (W9): the pills gate their dialogs
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
 
     fun commit(mutate: (Calendar) -> Unit) {
         val c = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { time = current }
@@ -318,20 +323,21 @@ private fun LegacyDatePickerView(ctx: ComposeStackComponentContext) {
                                                           StackStyle.color("label")))
         }
         Spacer(Modifier.weight(1f))
-        if (mode != "time") DatePill(dateText, tint) { openDate() }
-        if (mode == "time" || mode == "datetime") DatePill(timeText, tint) { openTime() }
+        if (mode != "time") DatePill(dateText, tint, enabled = !disabled) { openDate() }
+        if (mode == "time" || mode == "datetime") DatePill(timeText, tint, enabled = !disabled) { openTime() }
     }
 }
 
 /// One compact-style value pill: tertiary-fill background, radius 8, padding 11×6 —
 /// the UIDatePicker compact chrome.
 @Composable
-private fun DatePill(text: String, tint: Color, tap: () -> Unit) {
+private fun DatePill(text: String, tint: Color, enabled: Boolean = true, tap: () -> Unit) {
     Box(Modifier
             .background(StackStyle.color("fill"), RoundedCornerShape(8.dp))
-            .dsxAccessibleActivation(role = Role.Button, onClick = tap)
-            .pointerInput(text) { detectTapGestures { tap() } }
-            .padding(horizontal = 11.dp, vertical = 6.dp)) {
+            .dsxAccessibleActivation(enabled = enabled, role = Role.Button, onClick = tap)
+            .pointerInput(text, enabled) { detectTapGestures { if (enabled) tap() } }
+            .padding(horizontal = 11.dp, vertical = 6.dp)
+            .alpha(if (enabled) 1f else 0.5f)) {
         BasicText(text, style = TextStyle(color = tint, fontSize = 17.sp))
     }
 }
@@ -348,6 +354,9 @@ private fun CalendarGridView(ctx: ComposeStackComponentContext) {
     val tint = StackStyle.color(ctx.str("color", ElementDefaults.CALENDAR_TINT))
     val minDate = CalendarMath.parseDay(ctx.str("min"))
     val maxDate = CalendarMath.parseDay(ctx.str("max"))
+    // disabled= / disabled-if= (W9): a globally disabled calendar gates paging + picks
+    // (the Calendar.swift twin — every day dims like an out-of-range one).
+    val globallyDisabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
 
     // The displayed month follows the SELECTED date on open (else today), then pages.
     var month by remember {
@@ -392,6 +401,7 @@ private fun CalendarGridView(ctx: ComposeStackComponentContext) {
                 "chevron.left",
                 tint,
                 DSXStrings.localize("Previous month"),
+                enabled = !globallyDisabled,
             ) { page(-1) }
             Spacer(Modifier.weight(1f))
             BasicText(monthTitle, style = TextStyle(color = StackStyle.color("label"),
@@ -402,6 +412,7 @@ private fun CalendarGridView(ctx: ComposeStackComponentContext) {
                 "chevron.right",
                 tint,
                 DSXStrings.localize("Next month"),
+                enabled = !globallyDisabled,
             ) { page(1) }
         }
         // ── Weekday symbols, rotated to the locale's first weekday ──
@@ -433,7 +444,8 @@ private fun CalendarGridView(ctx: ComposeStackComponentContext) {
                                 zeroTime(c)
                                 DayCell(day = day, date = c.time, iso = iso, selected = selected,
                                         today = today, tint = tint, minDate = minDate,
-                                        maxDate = maxDate, mark = marks[iso.format(c.time)]) { picked ->
+                                        maxDate = maxDate, forcedDisabled = globallyDisabled,
+                                        mark = marks[iso.format(c.time)]) { picked ->
                                     ctl.setBound(key, picked)     // on:change via the write seam
                                 }
                                 day += 1
@@ -449,11 +461,12 @@ private fun CalendarGridView(ctx: ComposeStackComponentContext) {
 
 @Composable
 private fun DayCell(day: Int, date: Date, iso: SimpleDateFormat, selected: Date?, today: Date,
-                    tint: Color, minDate: Date?, maxDate: Date?, mark: Color?,
-                    pick: (String) -> Unit) {
+                    tint: Color, minDate: Date?, maxDate: Date?, forcedDisabled: Boolean,
+                    mark: Color?, pick: (String) -> Unit) {
     val isSelected = selected != null && iso.format(selected) == iso.format(date)
     val isToday = iso.format(today) == iso.format(date)
-    val disabled = (minDate != null && date.before(minDate)) || (maxDate != null && date.after(maxDate))
+    val disabled = forcedDisabled ||
+        (minDate != null && date.before(minDate)) || (maxDate != null && date.after(maxDate))
     val spokenDate = remember(date) {
         SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault()).format(date)
     }
@@ -490,14 +503,17 @@ private fun DayCell(day: Int, date: Date, iso: SimpleDateFormat, selected: Date?
 }
 
 @Composable
-private fun Chevron(icon: String, tint: Color, description: String, tap: () -> Unit) {
+private fun Chevron(icon: String, tint: Color, description: String, enabled: Boolean = true,
+                    tap: () -> Unit) {
     Box(Modifier.size(36.dp)
         .dsxAccessibleActivation(
+            enabled = enabled,
             role = Role.Button,
             contentDescription = description,
             onClick = tap,
         )
-        .pointerInput(icon) { detectTapGestures { tap() } },
+        .pointerInput(icon, enabled) { detectTapGestures { if (enabled) tap() } }
+        .alpha(if (enabled) 1f else 0.5f),
         contentAlignment = Alignment.Center) {
         StackIcon(icon, 15.0, tint)
     }

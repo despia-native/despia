@@ -1,4 +1,4 @@
-# Native languages — the polyglot-module primitive (`languages`)
+# Native languages: the polyglot-module primitive (`languages`)
 
 > Audience: module authors shipping native code in a language **other than the platform
 > language** (Swift on iOS, Kotlin on Android) — almost always **C++** for a shared DSP /

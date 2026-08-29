@@ -22,6 +22,8 @@
 //
 
 import { markdownFragment, markdownHtml, safeMarkdownHref } from "./markdown.ts";
+import { tokenizeCode } from "./prose.ts";
+import { admitSrc } from "./src-gate.ts";
 
 /** Hostile-input ceilings. A markdown document here is authored copy or fetched data;
  *  past a bound the remainder renders as plain text rather than throwing. */
@@ -71,6 +73,35 @@ function indentOf(raw: string): number {
     else break;
   }
   return n;
+}
+
+/** Would this line open a NEW block in the main loop (rather than lazily continuing an
+ *  open paragraph)? Branch order mirrors parseLines exactly, so laziness can never
+ *  swallow a construct the outer loop would have taken. */
+function startsBlock(lines: string[], i: number): boolean {
+  const line = lines[i]!;
+  const trimmed = line.trim();
+  if (trimmed.length === 0) return true;
+  if (FENCE.test(trimmed)) return true;
+  if (RULE.test(line) && !BULLET.test(line)) return true;
+  if (HEADING.test(trimmed)) return true;
+  if (QUOTE.test(line)) return true;
+  if (trimmed.includes("|") && i + 1 < lines.length && TABLE_DIVIDER.test(lines[i + 1]!)) return true;
+  if (BULLET.test(line) || ORDERED.test(line)) return true;
+  const image = IMAGE_ONLY.exec(trimmed);
+  return image !== null && safeMarkdownHref(image[2]!) !== null;
+}
+
+/** Does `prev` (the last line inside an open container) leave a PARAGRAPH open? Lazy
+ *  continuation is a paragraph law: only then may an unmarked line keep its container. */
+function leavesParagraphOpen(prev: string): boolean {
+  const trimmed = prev.trim();
+  if (trimmed.length === 0) return false;
+  if (FENCE.test(trimmed)) return false;
+  if (RULE.test(prev) && !BULLET.test(prev)) return false;
+  if (HEADING.test(trimmed)) return false;
+  const image = IMAGE_ONLY.exec(trimmed);
+  return image === null || safeMarkdownHref(image[2]!) === null;
 }
 
 /**
@@ -143,8 +174,11 @@ function parseLines(lines: string[], depth: number): MarkdownBlock[] {
       i += 1;
       while (i < lines.length) {
         const next = QUOTE.exec(lines[i]!);
-        if (next === null) break;
-        inner.push(next[1]!);
+        if (next !== null) { inner.push(next[1]!); i += 1; continue; }
+        // CommonMark laziness: an unmarked paragraph line keeps the quote open, but only
+        // while the quote's innermost open block is still a paragraph.
+        if (startsBlock(lines, i) || !leavesParagraphOpen(inner[inner.length - 1]!)) break;
+        inner.push(lines[i]!);
         i += 1;
       }
       push({ type: "quote", blocks: depth >= MARKDOWN_BLOCK_LIMITS.listDepth ? [] : parseLines(inner, depth + 1) });
@@ -215,7 +249,15 @@ function parseList(lines: string[], start: number, depth: number): { block: Mark
     const bullet = BULLET.exec(line);
     const numbered = ORDERED.exec(line);
     const match = ordered ? numbered : bullet;
-    if (match === null) break;
+    if (match === null) {
+      // No marker: CommonMark laziness — an unmarked line that opens no new block is
+      // the previous item's paragraph continuing (wrapped source), at any indent.
+      const owner = items[items.length - 1];
+      if (owner === undefined || startsBlock(lines, i)) break;
+      owner.inline = `${owner.inline} ${line.trim()}`;
+      i += 1;
+      continue;
+    }
     const indent = indentOf(line);
     if (indent < baseIndent) break;
     if (indent > baseIndent) {
@@ -262,8 +304,20 @@ function blockElement(block: MarkdownBlock, doc: Document): Node {
       pre.className = "dsx-md-code";
       const code = doc.createElement("code");
       if (block.language.length > 0) code.className = `language-${block.language}`;
-      // textContent, never innerHTML: the sample is bytes.
-      code.textContent = block.text;
+      // The syntax tint (prose.ts) is presentation over the SAME bytes: every token is
+      // written through textContent/createTextNode, never innerHTML, and the token
+      // texts concatenate back to the exact sample. An unknown language is one plain
+      // token, so the untinted path stays byte-identical to the pre-tint renderer.
+      for (const token of tokenizeCode(block.language, block.text)) {
+        if (token.kind === "plain") {
+          code.appendChild(doc.createTextNode(token.text));
+        } else {
+          const span = doc.createElement("span");
+          span.className = `dsx-tok-${token.kind}`;
+          span.textContent = token.text;
+          code.appendChild(span);
+        }
+      }
       pre.appendChild(code);
       return pre;
     }
@@ -281,7 +335,7 @@ function blockElement(block: MarkdownBlock, doc: Document): Node {
     case "image": {
       const el = doc.createElement("img");
       el.className = "dsx-md-image";
-      el.setAttribute("src", block.src);
+      el.setAttribute("src", admitSrc(el, block.src));
       el.setAttribute("alt", block.alt);
       el.setAttribute("loading", "lazy");
       return el;
@@ -301,6 +355,10 @@ function blockElement(block: MarkdownBlock, doc: Document): Node {
       return el;
     }
     case "table": {
+      // The wrap div is the card AND the scroll container (prose.ts): a wide table
+      // scrolls inside its own overflow-x box instead of stretching the page.
+      const wrap = doc.createElement("div");
+      wrap.className = "dsx-md-table-wrap";
       const table = doc.createElement("table");
       table.className = "dsx-md-table";
       const thead = doc.createElement("thead");
@@ -323,7 +381,8 @@ function blockElement(block: MarkdownBlock, doc: Document): Node {
         tbody.appendChild(tr);
       }
       table.appendChild(tbody);
-      return table;
+      wrap.appendChild(table);
+      return wrap;
     }
     default: {
       const el = doc.createElement("p");
@@ -356,7 +415,14 @@ function blockHtml(block: MarkdownBlock): string {
     }
     case "code": {
       const cls = block.language.length > 0 ? ` class="language-${escapeAttribute(block.language)}"` : "";
-      return `<pre class="dsx-md-code"><code${cls}>${escapeText(block.text)}</code></pre>`;
+      // The same tint the DOM consumer paints, escaped run by run — the two renderers
+      // share one tokenizer so the adopted DOM and this string stay congruent.
+      const body = tokenizeCode(block.language, block.text)
+        .map((token) => token.kind === "plain"
+          ? escapeText(token.text)
+          : `<span class="dsx-tok-${token.kind}">${escapeText(token.text)}</span>`)
+        .join("");
+      return `<pre class="dsx-md-code"><code${cls}>${body}</code></pre>`;
     }
     case "quote":
       return `<blockquote class="dsx-md-quote">${block.blocks.map(blockHtml).join("")}</blockquote>`;
@@ -378,7 +444,8 @@ function blockHtml(block: MarkdownBlock): string {
       const body = block.rows
         .map((row) => `<tr>${row.map((c) => `<td>${markdownHtml(c)}</td>`).join("")}</tr>`)
         .join("");
-      return `<table class="dsx-md-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+      return `<div class="dsx-md-table-wrap"><table class="dsx-md-table">`
+        + `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
     }
     default:
       return `<p class="dsx-md-paragraph">${markdownHtml(block.inline)}</p>`;

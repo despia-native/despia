@@ -99,7 +99,13 @@ test("web_extra names — the recorded divergence — draw as real vectors", () 
 
 test("the corpus fallback rung is used, and it is the corpus's own glyph", () => {
   const fallbackNames = Object.keys(ICON_FALLBACKS);
-  assert.ok(fallbackNames.length > 0, "the fallback rung must stay exercised, not vestigial");
+  // AXIS v2 (Boxicons, 2026-08-23): every corpus row now carries a real vector, so an
+  // EMPTY fallback table is the healthy state - the rung stays as the fail-open tier for
+  // future rows. The guard keeps its teeth the other way: a row with no vector MUST ship
+  // its fallback, so the ladder can never silently lose a rung.
+  const vectorless = Object.entries(map.icons).filter(([, row]) => row.web === undefined);
+  assert.equal(fallbackNames.length, vectorless.length,
+    "every vectorless corpus row ships its fallback - no more, no fewer");
   for (const name of fallbackNames) {
     assert.equal(rungOf(name), "fallback", `${name}: expected the text rung`);
     assert.equal(ICON_FALLBACKS[name], map.icons[name]?.fallback,
@@ -128,8 +134,10 @@ test("web names no icon the shared table does not name", () => {
 test("every generated vector is a bounded SVG path and every fallback is short text", () => {
   const { vectors, fallbacks } = iconTables(map);
   for (const [name, d] of vectors) {
-    assert.match(d, /^M[MmLlHhVvCcSsQqTtAaZz0-9 .,\-]*$/, `${name}: not a plain SVG path`);
-    assert.ok(d.length <= 320, `${name}: ${d.length}-char path — the web tier stays compact`);
+    assert.match(d, /^[Mm][MmLlHhVvCcSsQqTtAaZz0-9 .,\-]*$/, `${name}: not a plain SVG path`);
+    // 1500: the Boxicons fill paths run longer than the retired hand-drawn strokes -
+    // the longest landed row is `gear` at 1392 (AXIS v2). Still bounded, still inert.
+    assert.ok(d.length <= 1500, `${name}: ${d.length}-char path — the web tier stays compact`);
   }
   for (const [name, glyph] of fallbacks) {
     assert.ok([...glyph].length <= 2, `${name}: a fallback is a glyph, not a string`);

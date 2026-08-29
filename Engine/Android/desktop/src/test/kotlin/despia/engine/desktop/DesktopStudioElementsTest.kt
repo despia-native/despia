@@ -111,9 +111,14 @@ class DesktopStudioElementsTest {
         val expected = mapOf(
             "DSXWebView" to "native_web_runtime_unavailable",
             "WebView" to "native_web_runtime_unavailable",
-            "Godot" to "godot_runtime_unavailable",
             "Scene360" to "scene3d_runtime_unavailable",
             "Scene3D" to "scene3d_runtime_unavailable",
+            // rive (U12) landed canonical and this renderer does not implement it, so it
+            // answers with its own code rather than being quietly absent. `canvas` (U04) LEFT
+            // this table when DesktopCanvas.kt landed: a capability row is for a runtime the
+            // build does not bundle, never for one nobody had written yet, and the desktop
+            // now paints the same :core display list as every other renderer.
+            "rive" to "rive_runtime_unavailable",
         )
         assertEquals(expected.keys + "DSXView", DesktopCapabilities.tags)
         expected.forEach { (tag, code) ->

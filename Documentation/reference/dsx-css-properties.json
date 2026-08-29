@@ -16,133 +16,879 @@
       "string": "quoted string"
     }
   },
-  "atRules": ["media", "container", "supports", "keyframes", "starting-style", "property", "mixin", "apply", "function", "layer", "font-face"],
-  "pseudoClasses": ["pressed", "active", "focus", "disabled", "hover", "first-child", "last-child", "nth-child", "not", "global"],
+  "atRules": [
+    "media",
+    "container",
+    "supports",
+    "keyframes",
+    "starting-style",
+    "property",
+    "mixin",
+    "apply",
+    "function",
+    "layer",
+    "font-face"
+  ],
+  "pseudoClasses": [
+    "pressed",
+    "active",
+    "focus",
+    "disabled",
+    "hover",
+    "first-child",
+    "last-child",
+    "nth-child",
+    "not",
+    "global"
+  ],
   "properties": {
-    "display": { "tier": "A", "type": "enum", "options": ["flex", "grid", "none", "-dsx-masonry"], "initial": "flex" },
-    "position": { "tier": "A", "type": "enum", "options": ["relative", "absolute", "fixed"], "initial": "relative" },
-    "inset": { "tier": "A", "type": "raw", "shorthandOf": ["top", "right", "bottom", "left"] },
-    "top": { "tier": "A", "type": "length" },
-    "right": { "tier": "A", "type": "length" },
-    "bottom": { "tier": "A", "type": "length" },
-    "left": { "tier": "A", "type": "length" },
-    "width": { "tier": "A", "type": "length", "keywords": ["auto", "fit-content", "min-content", "max-content"] },
-    "height": { "tier": "A", "type": "length", "keywords": ["auto", "fit-content", "min-content", "max-content"] },
-    "min-width": { "tier": "A", "type": "length" },
-    "min-height": { "tier": "A", "type": "length" },
-    "max-width": { "tier": "A", "type": "length", "keywords": ["none"] },
-    "max-height": { "tier": "A", "type": "length", "keywords": ["none"] },
-    "aspect-ratio": { "tier": "A", "type": "raw" },
-    "margin": { "tier": "A", "type": "raw", "shorthandOf": ["margin-top", "margin-right", "margin-bottom", "margin-left"] },
-    "margin-top": { "tier": "A", "type": "length", "keywords": ["auto"] },
-    "margin-right": { "tier": "A", "type": "length", "keywords": ["auto"] },
-    "margin-bottom": { "tier": "A", "type": "length", "keywords": ["auto"] },
-    "margin-left": { "tier": "A", "type": "length", "keywords": ["auto"] },
-    "margin-inline": { "tier": "A", "type": "raw", "logical": true },
-    "margin-inline-start": { "tier": "A", "type": "length", "logical": true },
-    "margin-inline-end": { "tier": "A", "type": "length", "logical": true },
-    "margin-block": { "tier": "A", "type": "raw", "logical": true },
-    "padding": { "tier": "A", "type": "raw", "shorthandOf": ["padding-top", "padding-right", "padding-bottom", "padding-left"] },
-    "padding-top": { "tier": "A", "type": "length" },
-    "padding-right": { "tier": "A", "type": "length" },
-    "padding-bottom": { "tier": "A", "type": "length" },
-    "padding-left": { "tier": "A", "type": "length" },
-    "padding-inline": { "tier": "A", "type": "raw", "logical": true },
-    "padding-inline-start": { "tier": "A", "type": "length", "logical": true },
-    "padding-inline-end": { "tier": "A", "type": "length", "logical": true },
-    "padding-block": { "tier": "A", "type": "raw", "logical": true },
-    "box-sizing": { "tier": "A", "type": "enum", "options": ["border-box", "content-box"], "initial": "border-box" },
-    "flex-direction": { "tier": "A", "type": "enum", "options": ["row", "row-reverse", "column", "column-reverse"], "initial": "row" },
-    "flex-wrap": { "tier": "A", "type": "enum", "options": ["nowrap", "wrap", "wrap-reverse"], "initial": "nowrap" },
-    "flex-grow": { "tier": "A", "type": "number", "initial": "0" },
-    "flex-shrink": { "tier": "A", "type": "number", "initial": "1" },
-    "flex-basis": { "tier": "A", "type": "length", "keywords": ["auto", "content"], "initial": "auto" },
-    "flex": { "tier": "A", "type": "raw", "shorthandOf": ["flex-grow", "flex-shrink", "flex-basis"] },
-    "order": { "tier": "A", "type": "number", "initial": "0" },
-    "justify-content": { "tier": "A", "type": "enum", "options": ["flex-start", "flex-end", "start", "end", "center", "space-between", "space-around", "space-evenly"], "initial": "flex-start" },
-    "align-items": { "tier": "A", "type": "enum", "options": ["stretch", "flex-start", "flex-end", "start", "end", "center", "baseline"], "initial": "stretch" },
-    "align-self": { "tier": "A", "type": "enum", "options": ["auto", "stretch", "flex-start", "flex-end", "start", "end", "center", "baseline"], "initial": "auto" },
-    "align-content": { "tier": "A", "type": "enum", "options": ["stretch", "flex-start", "flex-end", "start", "end", "center", "space-between", "space-around", "space-evenly"], "initial": "stretch" },
-    "justify-items": { "tier": "A", "type": "enum", "options": ["stretch", "start", "end", "center"], "initial": "stretch" },
-    "justify-self": { "tier": "A", "type": "enum", "options": ["auto", "stretch", "start", "end", "center"], "initial": "auto" },
-    "gap": { "tier": "A", "type": "raw", "shorthandOf": ["row-gap", "column-gap"] },
-    "row-gap": { "tier": "A", "type": "length", "initial": "0" },
-    "column-gap": { "tier": "A", "type": "length", "initial": "0" },
-    "grid-template-columns": { "tier": "A", "type": "raw" },
-    "grid-template-rows": { "tier": "A", "type": "raw" },
-    "grid-template-areas": { "tier": "A", "type": "raw" },
-    "grid-auto-flow": { "tier": "A", "type": "enum", "options": ["row", "column", "row dense", "column dense"], "initial": "row" },
-    "grid-auto-columns": { "tier": "A", "type": "raw" },
-    "grid-auto-rows": { "tier": "A", "type": "raw" },
-    "grid-column": { "tier": "A", "type": "raw" },
-    "grid-row": { "tier": "A", "type": "raw" },
-    "grid-area": { "tier": "A", "type": "raw" },
-    "overflow": { "tier": "A", "type": "enum", "options": ["visible", "hidden", "scroll", "auto"], "initial": "visible" },
-    "overflow-x": { "tier": "A", "type": "enum", "options": ["visible", "hidden", "scroll", "auto"] },
-    "overflow-y": { "tier": "A", "type": "enum", "options": ["visible", "hidden", "scroll", "auto"] },
-    "z-index": { "tier": "A", "type": "number" },
-    "container-type": { "tier": "A", "type": "enum", "options": ["normal", "size", "inline-size"], "initial": "normal" },
-    "container-name": { "tier": "A", "type": "raw" },
-    "-dsx-masonry-columns": { "tier": "C", "type": "number", "degradation": "single column" },
-    "background": { "tier": "B", "type": "raw" },
-    "background-color": { "tier": "B", "type": "color", "animatable": true },
-    "border": { "tier": "B", "type": "raw", "shorthandOf": ["border-width", "border-style", "border-color"] },
-    "border-width": { "tier": "B", "type": "length" },
-    "border-style": { "tier": "B", "type": "enum", "options": ["none", "solid", "dashed", "dotted"], "initial": "none" },
-    "border-color": { "tier": "B", "type": "color", "animatable": true },
-    "border-radius": { "tier": "B", "type": "raw", "animatable": true },
-    "border-top-left-radius": { "tier": "B", "type": "length" },
-    "border-top-right-radius": { "tier": "B", "type": "length" },
-    "border-bottom-left-radius": { "tier": "B", "type": "length" },
-    "border-bottom-right-radius": { "tier": "B", "type": "length" },
-    "border-start-start-radius": { "tier": "B", "type": "length", "logical": true },
-    "border-start-end-radius": { "tier": "B", "type": "length", "logical": true },
-    "border-end-start-radius": { "tier": "B", "type": "length", "logical": true },
-    "border-end-end-radius": { "tier": "B", "type": "length", "logical": true },
-    "box-shadow": { "tier": "B", "type": "raw", "animatable": true },
-    "opacity": { "tier": "B", "type": "number", "initial": "1", "animatable": true, "compositor": true },
-    "transform": { "tier": "B", "type": "raw", "animatable": true, "compositor": true },
-    "transform-origin": { "tier": "B", "type": "raw" },
-    "filter": { "tier": "B", "type": "raw", "animatable": true },
-    "backdrop-filter": { "tier": "B", "type": "raw", "degradation": "Android<12 scrim; Reduce Transparency solid" },
-    "color": { "tier": "B", "type": "color", "inherited": true, "animatable": true },
-    "font-family": { "tier": "B", "type": "raw", "inherited": true },
-    "font-size": { "tier": "B", "type": "length", "inherited": true, "animatable": true },
-    "font-weight": { "tier": "B", "type": "raw", "inherited": true },
-    "font-style": { "tier": "B", "type": "enum", "options": ["normal", "italic"], "inherited": true },
-    "line-height": { "tier": "B", "type": "raw", "inherited": true },
-    "letter-spacing": { "tier": "B", "type": "length", "inherited": true },
-    "text-align": { "tier": "B", "type": "enum", "options": ["start", "end", "left", "right", "center", "justify"], "inherited": true },
-    "text-overflow": { "tier": "B", "type": "enum", "options": ["clip", "ellipsis"] },
-    "text-decoration": { "tier": "B", "type": "raw" },
-    "text-transform": { "tier": "B", "type": "enum", "options": ["none", "uppercase", "lowercase", "capitalize"], "inherited": true },
-    "white-space": { "tier": "B", "type": "enum", "options": ["normal", "nowrap", "pre", "pre-wrap"], "inherited": true },
-    "line-clamp": { "tier": "B", "type": "number" },
-    "-webkit-line-clamp": { "tier": "B", "type": "number", "aliasOf": "line-clamp" },
-    "transition": { "tier": "B", "type": "raw" },
-    "transition-property": { "tier": "B", "type": "raw" },
-    "transition-duration": { "tier": "B", "type": "raw" },
-    "transition-timing-function": { "tier": "B", "type": "raw" },
-    "transition-delay": { "tier": "B", "type": "raw" },
-    "animation": { "tier": "B", "type": "raw" },
-    "animation-name": { "tier": "B", "type": "raw" },
-    "animation-duration": { "tier": "B", "type": "raw" },
-    "animation-timing-function": { "tier": "B", "type": "raw" },
-    "animation-delay": { "tier": "B", "type": "raw" },
-    "animation-iteration-count": { "tier": "B", "type": "raw" },
-    "animation-direction": { "tier": "B", "type": "enum", "options": ["normal", "reverse", "alternate", "alternate-reverse"] },
-    "animation-fill-mode": { "tier": "B", "type": "enum", "options": ["none", "forwards", "backwards", "both"] },
-    "animation-play-state": { "tier": "B", "type": "enum", "options": ["running", "paused"] },
-    "pointer-events": { "tier": "B", "type": "enum", "options": ["auto", "none"] },
-    "object-fit": { "tier": "B", "type": "enum", "options": ["fill", "contain", "cover", "none", "scale-down"] },
-    "color-scheme": { "tier": "B", "type": "enum", "options": ["light", "dark", "light dark"], "inherited": true },
-    "-dsx-material": { "tier": "C", "type": "enum", "options": ["thin", "regular", "thick", "chrome"], "degradation": "Android<12 scrim; Reduce Transparency solid" },
-    "-dsx-haptic": { "tier": "C", "type": "enum", "options": ["light", "medium", "heavy", "success", "warning", "error"], "degradation": "no-op" },
-    "-dsx-hairline": { "tier": "C", "type": "color", "degradation": "none" },
-    "-dsx-marquee": { "tier": "C", "type": "raw", "degradation": "reduce-motion: static + trailing fade" },
-    "-dsx-flip-rtl": { "tier": "C", "type": "enum", "options": ["true", "false"], "degradation": "none" },
-    "-dsx-surface": { "tier": "C", "type": "enum", "options": ["glass", "thin", "regular", "thick", "sheet"], "degradation": "iOS<26 material fallback; Reduce Transparency solid" },
-    "-dsx-glass-tint": { "tier": "C", "type": "color", "degradation": "iOS<26 solid fill of the tint (full-color read survives)" },
-    "-dsx-glass-interactive": { "tier": "C", "type": "enum", "options": ["true", "false"], "degradation": "iOS<26 no-op (static material)" }
+    "display": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "flex",
+        "grid",
+        "none",
+        "-dsx-masonry"
+      ],
+      "initial": "flex"
+    },
+    "position": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "relative",
+        "absolute",
+        "fixed"
+      ],
+      "initial": "relative"
+    },
+    "inset": {
+      "tier": "A",
+      "type": "raw",
+      "shorthandOf": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ]
+    },
+    "top": {
+      "tier": "A",
+      "type": "length"
+    },
+    "right": {
+      "tier": "A",
+      "type": "length"
+    },
+    "bottom": {
+      "tier": "A",
+      "type": "length"
+    },
+    "left": {
+      "tier": "A",
+      "type": "length"
+    },
+    "width": {
+      "tier": "A",
+      "type": "length",
+      "keywords": [
+        "auto",
+        "fit-content",
+        "min-content",
+        "max-content"
+      ]
+    },
+    "height": {
+      "tier": "A",
+      "type": "length",
+      "keywords": [
+        "auto",
+        "fit-content",
+        "min-content",
+        "max-content"
+      ]
+    },
+    "min-width": {
+      "tier": "A",
+      "type": "length"
+    },
+    "min-height": {
+      "tier": "A",
+      "type": "length"
+    },
+    "max-width": {
+      "tier": "A",
+      "type": "length",
+      "keywords": [
+        "none"
+      ]
+    },
+    "max-height": {
+      "tier": "A",
+      "type": "length",
+      "keywords": [
+        "none"
+      ]
+    },
+    "aspect-ratio": {
+      "tier": "A",
+      "type": "raw"
+    },
+    "margin": {
+      "tier": "A",
+      "type": "raw",
+      "shorthandOf": [
+        "margin-top",
+        "margin-right",
+        "margin-bottom",
+        "margin-left"
+      ]
+    },
+    "margin-top": {
+      "tier": "A",
+      "type": "length",
+      "keywords": [
+        "auto"
+      ]
+    },
+    "margin-right": {
+      "tier": "A",
+      "type": "length",
+      "keywords": [
+        "auto"
+      ]
+    },
+    "margin-bottom": {
+      "tier": "A",
+      "type": "length",
+      "keywords": [
+        "auto"
+      ]
+    },
+    "margin-left": {
+      "tier": "A",
+      "type": "length",
+      "keywords": [
+        "auto"
+      ]
+    },
+    "margin-inline": {
+      "tier": "A",
+      "type": "raw",
+      "logical": true
+    },
+    "margin-inline-start": {
+      "tier": "A",
+      "type": "length",
+      "logical": true
+    },
+    "margin-inline-end": {
+      "tier": "A",
+      "type": "length",
+      "logical": true
+    },
+    "margin-block": {
+      "tier": "A",
+      "type": "raw",
+      "logical": true
+    },
+    "padding": {
+      "tier": "A",
+      "type": "raw",
+      "shorthandOf": [
+        "padding-top",
+        "padding-right",
+        "padding-bottom",
+        "padding-left"
+      ]
+    },
+    "padding-top": {
+      "tier": "A",
+      "type": "length"
+    },
+    "padding-right": {
+      "tier": "A",
+      "type": "length"
+    },
+    "padding-bottom": {
+      "tier": "A",
+      "type": "length"
+    },
+    "padding-left": {
+      "tier": "A",
+      "type": "length"
+    },
+    "padding-inline": {
+      "tier": "A",
+      "type": "raw",
+      "logical": true
+    },
+    "padding-inline-start": {
+      "tier": "A",
+      "type": "length",
+      "logical": true
+    },
+    "padding-inline-end": {
+      "tier": "A",
+      "type": "length",
+      "logical": true
+    },
+    "padding-block": {
+      "tier": "A",
+      "type": "raw",
+      "logical": true
+    },
+    "box-sizing": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "border-box",
+        "content-box"
+      ],
+      "initial": "border-box"
+    },
+    "flex-direction": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "row",
+        "row-reverse",
+        "column",
+        "column-reverse"
+      ],
+      "initial": "row"
+    },
+    "flex-wrap": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "nowrap",
+        "wrap",
+        "wrap-reverse"
+      ],
+      "initial": "nowrap"
+    },
+    "flex-grow": {
+      "tier": "A",
+      "type": "number",
+      "initial": "0"
+    },
+    "flex-shrink": {
+      "tier": "A",
+      "type": "number",
+      "initial": "1"
+    },
+    "flex-basis": {
+      "tier": "A",
+      "type": "length",
+      "keywords": [
+        "auto",
+        "content"
+      ],
+      "initial": "auto"
+    },
+    "flex": {
+      "tier": "A",
+      "type": "raw",
+      "shorthandOf": [
+        "flex-grow",
+        "flex-shrink",
+        "flex-basis"
+      ]
+    },
+    "order": {
+      "tier": "A",
+      "type": "number",
+      "initial": "0"
+    },
+    "justify-content": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "flex-start",
+        "flex-end",
+        "start",
+        "end",
+        "center",
+        "space-between",
+        "space-around",
+        "space-evenly"
+      ],
+      "initial": "flex-start"
+    },
+    "align-items": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "stretch",
+        "flex-start",
+        "flex-end",
+        "start",
+        "end",
+        "center",
+        "baseline"
+      ],
+      "initial": "stretch"
+    },
+    "align-self": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "auto",
+        "stretch",
+        "flex-start",
+        "flex-end",
+        "start",
+        "end",
+        "center",
+        "baseline"
+      ],
+      "initial": "auto"
+    },
+    "align-content": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "stretch",
+        "flex-start",
+        "flex-end",
+        "start",
+        "end",
+        "center",
+        "space-between",
+        "space-around",
+        "space-evenly"
+      ],
+      "initial": "stretch"
+    },
+    "justify-items": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "stretch",
+        "start",
+        "end",
+        "center"
+      ],
+      "initial": "stretch"
+    },
+    "justify-self": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "auto",
+        "stretch",
+        "start",
+        "end",
+        "center"
+      ],
+      "initial": "auto"
+    },
+    "gap": {
+      "tier": "A",
+      "type": "raw",
+      "shorthandOf": [
+        "row-gap",
+        "column-gap"
+      ]
+    },
+    "row-gap": {
+      "tier": "A",
+      "type": "length",
+      "initial": "0"
+    },
+    "column-gap": {
+      "tier": "A",
+      "type": "length",
+      "initial": "0"
+    },
+    "grid-template-columns": {
+      "tier": "A",
+      "type": "raw"
+    },
+    "grid-template-rows": {
+      "tier": "A",
+      "type": "raw"
+    },
+    "grid-template-areas": {
+      "tier": "A",
+      "type": "raw"
+    },
+    "grid-auto-flow": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "row",
+        "column",
+        "row dense",
+        "column dense"
+      ],
+      "initial": "row"
+    },
+    "grid-auto-columns": {
+      "tier": "A",
+      "type": "raw"
+    },
+    "grid-auto-rows": {
+      "tier": "A",
+      "type": "raw"
+    },
+    "grid-column": {
+      "tier": "A",
+      "type": "raw"
+    },
+    "grid-row": {
+      "tier": "A",
+      "type": "raw"
+    },
+    "grid-area": {
+      "tier": "A",
+      "type": "raw"
+    },
+    "overflow": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "visible",
+        "hidden",
+        "scroll",
+        "auto"
+      ],
+      "initial": "visible"
+    },
+    "overflow-x": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "visible",
+        "hidden",
+        "scroll",
+        "auto"
+      ]
+    },
+    "overflow-y": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "visible",
+        "hidden",
+        "scroll",
+        "auto"
+      ]
+    },
+    "z-index": {
+      "tier": "A",
+      "type": "number"
+    },
+    "container-type": {
+      "tier": "A",
+      "type": "enum",
+      "options": [
+        "normal",
+        "size",
+        "inline-size"
+      ],
+      "initial": "normal"
+    },
+    "container-name": {
+      "tier": "A",
+      "type": "raw"
+    },
+    "-dsx-masonry-columns": {
+      "tier": "C",
+      "type": "number",
+      "degradation": "single column"
+    },
+    "background": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "background-color": {
+      "tier": "B",
+      "type": "color",
+      "animatable": true
+    },
+    "border": {
+      "tier": "B",
+      "type": "raw",
+      "shorthandOf": [
+        "border-width",
+        "border-style",
+        "border-color"
+      ]
+    },
+    "border-width": {
+      "tier": "B",
+      "type": "length"
+    },
+    "border-style": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "none",
+        "solid",
+        "dashed",
+        "dotted"
+      ],
+      "initial": "none"
+    },
+    "border-color": {
+      "tier": "B",
+      "type": "color",
+      "animatable": true
+    },
+    "border-radius": {
+      "tier": "B",
+      "type": "raw",
+      "animatable": true
+    },
+    "border-top-left-radius": {
+      "tier": "B",
+      "type": "length"
+    },
+    "border-top-right-radius": {
+      "tier": "B",
+      "type": "length"
+    },
+    "border-bottom-left-radius": {
+      "tier": "B",
+      "type": "length"
+    },
+    "border-bottom-right-radius": {
+      "tier": "B",
+      "type": "length"
+    },
+    "border-start-start-radius": {
+      "tier": "B",
+      "type": "length",
+      "logical": true
+    },
+    "border-start-end-radius": {
+      "tier": "B",
+      "type": "length",
+      "logical": true
+    },
+    "border-end-start-radius": {
+      "tier": "B",
+      "type": "length",
+      "logical": true
+    },
+    "border-end-end-radius": {
+      "tier": "B",
+      "type": "length",
+      "logical": true
+    },
+    "box-shadow": {
+      "tier": "B",
+      "type": "raw",
+      "animatable": true
+    },
+    "opacity": {
+      "tier": "B",
+      "type": "number",
+      "initial": "1",
+      "animatable": true,
+      "compositor": true
+    },
+    "transform": {
+      "tier": "B",
+      "type": "raw",
+      "animatable": true,
+      "compositor": true
+    },
+    "transform-origin": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "filter": {
+      "tier": "B",
+      "type": "raw",
+      "animatable": true
+    },
+    "backdrop-filter": {
+      "tier": "B",
+      "type": "raw",
+      "degradation": "Android<12 scrim; Reduce Transparency solid"
+    },
+    "mask-image": {
+      "tier": "B",
+      "type": "raw",
+      "doc": "Mask the element by an image or gradient. The progressive-blur material needs it: stacked backdrop-filter layers whose gradient masks crossfade are how a continuous blur ramp is built without a per-pixel shader, and a mask on a filtered element masks the FILTERED output.",
+      "degradation": "iOS .mask(); Android BlendMode.DstIn; a renderer without it shows the unmasked layer"
+    },
+    "color": {
+      "tier": "B",
+      "type": "color",
+      "inherited": true,
+      "animatable": true
+    },
+    "caret-color": {
+      "tier": "B",
+      "type": "color",
+      "inherited": true,
+      "animatable": false
+    },
+    "font-family": {
+      "tier": "B",
+      "type": "raw",
+      "inherited": true
+    },
+    "font-size": {
+      "tier": "B",
+      "type": "length",
+      "inherited": true,
+      "animatable": true
+    },
+    "font-weight": {
+      "tier": "B",
+      "type": "raw",
+      "inherited": true
+    },
+    "font-style": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "normal",
+        "italic"
+      ],
+      "inherited": true
+    },
+    "line-height": {
+      "tier": "B",
+      "type": "raw",
+      "inherited": true
+    },
+    "letter-spacing": {
+      "tier": "B",
+      "type": "length",
+      "inherited": true
+    },
+    "text-align": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "start",
+        "end",
+        "left",
+        "right",
+        "center",
+        "justify"
+      ],
+      "inherited": true
+    },
+    "text-overflow": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "clip",
+        "ellipsis"
+      ]
+    },
+    "text-decoration": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "text-transform": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "none",
+        "uppercase",
+        "lowercase",
+        "capitalize"
+      ],
+      "inherited": true
+    },
+    "white-space": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "normal",
+        "nowrap",
+        "pre",
+        "pre-wrap"
+      ],
+      "inherited": true
+    },
+    "line-clamp": {
+      "tier": "B",
+      "type": "number"
+    },
+    "-webkit-line-clamp": {
+      "tier": "B",
+      "type": "number",
+      "aliasOf": "line-clamp"
+    },
+    "transition": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "transition-property": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "transition-duration": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "transition-timing-function": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "transition-delay": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "animation": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "animation-name": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "animation-duration": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "animation-timing-function": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "animation-delay": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "animation-iteration-count": {
+      "tier": "B",
+      "type": "raw"
+    },
+    "animation-direction": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "normal",
+        "reverse",
+        "alternate",
+        "alternate-reverse"
+      ]
+    },
+    "animation-fill-mode": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "none",
+        "forwards",
+        "backwards",
+        "both"
+      ]
+    },
+    "animation-play-state": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "running",
+        "paused"
+      ]
+    },
+    "pointer-events": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "auto",
+        "none"
+      ]
+    },
+    "object-fit": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "fill",
+        "contain",
+        "cover",
+        "none",
+        "scale-down"
+      ]
+    },
+    "color-scheme": {
+      "tier": "B",
+      "type": "enum",
+      "options": [
+        "light",
+        "dark",
+        "light dark"
+      ],
+      "inherited": true
+    },
+    "-dsx-material": {
+      "tier": "C",
+      "type": "enum",
+      "options": [
+        "thin",
+        "regular",
+        "thick",
+        "chrome"
+      ],
+      "degradation": "Android<12 scrim; Reduce Transparency solid"
+    },
+    "-dsx-haptic": {
+      "tier": "C",
+      "type": "enum",
+      "options": [
+        "light",
+        "medium",
+        "heavy",
+        "success",
+        "warning",
+        "error"
+      ],
+      "degradation": "no-op"
+    },
+    "-dsx-hairline": {
+      "tier": "C",
+      "type": "color",
+      "degradation": "none"
+    },
+    "-dsx-marquee": {
+      "tier": "C",
+      "type": "raw",
+      "degradation": "reduce-motion: static + trailing fade"
+    },
+    "-dsx-flip-rtl": {
+      "tier": "C",
+      "type": "enum",
+      "options": [
+        "true",
+        "false"
+      ],
+      "degradation": "none"
+    },
+    "-dsx-surface": {
+      "tier": "C",
+      "type": "enum",
+      "options": [
+        "glass",
+        "thin",
+        "regular",
+        "thick",
+        "sheet"
+      ],
+      "degradation": "iOS<26 material fallback; Reduce Transparency solid"
+    },
+    "-dsx-glass-tint": {
+      "tier": "C",
+      "type": "color",
+      "degradation": "iOS<26 solid fill of the tint (full-color read survives)"
+    },
+    "-dsx-glass-interactive": {
+      "tier": "C",
+      "type": "enum",
+      "options": [
+        "true",
+        "false"
+      ],
+      "degradation": "iOS<26 no-op (static material)"
+    }
   }
 }

@@ -1,4 +1,4 @@
-# OAuth HTTPS Callback — Cross-Platform Specification
+# OAuth HTTPS Callback: Cross-Platform Specification
 
 > The `type=https` contract of the `Core/Auth/OAuth` module: an OAuth / social sign-in
 > whose provider redirects to an **https URL on the app's own host** instead of the

@@ -86,7 +86,11 @@ enum JSEConformanceRecord {
         guard let name = c["name"] as? String else {
             throw Failure(description: "\(file): case without a string 'name'")
         }
-        let known = ["name", "scope", "expression", "expected"]
+        // `_note` is a case-level comment the corpus authors use to pin WHY a case is
+        // spelled the way it is; the TS and Kotlin runners already ignore it. It is
+        // carried through verbatim, in its committed position after `expected`, so a
+        // re-record stays byte-identical to the checked-in fixture.
+        let known = ["name", "scope", "expression", "expected", "_note"]
         for key in c.keys where !known.contains(key) {
             throw Failure(description: "\(file)/\(name): unknown case key '\(key)' — extend JSEConformanceRecord for new fixture shapes")
         }
@@ -97,12 +101,19 @@ enum JSEConformanceRecord {
         let store = StackStore()
         for (k, v) in scope { store.vars[k] = v }
         let actual = JSE.eval(expression, store: store, item: nil)
-        return .object([
+        var pairs: [(String, JVal)] = [
             ("name", .string(name)),
             ("scope", try jval(scope, context: "\(file)/\(name) scope")),
             ("expression", .string(expression)),
             ("expected", try jval(actual, context: "\(file)/\(name) result of `\(expression)`")),
-        ])
+        ]
+        if let rawNote = c["_note"] {
+            guard let note = rawNote as? String else {
+                throw Failure(description: "\(file)/\(name): _note is not a string")
+            }
+            pairs.append(("_note", .string(note)))
+        }
+        return .object(pairs)
     }
 
     // MARK: - Canonical JSON (byte-stable against the committed corpus)

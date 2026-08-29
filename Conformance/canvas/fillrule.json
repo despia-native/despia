@@ -1,0 +1,209 @@
+{
+ "_note": "FILL-RULE RESOLUTION and the FLATTENING law. A fill asks one question \u2014 is this point inside? \u2014 and the two answers differ wherever a path crosses itself, which is exactly where three rasterisers drift. THE LAW: every curve flattens to 16 uniform-parameter line segments (the pinned constant CANVAS_FLATTEN_SEGMENTS; uniform in t, never adaptive, because adaptive subdivision is per-implementation and would make this corpus unpinnable), every subpath is treated as CLOSED for filling, and the crossing test is HALF-OPEN in y: an edge counts when y0 \u2264 py < y1 (upward, +1) or y1 \u2264 py < y0 (downward, \u22121), and only when the crossing lies strictly right of the point. `nonzero` fills where the winding number is \u2260 0; `evenodd` fills where the crossing count is odd. `area` is the signed shoelace area of the flattened path \u2014 positive is clockwise in the y-down canvas space \u2014 and it pins the flattening itself, not just the verdicts. Expected values come from an independent scratch implementation.",
+ "cases": [
+  {
+   "name": "a pentagram: nonzero fills the core, evenodd punches it out",
+   "d": "M50 0 L20 90 L95 35 L5 35 L80 90 Z",
+   "area": -3525.0,
+   "points": [
+    {
+     "at": [
+      50,
+      30
+     ],
+     "winding": -1,
+     "nonzero": true,
+     "evenodd": true
+    },
+    {
+     "at": [
+      50,
+      10
+     ],
+     "winding": -1,
+     "nonzero": true,
+     "evenodd": true
+    },
+    {
+     "at": [
+      30,
+      50
+     ],
+     "winding": -1,
+     "nonzero": true,
+     "evenodd": true
+    },
+    {
+     "at": [
+      0,
+      0
+     ],
+     "winding": 0,
+     "nonzero": false,
+     "evenodd": false
+    }
+   ]
+  },
+  {
+   "name": "two subpaths wound the SAME way: nonzero keeps the hole filled",
+   "d": "M0 0 L60 0 L60 60 L0 60 Z M20 20 L40 20 L40 40 L20 40 Z",
+   "area": 4000.0,
+   "points": [
+    {
+     "at": [
+      30,
+      30
+     ],
+     "winding": 2,
+     "nonzero": true,
+     "evenodd": false
+    },
+    {
+     "at": [
+      10,
+      10
+     ],
+     "winding": 1,
+     "nonzero": true,
+     "evenodd": true
+    },
+    {
+     "at": [
+      70,
+      70
+     ],
+     "winding": 0,
+     "nonzero": false,
+     "evenodd": false
+    }
+   ]
+  },
+  {
+   "name": "two subpaths wound the OTHER way: both rules punch the hole",
+   "d": "M0 0 L60 0 L60 60 L0 60 Z M20 20 L20 40 L40 40 L40 20 Z",
+   "area": 3200.0,
+   "points": [
+    {
+     "at": [
+      30,
+      30
+     ],
+     "winding": 0,
+     "nonzero": false,
+     "evenodd": false
+    },
+    {
+     "at": [
+      10,
+      10
+     ],
+     "winding": 1,
+     "nonzero": true,
+     "evenodd": true
+    }
+   ]
+  },
+  {
+   "name": "an unclosed subpath is implicitly closed for filling",
+   "d": "M0 0 L10 0 L10 10 L0 10",
+   "area": 100.0,
+   "points": [
+    {
+     "at": [
+      5,
+      5
+     ],
+     "winding": 1,
+     "nonzero": true,
+     "evenodd": true
+    },
+    {
+     "at": [
+      15,
+      5
+     ],
+     "winding": 0,
+     "nonzero": false,
+     "evenodd": false
+    }
+   ]
+  },
+  {
+   "name": "a circle path",
+   "d": "M50 20 A30 30 0 1 1 49.99 20 Z",
+   "area": 2823.678099,
+   "points": [
+    {
+     "at": [
+      50,
+      50
+     ],
+     "winding": 1,
+     "nonzero": true,
+     "evenodd": true
+    },
+    {
+     "at": [
+      50,
+      15
+     ],
+     "winding": 0,
+     "nonzero": false,
+     "evenodd": false
+    },
+    {
+     "at": [
+      85,
+      50
+     ],
+     "winding": 0,
+     "nonzero": false,
+     "evenodd": false
+    }
+   ]
+  },
+  {
+   "name": "the half-open crossing rule: the top edge is IN, the bottom edge is OUT",
+   "d": "M0 0 L10 0 L10 10 L0 10 Z",
+   "area": 100.0,
+   "points": [
+    {
+     "at": [
+      5,
+      0
+     ],
+     "winding": 1,
+     "nonzero": true,
+     "evenodd": true
+    },
+    {
+     "at": [
+      5,
+      10
+     ],
+     "winding": 0,
+     "nonzero": false,
+     "evenodd": false
+    },
+    {
+     "at": [
+      0,
+      5
+     ],
+     "winding": 1,
+     "nonzero": true,
+     "evenodd": true
+    },
+    {
+     "at": [
+      10,
+      5
+     ],
+     "winding": 0,
+     "nonzero": false,
+     "evenodd": false
+    }
+   ]
+  }
+ ]
+}

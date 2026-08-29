@@ -1,0 +1,350 @@
+{
+ "_note": "OFFSET MATH — the one function every other file in this corpus builds on. Raw offsets keep their SIGN (rubber-band over-scroll is real, and <CollapsingHeader stretch> is built on it); `progress` is computed from the CLAMPED offset so it never leaves 0..1. atTop/atBottom carry a HALF-POINT tolerance: momentum deceleration lands a fraction of a point short of the rail and a strict comparison makes `atBottom` flicker false at rest, which is how an infinite-scroll trigger misses. THE DEGENERATE CASE IS PINNED ON PURPOSE: content no taller than the viewport reports atTop AND atBottom (a page with nothing to scroll IS at both of its ends, and that is what makes on:reachEnd fire once for a short list) and progress 0, NOT 1 — a non-scrollable plane must publish the RESTING state, because a header that boots into its collapsed look on a short page is the visible bug. Non-finite input reads as the origin. Cases are a geometry -> the derived metrics. Runners: TS (packages/kernel/src/scroll.ts), Kotlin (:core ScrollLinkedConformanceTest), Swift (ScrollLinked.swift, record lane).",
+ "cases": [
+  {
+   "name": "resting at the origin of a long page",
+   "geometry": {
+    "x": 0,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 0.0,
+    "maxX": 0.0,
+    "maxY": 1200.0,
+    "progress": 0.0,
+    "progressX": 0.0,
+    "atTop": true,
+    "atBottom": false,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "mid-scroll",
+   "geometry": {
+    "x": 0,
+    "y": 600,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 600.0,
+    "maxX": 0.0,
+    "maxY": 1200.0,
+    "progress": 0.5,
+    "progressX": 0.0,
+    "atTop": false,
+    "atBottom": false,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "exactly at the bottom",
+   "geometry": {
+    "x": 0,
+    "y": 1200,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 1200.0,
+    "maxX": 0.0,
+    "maxY": 1200.0,
+    "progress": 1.0,
+    "progressX": 0.0,
+    "atTop": false,
+    "atBottom": true,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "a quarter-point short of the bottom is still atBottom (sub-pixel tolerance)",
+   "geometry": {
+    "x": 0,
+    "y": 1199.75,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 1199.75,
+    "maxX": 0.0,
+    "maxY": 1200.0,
+    "progress": 0.9998,
+    "progressX": 0.0,
+    "atTop": false,
+    "atBottom": true,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "a point short of the bottom is NOT atBottom",
+   "geometry": {
+    "x": 0,
+    "y": 1199.0,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 1199.0,
+    "maxX": 0.0,
+    "maxY": 1200.0,
+    "progress": 0.9992,
+    "progressX": 0.0,
+    "atTop": false,
+    "atBottom": false,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "a quarter-point past the top is still atTop",
+   "geometry": {
+    "x": 0,
+    "y": 0.25,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 0.25,
+    "maxX": 0.0,
+    "maxY": 1200.0,
+    "progress": 0.0002,
+    "progressX": 0.0,
+    "atTop": true,
+    "atBottom": false,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "a point past the top is NOT atTop",
+   "geometry": {
+    "x": 0,
+    "y": 1.0,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 1.0,
+    "maxX": 0.0,
+    "maxY": 1200.0,
+    "progress": 0.0008,
+    "progressX": 0.0,
+    "atTop": false,
+    "atBottom": false,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "rubber-band over-scroll above the top keeps its sign and reports progress 0",
+   "geometry": {
+    "x": 0,
+    "y": -120,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "expect": {
+    "x": 0.0,
+    "y": -120.0,
+    "maxX": 0.0,
+    "maxY": 1200.0,
+    "progress": 0.0,
+    "progressX": 0.0,
+    "atTop": true,
+    "atBottom": false,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "rubber-band over-scroll past the bottom clamps progress to 1",
+   "geometry": {
+    "x": 0,
+    "y": 1340,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 1340.0,
+    "maxX": 0.0,
+    "maxY": 1200.0,
+    "progress": 1.0,
+    "progressX": 0.0,
+    "atTop": false,
+    "atBottom": true,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "content shorter than the viewport: nothing scrolls, so it is at BOTH ends",
+   "geometry": {
+    "x": 0,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 400
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 0.0,
+    "maxX": 0.0,
+    "maxY": 0.0,
+    "progress": 0.0,
+    "progressX": 0.0,
+    "atTop": true,
+    "atBottom": true,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "content exactly the viewport height: still both ends, still progress 0",
+   "geometry": {
+    "x": 0,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 800
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 0.0,
+    "maxX": 0.0,
+    "maxY": 0.0,
+    "progress": 0.0,
+    "progressX": 0.0,
+    "atTop": true,
+    "atBottom": true,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "a zero-height viewport does not divide by zero",
+   "geometry": {
+    "x": 0,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 0,
+    "contentWidth": 390,
+    "contentHeight": 0
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 0.0,
+    "maxX": 0.0,
+    "maxY": 0.0,
+    "progress": 0.0,
+    "progressX": 0.0,
+    "atTop": true,
+    "atBottom": true,
+    "atStart": true,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "a horizontal rail reports its own axis",
+   "geometry": {
+    "x": 240,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 200,
+    "contentWidth": 1200,
+    "contentHeight": 200
+   },
+   "expect": {
+    "x": 240.0,
+    "y": 0.0,
+    "maxX": 810.0,
+    "maxY": 0.0,
+    "progress": 0.0,
+    "progressX": 0.2963,
+    "atTop": true,
+    "atBottom": true,
+    "atStart": false,
+    "atEnd": false
+   }
+  },
+  {
+   "name": "a horizontal rail at its end",
+   "geometry": {
+    "x": 810,
+    "y": 0,
+    "viewportWidth": 390,
+    "viewportHeight": 200,
+    "contentWidth": 1200,
+    "contentHeight": 200
+   },
+   "expect": {
+    "x": 810.0,
+    "y": 0.0,
+    "maxX": 810.0,
+    "maxY": 0.0,
+    "progress": 0.0,
+    "progressX": 1.0,
+    "atTop": true,
+    "atBottom": true,
+    "atStart": false,
+    "atEnd": true
+   }
+  },
+  {
+   "name": "a non-finite offset reads as the origin rather than poisoning every derived value",
+   "geometry": {
+    "x": 0,
+    "y": null,
+    "viewportWidth": 390,
+    "viewportHeight": 800,
+    "contentWidth": 390,
+    "contentHeight": 2000
+   },
+   "expect": {
+    "x": 0.0,
+    "y": 0.0,
+    "maxX": 0.0,
+    "maxY": 1200.0,
+    "progress": 0.0,
+    "progressX": 0.0,
+    "atTop": true,
+    "atBottom": false,
+    "atStart": true,
+    "atEnd": true
+   }
+  }
+ ]
+}

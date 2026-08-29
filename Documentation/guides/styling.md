@@ -2,9 +2,11 @@
 
 > **A note on paths.** This guide is written in the Despia monorepo, where the open tree
 > you are reading lives under `OpenSource/` and the commercial layer (the production
-> module catalog, host shells, and build machinery) lives under `ClosedSource/`. Paths
-> with those prefixes refer to the monorepo; only the open tree ships in the public
-> repository, and an `OpenSource/X` path is `X/` there.
+> module catalog, host shells, and build machinery) lives in a sibling PRIVATE tree that
+> is not part of this drop. An `OpenSource/X` path is `X/` in the public repository. A
+> command or file named below as `scripts/…`, `DSX/Modules/…` or `Documentation/…`
+> without the `OpenSource/` prefix belongs to that private tree: it is named for the
+> record, never as something to run from what you have.
 
 > The practical authoring guide for DSX-CSS — what works **today** in this
 > engine, the conventions, and what lands with the Taffy layout phase.
@@ -73,16 +75,28 @@ never specificity arithmetic.
 
 ### 1 · Tokens (`theme.css`)
 
+Two different things live in this file, and mixing them up is the most common theming
+mistake:
+
 ```css
 :root {
-  --surface: #111113;  --accent: #0a84ff;
-  --pad: 1rem;  --radius-card: 14px;
+  /* 1 - RE-PIN a kernel token. Every built-in control that reads it moves at once. */
+  --dsx-accent: #0a84ff;
+  --dsx-radius-card: 14px;
+
+  /* 2 - DECLARE your own, for your own sheets to consume. Styles nothing by itself. */
+  --pad: 1rem;
 }
-@media (prefers-color-scheme: dark) { :root { --surface: #0b0b0d; } }
+@media (prefers-color-scheme: dark) { :root { --dsx-accent: #4da3ff; } }
 ```
 
-Use them anywhere: `background: var(--surface)`. Unknown token → the
-`var(--x, fallback)` fallback, else the declaration drops (loudly, in lint).
+Use either anywhere: `background: var(--dsx-surface-base)`, `padding: var(--pad)`. An
+unknown token takes the `var(--x, fallback)` fallback, else the declaration drops
+(loudly, in lint).
+
+The 237 `--dsx-*` names are the kernel's own vocabulary and re-pinning them is what
+restyles the built-in controls; a name you invent only styles what you write. **The
+vocabulary, the cascade and the native answer are in `guides/theming.md`.**
 
 ### 2 · Component sheets — a SIDECAR `.css` next to the `.dsx`
 
@@ -185,10 +199,13 @@ intent), and CSS `align-items` on the element's cross axis.
   full-color glass button with a white label, never just tinted text. Below
   iOS 26 it falls back to a solid fill of the tint, so the full-color read
   survives on every device.
-- `glassInteractive` (CSS `-dsx-glass-interactive`) — the system's bouncy
-  press-stretch response (`glassEffect(.interactive())`). Defaults **on** for
-  tappable elements; removable per element (`glassInteractive="false"`) or by
-  a class, which makes the whole treatment an add/removable style:
+- `glassInteractive` (CSS `-dsx-glass-interactive`) — the press response.
+  iOS 26+ stretches the real material (`glassEffect(.interactive())`); Compose,
+  Compose Desktop and the web scale the surface to 0.97 and spring back, which
+  is the observable half of the same gesture where there is no material to
+  stretch. **Opt-in** on every renderer: only `glassInteractive="true"` turns it
+  on. It sits beside the other two in a class, which makes the whole treatment
+  an add/removable style:
 
 ```css
 .btn-primary { -dsx-surface: glass; -dsx-glass-tint: var(--accent); color: white; }
@@ -204,12 +221,13 @@ adoption can never regress an element you've pinned.
 
 ## Tooling
 
-- `ruby ClosedSource/scripts/lint_dsx_css.rb [--strict|--format=json]` —
+- `despia lint --strict` — the shipped gate. The monorepo runs the same rules as
+  `ruby scripts/lint_dsx_css.rb [--strict|--format=json]` (private tree) —
   validates every sheet + inline style against the catalog; error codes with
   fix-its (`E001 unknown property — did you mean 'color'?`).
-- `ruby ClosedSource/scripts/compile_dsx_css.rb` — sheet compilation
+- `ruby scripts/compile_dsx_css.rb` (private tree) — sheet compilation
   (run automatically by `prepare_modules`).
-- Layout conformance: `ClosedSource/scripts/dsxcss/` (headless Taffy runner +
+- Layout conformance: `scripts/dsxcss/` (private tree; headless Taffy runner +
   fixtures — the same core the app links).
 
 ## Phase 2 (wired, waiting on the Taffy xcframework — built by CI, linked by

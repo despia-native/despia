@@ -1,0 +1,96 @@
+<!-- Trails, the feed screen. The worked example behind Skills/writing-an-app.md and
+     designing-an-app.md: grouped-list structure, semantic tokens only, type on the scale,
+     spacing on the 4-grid, and all four screen states (content, loading, empty, error).
+     The state walker at the bottom exists so you can SEE every state, per
+     designing-an-app.md section 9. -->
+<scroll background="groupedBackground">
+  <head>
+    <variable as="phase">return 'content'</variable>
+    <variable as="trails">
+      return [
+        { id: 't1', title: 'Ridgeline Loop', region: 'North Range', km: 8.4, minutes: 150, rating: 4.8, pro: false },
+        { id: 't2', title: 'Lakeshore Path', region: 'East Valley', km: 3.2, minutes: 45, rating: 4.5, pro: false },
+        { id: 't3', title: 'Summit Traverse', region: 'North Range', km: 14.9, minutes: 320, rating: 4.9, pro: true },
+        { id: 't4', title: 'Cedar Canyon', region: 'West Hills', km: 6.1, minutes: 105, rating: 4.2, pro: true }
+      ]
+    </variable>
+    <variable as="phases">
+      return [
+        { label: 'Content', value: 'content' },
+        { label: 'Loading', value: 'loading' },
+        { label: 'Empty', value: 'empty' },
+        { label: 'Error', value: 'error' }
+      ]
+    </variable>
+    <variable as="hasTrails" computed="true">dsx.variable.phase == 'content' &amp;&amp; dsx.variable.trails.length > 0</variable>
+
+    <action as="open" inputs="trail">
+      dsx.global.trail = trail;
+      dsx.module.route.push({ path: '/detail' })
+    </action>
+
+    <style as="sectionTitle" fontSize="13" fontWeight="semibold" color="secondary"/>
+  </head>
+
+  <vstack padding="16" spacing="16">
+    <!-- header: one heading per zone, the accent stays out of chrome -->
+    <hstack spacing="12">
+      <text value="Trails" fontSize="34" fontWeight="bold" a11yTrait="header"/>
+      <spacer/>
+      <button icon="gearshape" href="/settings" a11yLabel="Settings"/>
+    </hstack>
+
+    <pressable href="/onboarding">
+      <hstack spacing="8" padding="12" background="fill" radius="12" a11yGroup="true">
+        <image icon="sparkles" iconSize="17" color="accent"/>
+        <text value="New here? Take the tour" fontSize="15"/>
+        <spacer/>
+        <image icon="chevron.right" iconSize="13" color="tertiary"/>
+      </hstack>
+    </pressable>
+
+    <!-- loading: skeleton shapes where content will land, so arrival is a repaint -->
+    <vstack spacing="12" visible-if="dsx.variable.phase == 'loading'">
+      <Skeleton height="72" radius="16"/>
+      <Skeleton height="72" radius="16"/>
+      <Skeleton height="72" radius="16"/>
+    </vstack>
+
+    <!-- empty: say what would be here and hand over the action that creates it -->
+    <vstack spacing="8" padding="32" visible-if="dsx.variable.phase == 'empty'">
+      <image icon="tray" iconSize="34" color="tertiary"/>
+      <text value="No trails yet" fontSize="17" fontWeight="semibold"/>
+      <text value="Follow a region and new trails land here." fontSize="15" color="secondary"/>
+      <button label="Browse regions" variant="bordered" on:tap="dsx.variable.phase = 'content'"/>
+    </vstack>
+
+    <!-- error: the user's terms plus a retry, never a raw module error string -->
+    <vstack spacing="8" padding="32" visible-if="dsx.variable.phase == 'error'">
+      <image icon="xmark" iconSize="34" color="destructive"/>
+      <text value="Trails did not load" fontSize="17" fontWeight="semibold"/>
+      <text value="Check your connection and try again." fontSize="15" color="secondary"/>
+      <button label="Retry" variant="bordered" on:tap="dsx.variable.phase = 'content'"/>
+    </vstack>
+
+    <!-- content: the LIST is the card - one grouped surface, plain rows edge to edge,
+         the platform's separators and row highlight inside it. overflow: hidden keeps a
+         first/last row's highlight inside the card's corners. -->
+    <vstack spacing="8" visible-if="dsx.variable.hasTrails">
+      <text value="NEARBY" class="sectionTitle" a11yTrait="header"/>
+      <vstack background="secondaryGroupedBackground" radius="16" style="overflow: hidden">
+        <list bind="dsx.variable.trails" key="id">
+          <pressable on:tap="dsx.action.open({ trail: item })">
+            <TrailRow trail="{{ item }}"/>
+          </pressable>
+        </list>
+      </vstack>
+    </vstack>
+
+    <!-- the state walker: a demo affordance so every state above is one tap away -->
+    <vstack spacing="8" padding="12" background="fill" radius="12">
+      <text value="PREVIEW STATES (DEMO)" class="sectionTitle"/>
+      <!-- one value, one owner, the system's own control for picking one of four -->
+      <segmented bind="dsx.variable.phase" optionsKey="dsx.variable.phases" labelField="label" valueField="value"/>
+    </vstack>
+  </vstack>
+</scroll>

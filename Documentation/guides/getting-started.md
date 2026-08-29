@@ -1,4 +1,4 @@
-# Getting started — the web app you already have
+# Getting started: the web app you already have
 
 Your web app runs inside DSX with a global `window.dsx` object. Every native feature
 is one call away.

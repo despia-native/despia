@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "_note": "The `recorder` state machine and the metering curve (parity/F14-recorder.md). Both are pure and both are where a recorder drifts: iOS reports average power in dBFS and Android reports a 16-bit linear amplitude, so without one shared fold the same voice fills the bar on one platform and barely moves it on the other; and a second `start` has to mean `busy` on all three or an app ships two half-files. The audio capture itself is platform work and is deliberately not pinned here.",
+
+  "curve": {
+    "_note": "LINEAR IN DECIBELS between the floor and full scale, which is what a level meter should be: -30 dBFS sits at exactly half, where amplitude-linear mapping would put it at 0.0316 and the bar would look dead during normal speech. Rounded to four decimals, half away from zero, so three renderers produce the same bytes.",
+    "floorDb": -60,
+    "meterIntervalMs": 100,
+    "rounding": "4dp-half-away-from-zero"
+  },
+
+  "meter": [
+    { "name": "the floor is silence", "db": -60, "expect": 0 },
+    { "name": "below the floor is still silence", "db": -70, "expect": 0 },
+    { "name": "full scale is one", "db": 0, "expect": 1 },
+    { "name": "above full scale clips to one", "db": 5, "expect": 1 },
+    { "name": "half the scale is exactly halfway", "db": -30, "expect": 0.5 },
+    { "name": "a quiet room", "db": -50, "expect": 0.1667 },
+    { "name": "a soft voice", "db": -45, "expect": 0.25 },
+    { "name": "conversational speech", "db": -20, "expect": 0.6667 },
+    { "name": "a loud voice", "db": -12, "expect": 0.8 },
+    { "name": "close to clipping", "db": -6, "expect": 0.9 },
+    { "name": "very close to clipping", "db": -3, "expect": 0.95 }
+  ],
+
+  "amplitude": [
+    { "name": "a full-scale 16-bit peak", "amplitude": 32767, "fullScale": 32767, "expectDb": 0, "expectLevel": 1 },
+    { "name": "a tenth of full scale, 16-bit", "amplitude": 3277, "fullScale": 32767, "expectDb": -19.9992, "expectLevel": 0.6667 },
+    { "name": "a hundredth of full scale, 16-bit", "amplitude": 1000, "fullScale": 32767, "expectDb": -30.3087, "expectLevel": 0.4949 },
+    { "name": "near the floor, 16-bit", "amplitude": 100, "fullScale": 32767, "expectDb": -50.3087, "expectLevel": 0.1615 },
+    { "name": "below the floor clamps, 16-bit", "amplitude": 10, "fullScale": 32767, "expectDb": -60, "expectLevel": 0 },
+    { "name": "digital silence", "amplitude": 0, "fullScale": 32767, "expectDb": -60, "expectLevel": 0 },
+    { "name": "a normalised float at full scale", "amplitude": 1, "fullScale": 1, "expectDb": 0, "expectLevel": 1 },
+    { "name": "a normalised float at half amplitude", "amplitude": 0.5, "fullScale": 1, "expectDb": -6.0206, "expectLevel": 0.8997 },
+    { "name": "a normalised float at a tenth", "amplitude": 0.1, "fullScale": 1, "expectDb": -20, "expectLevel": 0.6667 },
+    { "name": "a normalised float below the floor", "amplitude": 0.001, "fullScale": 1, "expectDb": -60, "expectLevel": 0 },
+    { "name": "a negative sample reads as its magnitude", "amplitude": -3277, "fullScale": 32767, "expectDb": -19.9992, "expectLevel": 0.6667 }
+  ],
+
+  "formats": [
+    { "name": "the default is m4a", "input": "", "expect": "m4a" },
+    { "name": "m4a", "input": "m4a", "expect": "m4a" },
+    { "name": "aac is the same container", "input": "aac", "expect": "m4a" },
+    { "name": "mp4 is the same container", "input": "MP4", "expect": "m4a" },
+    { "name": "wav", "input": "wav", "expect": "wav" },
+    { "name": "wave folds to wav", "input": "wave", "expect": "wav" },
+    { "name": "opus", "input": "opus", "expect": "opus" },
+    { "name": "ogg folds to opus", "input": "ogg", "expect": "opus" },
+    { "name": "a leading dot is tolerated", "input": ".wav", "expect": "wav" },
+    { "name": "mp3 is not offered, because neither platform encodes it without a licence", "input": "mp3", "expect": null },
+    { "name": "flac is not offered", "input": "flac", "expect": null }
+  ],
+
+  "states": ["idle", "recording", "paused", "interrupted"],
+
+  "transitions": [
+    { "name": "start from idle begins recording", "from": "idle", "event": "start", "expect": { "state": "recording" } },
+    { "name": "a second start is busy, never a second file", "from": "recording", "event": "start", "expect": { "state": "recording", "error": "busy" } },
+    { "name": "starting while paused is busy too", "from": "paused", "event": "start", "expect": { "state": "paused", "error": "busy" } },
+    { "name": "starting during an interruption is busy", "from": "interrupted", "event": "start", "expect": { "state": "interrupted", "error": "busy" } },
+    { "name": "pause while recording", "from": "recording", "event": "pause", "expect": { "state": "paused" } },
+    { "name": "pausing twice is idempotent", "from": "paused", "event": "pause", "expect": { "state": "paused" } },
+    { "name": "pausing nothing is refused", "from": "idle", "event": "pause", "expect": { "state": "idle", "error": "not_recording" } },
+    { "name": "resume from paused", "from": "paused", "event": "resume", "expect": { "state": "recording" } },
+    { "name": "resuming twice is idempotent", "from": "recording", "event": "resume", "expect": { "state": "recording" } },
+    { "name": "resuming nothing is refused", "from": "idle", "event": "resume", "expect": { "state": "idle", "error": "not_recording" } },
+    { "name": "stop from recording", "from": "recording", "event": "stop", "expect": { "state": "idle" } },
+    { "name": "stop from paused still produces the take", "from": "paused", "event": "stop", "expect": { "state": "idle" } },
+    { "name": "stop during an interruption still produces the take", "from": "interrupted", "event": "stop", "expect": { "state": "idle" } },
+    { "name": "stopping nothing is refused", "from": "idle", "event": "stop", "expect": { "state": "idle", "error": "not_recording" } },
+    { "name": "cancel from recording", "from": "recording", "event": "cancel", "expect": { "state": "idle" } },
+    { "name": "cancel from paused", "from": "paused", "event": "cancel", "expect": { "state": "idle" } },
+    { "name": "cancelling nothing is refused", "from": "idle", "event": "cancel", "expect": { "state": "idle", "error": "not_recording" } },
+    { "name": "maxDuration stops a live recording cleanly", "from": "recording", "event": "maxDuration", "expect": { "state": "idle" } },
+    { "name": "maxDuration does not fire while paused", "from": "paused", "event": "maxDuration", "expect": { "state": "paused" } },
+    { "name": "an unknown event changes nothing and is refused", "from": "recording", "event": "rewind", "expect": { "state": "recording", "error": "not_recording" } }
+  ]
+}

@@ -1,0 +1,10 @@
+<!-- PropertyRow — a label beside the control that edits it: the inspector row shape, so an
+     app's settings read like the Studio's own. The label is chrome and takes quiet ink; the
+     control arrives through the slot and keeps its own voice. -->
+<hstack class="sk-prop" grow="width" style="align-items: center; gap: 0.375rem">
+  <head>
+    <attribute as="label"/>
+  </head>
+  <text value="{{ dsx.attribute.label }}" class="sk-prop-label" lineLimit="1"/>
+  <slot/>
+</hstack>

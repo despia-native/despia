@@ -14,6 +14,8 @@ export const serverConfig = {
     "server_url": "",
     "link_public_key": "",
     "deploy_target": "supabase",
+    "cloudflare_worker_name": "dsx-server",
+    "cloudflare_hyperdrive_id": "",
     "supabase_project_ref": "hforkizbesezccnbeqjh",
     "firebase_project_id": "",
     "webhook_tolerance_seconds": 300,
@@ -21,6 +23,31 @@ export const serverConfig = {
     "max_body_bytes": 1048576,
     "service_roles": [
       "service_role"
+    ],
+    "spend_beacon_url": "",
+    "spend_beacon_app": "",
+    "spend_budgets": [
+      {
+        "of": "data:reads",
+        "per": "day",
+        "max": 2500000
+      },
+      {
+        "of": "data:writes",
+        "per": "day",
+        "max": 500000
+      },
+      {
+        "of": "queue:webhooks",
+        "per": "day",
+        "max": 50000,
+        "depth": 10000
+      },
+      {
+        "of": "requests",
+        "per": "day",
+        "max": 250000
+      }
     ]
   },
   "env": {
@@ -29,7 +56,9 @@ export const serverConfig = {
     "auth_audience": "DSX_JWT_AUDIENCE",
     "server_url": "DSX_SERVER_URL",
     "link_public_key": "DSX_LINK_PUBLIC_KEY",
-    "firebase_project_id": "DSX_FIREBASE_PROJECT_ID"
+    "firebase_project_id": "DSX_FIREBASE_PROJECT_ID",
+    "spend_beacon_url": "DSX_SPEND_BEACON_URL",
+    "spend_beacon_app": "DSX_SPEND_BEACON_APP"
   },
   "required": [
     {

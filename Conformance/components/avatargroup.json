@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "component": "AvatarGroup",
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/AvatarGroup.dsx",
+  "_note": "<AvatarGroup> — the stacked faces row (U11). THE TWO THINGS THAT BREAK A COMPOSED COMPONENT ARE OVERFLOW AND EMPTY, so those are the pinned cases rather than the happy path: at 1 face, at 0, at exactly `max`, and at 50. The overflow disc is a SYNTHETIC CELL of the same shape as a face, which is what lets one row template draw both; it is built with concat, because a computed value cannot mutate a local array (the first shipped spelling used push and the +N disc silently never rendered). The single utterance is the whole accessibility contract: a count, the named faces that are drawn, and the remainder — never one announcement per face. A group nobody wired must announce as an IMAGE, never as a dead button, so `role`/`a11yTrait` are pinned in both states.",
+  "cases": [
+    {
+      "name": "an empty roster announces itself and draws nothing",
+      "attributes": { "items": "" },
+      "expect": [
+        { "expr": "dsx.variable.avatarGroupPeople", "value": [] },
+        { "expr": "dsx.variable.avatarGroupCells", "value": [] },
+        { "expr": "dsx.variable.avatarGroupLabel", "value": "No people" }
+      ],
+      "root": [{ "attr": "a11yLabel", "value": "No people" }]
+    },
+    {
+      "name": "text that is not a JSON array fails open to empty rather than throwing",
+      "attributes": { "items": "not json" },
+      "expect": [
+        { "expr": "dsx.variable.avatarGroupPeople", "value": [] },
+        { "expr": "dsx.variable.avatarGroupLabel", "value": "No people" }
+      ]
+    },
+    {
+      "name": "one face is announced by name alone, with no count",
+      "attributes": { "items": "[{\"name\":\"Ada\",\"initials\":\"AD\"}]" },
+      "expect": [
+        { "expr": "dsx.variable.avatarGroupLabel", "value": "Ada" },
+        { "expr": "dsx.variable.avatarGroupCells.length", "value": 1 },
+        { "expr": "dsx.variable.avatarGroupCells[0].overflow", "value": false }
+      ]
+    },
+    {
+      "name": "two faces read as a pair, not as a list of one and a remainder",
+      "attributes": { "items": "[{\"name\":\"Ada\"},{\"name\":\"Grace\"}]" },
+      "expect": [{ "expr": "dsx.variable.avatarGroupLabel", "value": "2 people: Ada and Grace" }]
+    },
+    {
+      "name": "exactly `max` faces draws no overflow disc",
+      "attributes": { "items": "[{\"name\":\"Ada\"},{\"name\":\"Grace\"},{\"name\":\"Linus\"}]" },
+      "expect": [
+        { "expr": "dsx.variable.avatarGroupCells.length", "value": 3 },
+        { "expr": "dsx.variable.avatarGroupLabel", "value": "3 people: Ada, Grace and Linus" }
+      ]
+    },
+    {
+      "name": "OVERFLOW: five faces at max 3 draws three faces and one +2 disc",
+      "attributes": { "items": "[{\"name\":\"Ada\",\"initials\":\"AD\"},{\"name\":\"Grace\"},{\"name\":\"Linus\"},{\"name\":\"Ken\"},{\"name\":\"Bjarne\"}]" },
+      "expect": [
+        { "expr": "dsx.variable.avatarGroupCells.length", "value": 4 },
+        { "expr": "dsx.variable.avatarGroupCells[3].overflow", "value": true },
+        { "expr": "dsx.variable.avatarGroupCells[3].initials", "value": "+2" },
+        { "expr": "dsx.variable.avatarGroupCells[3].key", "value": "more" },
+        { "expr": "dsx.variable.avatarGroupLabel", "value": "5 people: Ada, Grace, Linus and 2 others" }
+      ]
+    },
+    {
+      "name": "a face with no initials still renders a cell rather than dropping out of the row",
+      "attributes": { "items": "[{\"name\":\"Ada\"}]" },
+      "expect": [
+        { "expr": "dsx.variable.avatarGroupCells[0].initials", "value": "" },
+        { "expr": "dsx.variable.avatarGroupCells[0].src", "value": "" }
+      ]
+    },
+    {
+      "name": "max clamps to at least one face, so the row is never all overflow",
+      "attributes": { "items": "[{\"name\":\"Ada\"},{\"name\":\"Grace\"}]", "max": "0" },
+      "expect": [
+        { "expr": "dsx.variable.avatarGroupMax", "value": 1 },
+        { "expr": "dsx.variable.avatarGroupCells.length", "value": 2 },
+        { "expr": "dsx.variable.avatarGroupCells[1].initials", "value": "+1" }
+      ]
+    },
+    {
+      "name": "a face with no name falls back to its initials in the utterance",
+      "attributes": { "items": "[{\"initials\":\"AD\"},{\"name\":\"Grace\"}]" },
+      "expect": [{ "expr": "dsx.variable.avatarGroupLabel", "value": "2 people: AD and Grace" }]
+    },
+    {
+      "name": "an untapped group announces as an IMAGE, never as a dead button",
+      "attributes": { "items": "[{\"name\":\"Ada\"}]" },
+      "expect": [{ "expr": "dsx.variable.avatarGroupTappable", "value": false }],
+      "root": [
+        { "attr": "role", "value": "img" },
+        { "attr": "a11yTrait", "value": "image" }
+      ]
+    },
+    {
+      "name": "tappable=\"true\" is the only thing that makes it a button",
+      "attributes": { "items": "[{\"name\":\"Ada\"}]", "tappable": "true" },
+      "expect": [{ "expr": "dsx.variable.avatarGroupTappable", "value": true }],
+      "root": [
+        { "attr": "role", "value": "button" },
+        { "attr": "a11yTrait", "value": "button" }
+      ]
+    }
+  ]
+}

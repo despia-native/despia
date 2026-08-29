@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "_note": "THE COMPOSER RESULT VOCABULARY (parity F13). `dsx.module.compose.{sms,mail}` PRESENT the system composer prefilled and never send: the user reads the message in their own messaging or mail app and taps send there. That is why no permission is involved on any renderer, and why no SEND_SMS row exists anywhere in this module. What this corpus exists to pin is the RESULT LADDER. iOS MessageUI reports exactly what the user did; Android's ACTION_SENDTO has no result callback at all and a browser's mailto: link has none either, so both report `unknown`. `unknown` must never be upgraded to `sent` because the intent launched: a caller that cannot trust `sent` has no reason to read the field. Runners: TS (@despia/kernel compose-core.ts, compose-conformance.test.ts), Kotlin (:core ComposeCore, ComposeConformanceTest), Swift (Engine/iOS/ComposeCore.swift, ComposeConformance in the record lane).",
+
+  "vocabulary": ["sent", "cancelled", "saved", "failed", "unknown"],
+
+  "resultFidelity": {
+    "_note": "renderer -> the results it can actually report. A renderer must never resolve a result outside its own list, and `saved` is a mail-draft outcome only.",
+    "ios": { "sms": ["sent", "cancelled", "failed"], "mail": ["sent", "saved", "cancelled", "failed"] },
+    "android": { "sms": ["unknown"], "mail": ["unknown"] },
+    "web": { "sms": ["unknown"], "mail": ["unknown"] }
+  },
+
+  "permissionSurface": {
+    "_note": "Every action on every renderer: none. This row is the contract. An SMS permission appearing in the merged manifest is a build regression, not a feature.",
+    "sms": "none",
+    "mail": "none",
+    "capabilities": "none",
+    "forbiddenPermissions": ["android.permission.SEND_SMS", "android.permission.READ_SMS",
+                             "android.permission.RECEIVE_SMS"]
+  },
+
+  "cases": [
+    {
+      "name": "a composer that reports the user's send says sent",
+      "given": { "renderer": "ios", "action": "sms", "composerResult": "sent" },
+      "expect": { "result": "sent" }
+    },
+    {
+      "name": "a composer that reports a dismissal says cancelled, and it is not an error",
+      "given": { "renderer": "ios", "action": "sms", "composerResult": "cancelled" },
+      "expect": { "result": "cancelled", "error": null }
+    },
+    {
+      "name": "a mail draft is its own outcome, distinct from both send and dismiss",
+      "given": { "renderer": "ios", "action": "mail", "composerResult": "saved" },
+      "expect": { "result": "saved" }
+    },
+    {
+      "name": "a composer that reports a failure says failed",
+      "given": { "renderer": "ios", "action": "mail", "composerResult": "failed" },
+      "expect": { "result": "failed" }
+    },
+    {
+      "name": "THE RULE: an intent-based composer reports unknown, never sent",
+      "given": { "renderer": "android", "action": "sms", "composerResult": null, "launched": true },
+      "expect": { "result": "unknown" }
+    },
+    {
+      "name": "the same for mail",
+      "given": { "renderer": "android", "action": "mail", "composerResult": null, "launched": true },
+      "expect": { "result": "unknown" }
+    },
+    {
+      "name": "a link-based composer reports unknown too",
+      "given": { "renderer": "web", "action": "mail", "composerResult": null, "launched": true },
+      "expect": { "result": "unknown" }
+    },
+    {
+      "name": "a launch that throws is no_composer, which is a different answer from unknown",
+      "given": { "renderer": "android", "action": "mail", "launched": false },
+      "expect": { "error": "no_composer" }
+    },
+    {
+      "name": "an HTML body on a composer that cannot render it says isHtml:false rather than shipping markup as text",
+      "given": { "renderer": "android", "action": "mail", "isHtml": true, "launched": true },
+      "expect": { "result": "unknown", "isHtml": false }
+    },
+    {
+      "name": "an HTML body on a composer that CAN render it carries no degradation flag",
+      "given": { "renderer": "ios", "action": "mail", "isHtml": true, "composerResult": "sent" },
+      "expect": { "result": "sent", "isHtml": null }
+    }
+  ],
+
+  "capabilities": {
+    "_note": "Ask before offering the button. `defaultMailClient` is present only where the platform discloses it: Android names the resolving package, iOS never does, and a browser cannot observe whether a handler exists at all.",
+    "cases": [
+      { "name": "a phone with both",
+        "given": { "renderer": "ios", "canText": true, "canMail": true },
+        "expect": { "sms": true, "mail": true, "defaultMailClient": null } },
+      { "name": "a tablet with no SIM cannot text",
+        "given": { "renderer": "ios", "canText": false, "canMail": true },
+        "expect": { "sms": false, "mail": true } },
+      { "name": "a simulator has neither",
+        "given": { "renderer": "ios", "canText": false, "canMail": false },
+        "expect": { "sms": false, "mail": false } },
+      { "name": "Android names the resolving package",
+        "given": { "renderer": "android", "smsResolver": "com.android.messaging",
+                   "mailResolver": "com.google.android.gm" },
+        "expect": { "sms": true, "mail": true, "defaultMailClient": "com.google.android.gm" } },
+      { "name": "the Android resolver disambiguation activity is not a real client",
+        "given": { "renderer": "android", "smsResolver": "android", "mailResolver": "android" },
+        "expect": { "sms": false, "mail": false, "defaultMailClient": null } },
+      { "name": "a page can only promise that a composer may be ATTEMPTED",
+        "given": { "renderer": "web" },
+        "expect": { "sms": true, "mail": true, "defaultMailClient": null } }
+    ]
+  },
+
+  "recipients": {
+    "_note": "The cap is config (`max_recipients`, default 100), because no platform constant exists and clients truncate silently somewhere past a few dozen. A composer that opens with half the list is worse than one that refuses.",
+    "cases": [
+      { "name": "under the cap opens", "given": { "count": 10, "cap": 100 }, "expect": { "runs": true } },
+      { "name": "exactly the cap opens", "given": { "count": 100, "cap": 100 }, "expect": { "runs": true } },
+      { "name": "over the cap refuses rather than truncating",
+        "given": { "count": 101, "cap": 100 },
+        "expect": { "runs": false, "error": "too_many_recipients" } },
+      { "name": "mail counts to + cc + bcc together",
+        "given": { "to": 40, "cc": 40, "bcc": 40, "cap": 100 },
+        "expect": { "runs": false, "error": "too_many_recipients" } },
+      { "name": "no recipients at all is legal: the composer opens with an empty field",
+        "given": { "count": 0, "cap": 100 }, "expect": { "runs": true } }
+    ]
+  },
+
+  "attachments": {
+    "_note": "Local files only. A file that cannot be prepared is attachment_failed, never a composer that opens quietly missing it.",
+    "cases": [
+      { "name": "a local file under the FileProvider roots attaches",
+        "given": { "renderer": "android", "path": "/data/user/0/app/cache/receipt.pdf" },
+        "expect": { "runs": true } },
+      { "name": "a file outside the declared roots refuses",
+        "given": { "renderer": "android", "path": "/sdcard/Download/receipt.pdf", "insideRoots": false },
+        "expect": { "runs": false, "error": "attachment_failed" } },
+      { "name": "a missing file refuses",
+        "given": { "renderer": "ios", "path": "/nope/missing.pdf", "exists": false },
+        "expect": { "runs": false, "error": "attachment_failed" } },
+      { "name": "a remote URL is not fetched on the caller's behalf",
+        "given": { "renderer": "ios", "path": "https://example.com/receipt.pdf" },
+        "expect": { "runs": false, "error": "attachment_failed" } },
+      { "name": "the web cannot attach at all, and says so",
+        "given": { "renderer": "web", "path": "/tmp/receipt.pdf" },
+        "expect": { "runs": false, "error": "attachment_failed" } }
+    ]
+  }
+}

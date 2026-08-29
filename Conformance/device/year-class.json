@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "_note": "Core/Device (parity/F06-device.md), the DEVICE YEAR CLASS fold. A COARSE performance bucket from physical memory and core count, not a benchmark and not a claim about the release date of a specific device. It exists so an app can drop a blur, a particle field or a heavy shader on old hardware in ONE condition, which is the alternative to a device allowlist that rots. Pinned because three renderers compute it and a silent divergence would make the same phone fast on one platform and slow on another. The ladder is memory first (it is the fact that actually predicts whether a heavy surface survives) with the core count breaking the top bucket only.",
+  "_runner": "No runner is wired yet (registration is in the F06 handoff). Implemented identically as Device.yearClass in swift/, kotlin/ and web/.",
+
+  "cases": [
+    { "name": "8 GB with 8 cores is the current bucket", "given": { "memoryBytes": 8589934592, "cores": 8 }, "expect": 2023 },
+    { "name": "8 GB with fewer cores is one step back", "given": { "memoryBytes": 8589934592, "cores": 6 }, "expect": 2022 },
+    { "name": "6 GB", "given": { "memoryBytes": 6442450944, "cores": 8 }, "expect": 2021 },
+    { "name": "4 GB", "given": { "memoryBytes": 4294967296, "cores": 6 }, "expect": 2019 },
+    { "name": "3 GB", "given": { "memoryBytes": 3221225472, "cores": 6 }, "expect": 2017 },
+    { "name": "2 GB", "given": { "memoryBytes": 2147483648, "cores": 4 }, "expect": 2015 },
+    { "name": "1 GB is the floor", "given": { "memoryBytes": 1073741824, "cores": 4 }, "expect": 2013 },
+    { "name": "the boundaries sit BELOW the round number, because a device reporting 8 GB never reports exactly 8589934592",
+      "given": { "memoryBytes": 8231735296, "cores": 8 }, "expect": 2023 },
+    { "name": "a device just under a boundary lands in the lower bucket",
+      "given": { "memoryBytes": 5368709120, "cores": 8 }, "expect": 2019 },
+    { "name": "an absurd core count cannot lift a small device",
+      "given": { "memoryBytes": 2147483648, "cores": 16 }, "expect": 2015 }
+  ]
+}

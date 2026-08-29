@@ -1,0 +1,107 @@
+<!-- Connector — the wire. One rounded orthogonal path with an arrowhead, as markup.
+
+     `<Connector points="{{ edge.points }}" ink="accent" width="1.5" radius="10"/>`
+
+     THE GEOMETRY IS THE CONSUMER'S, THE DRAWING IS OURS. A flow surface hands this
+     component a polyline in world coordinates and gets the connector every node canvas
+     draws by hand: corners rounded with a true arc (arcTo, so a short segment shortens
+     its own radius instead of overshooting), an arrowhead oriented along the final
+     segment, inked with a THEME WORD - never a hex - so light, dark and brand layers all
+     follow. The component sizes and positions itself to the path's own bounding box, so
+     the consumer writes no math: points in, wire out.
+
+     Rendering rides the <canvas> display-list primitive - the same drawing seam every
+     renderer ships - so this stays a component, not a runtime extension. -->
+<stack class="flow-connector" a11yHidden="true"
+       style="position: absolute; left: {{ conLeft }}px; top: {{ conTop }}px; width: {{ conWidth }}px; height: {{ conHeight }}px; pointer-events: none">
+  <head>
+    <!-- The polyline, in the consumer's coordinate space: [[x,y], [x,y], …]. -->
+    <attribute as="points"/>
+    <!-- A theme ink word: separator · accent · destructive · label · secondary. -->
+    <attribute as="ink" default="'separator'"/>
+    <attribute as="width" default="1.5"/>
+    <!-- Corner radius. arcTo clamps it to what each elbow can afford. -->
+    <attribute as="radius" default="10"/>
+    <!-- 'end' draws the arrowhead on the last segment; 'none' leaves a plain wire. -->
+    <attribute as="arrow" default="'end'"/>
+
+    <variable as="conPts" computed="true">
+      const pts = dsx.attribute.points
+      return pts == null ? [] : pts
+    </variable>
+
+    <!-- The bounding box, padded for stroke width and the arrowhead's spread. -->
+    <variable as="conPad" computed="true">
+      const w = Number(dsx.attribute.width)
+      return 6 + (w > 0 ? w : 1.5) * 2
+    </variable>
+
+    <variable as="conLeft" computed="true">
+      const xs = conPts.map(p => p[0])
+      return xs.length == 0 ? 0 : xs.reduce((m, x) => x &lt; m ? x : m, xs[0]) - conPad
+    </variable>
+
+    <variable as="conTop" computed="true">
+      const ys = conPts.map(p => p[1])
+      return ys.length == 0 ? 0 : ys.reduce((m, y) => y &lt; m ? y : m, ys[0]) - conPad
+    </variable>
+
+    <variable as="conWidth" computed="true">
+      const xs = conPts.map(p => p[0])
+      const max = xs.length == 0 ? 0 : xs.reduce((m, x) => x > m ? x : m, xs[0])
+      return max - conLeft + conPad
+    </variable>
+
+    <variable as="conHeight" computed="true">
+      const ys = conPts.map(p => p[1])
+      const max = ys.length == 0 ? 0 : ys.reduce((m, y) => y > m ? y : m, ys[0])
+      return max - conTop + conPad
+    </variable>
+
+    <!-- The display list, in local coordinates. Elbows are arcTo through the corner:
+         the canvas core shortens both legs to the radius that fits, which is exactly
+         the rounding a hand-drawn wire never gets right. -->
+    <variable as="conCommands" computed="true">
+      if (conPts.length &lt; 2) { return [] }
+      const r = Number(dsx.attribute.radius)
+      const radius = r > 0 ? r : 10
+      const local = conPts.map(p => [p[0] - conLeft, p[1] - conTop])
+      const first = local[0]
+      const last = local[local.length - 1]
+      const corners = local.slice(1, local.length - 1)
+      const turns = corners.map((c, i) => {
+        const next = i + 2 &lt; local.length ? local[i + 2] : last
+        return ['arcTo', c[0], c[1], next[0], next[1], radius]
+      })
+      const head = [
+        ['setGlobalAlpha', 1],
+        ['setStrokeStyle', dsx.attribute.ink],
+        ['setLineWidth', Number(dsx.attribute.width) > 0 ? Number(dsx.attribute.width) : 1.5],
+        ['setLineJoin', 'round'],
+        ['setLineCap', 'round'],
+        ['beginPath'],
+        ['moveTo', first[0], first[1]]
+      ]
+      const tail = [['lineTo', last[0], last[1]], ['stroke']]
+      const prev = local[local.length - 2]
+      const dx = last[0] - prev[0]
+      const dy = last[1] - prev[1]
+      const len = Math.sqrt(dx * dx + dy * dy)
+      const arrow = dsx.attribute.arrow != 'end' || len == 0
+        ? []
+        : [
+            ['setFillStyle', dsx.attribute.ink],
+            ['beginPath'],
+            ['moveTo', last[0], last[1]],
+            ['lineTo', last[0] - (dx / len) * 7 - (dy / len) * 4, last[1] - (dy / len) * 7 + (dx / len) * 4],
+            ['lineTo', last[0] - (dx / len) * 7 + (dy / len) * 4, last[1] - (dy / len) * 7 - (dx / len) * 4],
+            ['closePath'],
+            ['fill']
+          ]
+      return head.concat(turns).concat(tail).concat(arrow)
+    </variable>
+  </head>
+
+  <canvas class="flow-connector-canvas" commands="conCommands"
+          style="width: {{ conWidth }}px; height: {{ conHeight }}px"/>
+</stack>

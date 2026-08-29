@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "_note": "Published test vectors for every digest and MAC `Core/Crypto` offers (parity/F15-crypto.md). The point is not that SHA-256 works, it is that all three renderers agree on WHICH algorithm an author's spelling names and on how the answer is encoded on the way out. Byte-identical hex, lowercase, no separators. Sources: RFC 6234 (SHA), RFC 1321 (MD5), RFC 4231 (HMAC-SHA2), RFC 2202 (HMAC-SHA1). Inputs are utf8 unless `encoding` says otherwise.",
+
+  "spellings": [
+    { "name": "the canonical spelling", "input": "sha256", "expect": "sha256" },
+    { "name": "case is not part of the vocabulary", "input": "SHA256", "expect": "sha256" },
+    { "name": "the hyphenated spelling every other library uses", "input": "SHA-256", "expect": "sha256" },
+    { "name": "underscores fold too", "input": "sha_512", "expect": "sha512" },
+    { "name": "surrounding whitespace is trimmed", "input": "  sha384  ", "expect": "sha384" },
+    { "name": "an algorithm nobody implements is refused", "input": "sha3-256", "expect": null },
+    { "name": "an empty name is refused", "input": "", "expect": null },
+    { "name": "sha1 is available", "input": "sha1", "expect": "sha1" },
+    { "name": "md5 is available", "input": "md5", "expect": "md5" },
+    { "name": "sha1 disappears when the build switches legacy digests off", "input": "sha1", "allowLegacy": false, "expect": null },
+    { "name": "md5 disappears too", "input": "md5", "allowLegacy": false, "expect": null },
+    { "name": "sha256 is unaffected by that switch", "input": "sha256", "allowLegacy": false, "expect": "sha256" }
+  ],
+
+  "digest": [
+    { "name": "sha256 of the empty string", "algorithm": "sha256", "data": "",
+      "expect": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" },
+    { "name": "sha256 of abc (RFC 6234)", "algorithm": "sha256", "data": "abc",
+      "expect": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" },
+    { "name": "sha384 of abc (RFC 6234)", "algorithm": "sha384", "data": "abc",
+      "expect": "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7" },
+    { "name": "sha512 of the empty string (RFC 6234)", "algorithm": "sha512", "data": "",
+      "expect": "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e" },
+    { "name": "sha1 of abc (RFC 6234)", "algorithm": "sha1", "data": "abc",
+      "expect": "a9993e364706816aba3e25717850c26c9cd0d89d" },
+    { "name": "md5 of abc (RFC 1321)", "algorithm": "md5", "data": "abc",
+      "expect": "900150983cd24fb0d6963f7d28e17f72" },
+    { "name": "base64 output of the abc digest", "algorithm": "sha256", "data": "abc", "output": "base64",
+      "expect": "ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=" }
+  ],
+
+  "hmac": [
+    { "name": "RFC 4231 case 2, sha256", "algorithm": "sha256", "key": "Jefe", "data": "what do ya want for nothing?",
+      "expect": "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843" },
+    { "name": "RFC 4231 case 2, sha384", "algorithm": "sha384", "key": "Jefe", "data": "what do ya want for nothing?",
+      "expect": "af45d2e376484031617f78d2b58a6b1b9c7ef464f5a01b47e42ec3736322445e8e2240ca5e69e2c78b3239ecfab21649" },
+    { "name": "RFC 4231 case 2, sha512", "algorithm": "sha512", "key": "Jefe", "data": "what do ya want for nothing?",
+      "expect": "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737" },
+    { "name": "RFC 2202 case 1, sha1", "algorithm": "sha1", "key": "Jefe", "data": "what do ya want for nothing?",
+      "expect": "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79" },
+    { "name": "RFC 4231 case 1 with a base64 key", "algorithm": "sha256",
+      "key": "CwsLCwsLCwsLCwsLCwsLCwsLCws=", "keyEncoding": "base64", "data": "Hi There",
+      "expect": "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7" },
+    { "name": "the same case at sha512", "algorithm": "sha512",
+      "key": "CwsLCwsLCwsLCwsLCwsLCwsLCws=", "keyEncoding": "base64", "data": "Hi There",
+      "expect": "87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cdedaa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854" }
+  ],
+
+  "macVocabulary": {
+    "_note": "HMAC-MD5 is deliberately absent. Nothing needs it that HMAC-SHA1 does not serve, and WebCrypto refuses it outright, so offering it would be a per-platform lie.",
+    "allowed": ["sha256", "sha384", "sha512", "sha1"],
+    "refused": ["md5", "sha3-256", "crc32"]
+  }
+}

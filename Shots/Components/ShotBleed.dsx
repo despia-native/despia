@@ -1,0 +1,42 @@
+<stack id="shot-card"
+       style="position: relative; width: 100%; height: 100%; overflow: hidden; background: #1a0c2e">
+  <head>
+    <!-- TEMPLATE 3 - BLEED. The device is pushed off the RIGHT edge and cropped, so the slide
+         reads as a fragment of something larger. Text owns the left column. This is the third
+         distinct device placement in the strip, which is the point: a reader flicking through
+         a gallery must be able to tell the slides apart at thumbnail size. -->
+    <attribute as="caption" sample="&quot;Receipts that\nfile themselves&quot;"/>
+    <attribute as="subcaption" sample="&quot;Every order filed the moment it arrives, with nothing to tag.&quot;"/>
+    <attribute as="screen" sample="&quot;01-orders.png&quot;"/>
+    <attribute as="tone" sample="&quot;#ff7a4d&quot;"/>
+    <attribute as="tone2" sample="&quot;#ffd166&quot;"/>
+  </head>
+
+  <!-- LAYERS, NOT A GRID. A template root is a positioned box and every layer is absolutely
+       placed inside it. `.dsx-zstack` is display:grid with justify-items:center and an
+       auto-sized column (theme.ts), so a child asking for width:100% contributes 0 to the
+       column's max-content and the whole layer collapses to zero width - which rendered a
+       Play feature graphic as a flat rectangle of background colour that passed every guard.
+       Positioned layers have no such circularity. -->
+
+  <stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0">
+    <ShotGlow a="{{ dsx.attribute.tone }}" b="{{ dsx.attribute.tone2 }}" c="#2b0f2e"/>
+  </stack>
+
+  <stack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1">
+    <vstack style="position: absolute; top: 104px; left: 40px; width: 74%; gap: 0rem">
+      <text value="{{ dsx.attribute.caption }}"
+            style="color: #ffffff; font-size: 40px; font-weight: 800; letter-spacing: -0.038em;
+                   line-height: 1.02; white-space: pre-wrap"/>
+      <text value="{{ dsx.attribute.subcaption }}"
+            style="margin-top: 16px; color: rgba(255,255,255,0.68); font-size: 15px;
+                   font-weight: 450; line-height: 1.45"/>
+    </vstack>
+
+    <!-- cropped by the frame's own overflow: the device starts past the right edge -->
+    <stack style="position: absolute; left: 42%; top: 400px; width: 82%; display: flex">
+      <ShotFrame screen="{{ dsx.attribute.screen }}" label="{{ dsx.attribute.caption }}"
+               width="100%" radius="40px" tilt="-4deg" lift="0.6"/>
+    </stack>
+  </stack>
+</stack>

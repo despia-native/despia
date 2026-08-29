@@ -1,0 +1,3067 @@
+{
+  "version": 1,
+  "_note": "U02 gestures - the renderer-neutral pure core behind on:pinch / on:pinchEnd, on:rotate / on:rotateEnd, on:swipe, on:hover / on:hoverEnd, on:pressIn / on:pressOut, the additive on:drag velocity+translation payload, and the COMPOSITION resolver behind gesture= and gestureAxis= (parity/U02-gestures.md). Every section is a pure fold or a renderer-neutral state machine: the platform adapter owns raw touch delivery, pointer identity and its own intent delays, then reports normalized samples here, exactly as input/tooltip.json splits the hover-intent delay from the show/dismiss machine. Units are density-independent (points on Apple targets, dp on Android, CSS px on web) and velocities are units per SECOND. The phase vocabulary is the shipped on:drag one - start | move | end - and a cancelled gesture delivers phase end, which is already the declared cross-renderer law for on:drag. Floating point compares within constants.tolerance.",
+  "constants": {
+    "_note": "Recognition thresholds and the velocity window, pinned so a spring driven by velocity settles identically on three renderers. tapSlop/axisSlop are the iOS pan slop; swipe needs BOTH a minimum distance and a minimum speed along its own axis.",
+    "tapSlop": 10.0,
+    "axisSlop": 10.0,
+    "swipeMinDistance": 24.0,
+    "swipeMinVelocity": 300.0,
+    "velocityWindowMs": 100.0,
+    "velocitySamples": 3,
+    "pinchSlop": 0.05,
+    "rotateSlop": 0.087,
+    "precedence": [
+      "pinch",
+      "rotate",
+      "pan",
+      "scroll",
+      "swipe",
+      "longPress",
+      "tap"
+    ],
+    "continuous": [
+      "pan",
+      "pinch",
+      "rotate",
+      "scroll"
+    ],
+    "directional": [
+      "pan",
+      "scroll",
+      "swipe"
+    ],
+    "phases": [
+      "start",
+      "move",
+      "end"
+    ],
+    "tolerance": 1e-09
+  },
+  "velocity": {
+    "_note": "velocity1D - the ONE derivation every gesture uses (drag, swipe, pinch scale, rotate radians). Weighted moving average over the samples inside the last velocityWindowMs, capped at velocitySamples, oldest pair weighted 1 and each newer pair one more; a pair whose dt <= 0 is DROPPED (never a divide by zero, never Infinity) and fewer than two usable samples is 0.",
+    "cases": [
+      {
+        "name": "steady 100 units in 100 ms is 1000 per second",
+        "samples": [
+          {
+            "t": 0,
+            "value": 0.0
+          },
+          {
+            "t": 50,
+            "value": 50.0
+          },
+          {
+            "t": 100,
+            "value": 100.0
+          }
+        ],
+        "expect": 1000.0
+      },
+      {
+        "name": "a single sample has no velocity",
+        "samples": [
+          {
+            "t": 0,
+            "value": 12.0
+          }
+        ],
+        "expect": 0.0
+      },
+      {
+        "name": "an empty trace has no velocity",
+        "samples": [],
+        "expect": 0.0
+      },
+      {
+        "name": "two samples at the same timestamp are dropped",
+        "samples": [
+          {
+            "t": 0,
+            "value": 0.0
+          },
+          {
+            "t": 0,
+            "value": 40.0
+          }
+        ],
+        "expect": 0.0
+      },
+      {
+        "name": "a zero delta among usable pairs drops only that pair",
+        "samples": [
+          {
+            "t": 0,
+            "value": 0.0
+          },
+          {
+            "t": 40,
+            "value": 20.0
+          },
+          {
+            "t": 40,
+            "value": 60.0
+          }
+        ],
+        "expect": 500.0
+      },
+      {
+        "name": "every pair degenerate is zero, never infinity",
+        "samples": [
+          {
+            "t": 30,
+            "value": 5.0
+          },
+          {
+            "t": 30,
+            "value": 9.0
+          },
+          {
+            "t": 30,
+            "value": 11.0
+          }
+        ],
+        "expect": 0.0
+      },
+      {
+        "name": "recency weighting favours the newest pair",
+        "samples": [
+          {
+            "t": 0,
+            "value": 0.0
+          },
+          {
+            "t": 50,
+            "value": 10.0
+          },
+          {
+            "t": 100,
+            "value": 60.0
+          }
+        ],
+        "expect": 733.3333333333334
+      },
+      {
+        "name": "only the last three samples inside the window count",
+        "samples": [
+          {
+            "t": 0,
+            "value": 0.0
+          },
+          {
+            "t": 20,
+            "value": 5.0
+          },
+          {
+            "t": 40,
+            "value": 10.0
+          },
+          {
+            "t": 60,
+            "value": 15.0
+          },
+          {
+            "t": 80,
+            "value": 20.0
+          }
+        ],
+        "expect": 250.0
+      },
+      {
+        "name": "samples older than the 100 ms window are dropped",
+        "samples": [
+          {
+            "t": 0,
+            "value": 0.0
+          },
+          {
+            "t": 500,
+            "value": 100.0
+          },
+          {
+            "t": 550,
+            "value": 110.0
+          },
+          {
+            "t": 600,
+            "value": 130.0
+          }
+        ],
+        "expect": 333.3333333333333
+      },
+      {
+        "name": "the whole trace outside the window keeps only the last sample",
+        "samples": [
+          {
+            "t": 0,
+            "value": 0.0
+          },
+          {
+            "t": 400,
+            "value": 800.0
+          }
+        ],
+        "expect": 0.0
+      },
+      {
+        "name": "a reversal produces a signed average, not a magnitude",
+        "samples": [
+          {
+            "t": 0,
+            "value": 0.0
+          },
+          {
+            "t": 50,
+            "value": 40.0
+          },
+          {
+            "t": 100,
+            "value": 10.0
+          }
+        ],
+        "expect": -133.33333333333334
+      },
+      {
+        "name": "a stationary finger has zero velocity",
+        "samples": [
+          {
+            "t": 0,
+            "value": 7.0
+          },
+          {
+            "t": 50,
+            "value": 7.0
+          },
+          {
+            "t": 100,
+            "value": 7.0
+          }
+        ],
+        "expect": 0.0
+      }
+    ]
+  },
+  "velocity2D": {
+    "_note": "The 2D form is velocity1D applied per axis - no separate formula, so on:drag velocityX/velocityY and the swipe gate cannot drift from each other.",
+    "cases": [
+      {
+        "name": "a diagonal flick derives both components",
+        "samples": [
+          {
+            "t": 0,
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "t": 50,
+            "x": 30.0,
+            "y": -15.0
+          },
+          {
+            "t": 100,
+            "x": 60.0,
+            "y": -30.0
+          }
+        ],
+        "expect": {
+          "vx": 600.0,
+          "vy": -300.0
+        }
+      },
+      {
+        "name": "a pure vertical flick has no x velocity",
+        "samples": [
+          {
+            "t": 0,
+            "x": 10.0,
+            "y": 0.0
+          },
+          {
+            "t": 60,
+            "x": 10.0,
+            "y": 120.0
+          }
+        ],
+        "expect": {
+          "vx": 0.0,
+          "vy": 2000.0
+        }
+      },
+      {
+        "name": "a single sample is zero on both axes",
+        "samples": [
+          {
+            "t": 0,
+            "x": 4.0,
+            "y": 9.0
+          }
+        ],
+        "expect": {
+          "vx": 0.0,
+          "vy": 0.0
+        }
+      },
+      {
+        "name": "a degenerate timestamp pair is dropped on both axes",
+        "samples": [
+          {
+            "t": 16,
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "t": 16,
+            "x": 20.0,
+            "y": 20.0
+          }
+        ],
+        "expect": {
+          "vx": 0.0,
+          "vy": 0.0
+        }
+      }
+    ]
+  },
+  "press": {
+    "_note": "on:pressIn / on:pressOut - the custom press-state channel, and the slop that separates a tap from a drag. pressOut ALWAYS balances pressIn (release, cancellation, unmount); a press that exceeded the slop is a drag and never also reports a tap; the slop is radial and one-way (coming back inside does not undo it); one pointer owns the press.",
+    "cases": [
+      {
+        "name": "a press and release inside the slop is a tap",
+        "events": [
+          {
+            "type": "down",
+            "x": 10.0,
+            "y": 10.0
+          },
+          {
+            "type": "up",
+            "x": 12.0,
+            "y": 13.0
+          }
+        ],
+        "expect": [
+          "pressIn",
+          "pressOut",
+          "tap"
+        ],
+        "expectDragging": false
+      },
+      {
+        "name": "moving past the slop makes it a drag, never a tap",
+        "events": [
+          {
+            "type": "down",
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "type": "move",
+            "x": 20.0,
+            "y": 0.0
+          },
+          {
+            "type": "up",
+            "x": 20.0,
+            "y": 0.0
+          }
+        ],
+        "expect": [
+          "pressIn",
+          "pressOut"
+        ],
+        "expectDragging": true
+      },
+      {
+        "name": "exactly at the slop is still a tap",
+        "events": [
+          {
+            "type": "down",
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "type": "move",
+            "x": 10.0,
+            "y": 0.0
+          },
+          {
+            "type": "up",
+            "x": 10.0,
+            "y": 0.0
+          }
+        ],
+        "expect": [
+          "pressIn",
+          "pressOut",
+          "tap"
+        ],
+        "expectDragging": false
+      },
+      {
+        "name": "slop is radial, not per axis",
+        "events": [
+          {
+            "type": "down",
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "type": "move",
+            "x": 8.0,
+            "y": 8.0
+          },
+          {
+            "type": "up",
+            "x": 8.0,
+            "y": 8.0
+          }
+        ],
+        "expect": [
+          "pressIn",
+          "pressOut"
+        ],
+        "expectDragging": true
+      },
+      {
+        "name": "returning inside the slop does not undo the drag",
+        "events": [
+          {
+            "type": "down",
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "type": "move",
+            "x": 40.0,
+            "y": 0.0
+          },
+          {
+            "type": "move",
+            "x": 1.0,
+            "y": 0.0
+          },
+          {
+            "type": "up",
+            "x": 1.0,
+            "y": 0.0
+          }
+        ],
+        "expect": [
+          "pressIn",
+          "pressOut"
+        ],
+        "expectDragging": true
+      },
+      {
+        "name": "a cancelled press balances pressOut and is never a tap",
+        "events": [
+          {
+            "type": "down",
+            "x": 5.0,
+            "y": 5.0
+          },
+          {
+            "type": "cancel"
+          }
+        ],
+        "expect": [
+          "pressIn",
+          "pressOut"
+        ],
+        "expectDragging": false
+      },
+      {
+        "name": "unmount balances an open press",
+        "events": [
+          {
+            "type": "down",
+            "x": 5.0,
+            "y": 5.0
+          },
+          {
+            "type": "unmount"
+          }
+        ],
+        "expect": [
+          "pressIn",
+          "pressOut"
+        ],
+        "expectDragging": false
+      },
+      {
+        "name": "a second pointer never opens a second press",
+        "events": [
+          {
+            "type": "down",
+            "id": "a",
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "type": "down",
+            "id": "b",
+            "x": 50.0,
+            "y": 50.0
+          },
+          {
+            "type": "up",
+            "id": "b",
+            "x": 50.0,
+            "y": 50.0
+          },
+          {
+            "type": "up",
+            "id": "a",
+            "x": 0.0,
+            "y": 0.0
+          }
+        ],
+        "expect": [
+          "pressIn",
+          "pressOut",
+          "tap"
+        ],
+        "expectDragging": false
+      },
+      {
+        "name": "a stray up for an unknown pointer emits nothing",
+        "events": [
+          {
+            "type": "up",
+            "id": "z",
+            "x": 0.0,
+            "y": 0.0
+          }
+        ],
+        "expect": [],
+        "expectDragging": false
+      },
+      {
+        "name": "unmount with no press emits nothing",
+        "events": [
+          {
+            "type": "unmount"
+          }
+        ],
+        "expect": [],
+        "expectDragging": false
+      },
+      {
+        "name": "a fresh press after a tap works again",
+        "events": [
+          {
+            "type": "down",
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "type": "up",
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "type": "down",
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "type": "up",
+            "x": 0.0,
+            "y": 0.0
+          }
+        ],
+        "expect": [
+          "pressIn",
+          "pressOut",
+          "tap",
+          "pressIn",
+          "pressOut",
+          "tap"
+        ],
+        "expectDragging": false
+      }
+    ]
+  },
+  "hover": {
+    "_note": "on:hover - the POSITIONAL hover channel that complements the shipped on:hoverStart / on:hoverEnd pair (input/hover.json owns pointer identity and the balanced pair; this owns the { x, y } stream). Only a hover-capable source is ever tracked, so a touch screen never fires it and content is never gated behind hover (Article 7). The enter IS the first sample, the on:drag minimum-distance-0 rule.",
+    "cases": [
+      {
+        "name": "a pointer enter is the first positional hover",
+        "events": [
+          {
+            "type": "enter",
+            "hoverCapable": true,
+            "x": 4.0,
+            "y": 6.0
+          }
+        ],
+        "expect": [
+          {
+            "action": "hover",
+            "x": 4.0,
+            "y": 6.0
+          }
+        ]
+      },
+      {
+        "name": "hover follows the pointer",
+        "events": [
+          {
+            "type": "enter",
+            "hoverCapable": true,
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "type": "move",
+            "x": 12.0,
+            "y": 3.0
+          },
+          {
+            "type": "leave",
+            "x": 12.0,
+            "y": 3.0
+          }
+        ],
+        "expect": [
+          {
+            "action": "hover",
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "action": "hover",
+            "x": 12.0,
+            "y": 3.0
+          },
+          {
+            "action": "hoverEnd",
+            "x": 12.0,
+            "y": 3.0
+          }
+        ]
+      },
+      {
+        "name": "touch never hovers",
+        "events": [
+          {
+            "type": "enter",
+            "hoverCapable": false,
+            "x": 5.0,
+            "y": 5.0
+          },
+          {
+            "type": "move",
+            "x": 9.0,
+            "y": 9.0
+          },
+          {
+            "type": "leave",
+            "x": 9.0,
+            "y": 9.0
+          }
+        ],
+        "expect": []
+      },
+      {
+        "name": "a move before any enter emits nothing",
+        "events": [
+          {
+            "type": "move",
+            "x": 3.0,
+            "y": 3.0
+          }
+        ],
+        "expect": []
+      },
+      {
+        "name": "a duplicate enter is deduplicated",
+        "events": [
+          {
+            "type": "enter",
+            "hoverCapable": true,
+            "x": 1.0,
+            "y": 1.0
+          },
+          {
+            "type": "enter",
+            "hoverCapable": true,
+            "x": 2.0,
+            "y": 2.0
+          }
+        ],
+        "expect": [
+          {
+            "action": "hover",
+            "x": 1.0,
+            "y": 1.0
+          }
+        ]
+      },
+      {
+        "name": "unmount balances an open hover",
+        "events": [
+          {
+            "type": "enter",
+            "hoverCapable": true,
+            "x": 1.0,
+            "y": 1.0
+          },
+          {
+            "type": "unmount"
+          }
+        ],
+        "expect": [
+          {
+            "action": "hover",
+            "x": 1.0,
+            "y": 1.0
+          },
+          {
+            "action": "hoverEnd",
+            "x": 0.0,
+            "y": 0.0
+          }
+        ]
+      },
+      {
+        "name": "a leave with no hover emits nothing",
+        "events": [
+          {
+            "type": "leave",
+            "x": 0.0,
+            "y": 0.0
+          }
+        ],
+        "expect": []
+      },
+      {
+        "name": "a pencil hover re-enters after leaving",
+        "events": [
+          {
+            "type": "enter",
+            "hoverCapable": true,
+            "x": 1.0,
+            "y": 1.0
+          },
+          {
+            "type": "leave",
+            "x": 1.0,
+            "y": 1.0
+          },
+          {
+            "type": "enter",
+            "hoverCapable": true,
+            "x": 7.0,
+            "y": 8.0
+          }
+        ],
+        "expect": [
+          {
+            "action": "hover",
+            "x": 1.0,
+            "y": 1.0
+          },
+          {
+            "action": "hoverEnd",
+            "x": 1.0,
+            "y": 1.0
+          },
+          {
+            "action": "hover",
+            "x": 7.0,
+            "y": 8.0
+          }
+        ]
+      }
+    ]
+  },
+  "swipe": {
+    "_note": "on:swipe - direction classification at the end of a pan. The DOMINANT axis wins and an exact |dx| == |dy| diagonal breaks HORIZONTAL (the same tie-break the axis claim uses, so a diagonal can never resolve one way here and the other there). Both gates are read along the chosen axis: distance >= swipeMinDistance AND |velocity| >= swipeMinVelocity, which is what makes a slow drag not a swipe. A gestureAxis claim of x or y rejects the other axis outright. The reported distance and velocity are the chosen axis's, positive.",
+    "cases": [
+      {
+        "name": "a fast rightward flick",
+        "dx": 120.0,
+        "dy": 4.0,
+        "vx": 900.0,
+        "vy": 20.0,
+        "axis": "both",
+        "expect": {
+          "direction": "right",
+          "velocity": 900.0,
+          "distance": 120.0
+        }
+      },
+      {
+        "name": "a fast leftward flick",
+        "dx": -120.0,
+        "dy": 4.0,
+        "vx": -900.0,
+        "vy": 20.0,
+        "axis": "both",
+        "expect": {
+          "direction": "left",
+          "velocity": 900.0,
+          "distance": 120.0
+        }
+      },
+      {
+        "name": "a fast downward flick",
+        "dx": 4.0,
+        "dy": 150.0,
+        "vx": 20.0,
+        "vy": 1200.0,
+        "axis": "both",
+        "expect": {
+          "direction": "down",
+          "velocity": 1200.0,
+          "distance": 150.0
+        }
+      },
+      {
+        "name": "a fast upward flick",
+        "dx": 4.0,
+        "dy": -150.0,
+        "vx": 20.0,
+        "vy": -1200.0,
+        "axis": "both",
+        "expect": {
+          "direction": "up",
+          "velocity": 1200.0,
+          "distance": 150.0
+        }
+      },
+      {
+        "name": "a slow drag is not a swipe",
+        "dx": 200.0,
+        "dy": 0.0,
+        "vx": 120.0,
+        "vy": 0.0,
+        "axis": "both",
+        "expect": null
+      },
+      {
+        "name": "a fast but tiny movement is not a swipe",
+        "dx": 12.0,
+        "dy": 0.0,
+        "vx": 1500.0,
+        "vy": 0.0,
+        "axis": "both",
+        "expect": null
+      },
+      {
+        "name": "no movement is not a swipe",
+        "dx": 0.0,
+        "dy": 0.0,
+        "vx": 0.0,
+        "vy": 0.0,
+        "axis": "both",
+        "expect": null
+      },
+      {
+        "name": "an exact diagonal breaks horizontal",
+        "dx": 100.0,
+        "dy": 100.0,
+        "vx": 800.0,
+        "vy": 800.0,
+        "axis": "both",
+        "expect": {
+          "direction": "right",
+          "velocity": 800.0,
+          "distance": 100.0
+        }
+      },
+      {
+        "name": "an exact negative diagonal breaks horizontal",
+        "dx": -100.0,
+        "dy": -100.0,
+        "vx": -800.0,
+        "vy": -800.0,
+        "axis": "both",
+        "expect": {
+          "direction": "left",
+          "velocity": 800.0,
+          "distance": 100.0
+        }
+      },
+      {
+        "name": "a hair past the diagonal goes vertical",
+        "dx": 100.0,
+        "dy": 100.5,
+        "vx": 800.0,
+        "vy": 800.0,
+        "axis": "both",
+        "expect": {
+          "direction": "down",
+          "velocity": 800.0,
+          "distance": 100.5
+        }
+      },
+      {
+        "name": "the velocity gate reads the chosen axis only",
+        "dx": 100.0,
+        "dy": 10.0,
+        "vx": 100.0,
+        "vy": 5000.0,
+        "axis": "both",
+        "expect": null
+      },
+      {
+        "name": "the distance is measured along the chosen axis",
+        "dx": 300.0,
+        "dy": 20.0,
+        "vx": 1000.0,
+        "vy": 60.0,
+        "axis": "both",
+        "expect": {
+          "direction": "right",
+          "velocity": 1000.0,
+          "distance": 300.0
+        }
+      },
+      {
+        "name": "gestureAxis x rejects a vertical swipe",
+        "dx": 4.0,
+        "dy": 150.0,
+        "vx": 20.0,
+        "vy": 1200.0,
+        "axis": "x",
+        "expect": null
+      },
+      {
+        "name": "gestureAxis x passes a horizontal swipe",
+        "dx": 150.0,
+        "dy": 4.0,
+        "vx": 1200.0,
+        "vy": 20.0,
+        "axis": "x",
+        "expect": {
+          "direction": "right",
+          "velocity": 1200.0,
+          "distance": 150.0
+        }
+      },
+      {
+        "name": "gestureAxis y rejects a horizontal swipe",
+        "dx": 150.0,
+        "dy": 4.0,
+        "vx": 1200.0,
+        "vy": 20.0,
+        "axis": "y",
+        "expect": null
+      },
+      {
+        "name": "gestureAxis y passes a vertical swipe",
+        "dx": 4.0,
+        "dy": 150.0,
+        "vx": 20.0,
+        "vy": 1200.0,
+        "axis": "y",
+        "expect": {
+          "direction": "down",
+          "velocity": 1200.0,
+          "distance": 150.0
+        }
+      },
+      {
+        "name": "gestureAxis both is the default and claims nothing",
+        "dx": 150.0,
+        "dy": 4.0,
+        "vx": 1200.0,
+        "vy": 20.0,
+        "axis": "both",
+        "expect": {
+          "direction": "right",
+          "velocity": 1200.0,
+          "distance": 150.0
+        }
+      },
+      {
+        "name": "exactly at both thresholds is a swipe",
+        "dx": 24.0,
+        "dy": 0.0,
+        "vx": 300.0,
+        "vy": 0.0,
+        "axis": "both",
+        "expect": {
+          "direction": "right",
+          "velocity": 300.0,
+          "distance": 24.0
+        }
+      },
+      {
+        "name": "a hair under the distance threshold is not",
+        "dx": 23.999,
+        "dy": 0.0,
+        "vx": 300.0,
+        "vy": 0.0,
+        "axis": "both",
+        "expect": null
+      },
+      {
+        "name": "a hair under the velocity threshold is not",
+        "dx": 24.0,
+        "dy": 0.0,
+        "vx": 299.999,
+        "vy": 0.0,
+        "axis": "both",
+        "expect": null
+      }
+    ]
+  },
+  "axisClaim": {
+    "_note": "gestureAxis= as the RECOGNIZER-LEVEL claim, not a direction check in the handler: until the movement passes axisSlop the recognizer is pending (it has claimed nothing and an ancestor scroll may still take the touch); past the slop an x or y claimer either claims the touch or FAILS, handing it back to the ancestor. This is the iOS UIPanGestureRecognizer-subclass technique and the web touch-action: pan-y declaration, expressed once. Ties break horizontal, exactly as the swipe resolver.",
+    "cases": [
+      {
+        "name": "inside the slop nothing is claimed yet",
+        "axis": "x",
+        "dx": 4.0,
+        "dy": 3.0,
+        "expect": "pending"
+      },
+      {
+        "name": "exactly at the slop is still pending",
+        "axis": "x",
+        "dx": 10.0,
+        "dy": 0.0,
+        "expect": "pending"
+      },
+      {
+        "name": "a horizontal move claims the x axis",
+        "axis": "x",
+        "dx": 20.0,
+        "dy": 3.0,
+        "expect": "claimed"
+      },
+      {
+        "name": "a vertical move on an x claimer fails to the ancestor",
+        "axis": "x",
+        "dx": 3.0,
+        "dy": 20.0,
+        "expect": "rejected"
+      },
+      {
+        "name": "a vertical move claims the y axis",
+        "axis": "y",
+        "dx": 3.0,
+        "dy": 20.0,
+        "expect": "claimed"
+      },
+      {
+        "name": "a horizontal move on a y claimer fails to the ancestor",
+        "axis": "y",
+        "dx": 20.0,
+        "dy": 3.0,
+        "expect": "rejected"
+      },
+      {
+        "name": "both claims anything past the slop",
+        "axis": "both",
+        "dx": 3.0,
+        "dy": 20.0,
+        "expect": "claimed"
+      },
+      {
+        "name": "an absent axis behaves as both",
+        "axis": "",
+        "dx": 20.0,
+        "dy": 3.0,
+        "expect": "claimed"
+      },
+      {
+        "name": "an exact diagonal claims x and fails y",
+        "axis": "x",
+        "dx": 20.0,
+        "dy": 20.0,
+        "expect": "claimed"
+      },
+      {
+        "name": "an exact diagonal fails a y claimer",
+        "axis": "y",
+        "dx": 20.0,
+        "dy": 20.0,
+        "expect": "rejected"
+      },
+      {
+        "name": "a negative move claims on magnitude",
+        "axis": "x",
+        "dx": -30.0,
+        "dy": 2.0,
+        "expect": "claimed"
+      }
+    ]
+  },
+  "transform": {
+    "_note": "The ONE tracker behind on:pinch and on:rotate (Compose detectTransformGestures, UIPinch + UIRotation together): each update carries the FULL set of pointers currently down, and the two lowest-sorted ids define the span. The gesture spans from the first two-pointer engagement until the LAST pointer lifts - dropping to one finger SUSPENDS (values hold, nothing is emitted) and a returning finger re-baselines against the held accumulation, which is why the scale never jumps at a finger change. Rotation accumulates normalized deltas, so it is continuous across the +-pi wrap and keeps growing past a full turn. A re-baseline never emits; start fires the first frame past pinchSlop or rotateSlop; end fires once, with the last values, on the final lift or a cancel. Velocities are the SAME velocity1D fold over the scale and rotation series.",
+    "cases": [
+      {
+        "name": "a two finger spread accumulates scale",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 110.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 200.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 48,
+            "points": []
+          }
+        ],
+        "expect": [
+          {
+            "phase": "start",
+            "scale": 1.1,
+            "rotation": 0.0,
+            "focusX": 55.0,
+            "focusY": 0.0,
+            "scaleVelocity": 6.250000000000005,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "move",
+            "scale": 2.0,
+            "rotation": 0.0,
+            "focusX": 100.0,
+            "focusY": 0.0,
+            "scaleVelocity": 39.58333333333333,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "end",
+            "scale": 2.0,
+            "rotation": 0.0,
+            "focusX": 100.0,
+            "focusY": 0.0,
+            "scaleVelocity": 39.58333333333333,
+            "rotationVelocity": 0.0
+          }
+        ]
+      },
+      {
+        "name": "a pinch under the slop never starts",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 103.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": []
+          }
+        ],
+        "expect": []
+      },
+      {
+        "name": "the focal point is the mean of the active pointers",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 40.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 200.0,
+                "y": 80.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": []
+          }
+        ],
+        "expect": [
+          {
+            "phase": "start",
+            "scale": 2.0,
+            "rotation": 0.0,
+            "focusX": 100.0,
+            "focusY": 40.0,
+            "scaleVelocity": 62.5,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "end",
+            "scale": 2.0,
+            "rotation": 0.0,
+            "focusX": 100.0,
+            "focusY": 40.0,
+            "scaleVelocity": 62.5,
+            "rotationVelocity": 0.0
+          }
+        ]
+      },
+      {
+        "name": "lifting to one finger and back never jumps the scale",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 200.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 48,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "c",
+                "x": 50.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 64,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "c",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 80,
+            "points": []
+          }
+        ],
+        "expect": [
+          {
+            "phase": "start",
+            "scale": 2.0,
+            "rotation": 0.0,
+            "focusX": 100.0,
+            "focusY": 0.0,
+            "scaleVelocity": 62.5,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "move",
+            "scale": 4.0,
+            "rotation": 0.0,
+            "focusX": 50.0,
+            "focusY": 0.0,
+            "scaleVelocity": 83.33333333333333,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "end",
+            "scale": 4.0,
+            "rotation": 0.0,
+            "focusX": 50.0,
+            "focusY": 0.0,
+            "scaleVelocity": 83.33333333333333,
+            "rotationVelocity": 0.0
+          }
+        ]
+      },
+      {
+        "name": "a third finger re-baselines without a jump",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 150.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 150.0,
+                "y": 0.0
+              },
+              {
+                "id": "c",
+                "x": 0.0,
+                "y": 60.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 48,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 150.0,
+                "y": 0.0
+              },
+              {
+                "id": "c",
+                "x": 0.0,
+                "y": 120.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 64,
+            "points": []
+          }
+        ],
+        "expect": [
+          {
+            "phase": "start",
+            "scale": 1.5,
+            "rotation": 0.0,
+            "focusX": 75.0,
+            "focusY": 0.0,
+            "scaleVelocity": 31.25,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "move",
+            "scale": 1.5,
+            "rotation": 0.0,
+            "focusX": 50.0,
+            "focusY": 20.0,
+            "scaleVelocity": 10.416666666666666,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "move",
+            "scale": 1.5,
+            "rotation": 0.0,
+            "focusX": 50.0,
+            "focusY": 40.0,
+            "scaleVelocity": 0.0,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "end",
+            "scale": 1.5,
+            "rotation": 0.0,
+            "focusX": 50.0,
+            "focusY": 40.0,
+            "scaleVelocity": 0.0,
+            "rotationVelocity": 0.0
+          }
+        ]
+      },
+      {
+        "name": "rotation accumulates continuously across the pi wrap",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": -100.0,
+                "y": -1.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": -100.0,
+                "y": 1.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": -100.0,
+                "y": 20.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 48,
+            "points": []
+          }
+        ],
+        "expect": [
+          {
+            "phase": "start",
+            "scale": 1.019752916347367,
+            "rotation": -0.20739522653654552,
+            "focusX": -50.0,
+            "focusY": 10.0,
+            "scaleVelocity": 0.8230381811402953,
+            "rotationVelocity": -8.224814993745019
+          },
+          {
+            "phase": "end",
+            "scale": 1.019752916347367,
+            "rotation": -0.20739522653654552,
+            "focusX": -50.0,
+            "focusY": 10.0,
+            "scaleVelocity": 0.8230381811402953,
+            "rotationVelocity": -8.224814993745019
+          }
+        ]
+      },
+      {
+        "name": "a full turn keeps growing past pi",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 0.0,
+                "y": 100.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": -100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 48,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 0.0,
+                "y": -100.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 64,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 80,
+            "points": []
+          }
+        ],
+        "expect": [
+          {
+            "phase": "start",
+            "scale": 1.0,
+            "rotation": 1.5707963267948966,
+            "focusX": 0.0,
+            "focusY": 50.0,
+            "scaleVelocity": 0.0,
+            "rotationVelocity": 98.17477042468103
+          },
+          {
+            "phase": "move",
+            "scale": 1.0,
+            "rotation": 3.141592653589793,
+            "focusX": -50.0,
+            "focusY": 0.0,
+            "scaleVelocity": 0.0,
+            "rotationVelocity": 98.17477042468103
+          },
+          {
+            "phase": "move",
+            "scale": 1.0,
+            "rotation": 4.71238898038469,
+            "focusX": 0.0,
+            "focusY": -50.0,
+            "scaleVelocity": 0.0,
+            "rotationVelocity": 98.17477042468103
+          },
+          {
+            "phase": "move",
+            "scale": 1.0,
+            "rotation": 6.283185307179586,
+            "focusX": 50.0,
+            "focusY": 0.0,
+            "scaleVelocity": 0.0,
+            "rotationVelocity": 98.17477042468103
+          },
+          {
+            "phase": "end",
+            "scale": 1.0,
+            "rotation": 6.283185307179586,
+            "focusX": 50.0,
+            "focusY": 0.0,
+            "scaleVelocity": 0.0,
+            "rotationVelocity": 98.17477042468103
+          }
+        ]
+      },
+      {
+        "name": "rotation under the slop never starts",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 4.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": []
+          }
+        ],
+        "expect": []
+      },
+      {
+        "name": "scale and rotation ride one gesture",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 141.4213562373095,
+                "y": 141.4213562373095
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": []
+          }
+        ],
+        "expect": [
+          {
+            "phase": "start",
+            "scale": 2.0,
+            "rotation": 0.7853981633974483,
+            "focusX": 70.71067811865476,
+            "focusY": 70.71067811865476,
+            "scaleVelocity": 62.5,
+            "rotationVelocity": 49.087385212340514
+          },
+          {
+            "phase": "end",
+            "scale": 2.0,
+            "rotation": 0.7853981633974483,
+            "focusX": 70.71067811865476,
+            "focusY": 70.71067811865476,
+            "scaleVelocity": 62.5,
+            "rotationVelocity": 49.087385212340514
+          }
+        ]
+      },
+      {
+        "name": "a single finger never engages a transform",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 50.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": []
+          }
+        ],
+        "expect": []
+      },
+      {
+        "name": "a cancelled transform ends at its last value",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 160.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "cancel"
+          }
+        ],
+        "expect": [
+          {
+            "phase": "start",
+            "scale": 1.6,
+            "rotation": 0.0,
+            "focusX": 80.0,
+            "focusY": 0.0,
+            "scaleVelocity": 37.50000000000001,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "end",
+            "scale": 1.6,
+            "rotation": 0.0,
+            "focusX": 80.0,
+            "focusY": 0.0,
+            "scaleVelocity": 37.50000000000001,
+            "rotationVelocity": 0.0
+          }
+        ]
+      },
+      {
+        "name": "a cancel before the slop emits nothing",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "cancel"
+          }
+        ],
+        "expect": []
+      },
+      {
+        "name": "a second gesture starts from scale one",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 16,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 200.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 32,
+            "points": []
+          },
+          {
+            "type": "update",
+            "t": 200,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 216,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 150.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 232,
+            "points": []
+          }
+        ],
+        "expect": [
+          {
+            "phase": "start",
+            "scale": 2.0,
+            "rotation": 0.0,
+            "focusX": 100.0,
+            "focusY": 0.0,
+            "scaleVelocity": 62.5,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "end",
+            "scale": 2.0,
+            "rotation": 0.0,
+            "focusX": 100.0,
+            "focusY": 0.0,
+            "scaleVelocity": 62.5,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "start",
+            "scale": 1.5,
+            "rotation": 0.0,
+            "focusX": 75.0,
+            "focusY": 0.0,
+            "scaleVelocity": 31.25,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "end",
+            "scale": 1.5,
+            "rotation": 0.0,
+            "focusX": 75.0,
+            "focusY": 0.0,
+            "scaleVelocity": 31.25,
+            "rotationVelocity": 0.0
+          }
+        ]
+      },
+      {
+        "name": "scale velocity is the weighted derivative of the scale series",
+        "events": [
+          {
+            "type": "update",
+            "t": 0,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 100.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 50,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 150.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 100,
+            "points": [
+              {
+                "id": "a",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "b",
+                "x": 200.0,
+                "y": 0.0
+              }
+            ]
+          },
+          {
+            "type": "update",
+            "t": 116,
+            "points": []
+          }
+        ],
+        "expect": [
+          {
+            "phase": "start",
+            "scale": 1.5,
+            "rotation": 0.0,
+            "focusX": 75.0,
+            "focusY": 0.0,
+            "scaleVelocity": 10.0,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "move",
+            "scale": 2.0,
+            "rotation": 0.0,
+            "focusX": 100.0,
+            "focusY": 0.0,
+            "scaleVelocity": 10.0,
+            "rotationVelocity": 0.0
+          },
+          {
+            "phase": "end",
+            "scale": 2.0,
+            "rotation": 0.0,
+            "focusX": 100.0,
+            "focusY": 0.0,
+            "scaleVelocity": 10.0,
+            "rotationVelocity": 0.0
+          }
+        ]
+      }
+    ]
+  },
+  "drag": {
+    "_note": "on:drag / on:dragEnd payload - ADDITIVE. Every shipped key (x, y, width, height, fraction, fractionY, dx, dy, phase) keeps its exact meaning and value; translationX / translationY are the named twins of dx / dy (the gesture-handler vocabulary authors expect) and velocityX / velocityY come from the same velocity1D fold. width and height floor at 1 so a zero-sized element never divides by zero.",
+    "cases": [
+      {
+        "name": "the shipped keys keep their meaning and gain velocity",
+        "width": 200.0,
+        "height": 100.0,
+        "x": 50.0,
+        "y": 25.0,
+        "startX": 10.0,
+        "startY": 5.0,
+        "samples": [
+          {
+            "t": 0,
+            "x": 10.0,
+            "y": 5.0
+          },
+          {
+            "t": 50,
+            "x": 30.0,
+            "y": 15.0
+          },
+          {
+            "t": 100,
+            "x": 50.0,
+            "y": 25.0
+          }
+        ],
+        "phase": "move",
+        "expect": {
+          "x": 50.0,
+          "y": 25.0,
+          "width": 200.0,
+          "height": 100.0,
+          "fraction": 0.25,
+          "fractionY": 0.25,
+          "dx": 40.0,
+          "dy": 20.0,
+          "translationX": 40.0,
+          "translationY": 20.0,
+          "velocityX": 400.0,
+          "velocityY": 200.0,
+          "phase": "move"
+        }
+      },
+      {
+        "name": "translation mirrors dx and dy exactly",
+        "width": 300.0,
+        "height": 300.0,
+        "x": 260.0,
+        "y": 40.0,
+        "startX": 60.0,
+        "startY": 140.0,
+        "samples": [
+          {
+            "t": 0,
+            "x": 60.0,
+            "y": 140.0
+          },
+          {
+            "t": 16,
+            "x": 260.0,
+            "y": 40.0
+          }
+        ],
+        "phase": "end",
+        "expect": {
+          "x": 260.0,
+          "y": 40.0,
+          "width": 300.0,
+          "height": 300.0,
+          "fraction": 0.8666666666666667,
+          "fractionY": 0.13333333333333333,
+          "dx": 200.0,
+          "dy": -100.0,
+          "translationX": 200.0,
+          "translationY": -100.0,
+          "velocityX": 12500.0,
+          "velocityY": -6250.0,
+          "phase": "end"
+        }
+      },
+      {
+        "name": "a press with one sample has zero velocity",
+        "width": 200.0,
+        "height": 100.0,
+        "x": 10.0,
+        "y": 5.0,
+        "startX": 10.0,
+        "startY": 5.0,
+        "samples": [
+          {
+            "t": 0,
+            "x": 10.0,
+            "y": 5.0
+          }
+        ],
+        "phase": "start",
+        "expect": {
+          "x": 10.0,
+          "y": 5.0,
+          "width": 200.0,
+          "height": 100.0,
+          "fraction": 0.05,
+          "fractionY": 0.05,
+          "dx": 0.0,
+          "dy": 0.0,
+          "translationX": 0.0,
+          "translationY": 0.0,
+          "velocityX": 0.0,
+          "velocityY": 0.0,
+          "phase": "start"
+        }
+      },
+      {
+        "name": "fractions clamp outside the bounds",
+        "width": 200.0,
+        "height": 100.0,
+        "x": -40.0,
+        "y": 260.0,
+        "startX": 0.0,
+        "startY": 0.0,
+        "samples": [
+          {
+            "t": 0,
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "t": 30,
+            "x": -40.0,
+            "y": 260.0
+          }
+        ],
+        "phase": "move",
+        "expect": {
+          "x": -40.0,
+          "y": 260.0,
+          "width": 200.0,
+          "height": 100.0,
+          "fraction": 0.0,
+          "fractionY": 1.0,
+          "dx": -40.0,
+          "dy": 260.0,
+          "translationX": -40.0,
+          "translationY": 260.0,
+          "velocityX": -1333.3333333333335,
+          "velocityY": 8666.666666666668,
+          "phase": "move"
+        }
+      },
+      {
+        "name": "a zero-sized element never divides by zero",
+        "width": 0.0,
+        "height": 0.0,
+        "x": 5.0,
+        "y": 5.0,
+        "startX": 0.0,
+        "startY": 0.0,
+        "samples": [
+          {
+            "t": 0,
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "t": 20,
+            "x": 5.0,
+            "y": 5.0
+          }
+        ],
+        "phase": "move",
+        "expect": {
+          "x": 5.0,
+          "y": 5.0,
+          "width": 1.0,
+          "height": 1.0,
+          "fraction": 1.0,
+          "fractionY": 1.0,
+          "dx": 5.0,
+          "dy": 5.0,
+          "translationX": 5.0,
+          "translationY": 5.0,
+          "velocityX": 250.0,
+          "velocityY": 250.0,
+          "phase": "move"
+        }
+      }
+    ]
+  },
+  "composition": {
+    "_note": "The composition resolver behind gesture= and gestureAxis=: given the ancestor chain (root first) and one attempt, which recognizers may fire together. The attempt is what the RAW input physically matches - the adapter decides that, this decides composition. Rules in order: (1) a directional recognizer on a node claiming x or y is eliminated when the attempt runs on the other axis; (2) an outstanding claim by one node cancels every other node's recognizers; (3) a gesture=defer node yields while ANY ancestor candidate is still viable; (4) the DEEPEST surviving node owns the touch, and an ancestor keeps its recognizers only if it declared gesture=simultaneous; (5) inside a node the CONTINUOUS recognizers (pinch, rotate, pan, scroll) are exclusive by precedence unless the node declared simultaneous, while discrete ones (tap, longPress, swipe) never compete. fire[] and blocked[] are ordered root to leaf, then by precedence.",
+    "cases": [
+      {
+        "name": "a horizontal card swipe inside a vertical scroll",
+        "tree": [
+          {
+            "id": "feed",
+            "recognizers": [
+              "scroll"
+            ],
+            "axis": "y"
+          },
+          {
+            "id": "card",
+            "recognizers": [
+              "pan",
+              "swipe"
+            ],
+            "axis": "x"
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "scroll",
+            "pan",
+            "swipe"
+          ],
+          "axis": "x"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "card",
+              "kind": "pan"
+            },
+            {
+              "node": "card",
+              "kind": "swipe"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "feed",
+              "kind": "scroll",
+              "reason": "axis"
+            }
+          ]
+        }
+      },
+      {
+        "name": "the same markup still scrolls vertically",
+        "tree": [
+          {
+            "id": "feed",
+            "recognizers": [
+              "scroll"
+            ],
+            "axis": "y"
+          },
+          {
+            "id": "card",
+            "recognizers": [
+              "pan",
+              "swipe"
+            ],
+            "axis": "x"
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "scroll",
+            "pan",
+            "swipe"
+          ],
+          "axis": "y"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "feed",
+              "kind": "scroll"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "card",
+              "kind": "pan",
+              "reason": "axis"
+            },
+            {
+              "node": "card",
+              "kind": "swipe",
+              "reason": "axis"
+            }
+          ]
+        }
+      },
+      {
+        "name": "a vertical drag inside a vertical scroll: the innermost wins",
+        "tree": [
+          {
+            "id": "feed",
+            "recognizers": [
+              "scroll"
+            ],
+            "axis": "y"
+          },
+          {
+            "id": "row",
+            "recognizers": [
+              "pan"
+            ]
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "scroll",
+            "pan"
+          ],
+          "axis": "y"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "row",
+              "kind": "pan"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "feed",
+              "kind": "scroll",
+              "reason": "exclusive"
+            }
+          ]
+        }
+      },
+      {
+        "name": "a deferring row yields the vertical axis to the scroll",
+        "tree": [
+          {
+            "id": "feed",
+            "recognizers": [
+              "scroll"
+            ],
+            "axis": "y"
+          },
+          {
+            "id": "row",
+            "recognizers": [
+              "pan"
+            ],
+            "gesture": "defer"
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "scroll",
+            "pan"
+          ],
+          "axis": "y"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "feed",
+              "kind": "scroll"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "row",
+              "kind": "pan",
+              "reason": "deferred"
+            }
+          ]
+        }
+      },
+      {
+        "name": "the same deferring row still owns an axis the scroll refuses",
+        "tree": [
+          {
+            "id": "feed",
+            "recognizers": [
+              "scroll"
+            ],
+            "axis": "y"
+          },
+          {
+            "id": "row",
+            "recognizers": [
+              "pan"
+            ],
+            "gesture": "defer",
+            "axis": "x"
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "scroll",
+            "pan"
+          ],
+          "axis": "x"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "row",
+              "kind": "pan"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "feed",
+              "kind": "scroll",
+              "reason": "axis"
+            }
+          ]
+        }
+      },
+      {
+        "name": "pinch, rotate and pan run together on a photo",
+        "tree": [
+          {
+            "id": "photo",
+            "recognizers": [
+              "pinch",
+              "rotate",
+              "pan"
+            ],
+            "gesture": "simultaneous"
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "pinch",
+            "rotate",
+            "pan"
+          ],
+          "axis": "none"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "photo",
+              "kind": "pinch"
+            },
+            {
+              "node": "photo",
+              "kind": "rotate"
+            },
+            {
+              "node": "photo",
+              "kind": "pan"
+            }
+          ],
+          "blocked": []
+        }
+      },
+      {
+        "name": "exclusive is the default and picks by precedence",
+        "tree": [
+          {
+            "id": "photo",
+            "recognizers": [
+              "pinch",
+              "rotate",
+              "pan"
+            ]
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "pinch",
+            "rotate",
+            "pan"
+          ],
+          "axis": "none"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "photo",
+              "kind": "pinch"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "photo",
+              "kind": "rotate",
+              "reason": "exclusive"
+            },
+            {
+              "node": "photo",
+              "kind": "pan",
+              "reason": "exclusive"
+            }
+          ]
+        }
+      },
+      {
+        "name": "a scroll claim cancels every other recognizer",
+        "tree": [
+          {
+            "id": "feed",
+            "recognizers": [
+              "scroll"
+            ],
+            "axis": "y"
+          },
+          {
+            "id": "card",
+            "recognizers": [
+              "pan",
+              "swipe"
+            ]
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "scroll",
+            "pan",
+            "swipe"
+          ],
+          "axis": "y",
+          "claimedBy": "feed"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "feed",
+              "kind": "scroll"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "card",
+              "kind": "pan",
+              "reason": "claimed"
+            },
+            {
+              "node": "card",
+              "kind": "swipe",
+              "reason": "claimed"
+            }
+          ]
+        }
+      },
+      {
+        "name": "a simultaneous ancestor keeps running under the winner",
+        "tree": [
+          {
+            "id": "board",
+            "recognizers": [
+              "pan"
+            ],
+            "gesture": "simultaneous"
+          },
+          {
+            "id": "tile",
+            "recognizers": [
+              "pan"
+            ]
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "pan"
+          ],
+          "axis": "x"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "board",
+              "kind": "pan"
+            },
+            {
+              "node": "tile",
+              "kind": "pan"
+            }
+          ],
+          "blocked": []
+        }
+      },
+      {
+        "name": "a tap is discrete and never loses to a pan on the same node",
+        "tree": [
+          {
+            "id": "cell",
+            "recognizers": [
+              "pan",
+              "tap"
+            ]
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "pan",
+            "tap"
+          ],
+          "axis": "x"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "cell",
+              "kind": "pan"
+            },
+            {
+              "node": "cell",
+              "kind": "tap"
+            }
+          ],
+          "blocked": []
+        }
+      },
+      {
+        "name": "a discrete recognizer on an ancestor still loses the touch",
+        "tree": [
+          {
+            "id": "cell",
+            "recognizers": [
+              "tap"
+            ]
+          },
+          {
+            "id": "handle",
+            "recognizers": [
+              "pan"
+            ]
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "pan",
+            "tap"
+          ],
+          "axis": "x"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "handle",
+              "kind": "pan"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "cell",
+              "kind": "tap",
+              "reason": "exclusive"
+            }
+          ]
+        }
+      },
+      {
+        "name": "defer chains: the middle node yields, the leaf takes what is left",
+        "tree": [
+          {
+            "id": "feed",
+            "recognizers": [
+              "scroll"
+            ],
+            "axis": "y"
+          },
+          {
+            "id": "pager",
+            "recognizers": [
+              "pan"
+            ],
+            "gesture": "defer",
+            "axis": "x"
+          },
+          {
+            "id": "knob",
+            "recognizers": [
+              "pan"
+            ],
+            "gesture": "defer"
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "scroll",
+            "pan"
+          ],
+          "axis": "x"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "pager",
+              "kind": "pan"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "feed",
+              "kind": "scroll",
+              "reason": "axis"
+            },
+            {
+              "node": "knob",
+              "kind": "pan",
+              "reason": "deferred"
+            }
+          ]
+        }
+      },
+      {
+        "name": "a claim from outside the tree blocks everything",
+        "tree": [
+          {
+            "id": "feed",
+            "recognizers": [
+              "scroll"
+            ],
+            "axis": "y"
+          },
+          {
+            "id": "card",
+            "recognizers": [
+              "pan"
+            ],
+            "axis": "x"
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "scroll",
+            "pan"
+          ],
+          "axis": "none",
+          "claimedBy": "nobody"
+        },
+        "expect": {
+          "fire": [],
+          "blocked": [
+            {
+              "node": "feed",
+              "kind": "scroll",
+              "reason": "claimed"
+            },
+            {
+              "node": "card",
+              "kind": "pan",
+              "reason": "claimed"
+            }
+          ]
+        }
+      },
+      {
+        "name": "an axis claim never filters a non-directional recognizer",
+        "tree": [
+          {
+            "id": "photo",
+            "recognizers": [
+              "pinch",
+              "pan"
+            ],
+            "axis": "x",
+            "gesture": "simultaneous"
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "pinch",
+            "pan"
+          ],
+          "axis": "y"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "photo",
+              "kind": "pinch"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "photo",
+              "kind": "pan",
+              "reason": "axis"
+            }
+          ]
+        }
+      },
+      {
+        "name": "a two finger transform ignores every axis claim",
+        "tree": [
+          {
+            "id": "feed",
+            "recognizers": [
+              "scroll"
+            ],
+            "axis": "y"
+          },
+          {
+            "id": "photo",
+            "recognizers": [
+              "pinch",
+              "rotate"
+            ],
+            "gesture": "simultaneous"
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "pinch",
+            "rotate",
+            "scroll"
+          ],
+          "axis": "none"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "photo",
+              "kind": "pinch"
+            },
+            {
+              "node": "photo",
+              "kind": "rotate"
+            }
+          ],
+          "blocked": [
+            {
+              "node": "feed",
+              "kind": "scroll",
+              "reason": "exclusive"
+            }
+          ]
+        }
+      },
+      {
+        "name": "an unmatched kind is simply not a candidate",
+        "tree": [
+          {
+            "id": "photo",
+            "recognizers": [
+              "pinch",
+              "rotate"
+            ],
+            "gesture": "simultaneous"
+          }
+        ],
+        "attempt": {
+          "kinds": [
+            "pinch"
+          ],
+          "axis": "none"
+        },
+        "expect": {
+          "fire": [
+            {
+              "node": "photo",
+              "kind": "pinch"
+            }
+          ],
+          "blocked": []
+        }
+      }
+    ]
+  },
+  "degradation": {
+    "_note": "Article 7 made machine-checkable, the tooltip rule applied to the whole family: every implementation carries this table verbatim and the runners diff it. A gesture whose input does not exist on a surface NEVER fires there - it never degrades into a fake, and it never gates content, so `alternative` names the path that must also exist for the capability to be reachable.",
+    "rows": [
+      {
+        "gesture": "pinch",
+        "requires": "multiTouch",
+        "whenAbsent": "never-fires",
+        "alternative": "scroll zoom= bounds, an on:adjust step, or explicit zoom controls"
+      },
+      {
+        "gesture": "rotate",
+        "requires": "multiTouch",
+        "whenAbsent": "never-fires",
+        "alternative": "an on:adjust step or explicit rotate controls"
+      },
+      {
+        "gesture": "swipe",
+        "requires": "touch",
+        "whenAbsent": "never-fires",
+        "alternative": "a visible control for the same action, never swipe-only"
+      },
+      {
+        "gesture": "hover",
+        "requires": "hoverPointer",
+        "whenAbsent": "never-fires",
+        "alternative": "content is never gated behind hover - the same content on tap or in place"
+      },
+      {
+        "gesture": "press",
+        "requires": "pointer",
+        "whenAbsent": "never-fires",
+        "alternative": "on:tap keeps working; press state is decoration"
+      },
+      {
+        "gesture": "drag",
+        "requires": "pointer",
+        "whenAbsent": "never-fires",
+        "alternative": "on:adjust plus a11yValue, which the linter requires anyway"
+      }
+    ]
+  }
+}

@@ -1046,7 +1046,7 @@ enum JSECore {
         case "URL", "URLSearchParams", "Headers", "Request", "Blob", "File", "FormData",
              "Date", "AbortController", "structuredClone",
              "encodeURIComponent", "decodeURIComponent", "encodeURI", "decodeURI",
-             "parseInt", "parseFloat", "isNaN", "Number", "String", "Boolean",
+             "parseInt", "parseFloat", "isNaN", "isFinite", "Number", "String", "Boolean",
              "Map", "Set", "Error", "RegExp", "WebSocket":
             return true
         default: return false
@@ -1206,6 +1206,8 @@ enum JSECore {
             s = head
             return Double(s) ?? Double.nan
         case "isNaN":   return (JSE.number(arg(0)) ?? Double.nan).isNaN
+        // The twin of isNaN, which shipped without it (jse/stdlib-001).
+        case "isFinite": return (JSE.number(arg(0)) ?? Double.nan).isFinite
         case "Number":  return JSE.number(arg(0)) ?? Double.nan
         case "String":  return JSE.string(arg(0))
         case "Boolean": return JSE.truthy(arg(0))

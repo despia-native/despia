@@ -1,0 +1,75 @@
+{
+ "_note": "The system-defaults SHAPE corpus (design-system.md Part 1, 'radius scale'). RATIFIED, NOT INVENTED: every web value is the value already shipping in packages/dom/src/theme.ts, read out of the sheet rather than chosen here. THE LAW THAT WAS MISSING: a rung is BOUND TO A CONTROL SIZE, not applied regardless. The defect this closes is a 40px button and a 56px card taking the same radius, which is why nothing read as belonging to one family. Each rung below declares the band it serves, so picking a radius is picking a size class rather than a number. The Apple column is `continuousCorner` because those platforms own the CURVE as well as the radius - a continuous corner is not a circular arc, and no CSS radius reproduces it, which is a named divergence rather than a gap. The Compose targets take the Material 3 shape scale. The web drift gate is packages/dom/test/theme.test.ts; the element layer is held to this vocabulary by packages/dom/test/design-system-gate.test.ts, which fails a literal on this axis inside @layer dsx-elements.",
+ "tokens": {
+  "sm": {
+   "ios": "continuousCorner",
+   "watchos": "continuousCorner",
+   "macos": "continuousCorner",
+   "android": "extraSmall",
+   "wear": "extraSmall",
+   "windows": "extraSmall",
+   "linux": "extraSmall",
+   "web": {
+    "css": "--dsx-radius-sm",
+    "radius": "6px",
+    "band": "control-height-sm and below: chips, marks, inner corners"
+   }
+  },
+  "control": {
+   "ios": "continuousCorner",
+   "watchos": "continuousCorner",
+   "macos": "continuousCorner",
+   "android": "small",
+   "wear": "small",
+   "windows": "small",
+   "linux": "small",
+   "web": {
+    "css": "--dsx-radius-control",
+    "radius": "10px",
+    "band": "the 40px control band: buttons, fields, segments"
+   }
+  },
+  "card": {
+   "ios": "continuousCorner",
+   "watchos": "continuousCorner",
+   "macos": "continuousCorner",
+   "android": "medium",
+   "wear": "medium",
+   "windows": "medium",
+   "linux": "medium",
+   "web": {
+    "css": "--dsx-radius-card",
+    "radius": "14px",
+    "band": "a content card, which is taller than a control and reads rounder"
+   }
+  },
+  "sheet": {
+   "ios": "continuousCorner",
+   "watchos": "continuousCorner",
+   "macos": "continuousCorner",
+   "android": "large",
+   "wear": "large",
+   "windows": "large",
+   "linux": "large",
+   "web": {
+    "css": "--dsx-radius-sheet",
+    "radius": "20px",
+    "band": "a surface that meets a screen edge"
+   }
+  },
+  "full": {
+   "ios": "continuousCorner",
+   "watchos": "continuousCorner",
+   "macos": "continuousCorner",
+   "android": "full",
+   "wear": "full",
+   "windows": "full",
+   "linux": "full",
+   "web": {
+    "css": "--dsx-radius-full",
+    "radius": "999px",
+    "band": "a pill or a circle, where the radius is half the height by definition"
+   }
+  }
+ }
+}

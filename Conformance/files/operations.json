@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "_note": "The CRUD matrix — what each synchronous action does, said once for three renderers (parity/F03-files.md §3b). Each case seeds a filesystem with `given`, runs `steps` in order, and states either a `resolve` shape or an `error` code per step; `then` is the filesystem the case must have left behind. The runners execute the shared pure core over every path literal here (so a fixture can never name a path the sandbox would refuse, and a refusal case can never name one it would accept) and check every action and error code against the shared vocabulary; the per-renderer facets are judged against the same expectations by the module's declared `tests` block in dsx.json, which verify_module_tests gates and the CanvasEditor plays. Overwrite semantics, recursion, and the directory/file confusions are here because they are exactly where three hand-written implementations diverge.",
+
+  "cases": [
+    { "name": "write then read round-trips utf8",
+      "given": [],
+      "steps": [
+        { "action": "write", "args": { "path": "documents:notes/hello.txt", "data": "hello" }, "resolve": { "path": "documents:notes/hello.txt", "bytes": 5 } },
+        { "action": "read", "args": { "path": "documents:notes/hello.txt" }, "resolve": { "data": "hello", "encoding": "utf8", "bytes": 5 } }
+      ],
+      "then": [ { "path": "documents:notes/hello.txt", "isDirectory": false, "size": 5 } ] },
+
+    { "name": "write creates missing parent directories",
+      "given": [],
+      "steps": [
+        { "action": "write", "args": { "path": "documents:a/b/c/deep.txt", "data": "x" }, "resolve": { "path": "documents:a/b/c/deep.txt", "bytes": 1 } },
+        { "action": "info", "args": { "path": "documents:a/b" }, "resolve": { "exists": true, "isDirectory": true } }
+      ],
+      "then": [ { "path": "documents:a/b/c/deep.txt", "isDirectory": false, "size": 1 } ] },
+
+    { "name": "write replaces by default and appends on request",
+      "given": [ { "path": "documents:log.txt", "data": "one" } ],
+      "steps": [
+        { "action": "write", "args": { "path": "documents:log.txt", "data": "two" }, "resolve": { "path": "documents:log.txt", "bytes": 3 } },
+        { "action": "read", "args": { "path": "documents:log.txt" }, "resolve": { "data": "two", "encoding": "utf8", "bytes": 3 } },
+        { "action": "write", "args": { "path": "documents:log.txt", "data": "three", "append": true }, "resolve": { "path": "documents:log.txt", "bytes": 5 } },
+        { "action": "read", "args": { "path": "documents:log.txt" }, "resolve": { "data": "twothree", "encoding": "utf8", "bytes": 8 } }
+      ],
+      "then": [ { "path": "documents:log.txt", "isDirectory": false, "size": 8 } ] },
+
+    { "name": "read honours offset and length so a large file is never materialised whole",
+      "given": [ { "path": "documents:big.txt", "data": "abcdefghij" } ],
+      "steps": [
+        { "action": "read", "args": { "path": "documents:big.txt", "offset": 3, "length": 4 }, "resolve": { "data": "defg", "encoding": "utf8", "bytes": 4 } },
+        { "action": "read", "args": { "path": "documents:big.txt", "offset": 8, "length": 999 }, "resolve": { "data": "ij", "encoding": "utf8", "bytes": 2 } },
+        { "action": "read", "args": { "path": "documents:big.txt", "offset": 10, "length": 4 }, "resolve": { "data": "", "encoding": "utf8", "bytes": 0 } }
+      ],
+      "then": [ { "path": "documents:big.txt", "isDirectory": false, "size": 10 } ] },
+
+    { "name": "read of a missing file is not_found",
+      "given": [],
+      "steps": [ { "action": "read", "args": { "path": "documents:gone.txt" }, "error": "not_found" } ],
+      "then": [] },
+
+    { "name": "read of a directory is is_directory",
+      "given": [ { "path": "documents:folder", "isDirectory": true } ],
+      "steps": [ { "action": "read", "args": { "path": "documents:folder" }, "error": "is_directory" } ],
+      "then": [ { "path": "documents:folder", "isDirectory": true } ] },
+
+    { "name": "info on a missing path reports absence rather than failing",
+      "given": [],
+      "steps": [ { "action": "info", "args": { "path": "documents:nothing.bin" }, "resolve": { "exists": false, "isDirectory": false } } ],
+      "then": [] },
+
+    { "name": "a write into the read-only bundle root is permission_denied",
+      "given": [],
+      "steps": [ { "action": "write", "args": { "path": "bundle:seed/index.html", "data": "x" }, "error": "permission_denied" } ],
+      "then": [] },
+
+    { "name": "a delete inside the read-only bundle root is permission_denied",
+      "given": [],
+      "steps": [ { "action": "delete", "args": { "path": "bundle:seed/index.html" }, "error": "permission_denied" } ],
+      "then": [] },
+
+    { "name": "the bundle root reads",
+      "given": [ { "path": "bundle:seed/index.html", "data": "<!doctype html>" } ],
+      "steps": [ { "action": "info", "args": { "path": "bundle:seed/index.html" }, "resolve": { "exists": true, "isDirectory": false } } ],
+      "then": [ { "path": "bundle:seed/index.html", "isDirectory": false, "size": 15 } ] },
+
+    { "name": "delete of a non-empty directory needs recursive",
+      "given": [ { "path": "documents:tree/a.txt", "data": "a" }, { "path": "documents:tree/b.txt", "data": "b" } ],
+      "steps": [
+        { "action": "delete", "args": { "path": "documents:tree" }, "error": "is_directory" },
+        { "action": "delete", "args": { "path": "documents:tree", "recursive": true }, "resolve": { "deleted": 3 } }
+      ],
+      "then": [] },
+
+    { "name": "delete of a missing path is not_found rather than a silent success",
+      "given": [],
+      "steps": [ { "action": "delete", "args": { "path": "documents:gone.txt" }, "error": "not_found" } ],
+      "then": [] },
+
+    { "name": "mkdir is idempotent and recursive on request",
+      "given": [],
+      "steps": [
+        { "action": "mkdir", "args": { "path": "documents:x/y/z", "recursive": true }, "resolve": { "path": "documents:x/y/z" } },
+        { "action": "mkdir", "args": { "path": "documents:x/y/z", "recursive": true }, "resolve": { "path": "documents:x/y/z" } },
+        { "action": "mkdir", "args": { "path": "documents:p/q" }, "error": "not_found" }
+      ],
+      "then": [ { "path": "documents:x/y/z", "isDirectory": true } ] },
+
+    { "name": "mkdir over an existing file is exists",
+      "given": [ { "path": "documents:name", "data": "file" } ],
+      "steps": [ { "action": "mkdir", "args": { "path": "documents:name" }, "error": "exists" } ],
+      "then": [ { "path": "documents:name", "isDirectory": false, "size": 4 } ] },
+
+    { "name": "copy refuses an existing destination unless overwrite is set",
+      "given": [ { "path": "documents:src.txt", "data": "src" }, { "path": "documents:dst.txt", "data": "dst" } ],
+      "steps": [
+        { "action": "copy", "args": { "from": "documents:src.txt", "to": "documents:dst.txt" }, "error": "exists" },
+        { "action": "copy", "args": { "from": "documents:src.txt", "to": "documents:dst.txt", "overwrite": true }, "resolve": { "path": "documents:dst.txt" } },
+        { "action": "read", "args": { "path": "documents:src.txt" }, "resolve": { "data": "src", "encoding": "utf8", "bytes": 3 } }
+      ],
+      "then": [ { "path": "documents:src.txt", "isDirectory": false, "size": 3 }, { "path": "documents:dst.txt", "isDirectory": false, "size": 3 } ] },
+
+    { "name": "move leaves nothing behind and crosses roots",
+      "given": [ { "path": "temp:staged.bin", "data": "1234" } ],
+      "steps": [
+        { "action": "move", "args": { "from": "temp:staged.bin", "to": "documents:kept.bin" }, "resolve": { "path": "documents:kept.bin" } },
+        { "action": "info", "args": { "path": "temp:staged.bin" }, "resolve": { "exists": false, "isDirectory": false } }
+      ],
+      "then": [ { "path": "documents:kept.bin", "isDirectory": false, "size": 4 } ] },
+
+    { "name": "move of a missing source is not_found and the destination is untouched",
+      "given": [ { "path": "documents:dst.txt", "data": "dst" } ],
+      "steps": [ { "action": "move", "args": { "from": "documents:gone.txt", "to": "documents:dst.txt", "overwrite": true }, "error": "not_found" } ],
+      "then": [ { "path": "documents:dst.txt", "isDirectory": false, "size": 3 } ] },
+
+    { "name": "move into the read-only bundle root is permission_denied",
+      "given": [ { "path": "documents:a.txt", "data": "a" } ],
+      "steps": [ { "action": "move", "args": { "from": "documents:a.txt", "to": "bundle:a.txt" }, "error": "permission_denied" } ],
+      "then": [ { "path": "documents:a.txt", "isDirectory": false, "size": 1 } ] },
+
+    { "name": "list is shallow by default, recursive and glob-filtered on request",
+      "given": [
+        { "path": "documents:media/one.png", "data": "1" },
+        { "path": "documents:media/two.jpg", "data": "2" },
+        { "path": "documents:media/sub/three.png", "data": "3" }
+      ],
+      "steps": [
+        { "action": "list", "args": { "path": "documents:media" }, "resolve": { "entries": ["one.png", "two.jpg", "sub"] } },
+        { "action": "list", "args": { "path": "documents:media", "recursive": true }, "resolve": { "entries": ["one.png", "two.jpg", "sub", "sub/three.png"] } },
+        { "action": "list", "args": { "path": "documents:media", "recursive": true, "glob": "**/*.png" }, "resolve": { "entries": ["one.png", "sub/three.png"] } }
+      ],
+      "then": [
+        { "path": "documents:media/one.png", "isDirectory": false, "size": 1 },
+        { "path": "documents:media/two.jpg", "isDirectory": false, "size": 1 },
+        { "path": "documents:media/sub/three.png", "isDirectory": false, "size": 1 }
+      ] },
+
+    { "name": "list of a file is not_directory",
+      "given": [ { "path": "documents:one.txt", "data": "1" } ],
+      "steps": [ { "action": "list", "args": { "path": "documents:one.txt" }, "error": "not_directory" } ],
+      "then": [ { "path": "documents:one.txt", "isDirectory": false, "size": 1 } ] },
+
+    { "name": "list of a missing directory is not_found",
+      "given": [],
+      "steps": [ { "action": "list", "args": { "path": "documents:nowhere" }, "error": "not_found" } ],
+      "then": [] },
+
+    { "name": "hash is stable and algorithm-selectable",
+      "given": [ { "path": "documents:abc.txt", "data": "abc" } ],
+      "steps": [
+        { "action": "hash", "args": { "path": "documents:abc.txt" }, "resolve": { "hash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" } },
+        { "action": "hash", "args": { "path": "documents:abc.txt", "algorithm": "md5" }, "resolve": { "hash": "900150983cd24fb0d6963f7d28e17f72" } }
+      ],
+      "then": [ { "path": "documents:abc.txt", "isDirectory": false, "size": 3 } ] },
+
+    { "name": "hash of a directory is is_directory",
+      "given": [ { "path": "documents:folder", "isDirectory": true } ],
+      "steps": [ { "action": "hash", "args": { "path": "documents:folder" }, "error": "is_directory" } ],
+      "then": [ { "path": "documents:folder", "isDirectory": true } ] },
+
+    { "name": "every path-shaped refusal reaches the caller as unsupported_root",
+      "given": [],
+      "steps": [
+        { "action": "read", "args": { "path": "documents:../../etc/passwd" }, "error": "unsupported_root" },
+        { "action": "write", "args": { "path": "/etc/passwd", "data": "x" }, "error": "unsupported_root" },
+        { "action": "list", "args": { "path": "external:Download" }, "error": "unsupported_root" },
+        { "action": "copy", "args": { "from": "documents:a.txt", "to": "documents:%2e%2e/b.txt" }, "error": "unsupported_root" }
+      ],
+      "then": [] },
+
+    { "name": "a write larger than the free space is refused BEFORE it starts, leaving no partial file",
+      "given": [],
+      "freeBytes": 1024,
+      "steps": [ { "action": "write", "args": { "path": "documents:huge.bin", "data": "<2 MB>", "encoding": "base64" }, "error": "no_space" } ],
+      "then": [] }
+  ]
+}

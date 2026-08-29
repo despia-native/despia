@@ -45,6 +45,16 @@
       "type": "action",
       "default": null,
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:65"
+    },
+    "disabled": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:21 (the W9 disabled-grammar pair \u2014 `disabled` OR `disabled-if` truthy disables; all three renderers)"
+    },
+    "disabled-if": {
+      "type": "expr",
+      "default": null,
+      "_src": "the conditional half of the W9 disabled-grammar pair, ratified with `disabled` and implemented on all three renderers - see the `disabled` row above"
     }
   },
   "geometry": {
@@ -53,8 +63,8 @@
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:31"
     },
     "rowHeight": {
-      "value": 41,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift:81 (card maxHeight = min(rows,6) * 41)"
+      "value": 44,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Combobox/swift/Combobox.swift (44 min row + card maxHeight = min(rows,6) * 44 — the W12 coarse-pointer floor)"
     },
     "rowPaddingH": {
       "value": 12,

@@ -3,7 +3,15 @@
 //  The web twin of prepare_config.rb + compile_dsx_css.rb + StackXML (/web/01).
 //
 
-export { parseDsx, DsxParseError, DSX_PARSE_LIMITS, type XmlNode } from "./xml.ts";
+export { parseDsx, DsxParseError, DSX_PARSE_LIMITS, type XmlNode, type XmlSpan } from "./xml.ts";
+// The visual editor's DSX side (platform/00-vision.md M4): project a document into an editable
+// tree, apply a closed set of edits by SPLICING the author's own bytes, never by re-printing.
+// Exported so the hosted studio and `despia edit` share one engine — two would be two answers
+// to "what did that edit do to my file".
+export {
+  applyEdits, projectTree, flattenTree, SurgeryError,
+  type Edit, type NodePath, type TreeNode, type TreeRow, type SurgeryResult,
+} from "./surgery.ts";
 export {
   compileComponent, foldPlatformAttrs, subtreeReactive,
   type ComponentIR, type ComponentHead, type IRNode,

@@ -1,0 +1,2443 @@
+{
+  "version": 1,
+  "generatedBy": "ClosedSource/scripts/generate_conformance_index.rb",
+  "_note": "Which corpus is run by which runtime. A corpus with an empty `runtimes` is law nothing enforces; a corpus that LOSES a runtime is a rename that broke a runner. Detection is the literal path a runner uses to locate its fixtures, so the `referencedBy` file list is the evidence for every row.",
+  "summary": {
+    "corpora": 82,
+    "files": 384,
+    "cases": 6224,
+    "onThreeRenderers": 66,
+    "unrun": 0
+  },
+  "corpora": [
+    {
+      "corpus": "actions",
+      "files": 2,
+      "cases": 100,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/action-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/watch-conformance.test.ts",
+          "OpenSource/Web/packages/cli/src/declared.ts",
+          "OpenSource/Web/packages/dom/src/mount.ts",
+          "OpenSource/Web/packages/server/src/actions.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ActionConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/WatchConformanceTest.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/Stack.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "ai",
+      "files": 20,
+      "cases": 280,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/server/test/mcp-face.test.ts",
+          "OpenSource/Web/packages/server/test/mcp-transport-runner.ts"
+        ],
+        "kotlin": [
+          "ClosedSource/DSX/Modules/Core/LocalAI/Modules/Voice/kotlin/NeuralVoiceProvider.kt",
+          "ClosedSource/DSX/Modules/Core/LocalAI/Modules/Voice/kotlin/VoiceEngine.kt",
+          "ClosedSource/DSX/Modules/Core/LocalAI/Modules/Voice/kotlin/VoiceProvider.kt",
+          "ClosedSource/DSX/Modules/Core/LocalAI/kotlin/HuggingFaceDownloader.kt",
+          "ClosedSource/DSX/Modules/Core/LocalAI/kotlin/LocalAI.kt",
+          "ClosedSource/DSX/Modules/Core/LocalAI/kotlin/LocalAIController.kt",
+          "ClosedSource/DSX/Modules/Core/LocalAI/kotlin/LocalAIInferenceManager.kt",
+          "ClosedSource/DSX/Modules/Core/LocalAI/kotlin/ModelDelivery.kt",
+          "ClosedSource/DSX/Modules/Core/LocalAI/kotlin/ModelFit.kt",
+          "ClosedSource/DSX/Modules/Core/LocalAI/kotlin/OpenCatalog.kt"
+        ],
+        "swift": [
+          "ClosedSource/DSX/Modules/Core/LocalAI/Modules/Voice/swift/NeuralVoiceProvider.swift",
+          "ClosedSource/DSX/Modules/Core/LocalAI/Modules/Voice/swift/VoiceEngine.swift",
+          "ClosedSource/DSX/Modules/Core/LocalAI/Modules/Voice/swift/VoiceProvider.swift",
+          "ClosedSource/DSX/Modules/Core/LocalAI/swift/HuggingFaceDownloader.swift",
+          "ClosedSource/DSX/Modules/Core/LocalAI/swift/LocalAI.swift",
+          "ClosedSource/DSX/Modules/Core/LocalAI/swift/LocalAIController.swift",
+          "ClosedSource/DSX/Modules/Core/LocalAI/swift/LocalAIInferenceManager.swift",
+          "ClosedSource/DSX/Modules/Core/LocalAI/swift/ModelDelivery.swift",
+          "ClosedSource/DSX/Modules/Core/LocalAI/swift/ModelFit.swift",
+          "ClosedSource/DSX/Modules/Core/LocalAI/swift/OpenCatalog.swift",
+          "OpenSource/AI/bindings/swift/Sources/DespiaAI/Catalog.swift",
+          "OpenSource/AI/bindings/swift/Sources/DespiaAI/Fit.swift",
+          "OpenSource/AI/bindings/swift/Sources/DespiaAI/Host.swift",
+          "OpenSource/AI/bindings/swift/Tests/DespiaAIConformanceTests/CorpusTests.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/check_despia_mcp.rb",
+          "ClosedSource/scripts/check_g2p_corpus.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "api",
+      "files": 2,
+      "cases": 42,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/api-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/api-transport-controls.test.ts",
+          "OpenSource/Web/packages/server/test/api-proxy.test.ts",
+          "OpenSource/Web/packages/kernel/src/api.ts",
+          "OpenSource/Web/packages/kernel/src/bus.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ApiConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/WireContractTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/ApiBlock.kt",
+          "ClosedSource/DSX/Modules/Core/Dom/kotlin/VirtualBridge.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ApiBlock.swift",
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "ClosedSource/DSX/Modules/Core/Dom/swift/DomBridgeKit.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/generate_error_catalog.rb",
+          "ClosedSource/scripts/verify_module_tests.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "auth",
+      "files": 2,
+      "cases": 146,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/auth-proof-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/auth-proof.ts",
+          "OpenSource/Web/packages/kernel/src/index.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/AuthProofConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/AuthProof.kt",
+          "ClosedSource/DSX/Modules/Core/Auth/LoginHelper/kotlin/LoginHelperPolicy.kt",
+          "ClosedSource/DSX/Modules/Core/Auth/OAuth/kotlin/OAuth.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/AuthProof.swift",
+          "OpenSource/Engine/iOS/AuthProofConformance.swift",
+          "ClosedSource/DSX/Modules/Core/Auth/LoginHelper/swift/LoginHelperPolicy.swift",
+          "ClosedSource/DSX/Modules/Core/Auth/OAuth/swift/OAuth.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "background",
+      "files": 3,
+      "cases": 62,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/background-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/background.ts",
+          "ClosedSource/DSX/Modules/Core/Background/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/BackgroundConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/BackgroundPlan.kt",
+          "ClosedSource/DSX/Modules/Core/Background/kotlin/Background.kt",
+          "ClosedSource/DSX/Modules/Core/Background/kotlin/Budget.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/BackgroundPlan.swift",
+          "ClosedSource/DSX/Modules/Core/Background/swift/Background.swift",
+          "ClosedSource/DSX/Modules/Core/Background/swift/Budget.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "build-expressions",
+      "files": 2,
+      "cases": 74,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/build-expressions.test.ts"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/build_expressions_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "calendar",
+      "files": 3,
+      "cases": 56,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/calendar-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/calendar-core.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/CalendarConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/CalendarCore.kt",
+          "ClosedSource/DSX/Modules/Core/Calendar/kotlin/Calendar.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/CalendarConformance.swift",
+          "OpenSource/Engine/iOS/CalendarCore.swift",
+          "ClosedSource/DSX/Modules/Core/Calendar/swift/Calendar.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "canvas",
+      "files": 9,
+      "cases": 164,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/element-geometry-parity.test.ts",
+          "OpenSource/Web/packages/kernel/test/canvas-conformance.test.ts",
+          "OpenSource/Web/packages/dom/src/canvas.ts",
+          "OpenSource/Web/packages/kernel/src/canvas-core.ts",
+          "OpenSource/Web/packages/kernel/src/ink-core.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/CanvasConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/CanvasCore.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/InkCore.kt",
+          "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopCanvas.kt",
+          "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopRenderer.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackCanvas.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/CanvasCore.swift",
+          "OpenSource/Engine/iOS/InkCore.swift",
+          "OpenSource/Engine/iOS/StackCanvas.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "capture",
+      "files": 3,
+      "cases": 63,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/capture-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/capture-core.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/CaptureConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/CaptureCore.kt",
+          "ClosedSource/DSX/Modules/Core/Capture/kotlin/Offscreen.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/CaptureCore.swift",
+          "ClosedSource/DSX/Modules/Core/Capture/swift/Capture.swift",
+          "ClosedSource/DSX/Modules/Core/Capture/swift/Offscreen.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "chains",
+      "files": 1,
+      "cases": 18,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/chains-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/bus.ts",
+          "OpenSource/Web/packages/kernel/src/runner.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ChainsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/ChainResolver.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StackLive.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ChainResolver.swift",
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/Context.swift",
+          "OpenSource/Engine/iOS/JSEActions.swift",
+          "OpenSource/Engine/iOS/Module.swift",
+          "OpenSource/Engine/iOS/StackLive.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "cli",
+      "files": 3,
+      "cases": 65,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/cli/test/declared.test.ts",
+          "OpenSource/Web/packages/cli/test/dispatch.test.ts",
+          "OpenSource/Web/packages/cli/test/document.test.ts",
+          "OpenSource/Web/packages/cli/src/declared.ts",
+          "OpenSource/Web/packages/cli/src/dispatch.ts",
+          "OpenSource/Web/packages/cli/src/document.ts"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/lint_dsx.rb",
+          "ClosedSource/scripts/lint_dsx_cli_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "code",
+      "files": 1,
+      "cases": 33,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/highlight-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/jse/highlight.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/HighlightConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Highlight.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/Highlight.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "components",
+      "files": 10,
+      "cases": 138,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/compiler/test/component-fold-conformance.test.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ComponentFoldConformanceTest.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ComponentFoldConformance.swift",
+          "ClosedSource/scripts/conformance/RecordMain.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "compose",
+      "files": 1,
+      "cases": 26,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/compose-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/compose-core.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ComposeConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/ComposeCore.kt",
+          "ClosedSource/DSX/Modules/Core/Compose/kotlin/Compose.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ComposeConformance.swift",
+          "OpenSource/Engine/iOS/ComposeCore.swift",
+          "ClosedSource/DSX/Modules/Core/Compose/swift/Compose.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "composition",
+      "files": 1,
+      "cases": 40,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/composition.test.ts",
+          "OpenSource/Web/packages/kernel/test/composition-conformance.test.ts",
+          "OpenSource/Web/packages/dom/src/mount.ts",
+          "OpenSource/Web/packages/kernel/src/jse/jse.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/CompositionConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Jse.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackNodeView.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/JSE.swift",
+          "OpenSource/Engine/iOS/Stack.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "config",
+      "files": 1,
+      "cases": 21,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/config-validate.test.ts",
+          "OpenSource/Web/packages/kernel/src/config-validate.ts"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/config_schema.rb",
+          "ClosedSource/scripts/config_validation_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "contacts",
+      "files": 2,
+      "cases": 27,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/contacts-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/contacts-core.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ContactsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/ContactsCore.kt",
+          "ClosedSource/DSX/Modules/Core/Contacts/kotlin/Contacts.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ContactsConformance.swift",
+          "OpenSource/Engine/iOS/ContactsCore.swift",
+          "ClosedSource/DSX/Modules/Core/Contacts/swift/Contacts.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "controls",
+      "files": 4,
+      "cases": 108,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/controls-core.test.ts",
+          "OpenSource/Web/packages/compiler/src/cssmap.ts",
+          "OpenSource/Web/packages/kernel/src/controls-core.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ControlsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/ControlsCore.kt",
+          "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopGradients.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackGradients.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ControlsConformance.swift",
+          "OpenSource/Engine/iOS/ControlsCore.swift",
+          "OpenSource/Engine/iOS/Stack.swift",
+          "OpenSource/Engine/iOS/StackGradients.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "crypto",
+      "files": 3,
+      "cases": 51,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/crypto-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/crypto-core.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/CryptoConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/CryptoCore.kt",
+          "ClosedSource/DSX/Modules/Core/Crypto/kotlin/Crypto.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/CryptoCore.swift",
+          "ClosedSource/DSX/Modules/Core/Crypto/swift/Crypto.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "dataviz",
+      "files": 6,
+      "cases": 144,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/dataviz-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/dataviz.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/DatavizConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Dataviz.kt",
+          "ClosedSource/DSX/Modules/Core/Charts/kotlin/Charts.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/Dataviz.swift",
+          "OpenSource/Engine/iOS/DatavizConformance.swift",
+          "ClosedSource/DSX/Modules/Core/Charts/swift/Charts.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "defaults",
+      "files": 7,
+      "cases": 5,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/compiler/test/defaults.test.ts",
+          "OpenSource/Web/packages/compiler/test/project-theme.test.ts",
+          "OpenSource/Web/packages/dom/test/defaults-corpus.test.ts",
+          "OpenSource/Web/packages/dom/test/theme.test.ts",
+          "OpenSource/Web/packages/cli/src/edit.ts",
+          "OpenSource/Web/packages/compiler/src/cssmap.ts",
+          "OpenSource/Web/packages/dom/src/theme.ts",
+          "OpenSource/Web/packages/dom/src/type-roles.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/TypeRampConformanceTest.kt",
+          "OpenSource/Engine/Android/render/src/test/kotlin/despia/engine/render/DefaultsTokensTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/MarkdownProse.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/TypeRamp.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackNodeView.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackStyle.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackTheme.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/Stack.swift",
+          "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/check_editor_scale.rb",
+          "ClosedSource/scripts/check_renderer_constants.rb",
+          "ClosedSource/scripts/check_style_catalog.rb",
+          "ClosedSource/scripts/check_type_ramp.rb",
+          "ClosedSource/scripts/check_type_ramp_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "device",
+      "files": 6,
+      "cases": 71,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "ClosedSource/DSX/Modules/Core/Device/web/index.js"
+        ],
+        "kotlin": [
+          "ClosedSource/DSX/Modules/Core/Device/kotlin/Device.kt"
+        ],
+        "swift": [
+          "ClosedSource/DSX/Modules/Core/Device/swift/Device.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/generate_conformance_index_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "elements",
+      "files": 80,
+      "cases": 0,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/element-colour-parity.test.ts",
+          "OpenSource/Web/packages/dom/test/element-support-ledger.test.ts",
+          "OpenSource/Web/packages/dom/test/mount.test.ts",
+          "OpenSource/Web/packages/dom/src/mount.ts",
+          "OpenSource/Web/packages/dom/oracle/element-geometry-parity-browser.ts",
+          "OpenSource/Web/packages/dom/oracle/element-geometry-parity.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/render/src/test/kotlin/despia/engine/render/EditorCatalogTest.kt",
+          "OpenSource/Engine/Android/render/src/test/kotlin/despia/engine/render/ElementParityTest.kt",
+          "OpenSource/Engine/Android/render/src/test/kotlin/despia/engine/render/PressableGestureMachineTest.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/ElementSpec.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/ElementSpecMediaWave.kt",
+          "ClosedSource/DSX/Modules/Mandatory/Foundation/kotlin/MediaElements.kt"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/check_element_unification.rb",
+          "ClosedSource/scripts/check_platform_parity.rb",
+          "ClosedSource/scripts/check_renderer_constants.rb",
+          "ClosedSource/scripts/generate_editor_catalog.rb",
+          "ClosedSource/scripts/generate_library_matrix.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "errors",
+      "files": 1,
+      "cases": 30,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/errors-conformance.test.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ErrorsConformanceTest.kt",
+          "ClosedSource/DSX/Modules/Core/LocalAI/kotlin/LocalAIController.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "ClosedSource/DSX/Modules/Core/LocalAI/swift/LocalAIController.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "examples",
+      "files": 1,
+      "cases": 3,
+      "readme": false,
+      "runtimes": [
+        "ts"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/dsx-test.test.ts"
+        ]
+      }
+    },
+    {
+      "corpus": "facets",
+      "files": 1,
+      "cases": 33,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/facets-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/bus.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/FacetsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Context.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Facets.kt"
+        ]
+      }
+    },
+    {
+      "corpus": "files",
+      "files": 4,
+      "cases": 134,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/files-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/filepaths.ts",
+          "ClosedSource/DSX/Modules/Core/Files/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/FilesPathConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/DSXFilePaths.kt",
+          "ClosedSource/DSX/Modules/Core/Files/kotlin/Files.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/DSXFilePaths.swift",
+          "ClosedSource/DSX/Modules/Core/Files/swift/Files.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "film",
+      "files": 3,
+      "cases": 78,
+      "readme": true,
+      "runtimes": [
+        "ts"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/cli/test/film.test.ts",
+          "OpenSource/Web/packages/kernel/test/film.test.ts",
+          "OpenSource/Web/packages/kernel/src/film.ts"
+        ]
+      }
+    },
+    {
+      "corpus": "flags",
+      "files": 1,
+      "cases": 16,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "ClosedSource/DSX/Modules/Core/PostHog/web/index.js"
+        ],
+        "kotlin": [
+          "ClosedSource/DSX/Modules/Core/PostHog/kotlin/PostHogBridge.kt"
+        ],
+        "swift": [
+          "ClosedSource/DSX/Modules/Core/PostHog/swift/PostHogBridge.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "fonts",
+      "files": 1,
+      "cases": 47,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/fonts-conformance.test.ts",
+          "OpenSource/Web/packages/compiler/src/cssmap.ts",
+          "OpenSource/Web/packages/kernel/src/fonts.ts",
+          "ClosedSource/DSX/Modules/Core/Fonts/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/FontsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StackFonts.kt",
+          "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopFontBook.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackStyle.kt",
+          "ClosedSource/DSX/Modules/Core/Fonts/kotlin/Fonts.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/FontsConformance.swift",
+          "OpenSource/Engine/iOS/Stack.swift",
+          "OpenSource/Engine/iOS/StackFonts.swift",
+          "ClosedSource/DSX/Modules/Core/Fonts/swift/Fonts.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/font_registry.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "forms",
+      "files": 6,
+      "cases": 132,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/forms-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/forms.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/FormsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Forms.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/Forms.swift",
+          "OpenSource/Engine/iOS/FormsConformance.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "functions",
+      "files": 1,
+      "cases": 9,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/compiler/test/compiler.test.ts",
+          "OpenSource/Web/packages/dom/test/mount.test.ts",
+          "OpenSource/Web/packages/kernel/test/function-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/global-functions.test.ts",
+          "OpenSource/Web/packages/compiler/src/component.ts",
+          "OpenSource/Web/packages/dom/src/mount.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/FunctionConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/JseRunner.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/Stack.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "geo",
+      "files": 3,
+      "cases": 73,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/geo-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/geo.ts",
+          "ClosedSource/DSX/Modules/Core/Geo/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/GeoConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/GeoPolicy.kt",
+          "ClosedSource/DSX/Modules/Core/Geo/kotlin/Geo.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/GeoPolicy.swift",
+          "ClosedSource/DSX/Modules/Core/Geo/swift/Geo.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "handoff",
+      "files": 1,
+      "cases": 42,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/handoff-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/handoff.ts",
+          "ClosedSource/DSX/Modules/Core/Handoff/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/HandoffConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Handoff.kt",
+          "ClosedSource/DSX/Modules/Core/Handoff/kotlin/Handoff.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/Handoff.swift",
+          "ClosedSource/DSX/Modules/Core/Handoff/swift/Handoff.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "icons",
+      "files": 1,
+      "cases": 0,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/cli/test/exprflow.test.ts",
+          "OpenSource/Web/packages/cli/test/skills-examples.test.ts",
+          "OpenSource/Web/packages/compiler/test/demo-craft.test.ts",
+          "OpenSource/Web/packages/dom/test/icons.test.ts",
+          "OpenSource/Web/packages/cli/src/edit.ts",
+          "OpenSource/Web/packages/cli/src/exprflow.ts",
+          "OpenSource/Web/packages/dom/src/elements.ts",
+          "OpenSource/Web/packages/dom/src/icons.generated.ts",
+          "OpenSource/Web/packages/dom/oracle/expression-canvas-browser.ts",
+          "OpenSource/Web/packages/dom/oracle/icons-browser.ts",
+          "OpenSource/Web/packages/dom/oracle/studio-surfaces-browser.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/SfIconMapTest.kt",
+          "OpenSource/Engine/Android/render/src/test/kotlin/despia/engine/render/FontSubsetTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/SfIconMap.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackIcons.kt",
+          "ClosedSource/DSX/Modules/Mandatory/MenuBar/kotlin/MenuBar.kt"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/check_editor_icons.rb",
+          "ClosedSource/scripts/check_editor_icons_test.rb",
+          "ClosedSource/scripts/watch_native_unavailable_surface_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "image",
+      "files": 1,
+      "cases": 199,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/image-dom.test.ts",
+          "OpenSource/Web/packages/kernel/test/image-core.test.ts",
+          "OpenSource/Web/packages/dom/src/elements.ts",
+          "OpenSource/Web/packages/dom/src/image.ts",
+          "OpenSource/Web/packages/kernel/src/image-core.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ImageResolutionConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/ImageCore.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackImage.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ImageCore.swift",
+          "OpenSource/Engine/iOS/StackImage.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "inline-surfaces",
+      "files": 7,
+      "cases": 407,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/vendor-session-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/vendor-surface-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/vendor-session.ts",
+          "OpenSource/Web/packages/kernel/src/vendor-surface.ts",
+          "ClosedSource/DSX/Modules/Core/AdMob/web/index.js",
+          "ClosedSource/DSX/Modules/Core/Clerk/web/index.js",
+          "ClosedSource/DSX/Modules/Core/Pay/web/wallet.js",
+          "ClosedSource/DSX/Modules/Core/Payments/Stripe/web/index.js",
+          "ClosedSource/DSX/Modules/Core/QRScanner/web/index.js",
+          "ClosedSource/DSX/Modules/Core/RevenueCat/web/index.js",
+          "ClosedSource/DSX/Modules/Core/Stream/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/VendorSessionConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/VendorSurfaceConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/VendorSession.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/VendorSurface.kt",
+          "ClosedSource/DSX/Modules/Core/AdMob/kotlin/AdMobInline.kt",
+          "ClosedSource/DSX/Modules/Core/AdMob/kotlin/GoogleMobileAdsConsentManager.kt",
+          "ClosedSource/DSX/Modules/Core/Clerk/kotlin/ClerkContext.kt",
+          "ClosedSource/DSX/Modules/Core/Clerk/kotlin/ClerkInline.kt",
+          "ClosedSource/DSX/Modules/Core/Clerk/kotlin/ClerkProjection.kt",
+          "ClosedSource/DSX/Modules/Core/Pay/kotlin/PayInline.kt",
+          "ClosedSource/DSX/Modules/Core/Payments/Stripe/kotlin/StripeInline.kt",
+          "ClosedSource/DSX/Modules/Core/Payments/Stripe/kotlin/StripeInlineActions.kt",
+          "ClosedSource/DSX/Modules/Core/QRScanner/kotlin/QRScannerInline.kt",
+          "ClosedSource/DSX/Modules/Core/QRScanner/kotlin/QRScannerInlineActions.kt",
+          "ClosedSource/DSX/Modules/Core/RevenueCat/kotlin/RevenueCatInline.kt",
+          "ClosedSource/DSX/Modules/Core/Stream/kotlin/StreamInline.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/VendorSession.swift",
+          "OpenSource/Engine/iOS/VendorSurface.swift",
+          "ClosedSource/DSX/Modules/Core/AdMob/swift/AdMobInline.swift",
+          "ClosedSource/DSX/Modules/Core/AdMob/swift/GoogleMobileAdsConsentManager.swift",
+          "ClosedSource/DSX/Modules/Core/Clerk/swift/ClerkContext.swift",
+          "ClosedSource/DSX/Modules/Core/Clerk/swift/ClerkInline.swift",
+          "ClosedSource/DSX/Modules/Core/Clerk/swift/ClerkProjection.swift",
+          "ClosedSource/DSX/Modules/Core/Pay/swift/PayInline.swift",
+          "ClosedSource/DSX/Modules/Core/Payments/Stripe/swift/StripeInline.swift",
+          "ClosedSource/DSX/Modules/Core/Payments/Stripe/swift/StripeInlineActions.swift",
+          "ClosedSource/DSX/Modules/Core/Payments/Stripe/swift/StripeSession.swift",
+          "ClosedSource/DSX/Modules/Core/QRScanner/swift/QRScannerInline.swift",
+          "ClosedSource/DSX/Modules/Core/RevenueCat/swift/RevenueCatInline.swift",
+          "ClosedSource/DSX/Modules/Core/Stream/swift/StreamInline.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/lint_dsx.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "input",
+      "files": 13,
+      "cases": 382,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/density.test.ts",
+          "OpenSource/Web/packages/dom/test/desktop-input.test.ts",
+          "OpenSource/Web/packages/dom/test/gestures.test.ts",
+          "OpenSource/Web/packages/dom/test/hover.test.ts",
+          "OpenSource/Web/packages/dom/test/tooltip.test.ts",
+          "OpenSource/Web/packages/kernel/test/input-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/orientation-binding-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/orientation-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/ref-conformance.test.ts",
+          "OpenSource/Web/packages/dom/src/elements.ts",
+          "OpenSource/Web/packages/dom/src/gestures.ts",
+          "OpenSource/Web/packages/dom/src/input.ts",
+          "OpenSource/Web/packages/dom/src/mount.ts",
+          "OpenSource/Web/packages/dom/src/overlay-controls.ts",
+          "OpenSource/Web/packages/dom/src/router.ts",
+          "OpenSource/Web/packages/kernel/src/input.ts",
+          "OpenSource/Web/packages/kernel/src/orientation-binding.ts",
+          "OpenSource/Web/packages/kernel/src/orientation.ts",
+          "OpenSource/Web/packages/kernel/src/ref.ts",
+          "OpenSource/Web/packages/kernel/src/scroll.ts",
+          "ClosedSource/DSX/Modules/Core/Orientation/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/DensityConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/DesktopInputConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/GesturesConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/OrientationBindingConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/OrientationConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/RefConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/TooltipConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/input/InputConformanceTest.kt",
+          "OpenSource/Engine/Android/render/src/test/kotlin/despia/engine/render/HoverLifecycleConformanceTest.kt",
+          "OpenSource/Engine/Android/render/src/test/kotlin/despia/engine/render/StackTooltipAdapterTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/RouterOrientationBridge.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/ScrollLinked.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StackDensity.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StackDesktopInput.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StackGestures.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StackOrientation.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StackOrientationBinding.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StackRef.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StackTooltip.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/input/SceneInput.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/RouterHost.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackNodeView.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackStyle.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/elements/TextAreaElements.kt",
+          "ClosedSource/DSX/Modules/Core/Orientation/kotlin/Orientation.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/GesturesConformance.swift",
+          "OpenSource/Engine/iOS/OrientationBindingConformance.swift",
+          "OpenSource/Engine/iOS/Router.swift",
+          "OpenSource/Engine/iOS/RouterOrientationBinding.swift",
+          "OpenSource/Engine/iOS/SceneInput.swift",
+          "OpenSource/Engine/iOS/ScrollLinked.swift",
+          "OpenSource/Engine/iOS/Stack.swift",
+          "OpenSource/Engine/iOS/StackGestures.swift",
+          "OpenSource/Engine/iOS/StackNode.swift",
+          "OpenSource/Engine/iOS/StackOrientation.swift",
+          "OpenSource/Engine/iOS/StackOrientationBinding.swift",
+          "OpenSource/Engine/iOS/StackRef.swift",
+          "ClosedSource/DSX/Modules/Core/Orientation/swift/Orientation.swift",
+          "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/generate_editor_catalog.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "integrity",
+      "files": 1,
+      "cases": 32,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/integrity-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/integrity.ts",
+          "ClosedSource/DSX/Modules/Core/Integrity/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/IntegrityConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Integrity.kt",
+          "ClosedSource/DSX/Modules/Core/Integrity/kotlin/Integrity.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/Integrity.swift",
+          "ClosedSource/DSX/Modules/Core/Integrity/swift/Integrity.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "intents",
+      "files": 1,
+      "cases": 65,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/intents-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/intents.ts",
+          "ClosedSource/DSX/Modules/Core/Intents/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/IntentsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Intents.kt",
+          "ClosedSource/DSX/Modules/Core/Intents/kotlin/Intents.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/Intents.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "jse",
+      "files": 13,
+      "cases": 367,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/hardening.test.ts",
+          "OpenSource/Web/packages/cli/src/declared.ts",
+          "OpenSource/Web/packages/kernel/src/jse/jse.ts",
+          "OpenSource/Web/packages/kernel/src/jse/tokens.ts",
+          "OpenSource/Web/packages/kernel/src/jse/values.ts",
+          "OpenSource/Web/packages/server/src/actions.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/JseTest.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/JSE.swift",
+          "OpenSource/Engine/iOS/JSEConformanceRecord.swift",
+          "ClosedSource/scripts/conformance/RecordMain.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/build_canvas_editor.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "keyboard",
+      "files": 1,
+      "cases": 23,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/keyboard-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/keyboard.ts",
+          "ClosedSource/DSX/Modules/Core/Basics/PreventDefault/web/index.js",
+          "ClosedSource/DSX/Modules/Core/Basics/Viewport/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/KeyboardViewportConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/KeyboardViewport.kt",
+          "ClosedSource/DSX/Modules/Core/Basics/Viewport/kotlin/Viewport.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/KeyboardViewport.swift",
+          "ClosedSource/DSX/Modules/Core/Basics/Viewport/swift/Viewport.swift",
+          "ClosedSource/DSX/Modules/Core/Basics/Viewport/swift/ViewportScript.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/add_core_sources.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "layout",
+      "files": 2,
+      "cases": 22,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/adaptive-shell.test.ts",
+          "OpenSource/Web/packages/dom/src/adaptive-shell.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/AdaptiveShellConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/FlexSemanticsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/LayoutSemantics.kt",
+          "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopFlexLayout.kt"
+        ],
+        "swift": [
+          "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Scaffold/swift/Scaffold.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "legacy",
+      "files": 1,
+      "cases": 0,
+      "readme": false,
+      "runtimes": [
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "kotlin": [
+          "ClosedSource/RuntimeAndroid/app/src/test/kotlin/despia/modules/legacy/LegacyConformanceTest.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/dsx_graph_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "library",
+      "files": 1,
+      "cases": 0,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/library-matrix.test.ts"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/check_library_matrix.rb",
+          "ClosedSource/scripts/generate_library_matrix.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "lifecycle",
+      "files": 2,
+      "cases": 53,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/lifecycle-conformance.test.ts",
+          "OpenSource/Web/packages/dom/src/router.ts",
+          "OpenSource/Web/packages/kernel/src/screen.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ScreenReadinessTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Jse.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/ScreenReadiness.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/RouterHost.kt",
+          "ClosedSource/DSX/Modules/Core/Dom/kotlin/DSXWebViewComponent.kt",
+          "ClosedSource/DSX/Modules/Core/Dom/kotlin/Dom.kt",
+          "ClosedSource/DSX/Modules/Mandatory/Foundation/kotlin/DSXViewComponent.kt",
+          "ClosedSource/DSX/Modules/Mandatory/Lifecycle/kotlin/Lifecycle.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/DSXScreen.swift",
+          "OpenSource/Engine/iOS/RouterHost.swift",
+          "OpenSource/Engine/iOS/Stack.swift",
+          "ClosedSource/DSX/Modules/Core/Dom/Components/Views/DSXWebView/swift/DSXWebView.swift",
+          "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/DSXView/swift/DSXView.swift",
+          "ClosedSource/DSX/Modules/Mandatory/Lifecycle/swift/Lifecycle.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/lint_dsx.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "light",
+      "files": 1,
+      "cases": 40,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/lightsensor-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/lightsensor.ts",
+          "ClosedSource/DSX/Modules/Core/LightSensor/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/LightSensorConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/LightSensor.kt",
+          "ClosedSource/DSX/Modules/Core/LightSensor/kotlin/LightSensor.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/LightSensor.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "lint",
+      "files": 13,
+      "cases": 0,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/cli/test/lint-corpus.test.ts",
+          "OpenSource/Web/packages/compiler/test/lint.test.ts",
+          "OpenSource/Web/packages/cli/src/cli.ts",
+          "OpenSource/Web/packages/cli/src/lint.ts",
+          "OpenSource/Web/packages/compiler/src/lint.ts"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/ios_watch_release_guards_test.rb",
+          "ClosedSource/scripts/lint_conformance.rb",
+          "ClosedSource/scripts/lint_dsx.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "livelogs",
+      "files": 2,
+      "cases": 49,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/livelogs-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/livelogs.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/LiveLogsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/LiveLogs.kt",
+          "ClosedSource/DSX/Modules/Core/DevSettings/Modules/LiveStream/kotlin/DevStream.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/LiveLogs.swift",
+          "OpenSource/Engine/iOS/LiveLogsConformance.swift",
+          "ClosedSource/DSX/Modules/Core/DevSettings/Modules/LiveStream/swift/DevStream.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/swift_conformance_run_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "local",
+      "files": 3,
+      "cases": 29,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "ClosedSource/DSX/Modules/Core/Base/web/index.js"
+        ],
+        "kotlin": [
+          "ClosedSource/DSX/Modules/Core/Base/kotlin/BaseStore.kt"
+        ],
+        "swift": [
+          "ClosedSource/DSX/Modules/Core/Base/swift/BaseStore.swift",
+          "OpenSource/Local/bindings/swift/Sources/DespiaLocal/DespiaLocal.swift",
+          "OpenSource/Local/bindings/swift/Tests/DespiaLocalConformanceTests/CorpusTests.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "logs",
+      "files": 1,
+      "cases": 10,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/logs-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/logs.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/LogsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Logs.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/JSEActions.swift",
+          "OpenSource/Engine/iOS/Logs.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "markdown",
+      "files": 1,
+      "cases": 45,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/markdown-blocks.test.ts",
+          "OpenSource/Web/packages/dom/src/markdown-blocks.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/MarkdownBlocksConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/MarkdownBlocks.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/MarkdownBlocksView.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackNodeView.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/MarkdownBlocks.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "mcp-apps",
+      "files": 2,
+      "cases": 37,
+      "readme": true,
+      "runtimes": [
+        "ts"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/mcp-apps-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/mcp-server-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/mcp/apps.ts",
+          "OpenSource/Web/packages/kernel/src/mcp/result.ts",
+          "OpenSource/Web/packages/server/src/mcp-face.ts"
+        ]
+      }
+    },
+    {
+      "corpus": "media",
+      "files": 3,
+      "cases": 96,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/media-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/media-core.ts",
+          "ClosedSource/DSX/Modules/Core/Media/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/MediaConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/MediaCore.kt",
+          "ClosedSource/DSX/Modules/Core/Media/kotlin/Media.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/MediaCore.swift",
+          "ClosedSource/DSX/Modules/Core/Media/swift/Media.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "motion",
+      "files": 5,
+      "cases": 67,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/attribute-support.test.ts",
+          "OpenSource/Web/packages/kernel/test/film.test.ts",
+          "OpenSource/Web/packages/kernel/test/keyframes-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/motion-conformance.test.ts",
+          "OpenSource/Web/packages/dom/src/element-motion.ts",
+          "OpenSource/Web/packages/kernel/src/film.ts",
+          "OpenSource/Web/packages/kernel/src/motion.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/KeyframeConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/MotionConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Motion.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/MotionCore.kt",
+          "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopKeyframes.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackKeyframes.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackMotion.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/elements/Sheets.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/KeyframeConformance.swift",
+          "OpenSource/Engine/iOS/Motion.swift",
+          "OpenSource/Engine/iOS/MotionCore.swift",
+          "OpenSource/Engine/iOS/Stack.swift",
+          "OpenSource/Engine/iOS/StackKeyframes.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "net",
+      "files": 2,
+      "cases": 35,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/net-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/net-core.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/NetConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/NetCore.kt",
+          "ClosedSource/DSX/Modules/Core/Net/kotlin/Net.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/NetConformance.swift",
+          "OpenSource/Engine/iOS/NetCore.swift",
+          "ClosedSource/DSX/Modules/Core/Net/swift/Net.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "notify",
+      "files": 5,
+      "cases": 119,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/notify-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/notify.ts",
+          "ClosedSource/DSX/Modules/Core/Notify/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/NotifyConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/NotifyCore.kt",
+          "ClosedSource/DSX/Modules/Core/Notify/kotlin/Notify.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/NotifyCore.swift",
+          "ClosedSource/DSX/Modules/Core/Notify/swift/Notify.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "ota",
+      "files": 1,
+      "cases": 74,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/ota-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/ota.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/OtaConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/OtaGeneration.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/OtaConformance.swift",
+          "OpenSource/Engine/iOS/OtaGeneration.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "overlays",
+      "files": 1,
+      "cases": 40,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/snackbar-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/snackbar.ts",
+          "ClosedSource/DSX/Modules/Core/Toast/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/SnackbarConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/SnackbarQueue.kt",
+          "ClosedSource/DSX/Modules/Core/Toast/kotlin/Toast.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/SnackbarConformance.swift",
+          "OpenSource/Engine/iOS/SnackbarQueue.swift",
+          "ClosedSource/DSX/Modules/Core/Toast/swift/Toast.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "overrides",
+      "files": 1,
+      "cases": 89,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/cli/test/lint-corpus.test.ts",
+          "OpenSource/Web/packages/dom/test/style-overrides.test.ts",
+          "OpenSource/Web/packages/kernel/test/style-overrides-conformance.test.ts",
+          "OpenSource/Web/packages/server/test/style-overrides-render.test.ts",
+          "OpenSource/Web/packages/cli/src/lint.ts",
+          "OpenSource/Web/packages/compiler/src/component.ts",
+          "OpenSource/Web/packages/compiler/src/lint.ts",
+          "OpenSource/Web/packages/dom/src/mount.ts",
+          "OpenSource/Web/packages/kernel/src/jse/jse.ts",
+          "OpenSource/Web/packages/kernel/src/style-overrides.ts",
+          "OpenSource/Web/packages/server/src/render.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/StyleOverridesConformanceTest.kt",
+          "OpenSource/Engine/Android/desktop/src/test/kotlin/despia/engine/desktop/DesktopContractsTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Jse.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StyleOverrides.kt",
+          "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopRenderer.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/RouterHost.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackNodeView.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/elements/RouterModals.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/JSE.swift",
+          "OpenSource/Engine/iOS/Router.swift",
+          "OpenSource/Engine/iOS/Stack.swift",
+          "OpenSource/Engine/iOS/StyleOverrides.swift",
+          "OpenSource/Engine/iOS/StyleOverridesConformance.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/generate_editor_catalog.rb",
+          "ClosedSource/scripts/lint_conformance.rb",
+          "ClosedSource/scripts/lint_dsx.rb",
+          "ClosedSource/scripts/swift_conformance_run_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "parity",
+      "files": 42,
+      "cases": 0,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/scripts/parity-oracle.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/desktop/src/test/kotlin/despia/engine/desktop/DesktopParityCaptureTest.kt",
+          "OpenSource/Engine/Android/desktop/src/test/kotlin/despia/engine/desktop/DesktopStudioEditorScreenUiTest.kt",
+          "OpenSource/Engine/Android/render/src/androidTest/kotlin/despia/engine/render/ParityCaptureInstrumentedTest.kt",
+          "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopParityCapture.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/ParityCapture.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ParityCapture.swift",
+          "ClosedSource/scripts/conformance/ParityRecord.swift",
+          "ClosedSource/RuntimeParityTests/ParitySpecimenTests.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/add_core_sources.rb",
+          "ClosedSource/scripts/check_canvas_contrast.rb",
+          "ClosedSource/scripts/check_canvas_contrast_test.rb",
+          "ClosedSource/scripts/generate_library_matrix.rb",
+          "ClosedSource/scripts/parity_native_diff.rb",
+          "ClosedSource/scripts/parity_native_diff_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "passkeys",
+      "files": 1,
+      "cases": 88,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/passkeys-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/passkeys.ts",
+          "ClosedSource/DSX/Modules/Core/Passkeys/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/PasskeysConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Passkeys.kt",
+          "ClosedSource/DSX/Modules/Core/Passkeys/kotlin/Passkeys.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/Passkeys.swift",
+          "ClosedSource/DSX/Modules/Core/Passkeys/swift/Passkeys.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "pay",
+      "files": 1,
+      "cases": 78,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/payment-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/payment.ts",
+          "ClosedSource/DSX/Modules/Core/Pay/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/PaymentConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Payment.kt",
+          "ClosedSource/DSX/Modules/Core/Pay/kotlin/Pay.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/Payment.swift",
+          "ClosedSource/DSX/Modules/Core/Pay/swift/Pay.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "platform",
+      "files": 1,
+      "cases": 9,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/compiler/test/platform-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/test/platform-conformance.test.ts",
+          "OpenSource/Web/packages/cli/src/lint.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/PlatformConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/PlatformAttrs.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/JSE.swift",
+          "OpenSource/Engine/iOS/Stack.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/lint_dsx.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "preview",
+      "files": 1,
+      "cases": 75,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/linkpreview-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/linkpreview.ts",
+          "ClosedSource/DSX/Modules/Core/Preview/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/LinkPreviewConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/LinkPreview.kt",
+          "ClosedSource/DSX/Modules/Core/Preview/kotlin/Preview.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/LinkPreview.swift",
+          "ClosedSource/DSX/Modules/Core/Preview/swift/Preview.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "recorder",
+      "files": 2,
+      "cases": 62,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/recorder-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/recorder-core.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/RecorderConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/RecorderCore.kt",
+          "ClosedSource/DSX/Modules/Core/Recorder/kotlin/Recorder.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/RecorderCore.swift",
+          "ClosedSource/DSX/Modules/Core/Recorder/swift/Recorder.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "rive",
+      "files": 6,
+      "cases": 207,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/rive-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/rive-core.ts",
+          "ClosedSource/DSX/Modules/Core/Rive/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/RiveConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/RiveCore.kt",
+          "ClosedSource/DSX/Modules/Core/Rive/kotlin/Rive.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/RiveCore.swift",
+          "ClosedSource/DSX/Modules/Core/Rive/swift/RiveElement.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "router",
+      "files": 5,
+      "cases": 74,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/present.test.ts",
+          "OpenSource/Web/packages/dom/test/root-plan.test.ts",
+          "OpenSource/Web/packages/dom/test/router-conformance.test.ts",
+          "OpenSource/Web/packages/dom/test/router.test.ts",
+          "OpenSource/Web/packages/kernel/test/shared-transition-conformance.test.ts",
+          "OpenSource/Web/packages/dom/src/boot.ts",
+          "OpenSource/Web/packages/dom/src/present.ts",
+          "OpenSource/Web/packages/dom/src/root-plan.ts",
+          "OpenSource/Web/packages/dom/src/router.ts",
+          "OpenSource/Web/packages/dom/src/shared-transition.ts",
+          "OpenSource/Web/packages/kernel/src/shared-transition.ts",
+          "OpenSource/Web/packages/dom/oracle/boot-integration-browser.ts",
+          "ClosedSource/DSX/Modules/Mandatory/Routing/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/RootPlanConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/RouterTest.kt",
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/SharedTransitionConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/AppManifest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/JseRunner.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/RootPlan.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Router.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/StackSharedTransition.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/RouterSharedElements.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackNodeView.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/AppManifest.swift",
+          "OpenSource/Engine/iOS/RootPlan.swift",
+          "OpenSource/Engine/iOS/Router.swift",
+          "OpenSource/Engine/iOS/RouterSharedElements.swift",
+          "OpenSource/Engine/iOS/SharedTransitionConformance.swift",
+          "OpenSource/Engine/iOS/Stack.swift",
+          "OpenSource/Engine/iOS/StackSharedTransition.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/boot_seam_guards_test.rb",
+          "ClosedSource/scripts/prepare_modules.rb",
+          "ClosedSource/scripts/root_plan_schema.rb",
+          "ClosedSource/scripts/root_plan_schema_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "scene",
+      "files": 15,
+      "cases": 297,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/scene-prefab.test.ts",
+          "OpenSource/Web/packages/kernel/test/scene-conformance.test.ts",
+          "OpenSource/Web/packages/dom/src/scene.ts",
+          "OpenSource/Web/packages/kernel/src/scene/anim.ts",
+          "OpenSource/Web/packages/kernel/src/scene/bind.ts",
+          "OpenSource/Web/packages/kernel/src/scene/collide.ts",
+          "OpenSource/Web/packages/kernel/src/scene/frame.ts",
+          "OpenSource/Web/packages/kernel/src/scene/gltf.ts",
+          "OpenSource/Web/packages/kernel/src/scene/ir.ts",
+          "OpenSource/Web/packages/kernel/src/scene/math.ts",
+          "OpenSource/Web/packages/kernel/src/scene/orbit.ts",
+          "OpenSource/Web/packages/kernel/src/scene/physics.ts",
+          "OpenSource/Web/packages/kernel/src/scene/skin.ts",
+          "OpenSource/Web/packages/kernel/src/scene/sprite.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/scene/SceneConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneAnim.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneBind.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneCollide.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneFrame.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneGltf.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneIR.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneMath.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneOrbit.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/ScenePhysics.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneRaster.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneSkin.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/scene/SceneSprite.kt",
+          "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopSceneElement.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/elements/SceneElements.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/SceneAnim.swift",
+          "OpenSource/Engine/iOS/SceneBind.swift",
+          "OpenSource/Engine/iOS/SceneCollide.swift",
+          "OpenSource/Engine/iOS/SceneElement.swift",
+          "OpenSource/Engine/iOS/SceneFrame.swift",
+          "OpenSource/Engine/iOS/SceneGltf.swift",
+          "OpenSource/Engine/iOS/SceneIR.swift",
+          "OpenSource/Engine/iOS/SceneMath.swift",
+          "OpenSource/Engine/iOS/SceneOrbit.swift",
+          "OpenSource/Engine/iOS/ScenePhysics.swift",
+          "OpenSource/Engine/iOS/SceneSkin.swift",
+          "OpenSource/Engine/iOS/SceneSprite.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "scroll",
+      "files": 7,
+      "cases": 206,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/scroll-dom.test.ts",
+          "OpenSource/Web/packages/kernel/test/scroll-conformance.test.ts",
+          "OpenSource/Web/packages/dom/src/elements.ts",
+          "OpenSource/Web/packages/dom/src/scroll.ts",
+          "OpenSource/Web/packages/kernel/src/scroll.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/ScrollLinkedConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/ScrollLinked.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/StackScroll.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ScrollConformance.swift",
+          "OpenSource/Engine/iOS/ScrollLinked.swift",
+          "OpenSource/Engine/iOS/StackScroll.swift"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/swift_conformance_run_test.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "shot",
+      "files": 5,
+      "cases": 67,
+      "readme": true,
+      "runtimes": [
+        "ts"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/cli/test/shot.test.ts",
+          "OpenSource/Web/packages/kernel/test/shot-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/index.ts"
+        ]
+      }
+    },
+    {
+      "corpus": "spend",
+      "files": 1,
+      "cases": 22,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/server/test/spend.test.ts"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/prepare_server.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "split",
+      "files": 1,
+      "cases": 36,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/dom/test/split.test.ts",
+          "OpenSource/Web/packages/dom/src/split.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/SplitConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/SplitPlan.kt",
+          "OpenSource/Engine/Android/desktop/src/main/kotlin/despia/engine/desktop/DesktopExtendedElements.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/ElementSpec.kt",
+          "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/elements/Containers.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/SplitPlan.swift",
+          "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Split/swift/Split.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "spotlight",
+      "files": 1,
+      "cases": 42,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/spotlight-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/spotlight.ts",
+          "ClosedSource/DSX/Modules/Core/Spotlight/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/SpotlightConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Spotlight.kt",
+          "ClosedSource/DSX/Modules/Core/Spotlight/kotlin/Spotlight.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/Spotlight.swift",
+          "ClosedSource/DSX/Modules/Core/Spotlight/swift/Spotlight.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "strings",
+      "files": 1,
+      "cases": 15,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/strings-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/index.ts",
+          "OpenSource/Web/packages/kernel/src/strings.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/StringsConformanceTest.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/DSXStrings.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "studio-apps",
+      "files": 6,
+      "cases": 119,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "ruby"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/cli/test/studio-apps-approval.test.ts",
+          "OpenSource/Web/packages/cli/test/studio-apps-events.test.ts",
+          "OpenSource/Web/packages/cli/test/studio-apps-manifest.test.ts",
+          "OpenSource/Web/packages/cli/test/studio-apps-scope.test.ts",
+          "OpenSource/Web/packages/cli/test/studio-apps-slots.test.ts",
+          "OpenSource/Web/packages/cli/test/studio-apps-vcs.test.ts",
+          "OpenSource/Web/packages/kernel/test/api-egress.test.ts",
+          "OpenSource/Web/packages/cli/src/studio-apps/events.ts",
+          "OpenSource/Web/packages/cli/src/studio-apps/headless.ts",
+          "OpenSource/Web/packages/cli/src/studio-apps/host.ts",
+          "OpenSource/Web/packages/cli/src/studio-apps/manifest.ts",
+          "OpenSource/Web/packages/cli/src/studio-apps/vcs.ts",
+          "OpenSource/Web/packages/kernel/src/api.ts",
+          "ClosedSource/DSX/Modules/Core/Apps/web/scope.js"
+        ],
+        "ruby": [
+          "ClosedSource/scripts/check_studio_apps.rb",
+          "ClosedSource/scripts/sign_app_approval.rb"
+        ]
+      }
+    },
+    {
+      "corpus": "systembars",
+      "files": 1,
+      "cases": 51,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/systembars-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/systembars.ts",
+          "ClosedSource/DSX/Modules/Core/SystemBars/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/SystemBarsConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/SystemBars.kt",
+          "ClosedSource/DSX/Modules/Core/SystemBars/kotlin/SystemBars.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/SystemBars.swift",
+          "ClosedSource/DSX/Modules/Core/SystemBars/swift/SystemBars.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "telemetry",
+      "files": 2,
+      "cases": 50,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/telemetry-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/telemetry.ts",
+          "ClosedSource/DSX/Modules/Core/Telemetry/web/index.js"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/TelemetryConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/TelemetryPolicy.kt",
+          "ClosedSource/DSX/Modules/Core/Telemetry/kotlin/Queue.kt",
+          "ClosedSource/DSX/Modules/Core/Telemetry/kotlin/Telemetry.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/TelemetryPolicy.swift",
+          "ClosedSource/DSX/Modules/Core/Telemetry/swift/Queue.swift",
+          "ClosedSource/DSX/Modules/Core/Telemetry/swift/Telemetry.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "tier",
+      "files": 1,
+      "cases": 33,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/tier-conformance.test.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/TierConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/Tier.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "OpenSource/Engine/iOS/Tier.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "units",
+      "files": 1,
+      "cases": 19,
+      "readme": false,
+      "runtimes": [
+        "ts"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/length-units.test.ts"
+        ]
+      }
+    },
+    {
+      "corpus": "upload",
+      "files": 1,
+      "cases": 20,
+      "readme": false,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/upload-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/upload.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/UploadRoutingConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/UploadRouting.kt",
+          "ClosedSource/DSX/Modules/Mandatory/FileUpload/kotlin/FileUpload.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/ConformanceHosts.swift",
+          "ClosedSource/DSX/Modules/Mandatory/FileUpload/swift/FileUpload.swift"
+        ]
+      }
+    },
+    {
+      "corpus": "webmcp",
+      "files": 2,
+      "cases": 43,
+      "readme": true,
+      "runtimes": [
+        "ts",
+        "kotlin",
+        "swift"
+      ],
+      "referencedBy": {
+        "ts": [
+          "OpenSource/Web/packages/kernel/test/webmcp-conformance.test.ts",
+          "OpenSource/Web/packages/kernel/src/mcp/webmcp.ts",
+          "OpenSource/Web/packages/dom/oracle/webmcp-browser.ts"
+        ],
+        "kotlin": [
+          "OpenSource/Engine/Android/core/src/test/kotlin/despia/engine/WebMcpConformanceTest.kt",
+          "OpenSource/Engine/Android/core/src/main/kotlin/despia/engine/WebMcp.kt"
+        ],
+        "swift": [
+          "OpenSource/Engine/iOS/WebMcp.swift"
+        ]
+      }
+    }
+  ]
+}

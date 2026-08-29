@@ -101,6 +101,8 @@ private fun M3RangeSliderView(ctx: ComposeStackComponentContext) {
     val steps = accessibilityStepsForIncrement(lo, hi, step)
     val lowVal = (JSE.number(ctl.boundValue(lowKey)) ?: lo).coerceIn(lo, hi)
     val highVal = (JSE.number(ctl.boundValue(highKey)) ?: hi).coerceIn(lowVal, hi)
+    // disabled= / disabled-if= (W9): the M3 component's own enabled seam carries it
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     val authored = ctl.interp("color")
     val colors = if (authored.isNullOrEmpty()) SliderDefaults.colors()
                  else { val t = StackStyle.color(authored)
@@ -112,6 +114,7 @@ private fun M3RangeSliderView(ctx: ComposeStackComponentContext) {
             if (highKey.isNotEmpty()) ctl.setBound(highKey, r.endInclusive.toDouble())
         },
         modifier = Modifier.elementModifier(ctx).then(Modifier.fillMaxWidth()),
+        enabled = !disabled,
         valueRange = lo.toFloat()..hi.toFloat(),
         steps = steps,
         colors = colors,
@@ -132,6 +135,8 @@ private fun LegacyRangeSliderView(ctx: ComposeStackComponentContext) {
     val span = maxOf(hi - lo, 0.0001)                          // avoid /0 on a degenerate range
     val step = ctx.num("step")                                 // null = continuous
     val tint = StackStyle.color(ctx.str("color", ElementDefaults.RANGE_TINT))
+    // disabled= / disabled-if= (W9): the drag seam gates and the pair dims
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
 
     var lowLocal by remember { mutableStateOf<Double?>(null) }   // non-nil = that thumb's drag in flight
     var highLocal by remember { mutableStateOf<Double?>(null) }
@@ -154,11 +159,12 @@ private fun LegacyRangeSliderView(ctx: ComposeStackComponentContext) {
     /// a final commit on release — release/cancel always clears the local.
     fun Modifier.thumbDrag(clampLo: () -> Double, clampHi: () -> Double,
                            local: (Double?) -> Unit, write: (Double) -> Unit): Modifier =
-        pointerInput(lowKey, highKey, lo, hi, step) {
+        pointerInput(lowKey, highKey, lo, hi, step, disabled) {
             var x = 0f
             detectDragGestures(
                 onDragStart = { offset -> x = offset.x },
                 onDrag = { change, delta ->
+                    if (disabled) return@detectDragGestures
                     change.consume()
                     x += delta.x
                     val v = ElementMath.rangeValue(((x - thumbPx / 2) / usable).toDouble(),

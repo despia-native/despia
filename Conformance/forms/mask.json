@@ -1,0 +1,571 @@
+{
+ "_note": "THE INPUT MASK ENGINE (U08 · textfield `mask=`). Token grammar: '#' a digit, 'A' an ASCII letter, '*' an ASCII letter or digit, '\\\\x' the literal x, anything else a literal. THE LAZY-LITERAL FORMAT LAW: walking the mask, a literal is emitted only while unplaced raw characters remain — so '(415' never shows a dangling ') '. THE EXTRACTION LAW: a character is SIGNIFICANT iff at least one placeholder class appearing in the mask accepts it; `bind` receives the significant characters (the UNMASKED value) and `boundFormatted` the display. THE PLACEMENT LAW: maskEdit's `raw` is the significant characters the mask ACCEPTED \u2014 a character no remaining slot will take is dropped from the value as well as from the display, so `bind` never carries text the field does not show and a mixed-class mask ('AA-####' fed '12ab34') cannot fill to capacity with the characters it refused. THE EDIT LAW: maskEdit(mask, prev, selStart, selEnd, insert) replaces prev[selStart:selEnd] with insert — the one primitive UITextField shouldChangeCharactersIn, the web beforeinput target range and Compose's TextFieldValue diff all reduce to. THE SEPARATOR SWALLOW LAW: a deletion whose removed span holds NO significant character extends to swallow the nearest significant character to its LEFT, else the nearest to its RIGHT — this is why backspacing over ') ' deletes a digit instead of doing nothing. THE CARET LAW: the new caret sits immediately after the Nth significant character of the new display, where N is the number of significant characters that preceded the edit point (head + insert), clamped to capacity. Every expected value here was computed by an independent scratch implementation, never by a kernel under test.",
+ "capacity": [
+  {
+   "mask": "(###) ###-####",
+   "capacity": 10,
+   "description": "Format (###) ###-####, 10 digits"
+  },
+  {
+   "mask": "##/##",
+   "capacity": 4,
+   "description": "Format ##/##, 4 digits"
+  },
+  {
+   "mask": "$#,###.##",
+   "capacity": 6,
+   "description": "Format $#,###.##, 6 digits"
+  },
+  {
+   "mask": "AA-####",
+   "capacity": 6,
+   "description": "Format AA-####, 2 letters and 4 digits"
+  },
+  {
+   "mask": "*** ***",
+   "capacity": 6,
+   "description": "Format *** ***, 6 letters or digits"
+  },
+  {
+   "mask": "\\#####",
+   "capacity": 4,
+   "description": "Format \\#####, 4 digits"
+  },
+  {
+   "mask": "",
+   "capacity": 0,
+   "description": "Format "
+  }
+ ],
+ "format": [
+  {
+   "mask": "(###) ###-####",
+   "raw": "",
+   "display": "",
+   "extract": ""
+  },
+  {
+   "mask": "(###) ###-####",
+   "raw": "4",
+   "display": "(4",
+   "extract": "4"
+  },
+  {
+   "mask": "(###) ###-####",
+   "raw": "415",
+   "display": "(415",
+   "extract": "415"
+  },
+  {
+   "mask": "(###) ###-####",
+   "raw": "4155",
+   "display": "(415) 5",
+   "extract": "4155"
+  },
+  {
+   "mask": "(###) ###-####",
+   "raw": "4155552671",
+   "display": "(415) 555-2671",
+   "extract": "4155552671"
+  },
+  {
+   "mask": "(###) ###-####",
+   "raw": "41555526719999",
+   "display": "(415) 555-2671",
+   "extract": "4155552671"
+  },
+  {
+   "mask": "##/##",
+   "raw": "12",
+   "display": "12",
+   "extract": "12"
+  },
+  {
+   "mask": "##/##",
+   "raw": "1226",
+   "display": "12/26",
+   "extract": "1226"
+  },
+  {
+   "mask": "$#,###.##",
+   "raw": "1",
+   "display": "$1",
+   "extract": "1"
+  },
+  {
+   "mask": "$#,###.##",
+   "raw": "123456",
+   "display": "$1,234.56",
+   "extract": "123456"
+  },
+  {
+   "mask": "$#,###.##",
+   "raw": "1234567",
+   "display": "$1,234.56",
+   "extract": "123456"
+  },
+  {
+   "mask": "AA-####",
+   "raw": "AB12",
+   "display": "AB-12",
+   "extract": "AB12"
+  },
+  {
+   "mask": "\\#####",
+   "raw": "4",
+   "display": "#4",
+   "extract": "4"
+  },
+  {
+   "mask": "",
+   "raw": "abc",
+   "display": "",
+   "extract": ""
+  }
+ ],
+ "extract": [
+  {
+   "mask": "(###) ###-####",
+   "text": "(415) 555-2671",
+   "raw": "4155552671"
+  },
+  {
+   "mask": "(###) ###-####",
+   "text": "+1 (415) 555-2671",
+   "raw": "14155552671"
+  },
+  {
+   "mask": "(###) ###-####",
+   "text": "abc",
+   "raw": ""
+  },
+  {
+   "mask": "AA-####",
+   "text": "AB-1234",
+   "raw": "AB1234"
+  },
+  {
+   "mask": "AA-####",
+   "text": "12-ab34",
+   "raw": "12ab34"
+  },
+  {
+   "mask": "$#,###.##",
+   "text": "$1,234.56",
+   "raw": "123456"
+  },
+  {
+   "mask": "",
+   "text": "anything",
+   "raw": ""
+  }
+ ],
+ "edits": [
+  {
+   "name": "type the first digit — the leading literal appears with it",
+   "mask": "(###) ###-####",
+   "prev": "",
+   "selStart": 0,
+   "selEnd": 0,
+   "insert": "4",
+   "expect": {
+    "display": "(4",
+    "caret": 2,
+    "raw": "4",
+    "complete": false
+   }
+  },
+  {
+   "name": "type the second digit",
+   "mask": "(###) ###-####",
+   "prev": "(4",
+   "selStart": 2,
+   "selEnd": 2,
+   "insert": "1",
+   "expect": {
+    "display": "(41",
+    "caret": 3,
+    "raw": "41",
+    "complete": false
+   }
+  },
+  {
+   "name": "third digit completes the area code, the closing literal stays lazy",
+   "mask": "(###) ###-####",
+   "prev": "(41",
+   "selStart": 3,
+   "selEnd": 3,
+   "insert": "5",
+   "expect": {
+    "display": "(415",
+    "caret": 4,
+    "raw": "415",
+    "complete": false
+   }
+  },
+  {
+   "name": "fourth digit pulls in ') ' and lands after it",
+   "mask": "(###) ###-####",
+   "prev": "(415",
+   "selStart": 4,
+   "selEnd": 4,
+   "insert": "5",
+   "expect": {
+    "display": "(415) 5",
+    "caret": 7,
+    "raw": "4155",
+    "complete": false
+   }
+  },
+  {
+   "name": "the last digit — complete",
+   "mask": "(###) ###-####",
+   "prev": "(415) 555-123",
+   "selStart": 13,
+   "selEnd": 13,
+   "insert": "4",
+   "expect": {
+    "display": "(415) 555-1234",
+    "caret": 14,
+    "raw": "4155551234",
+    "complete": true
+   }
+  },
+  {
+   "name": "typing past capacity is dropped",
+   "mask": "(###) ###-####",
+   "prev": "(415) 555-1234",
+   "selStart": 14,
+   "selEnd": 14,
+   "insert": "9",
+   "expect": {
+    "display": "(415) 555-1234",
+    "caret": 14,
+    "raw": "4155551234",
+    "complete": true
+   }
+  },
+  {
+   "name": "BACKSPACE OVER A SEPARATOR — swallows the digit to its left, never a no-op",
+   "mask": "(###) ###-####",
+   "prev": "(415) 555-1234",
+   "selStart": 4,
+   "selEnd": 5,
+   "insert": "",
+   "expect": {
+    "display": "(415) 551-234",
+    "caret": 3,
+    "raw": "415551234",
+    "complete": false
+   }
+  },
+  {
+   "name": "backspace over the space literal — same swallow",
+   "mask": "(###) ###-####",
+   "prev": "(415) 555-1234",
+   "selStart": 5,
+   "selEnd": 6,
+   "insert": "",
+   "expect": {
+    "display": "(415) 551-234",
+    "caret": 3,
+    "raw": "415551234",
+    "complete": false
+   }
+  },
+  {
+   "name": "backspace over a digit in the middle",
+   "mask": "(###) ###-####",
+   "prev": "(415) 555-1234",
+   "selStart": 8,
+   "selEnd": 9,
+   "insert": "",
+   "expect": {
+    "display": "(415) 551-234",
+    "caret": 8,
+    "raw": "415551234",
+    "complete": false
+   }
+  },
+  {
+   "name": "backspace over the LEADING literal — nothing to the left, swallows right",
+   "mask": "(###) ###-####",
+   "prev": "(415) 555-1234",
+   "selStart": 0,
+   "selEnd": 1,
+   "insert": "",
+   "expect": {
+    "display": "(155) 551-234",
+    "caret": 0,
+    "raw": "155551234",
+    "complete": false
+   }
+  },
+  {
+   "name": "PASTE INTO THE MIDDLE — the tail reflows, the caret follows the paste",
+   "mask": "(###) ###-####",
+   "prev": "(415) 555-1234",
+   "selStart": 6,
+   "selEnd": 6,
+   "insert": "999",
+   "expect": {
+    "display": "(415) 999-5551",
+    "caret": 9,
+    "raw": "4159995551",
+    "complete": true
+   }
+  },
+  {
+   "name": "paste a whole number into an empty field",
+   "mask": "(###) ###-####",
+   "prev": "",
+   "selStart": 0,
+   "selEnd": 0,
+   "insert": "4155552671",
+   "expect": {
+    "display": "(415) 555-2671",
+    "caret": 14,
+    "raw": "4155552671",
+    "complete": true
+   }
+  },
+  {
+   "name": "paste a formatted E.164 — the '+' is not significant, the 1 is",
+   "mask": "(###) ###-####",
+   "prev": "",
+   "selStart": 0,
+   "selEnd": 0,
+   "insert": "+1 (415) 555-2671",
+   "expect": {
+    "display": "(141) 555-5267",
+    "caret": 14,
+    "raw": "1415555267",
+    "complete": true
+   }
+  },
+  {
+   "name": "delete a selection spanning three digits",
+   "mask": "(###) ###-####",
+   "prev": "(415) 555-1234",
+   "selStart": 1,
+   "selEnd": 4,
+   "insert": "",
+   "expect": {
+    "display": "(555) 123-4",
+    "caret": 0,
+    "raw": "5551234",
+    "complete": false
+   }
+  },
+  {
+   "name": "replace a selection with a shorter run",
+   "mask": "(###) ###-####",
+   "prev": "(415) 555-1234",
+   "selStart": 1,
+   "selEnd": 4,
+   "insert": "62",
+   "expect": {
+    "display": "(625) 551-234",
+    "caret": 3,
+    "raw": "625551234",
+    "complete": false
+   }
+  },
+  {
+   "name": "select all and delete",
+   "mask": "(###) ###-####",
+   "prev": "(415) 555-1234",
+   "selStart": 0,
+   "selEnd": 14,
+   "insert": "",
+   "expect": {
+    "display": "",
+    "caret": 0,
+    "raw": "",
+    "complete": false
+   }
+  },
+  {
+   "name": "a rejected character is dropped and the caret does not move",
+   "mask": "(###) ###-####",
+   "prev": "(415) 5",
+   "selStart": 7,
+   "selEnd": 7,
+   "insert": "a",
+   "expect": {
+    "display": "(415) 5",
+    "caret": 7,
+    "raw": "4155",
+    "complete": false
+   }
+  },
+  {
+   "name": "a short mask fills exactly",
+   "mask": "##/##",
+   "prev": "",
+   "selStart": 0,
+   "selEnd": 0,
+   "insert": "1226",
+   "expect": {
+    "display": "12/26",
+    "caret": 5,
+    "raw": "1226",
+    "complete": true
+   }
+  },
+  {
+   "name": "backspace over the '/' swallows the 2",
+   "mask": "##/##",
+   "prev": "12/26",
+   "selStart": 2,
+   "selEnd": 3,
+   "insert": "",
+   "expect": {
+    "display": "12/6",
+    "caret": 1,
+    "raw": "126",
+    "complete": false
+   }
+  },
+  {
+   "name": "typing past a full short mask is dropped",
+   "mask": "##/##",
+   "prev": "12/26",
+   "selStart": 5,
+   "selEnd": 5,
+   "insert": "9",
+   "expect": {
+    "display": "12/26",
+    "caret": 5,
+    "raw": "1226",
+    "complete": true
+   }
+  },
+  {
+   "name": "the currency mask's leading literal",
+   "mask": "$#,###.##",
+   "prev": "",
+   "selStart": 0,
+   "selEnd": 0,
+   "insert": "1",
+   "expect": {
+    "display": "$1",
+    "caret": 2,
+    "raw": "1",
+    "complete": false
+   }
+  },
+  {
+   "name": "the currency mask fills and truncates at capacity",
+   "mask": "$#,###.##",
+   "prev": "$1",
+   "selStart": 2,
+   "selEnd": 2,
+   "insert": "234567",
+   "expect": {
+    "display": "$1,234.56",
+    "caret": 9,
+    "raw": "123456",
+    "complete": true
+   }
+  },
+  {
+   "name": "backspace over the decimal point swallows the 4",
+   "mask": "$#,###.##",
+   "prev": "$1,234.56",
+   "selStart": 6,
+   "selEnd": 7,
+   "insert": "",
+   "expect": {
+    "display": "$1,235.6",
+    "caret": 5,
+    "raw": "12356",
+    "complete": false
+   }
+  },
+  {
+   "name": "a mixed mask: letters then digits",
+   "mask": "AA-####",
+   "prev": "",
+   "selStart": 0,
+   "selEnd": 0,
+   "insert": "ab1234",
+   "expect": {
+    "display": "ab-1234",
+    "caret": 7,
+    "raw": "ab1234",
+    "complete": true
+   }
+  },
+  {
+   "name": "a mixed mask skips raw chars the slot rejects",
+   "mask": "AA-####",
+   "prev": "",
+   "selStart": 0,
+   "selEnd": 0,
+   "insert": "12ab34",
+   "expect": {
+    "display": "ab-34",
+    "caret": 5,
+    "raw": "ab34",
+    "complete": false
+   }
+  },
+  {
+   "name": "backspace over the mixed mask's literal",
+   "mask": "AA-####",
+   "prev": "AB-1234",
+   "selStart": 2,
+   "selEnd": 3,
+   "insert": "",
+   "expect": {
+    "display": "A",
+    "caret": 1,
+    "raw": "A",
+    "complete": false
+   }
+  },
+  {
+   "name": "an ESCAPED '#' is a literal, not a placeholder",
+   "mask": "\\#####",
+   "prev": "",
+   "selStart": 0,
+   "selEnd": 0,
+   "insert": "42",
+   "expect": {
+    "display": "#42",
+    "caret": 3,
+    "raw": "42",
+    "complete": false
+   }
+  },
+  {
+   "name": "an empty edit on an empty field",
+   "mask": "###",
+   "prev": "",
+   "selStart": 0,
+   "selEnd": 0,
+   "insert": "",
+   "expect": {
+    "display": "",
+    "caret": 0,
+    "raw": "",
+    "complete": false
+   }
+  },
+  {
+   "name": "an EMPTY mask is the identity: no capacity, nothing survives",
+   "mask": "",
+   "prev": "abc",
+   "selStart": 1,
+   "selEnd": 1,
+   "insert": "x",
+   "expect": {
+    "display": "",
+    "caret": 0,
+    "raw": "",
+    "complete": true
+   }
+  }
+ ]
+}

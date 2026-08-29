@@ -21,10 +21,10 @@
 
 import { cachedTokens, type Token } from "../jse/tokens.ts";
 import { classifyBody } from "./tier.ts";
-import { JSE, JSESeams, Parser, spreadValues, inOp, parseDeclarators, parseArrowParams, bindPattern, type DeclPattern, type StackStore, type Item } from "../jse/jse.ts";
+import { JSE, JSESeams, Parser, spreadValues, forInKeys, inOp, parseDeclarators, parseArrowParams, bindPattern, setInLocal, getInLocal, type DeclPattern, type StackStore, type Item } from "../jse/jse.ts";
 import { JSECore } from "../jse/core.ts";
 import {
-  NSNull, isDict, isLambda, number, string, truthy, jseEquals, compare, arith,
+  NSNull, isDict, isLambda, number, string, truthy, jseEquals, compare, arith, asArray,
   typeofString, index as indexOp, member as memberOp, isMissing, bitOp, bitNot, powOp,
   type Dict, type StackLambda, type LambdaParam,
 } from "../jse/values.ts";
@@ -192,8 +192,11 @@ export class BlockScope extends CompiledScope {
     super(store, locals);
     this.locals = locals;
   }
+  /** The block's loop-iteration ledger — 10000 per block evaluation (core-004). */
+  __lw = 0;
   set(name: string, v: unknown): void { this.locals[name] = v ?? NSNull; }
 }
+
 
 // ── the compiling parser (mirror of the interpreter's Parser, emitting JS source) ────
 
@@ -672,6 +675,252 @@ function compileBlockTokens(tokens: Token[]): string {
   return `(($b) => { const $ = $b; ${stmts} return $b.__r; })($.block())`;
 }
 
+// ── BLOCK ITERATION, compiled tier — the same optional fold as the interpreter's ────
+//  (__DSX_OPTIONAL_BLOCK_ITERATION__, jse.ts): loop emission + path-mutation emission
+//  + the BlockScope runtime halves DCE out of a slice the build proved authors none.
+
+function compileStatementsCg(b: BlockCompiler, toks: Token[], labels: { brk: string; cont: string } | null = null): string {
+  const sub = new BlockCompiler(toks);
+  sub.declCounter = b.declCounter + 100;   // keep temp names disjoint across nesting
+  sub.activeLoop = labels;
+  return sub.compileAll();
+}
+
+/** Capture a loop body: a `{ … }` group (braces consumed) or one bare statement. */
+function captureBranchTokensCg(b: BlockCompiler): Token[] {
+  if (b.isOp("{")) {
+    b.i += 1;
+    const out: Token[] = [];
+    let d = 1;
+    for (;;) {
+      const tk = b.cur();
+      if (tk === null) break;
+      if (tk.kind === "op" && tk.v === "{") d += 1;
+      else if (tk.kind === "op" && tk.v === "}") { d -= 1; if (d === 0) { b.i += 1; break; } }
+      out.push(tk);
+      b.i += 1;
+    }
+    return out;
+  }
+  const out = b.capture(new Set([";"]));
+  if (b.isOp(";")) b.i += 1;
+  return out;
+}
+
+function splitOnSemisCg(toks: Token[]): Token[][] {
+  const out: Token[][] = [];
+  let cur: Token[] = [];
+  let d = 0;
+  for (const tk of toks) {
+    if (tk.kind === "op") {
+      if (tk.v === "(" || tk.v === "[" || tk.v === "{") d += 1;
+      else if (tk.v === ")" || tk.v === "]" || tk.v === "}") d -= 1;
+      else if (d === 0 && tk.v === ";") { out.push(cur); cur = []; continue; }
+    }
+    cur.push(tk);
+  }
+  out.push(cur);
+  return out;
+}
+
+/** Compile `NAME(seg…) op= rhs` / `NAME(seg…).push(args)`; null when not that shape.
+ *  A dotted ident is ONE token (the tokenizer's dotted-ident rule). */
+function mutationCg(b: BlockCompiler, toks: Token[]): string | null {
+  const t0 = toks[0];
+  if (toks.length < 2 || t0 === undefined || t0.kind !== "ident") return null;
+  const head = t0.v.split(".");
+  const name = head[0]!;
+  if (name.length === 0 || name === "dsx" || name === "global" || name === "route" || name === "cookie") return null;
+  const segs: string[] = head.slice(1).map((p) => q(p));
+  let j = 1;
+  for (;;) {
+    const a = toks[j];
+    const b = toks[j + 1];
+    if (a !== undefined && a.kind === "op" && a.v === "." && b !== undefined && b.kind === "ident") {
+      for (const part of b.v.split(".")) segs.push(q(part));
+      j += 2;
+      continue;
+    }
+    if (a !== undefined && a.kind === "op" && a.v === "[") {
+      const inner: Token[] = [];
+      let d = 1;
+      let k = j + 1;
+      while (k < toks.length) {
+        const tk = toks[k]!;
+        if (tk.kind === "op" && (tk.v === "[" || tk.v === "(" || tk.v === "{")) d += 1;
+        if (tk.kind === "op" && (tk.v === "]" || tk.v === ")" || tk.v === "}")) { d -= 1; if (d === 0) break; }
+        inner.push(tk);
+        k += 1;
+      }
+      if (k >= toks.length) return null;
+      segs.push(`(${compileExprTokens(inner)})`);
+      j = k + 1;
+      continue;
+    }
+    break;
+  }
+  const after = toks[j];
+  // `x++` / `m.n--` — read-modify-write through the same path law.
+  if (after !== undefined && after.kind === "op" && (after.v === "++" || after.v === "--") && j === toks.length - 1) {
+    return `$.pset(${q(name)}, [${segs.join(", ")}], 1, ${q(after.v === "++" ? "+" : "-")});`;
+  }
+  if (segs.length > 0 && segs[segs.length - 1] === q("push")
+      && after !== undefined && after.kind === "op" && after.v === "(") {
+    let d = 1;
+    let k = j + 1;
+    const inner: Token[] = [];
+    while (k < toks.length) {
+      const tk = toks[k]!;
+      if (tk.kind === "op" && (tk.v === "(" || tk.v === "[" || tk.v === "{")) d += 1;
+      if (tk.kind === "op" && (tk.v === ")" || tk.v === "]" || tk.v === "}")) { d -= 1; if (d === 0) break; }
+      inner.push(tk);
+      k += 1;
+    }
+    if (d !== 0 || k !== toks.length - 1) return null;
+    segs.pop();
+    const args = splitTopLevelTokens(inner).filter((run) => run.length > 0).map((run) => compileExprTokens(run));
+    return `$.ppush(${q(name)}, [${segs.join(", ")}], [${args.join(", ")}]);`;
+  }
+  const op = toks[j];
+  if (op === undefined || op.kind !== "op") return null;
+  if (op.v !== "=" && op.v !== "+=" && op.v !== "-=" && op.v !== "*=" && op.v !== "/=" && op.v !== "%=") return null;
+  const rhsToks = toks.slice(j + 1);
+  if (rhsToks.length === 0) return null;
+  const verb = op.v === "=" ? "" : op.v.substring(0, 1);
+  return `$.pset(${q(name)}, [${segs.join(", ")}], ${compileExprTokens(rhsToks)}, ${q(verb)});`;
+}
+
+/** The compiled loop grammar (corpus core-004) — the interpreter's semantics emitted
+ *  as real JS, with the SAME budget order: cond first, then one ledger tick. */
+function forStmtCg(b: BlockCompiler): string {
+  b.i += 1; // 'for'
+  const head = b.captureParen();
+  const body = captureBranchTokensCg(b);
+  const parts = splitOnSemisCg(head);
+  if (parts.length === 3) {
+    const init = compileStatementsCg(b, parts[0]!);
+    const cond = parts[1]!.length > 0 ? `$.tr(${compileExprTokens(parts[1]!)})` : "true";
+    const step = compileStatementsCg(b, parts[2]!);
+    const n = b.declCounter;
+    b.declCounter += 1;
+    const L = `$L${n}`;
+    const B = `$B${n}`;
+    const bodyCode = compileStatementsCg(b, body, { brk: L, cont: B });
+    return `{ ${init} ${L}: for (;;) { if (!(${cond})) break ${L}; if (($b.__lw += 1) > 10000) break ${L}; ${B}: do { ${bodyCode} } while (false); ${step} } }`;
+  }
+  let p = 0;
+  const first = head[p];
+  if (first !== undefined && first.kind === "ident" && (first.v === "const" || first.v === "let" || first.v === "var")) p += 1;
+  let kwAt = -1;
+  let kind: "of" | "in" | null = null;
+  let d = 0;
+  for (let k = p; k < head.length; k += 1) {
+    const tk = head[k]!;
+    if (tk.kind === "op") {
+      if (tk.v === "(" || tk.v === "[" || tk.v === "{") d += 1;
+      else if (tk.v === ")" || tk.v === "]" || tk.v === "}") d -= 1;
+    }
+    if (d === 0 && tk.kind === "ident" && (tk.v === "of" || tk.v === "in")) { kwAt = k; kind = tk.v; break; }
+  }
+  if (kwAt < 0 || kind === null) return "";
+  const patToks = head.slice(p, kwAt);
+  const exprToks = head.slice(kwAt + 1);
+  const decls = parseDeclarators([...patToks, { kind: "op", v: "=" }, { kind: "num", v: 0 }]);
+  if (decls.length !== 1) return "";
+  const v = `$d${b.declCounter}`;
+  b.declCounter += 1;
+  const binds: string[] = [];
+  b.emitPatternBinds(decls[0]!.pattern, v, binds);
+  const seq = kind === "of" ? `$.spread(${compileExprTokens(exprToks)})` : `$.fkeys(${compileExprTokens(exprToks)})`;
+  return `for (const ${v} of ${seq}) { if (($b.__lw += 1) > 10000) break; ${binds.join(" ")} ${compileStatementsCg(b, body)} }`;
+}
+
+function whileStmtCg(b: BlockCompiler): string {
+  b.i += 1; // 'while'
+  const cond = b.captureParen();
+  const body = captureBranchTokensCg(b);
+  return `while ($.tr(${compileExprTokens(cond)})) { if (($b.__lw += 1) > 10000) break; ${compileStatementsCg(b, body)} }`;
+}
+
+function doStmtCg(b: BlockCompiler): string {
+  b.i += 1; // 'do'
+  const body = captureBranchTokensCg(b);
+  let cond: Token[] = [];
+  if (b.isKw("while")) {
+    b.i += 1;
+    cond = b.captureParen();
+    if (b.isOp(";")) b.i += 1;
+  }
+  return `do { if (($b.__lw += 1) > 10000) break; ${compileStatementsCg(b, body)} } while ($.tr(${compileExprTokens(cond)}));`;
+}
+
+type BlockIterationCodegen = {
+  loop(b: BlockCompiler, kind: "for" | "while" | "do"): string;
+  mutation(b: BlockCompiler, toks: Token[]): string | null;
+  pset(scope: BlockScope, name: string, parts: unknown[], rhs: unknown, op: string): void;
+  ppush(scope: BlockScope, name: string, parts: unknown[], args: unknown[]): void;
+  spread(v: unknown): unknown[];
+  fkeys(v: unknown): unknown[];
+};
+
+const BLOCK_ITERATION_CODEGEN_IMPL: BlockIterationCodegen = {
+  loop(b, kind) {
+    if (kind === "for") return forStmtCg(b);
+    if (kind === "while") return whileStmtCg(b);
+    return doStmtCg(b);
+  },
+  mutation: mutationCg,
+  pset(scope, name, parts, rhs, op) {
+    const base = Object.prototype.hasOwnProperty.call(scope.locals, name) ? scope.locals[name] : scope.l(name);
+    const value = op === "" ? rhs : arith(getInLocal(base, parts), rhs, op);
+    if (parts.length === 0) { scope.locals[name] = value ?? NSNull; return; }
+    scope.locals[name] = setInLocal(base, parts, value ?? NSNull);
+  },
+  ppush(scope, name, parts, args) {
+    const base = Object.prototype.hasOwnProperty.call(scope.locals, name) ? scope.locals[name] : scope.l(name);
+    const arr = [...asArray(getInLocal(base, parts))];
+    for (const a of args) arr.push(a ?? NSNull);
+    scope.locals[name] = setInLocal(base, parts, arr);
+  },
+  spread: spreadValues,
+  fkeys: forInKeys,
+};
+
+// The BLOCK ITERATION runtime seams ($.spread / $.fkeys / $.pset / $.ppush) attach only
+// when the fold is live — a folded slice never EMITS a call to any of them, so the
+// whole extension (and everything it references) drops with the impl. Every gate reads
+// the flag INLINE (never through a const), so esbuild's define folds each branch and
+// the impl object above becomes unreferenced in a folded build.
+if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_BLOCK_ITERATION__?: boolean }).__DSX_OPTIONAL_BLOCK_ITERATION__ !== false) {
+  Object.assign(BlockScope.prototype, {
+    spread(v: unknown): unknown[] { return BLOCK_ITERATION_CODEGEN_IMPL.spread(v); },
+    fkeys(v: unknown): unknown[] { return BLOCK_ITERATION_CODEGEN_IMPL.fkeys(v); },
+    pset(this: BlockScope, name: string, parts: unknown[], rhs: unknown, op: string): void {
+      BLOCK_ITERATION_CODEGEN_IMPL.pset(this, name, parts, rhs, op);
+    },
+    ppush(this: BlockScope, name: string, parts: unknown[], args: unknown[]): void {
+      BLOCK_ITERATION_CODEGEN_IMPL.ppush(this, name, parts, args);
+    },
+  });
+}
+
+/** Split a token run on top-level commas (argument lists in block statements). */
+function splitTopLevelTokens(toks: Token[]): Token[][] {
+  const out: Token[][] = [];
+  let cur: Token[] = [];
+  let d = 0;
+  for (const tk of toks) {
+    if (tk.kind === "op") {
+      if (tk.v === "(" || tk.v === "[" || tk.v === "{") d += 1;
+      else if (tk.v === ")" || tk.v === "]" || tk.v === "}") d -= 1;
+      else if (d === 0 && tk.v === ",") { out.push(cur); cur = []; continue; }
+    }
+    cur.push(tk);
+  }
+  out.push(cur);
+  return out;
+}
+
 class BlockCompiler {
   i = 0;
   readonly t: Token[];
@@ -699,6 +948,20 @@ class BlockCompiler {
   private statement(): string {
     if (this.isKw("function")) { this.skipFunction(); return ""; }
     if (this.isKw("if")) return this.ifStmt();
+    // BLOCK ITERATION fold: folded, a loop keyword falls through to the generic
+    // statement arm — byte-for-byte the pre-core-004 behavior (see jse.ts).
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_BLOCK_ITERATION__?: boolean }).__DSX_OPTIONAL_BLOCK_ITERATION__ !== false
+        && (this.isKw("for") || this.isKw("while") || this.isKw("do"))) {
+      const kind = this.isKw("for") ? "for" : this.isKw("while") ? "while" : "do";
+      return BLOCK_ITERATION_CODEGEN_IMPL.loop(this, kind);
+    }
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_BLOCK_ITERATION__?: boolean }).__DSX_OPTIONAL_BLOCK_ITERATION__ !== false
+        && (this.isKw("break") || this.isKw("continue"))) {
+      const isBreak = this.isKw("break");
+      this.i += 1; if (this.isOp(";")) this.i += 1;
+      if (this.activeLoop === null) return isBreak ? "break;" : "continue;";
+      return `break ${isBreak ? this.activeLoop.brk : this.activeLoop.cont};`;
+    }
     if (this.isKw("const") || this.isKw("let") || this.isKw("var")) return this.declStmt();
     if (this.isKw("return")) return this.returnStmt();
     const toks = this.capture(new Set([";"]));
@@ -735,7 +998,7 @@ class BlockCompiler {
     }
     return this.statement();
   }
-  private declCounter = 0;
+  declCounter = 0;
   private declStmt(): string {
     this.i += 1;
     const toks = this.capture(new Set([";"]));
@@ -759,7 +1022,7 @@ class BlockCompiler {
   /** Emit the binds for one pattern against an already-evaluated source expression.
    *  Mirrors the interpreter's `bindPattern` exactly — nesting, defaults and rest — because
    *  a body must not mean two different things depending on which tier ran it. */
-  private emitPatternBinds(pattern: DeclPattern, src: string, binds: string[]): void {
+  emitPatternBinds(pattern: DeclPattern, src: string, binds: string[]): void {
     if (pattern.kind === "ident") { binds.push(`$.set(${q(pattern.name)}, ${src});`); return; }
     if (pattern.kind === "object") {
       const taken: string[] = [];
@@ -780,6 +1043,16 @@ class BlockCompiler {
     });
     if (pattern.rest !== undefined) binds.push(`$.set(${q(pattern.rest)}, $.arest(${src}, ${pattern.items.length}));`);
   }
+
+
+  /** A classic-for body compiles under LABELS: its `continue` must still run the step,
+   *  so the body sits in a `do { … } while (false)` wrapper — `continue` breaks the
+   *  wrapper (falling through to the step), `break` breaks the labeled for. A nested
+   *  loop clears the labels (its own break/continue are native again). */
+  activeLoop: { brk: string; cont: string } | null = null;
+
+
+
 
   private returnStmt(): string {
     this.i += 1;
@@ -821,13 +1094,26 @@ class BlockCompiler {
     if (toks.length >= 2) {
       const t0 = toks[0]!;
       const t1 = toks[1]!;
-      if (t0.kind === "ident" && t1.kind === "op" && t1.v === "=") {
+      if (t0.kind === "ident" && (!((globalThis as typeof globalThis & { __DSX_OPTIONAL_BLOCK_ITERATION__?: boolean }).__DSX_OPTIONAL_BLOCK_ITERATION__ !== false) || !t0.v.includes(".")) && t1.kind === "op" && t1.v === "=") {
         return `$.set(${q(t0.v)}, ${compileExprTokens(toks.slice(2))});`;
       }
     }
+    // BLOCK-SCOPE MUTATION (corpus core-003) — the interpreter's pathMutation, emitted:
+    // dotted / computed-key / indexed / compound assignment, ++/--, and statement-
+    // position `.push(…)` rebuild the local through the BlockScope seam ($.pset/$.ppush).
+    if ((globalThis as typeof globalThis & { __DSX_OPTIONAL_BLOCK_ITERATION__?: boolean }).__DSX_OPTIONAL_BLOCK_ITERATION__ !== false) {
+      const lead = toks[0];
+      if (lead !== undefined && lead.kind === "op" && (lead.v === "++" || lead.v === "--")) {
+        const rewritten = BLOCK_ITERATION_CODEGEN_IMPL.mutation(this, [...toks.slice(1), lead]);   // prefix → postfix shape
+        if (rewritten !== null) return rewritten;
+      }
+      const emitted = BLOCK_ITERATION_CODEGEN_IMPL.mutation(this, toks);
+      if (emitted !== null) return emitted;
+    }
     return `$b.__r = ${compileExprTokens(toks)};`;
   }
-  private capture(stops: Set<string>): Token[] {
+
+  capture(stops: Set<string>): Token[] {
     const out: Token[] = [];
     let d = 0;
     for (;;) {
@@ -844,7 +1130,7 @@ class BlockCompiler {
     }
     return out;
   }
-  private captureParen(): Token[] {
+  captureParen(): Token[] {
     const out: Token[] = [];
     if (!this.isOp("(")) return out;
     this.i += 1;

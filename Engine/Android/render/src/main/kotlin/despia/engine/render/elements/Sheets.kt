@@ -107,6 +107,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -620,42 +621,56 @@ internal fun SheetChromeBar(
     }
 }
 
-/// The circular glass ✕ — xmark 14 semibold, secondaryLabel, 34×34 glass circle.
+/// The circular glass ✕ — xmark 14 semibold, secondaryLabel, 34×34 glass circle. The
+/// visual chrome keeps its pinned 34, but the interactive node rides the platform
+/// minimum target (density-following via LocalMinimumInteractiveComponentSize) — the
+/// web twin moved its sheet chrome onto the 48px overlay-control tokens the same way.
 @Composable
 private fun ChromeCloseButton(onClose: () -> Unit) {
-    Box(Modifier.size(34.dp).background(StackStyle.material("glass"), CircleShape)
-        .dsxAccessibleActivation(
+    Box(
+        Modifier.dsxAccessibleActivation(
             role = Role.Button,
             contentDescription = DSXStrings.localize("Close"),
             mergeDescendants = false,
             onClick = onClose,
         )
-        .pointerInput(Unit) { detectTapGestures { onClose() } },
-        contentAlignment = Alignment.Center) {
-        StackIcon("xmark", 14.0, StackStyle.color("secondaryLabel"))
+            .pointerInput(Unit) { detectTapGestures { onClose() } }
+            .minimumInteractiveComponentSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(34.dp).background(StackStyle.material("glass"), CircleShape),
+            contentAlignment = Alignment.Center) {
+            StackIcon("xmark", 14.0, StackStyle.color("secondaryLabel"))
+        }
     }
 }
 
 /// The glass action capsule — icon 13 + label 15 semibold, label color, height 34,
-/// h-padding 14 when labeled (0 icon-only), minWidth 34.
+/// h-padding 14 when labeled (0 icon-only), minWidth 34. Same target treatment as the
+/// close button: pinned 34 visual chrome inside a platform-minimum interactive node.
 @Composable
 private fun ChromeActionButton(label: String, icon: String, onAction: () -> Unit) {
-    Row(
-        Modifier.height(34.dp).widthIn(min = 34.dp)
-            .background(StackStyle.material("glass"), RoundedCornerShape(17.dp))
-            .padding(horizontal = if (label.isEmpty()) 0.dp else 14.dp)
-            .dsxAccessibleActivation(
-                role = Role.Button,
-                contentDescription = label.ifEmpty { DSXStrings.localize("Action") },
-                onClick = onAction,
-            )
-            .pointerInput(Unit) { detectTapGestures { onAction() } },
-        horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
+    Box(
+        Modifier.dsxAccessibleActivation(
+            role = Role.Button,
+            contentDescription = label.ifEmpty { DSXStrings.localize("Action") },
+            onClick = onAction,
+        )
+            .pointerInput(Unit) { detectTapGestures { onAction() } }
+            .minimumInteractiveComponentSize(),
+        contentAlignment = Alignment.Center,
     ) {
-        if (icon.isNotEmpty()) StackIcon(icon, 13.0, StackStyle.color("label"))
-        if (label.isNotEmpty()) BasicText(label, style = TextStyle(color = StackStyle.color("label"),
-                                          fontSize = 15.sp, fontWeight = FontWeight.SemiBold))
+        Row(
+            Modifier.height(34.dp).widthIn(min = 34.dp)
+                .background(StackStyle.material("glass"), RoundedCornerShape(17.dp))
+                .padding(horizontal = if (label.isEmpty()) 0.dp else 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (icon.isNotEmpty()) StackIcon(icon, 13.0, StackStyle.color("label"))
+            if (label.isNotEmpty()) BasicText(label, style = TextStyle(color = StackStyle.color("label"),
+                                              fontSize = 15.sp, fontWeight = FontWeight.SemiBold))
+        }
     }
 }
 
@@ -671,7 +686,7 @@ private fun DrawerElement(ctx: ComposeStackComponentContext) {
             .then(Modifier.fillMaxWidth())
             .offset { IntOffset(0, max(0f, dragY.value).roundToInt()) }
             .clip(RoundedCornerShape(ElementDefaults.DRAWER_RADIUS.dp))
-            .background(StackStyle.color(ElementDefaults.DRAWER_PANEL))     // Color(white: 0.11) = #1C1C1C
+            .background(StackStyle.color(ElementDefaults.DRAWER_PANEL))     // the elevated-surface slot (Drawer.swift twin)
             .dsxAccessibleDismiss { raiseEvent(ctx, "close") }
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
@@ -689,7 +704,7 @@ private fun DrawerElement(ctx: ComposeStackComponentContext) {
         Box(Modifier.fillMaxWidth().padding(vertical = ElementDefaults.DRAWER_HANDLE_PAD_V.dp),
             contentAlignment = Alignment.Center) {
             Box(Modifier.size(ElementDefaults.DRAWER_HANDLE_W.dp, ElementDefaults.DRAWER_HANDLE_H.dp)
-                .background(Color.White.copy(alpha = ElementDefaults.DRAWER_HANDLE_ALPHA.toFloat()), CircleShape))
+                .background(StackStyle.color(ElementDefaults.DRAWER_HANDLE), CircleShape))   // the semantic grabber slot (Drawer.swift twin)
         }
         Column(Modifier.fillMaxWidth().padding(start = ElementDefaults.DRAWER_CONTENT_PAD_H.dp,
                                                end = ElementDefaults.DRAWER_CONTENT_PAD_H.dp,

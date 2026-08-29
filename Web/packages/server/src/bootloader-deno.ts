@@ -12,6 +12,8 @@
 import { createHost, DEFAULT_MAX_BODY_BYTES, type HostConfig } from "./host.ts";
 import { createIdentityResolver } from "./identity.ts";
 import { INTERNAL_KEY_ENV, assertConfigured, configuredEnv, hostOptions, NO_CONFIG, type ServerConfig } from "./config.ts";
+import { createMcpFace, type McpToolRow } from "./mcp-face.ts";
+import { flushSpendIfDue } from "./spend.ts";
 
 // The mounts the platform serves the function under, stripped before dispatch so routes
 // stay platform-free (/health, never /functions/v1/dsx/health). Longest first. Shared by
@@ -52,9 +54,10 @@ export function stripMountPrefix(pathname: string): string {
  *
  * Counts ACTUAL bytes rather than trusting Content-Length, which a client controls and may
  * understate. Cancels the stream on refusal so the sender stops rather than continuing to push
- * into a reader nobody is draining.
+ * into a reader nobody is draining. Exported for the Workers bootloader, which rebuilds a
+ * mount-stripped request under the same cap.
  */
-async function readCapped(req: Request, cap: number): Promise<ArrayBuffer | null> {
+export async function readCapped(req: Request, cap: number): Promise<ArrayBuffer | null> {
   if (req.body === null) return new ArrayBuffer(0);
   const reader = req.body.getReader();
   const parts: Uint8Array[] = [];
@@ -116,6 +119,7 @@ export async function installDataBackend(
 export function createEdgeHandler(
   config: HostConfig = { routes: [], handlers: {} },
   serverConfig: ServerConfig = NO_CONFIG,
+  options: { mcpTools?: McpToolRow[] } = {},
 ): (req: Request) => Promise<Response> {
   assertConfigured(serverConfig, platformEnv);
   const env = configuredEnv(serverConfig, platformEnv); // platform env wins, declared value is the default
@@ -133,6 +137,10 @@ export function createEdgeHandler(
     clientAddress: edgeClientAddress,
   });
   const resolveIdentity = createIdentityResolver(env); // built once — the JWKS cache warms across requests
+  // The MCP face (W3): declared tools served at /mcp, same identity boundary, same handlers.
+  const mcp = options.mcpTools !== undefined && options.mcpTools.length > 0
+    ? createMcpFace({ tools: options.mcpTools, handlers: config.handlers, buildInfo: config.buildInfo ?? {} })
+    : null;
   return async (req: Request): Promise<Response> => {
     const identity = await resolveIdentity(req); // from the ORIGINAL request — the mount strip never touches headers
     const url = new URL(req.url);
@@ -169,6 +177,26 @@ export function createEdgeHandler(
         body: body !== undefined && body.byteLength > 0 ? body : undefined,
       });
     }
-    return host.handle(request, { identity, env });
+    // Supabase Edge Functions freeze the isolate the moment the response is returned - the
+    // "Deno outlives the response" assumption holds for a plain `deno serve`, not for the
+    // Supabase-first primary target. EdgeRuntime.waitUntil is that platform's post-response
+    // seam, so when it exists it carries the spend flush exactly as Workers' waitUntil does;
+    // when it does not, the floating promise on a long-lived process remains correct.
+    const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+    const background = runtime !== undefined && typeof runtime.waitUntil === "function"
+      ? (p: Promise<unknown>): void => runtime.waitUntil!(p)
+      : undefined;
+    if (mcp !== null) {
+      const served = await mcp(request, { identity, env });
+      if (served !== null) {
+        // A face-served answer never reaches host.handle's own flush hook, and the MCP face
+        // charges the spend plane — its trip event and counters must not wait for the next
+        // API request (cost-guardrails.md). flushNow never rejects (it reports to its sink).
+        const flush = flushSpendIfDue(env);
+        if (flush !== null && background !== undefined) background(flush);
+        return served;
+      }
+    }
+    return host.handle(request, { identity, env, background });
   };
 }

@@ -1,4 +1,4 @@
-# Lifecycle guarantees — every resource × every transition
+# Lifecycle guarantees: every resource × every transition
 
 > Timers and sockets being surface-scoped is not a convention, it's a contract. This doc
 > states the contract for EVERY resource JSE/DSX can hold, across every app transition —

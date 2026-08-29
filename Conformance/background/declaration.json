@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "_note": "Core/Background declares its tasks in the MANIFEST (parity/F08-background.md), never at runtime: a task that only exists after some screen has run is a task that never runs. This corpus pins the DECLARATION FOLD, the pure half every renderer shares (TS BackgroundPlan.resolveTask, Kotlin :core BackgroundPlan, Swift Engine/iOS BackgroundPlan): the kind vocabulary, the requires vocabulary, the periodic floor (Android WorkManager will not run a periodic worker more often than every 15 minutes and iOS gives no timing guarantee at all, so a shorter minInterval is CLAMPED and reported as clamped rather than silently honoured or loudly rejected), and the iOS scheduler BUCKET a row folds into. A row whose action the declaring module does not declare is unknown_task_action here and an ABORT at prepare time (the facet fan-in types the field as ownAction), so the build fails instead of the device.",
+
+  "kinds": ["periodic", "deferred", "appRefresh"],
+  "requirements": ["network", "unmeteredNetwork", "charging", "batteryNotLow", "storageNotLow", "idle"],
+  "periodicFloorSeconds": 900,
+
+  "_note_buckets": "iOS registers BGTaskScheduler identifiers, and every identifier must be listed in Info.plist BGTaskSchedulerPermittedIdentifiers before didFinishLaunching returns. Rather than generating that list per app from the task table (a list that goes stale silently, which is the classic failure), the module ships a FIXED five-identifier set covering the whole constraint matrix and routes each declared task into its bucket. The list is therefore a constant in the module manifest and can never drift from the tasks an app declares.",
+  "buckets": ["refresh", "processing", "processing.net", "processing.power", "processing.net.power"],
+
+  "declare": [
+    { "name": "a periodic sync with a network requirement",
+      "id": "sync", "declaredActions": ["syncNow", "flushQueue", "prefetch"],
+      "row": { "action": "syncNow", "kind": "periodic", "minInterval": "900", "requires": "network", "expedited": "false" },
+      "expect": { "action": "syncNow", "kind": "periodic", "minIntervalSeconds": 900, "clamped": false,
+                  "requires": ["network"], "expedited": false, "bucket": "processing.net" } },
+
+    { "name": "a deferred upload that needs network and power",
+      "id": "upload", "declaredActions": ["syncNow", "flushQueue"],
+      "row": { "action": "flushQueue", "kind": "deferred", "requires": "network,charging" },
+      "expect": { "action": "flushQueue", "kind": "deferred", "minIntervalSeconds": 0, "clamped": false,
+                  "requires": ["network", "charging"], "expedited": false, "bucket": "processing.net.power" } },
+
+    { "name": "an app refresh with no requirements lands in the refresh bucket",
+      "id": "refresh", "declaredActions": ["prefetch"],
+      "row": { "action": "prefetch", "kind": "appRefresh" },
+      "expect": { "action": "prefetch", "kind": "appRefresh", "minIntervalSeconds": 0, "clamped": false,
+                  "requires": [], "expedited": false, "bucket": "refresh" } },
+
+    { "name": "an app refresh keeps the refresh bucket even when it asks for power",
+      "id": "refresh", "declaredActions": ["prefetch"],
+      "row": { "action": "prefetch", "kind": "appRefresh", "requires": "charging" },
+      "expect": { "action": "prefetch", "kind": "appRefresh", "minIntervalSeconds": 0, "clamped": false,
+                  "requires": ["charging"], "expedited": false, "bucket": "refresh" } },
+
+    { "name": "a periodic interval under the floor is clamped and says so",
+      "id": "chatty", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "periodic", "minInterval": "60" },
+      "expect": { "action": "syncNow", "kind": "periodic", "minIntervalSeconds": 900, "clamped": true,
+                  "requires": [], "expedited": false, "bucket": "processing" } },
+
+    { "name": "the floor itself is not a clamp",
+      "id": "exact", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "periodic", "minInterval": "900" },
+      "expect": { "action": "syncNow", "kind": "periodic", "minIntervalSeconds": 900, "clamped": false,
+                  "requires": [], "expedited": false, "bucket": "processing" } },
+
+    { "name": "a periodic task that declares no interval takes the floor, and that is not a clamp",
+      "id": "quiet", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "periodic" },
+      "expect": { "action": "syncNow", "kind": "periodic", "minIntervalSeconds": 900, "clamped": false,
+                  "requires": [], "expedited": false, "bucket": "processing" } },
+
+    { "name": "a longer periodic interval is honoured verbatim",
+      "id": "nightly", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "periodic", "minInterval": "21600" },
+      "expect": { "action": "syncNow", "kind": "periodic", "minIntervalSeconds": 21600, "clamped": false,
+                  "requires": [], "expedited": false, "bucket": "processing" } },
+
+    { "name": "minInterval on a non-periodic kind is not a schedule and is dropped",
+      "id": "once", "declaredActions": ["flushQueue"],
+      "row": { "action": "flushQueue", "kind": "deferred", "minInterval": "3600" },
+      "expect": { "action": "flushQueue", "kind": "deferred", "minIntervalSeconds": 0, "clamped": false,
+                  "requires": [], "expedited": false, "bucket": "processing" } },
+
+    { "name": "expedited is a declared boolean word",
+      "id": "urgent", "declaredActions": ["flushQueue"],
+      "row": { "action": "flushQueue", "kind": "deferred", "requires": "network", "expedited": "true" },
+      "expect": { "action": "flushQueue", "kind": "deferred", "minIntervalSeconds": 0, "clamped": false,
+                  "requires": ["network"], "expedited": true, "bucket": "processing.net" } },
+
+    { "name": "unmeteredNetwork is a network requirement for bucketing",
+      "id": "bulk", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "deferred", "requires": "unmeteredNetwork" },
+      "expect": { "action": "syncNow", "kind": "deferred", "minIntervalSeconds": 0, "clamped": false,
+                  "requires": ["unmeteredNetwork"], "expedited": false, "bucket": "processing.net" } },
+
+    { "name": "requires is emitted in canonical order, not declaration order",
+      "id": "ordered", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "deferred", "requires": "idle, charging ,network" },
+      "expect": { "action": "syncNow", "kind": "deferred", "minIntervalSeconds": 0, "clamped": false,
+                  "requires": ["network", "charging", "idle"], "expedited": false, "bucket": "processing.net.power" } },
+
+    { "name": "a duplicated requirement folds to one",
+      "id": "dupe", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "deferred", "requires": "network,network" },
+      "expect": { "action": "syncNow", "kind": "deferred", "minIntervalSeconds": 0, "clamped": false,
+                  "requires": ["network"], "expedited": false, "bucket": "processing.net" } },
+
+    { "name": "an action the declaring module does not declare fails the build",
+      "id": "ghost", "declaredActions": ["syncNow"],
+      "row": { "action": "syncLater", "kind": "periodic" },
+      "expect": { "error": "unknown_task_action" } },
+
+    { "name": "a row with no action at all fails the build",
+      "id": "empty", "declaredActions": ["syncNow"],
+      "row": { "kind": "periodic" },
+      "expect": { "error": "unknown_task_action" } },
+
+    { "name": "an unrecognised kind is refused, never defaulted",
+      "id": "weird", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "everyFiveSeconds" },
+      "expect": { "error": "unknown_kind" } },
+
+    { "name": "the kind vocabulary is exact case",
+      "id": "cased", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "Periodic" },
+      "expect": { "error": "unknown_kind" } },
+
+    { "name": "a missing kind is refused rather than assumed periodic",
+      "id": "kindless", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow" },
+      "expect": { "error": "unknown_kind" } },
+
+    { "name": "an unrecognised requirement is refused, never ignored",
+      "id": "wifi", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "deferred", "requires": "wifi" },
+      "expect": { "error": "unknown_requirement" } },
+
+    { "name": "a non-numeric minInterval is refused",
+      "id": "soon", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "periodic", "minInterval": "soon" },
+      "expect": { "error": "invalid_interval" } },
+
+    { "name": "a negative minInterval is refused",
+      "id": "past", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "periodic", "minInterval": "-30" },
+      "expect": { "error": "invalid_interval" } },
+
+    { "name": "an empty task id is refused",
+      "id": "", "declaredActions": ["syncNow"],
+      "row": { "action": "syncNow", "kind": "periodic" },
+      "expect": { "error": "invalid_task_id" } }
+  ]
+}

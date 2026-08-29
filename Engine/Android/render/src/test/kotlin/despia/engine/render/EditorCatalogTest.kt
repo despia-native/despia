@@ -41,7 +41,7 @@ class EditorCatalogTest {
     // register logic and render nothing, so they have no parity fixtures).
     private val structuralTags = setOf(
         "head", "attribute", "expects", "event", "variable", "formula", "action",
-        "script", "watch", "style", "component", "slot", "node",
+        "script", "watch", "style", "component", "slot", "node", "tool",
     )
 
     // The corpus + catalog sit in the open drop — walk up from the working dir to the repo

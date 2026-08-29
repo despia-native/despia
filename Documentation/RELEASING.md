@@ -102,13 +102,48 @@ does not change a reader's decision does not belong in it. Breaking changes are 
 Package-facing text is read by people who have never seen this repo. It follows two rules the
 internal architecture documents do not:
 
-1. **No em dashes.** Use a hyphen (` - `) or a comma. `check_package_prose.rb` enforces this on
-   every published `README`, `CHANGELOG`, `NOTICE`, `llms.txt`, `docs/**.md`, and `package.json`.
+1. **No em dashes.** Use a hyphen (` - `) or a comma. `check_package_prose.rb` enforces this over
+   the package roots (`AI`, `Local`, `MCP`, `CanvasEditor`, `LogicEditor`, `Engine`, `editors`,
+   `Web/packages`) and the front-door files (`README.md`, `llms.txt`, `CONTRIBUTING.md`,
+   `CODE_OF_CONDUCT.md`, `SECURITY.md`), matching `README`, `CHANGELOG`, `NOTICE`, `llms.txt`,
+   `SKILL.md`, `package.json`, and any `.md` under a `docs/` folder. Prose that reaches
+   docs.despia.com through the documentation site's content sync (`Documentation/guides/**`,
+   `Skills/**`) is outside that sweep today: write it to this rule anyway, because it is published
+   text, and extending the gate to cover it is a named piece of open work rather than a claim.
 2. **State what is true today.** A package README says what the package does now, with the parts
    that are unfinished named plainly. `OpenSource/MCP/README.md` is the model: it says which half
    is real and which is still landing, in the second paragraph.
 
-## 7. The release checklist
+## 7. What a release may claim
+
+A version number promises compatibility. The README beside it promises capability, and that
+promise is the easier one to break. **A published claim about what runs on which platform names
+the gate that proves it, or it does not ship.**
+
+The three claims this framework makes, and the exact standing of each:
+
+| Claim | Standing | Evidence a reader can re-run |
+|---|---|---|
+| The kernels agree on runtime **semantics** | proven, continuously | `OpenSource/Conformance/` on TypeScript (857 of 857 as of 2026-08-19) and Kotlin (2,775 of 2,775), both per pull request; Swift replays the same corpora on the record lane |
+| The **web renderer** matches its own committed render | proven on demand, not in CI | `npm run parity-oracle` against `OpenSource/Conformance/parity/reference/web/`; a skin change re-records the plane in the same commit |
+| **Native rendering** matches the web plane | budgeted, and two of three lanes have not run on a device | `ClosedSource/scripts/parity_native_diff.rb`; the budgets and the gap ledger live in `OpenSource/Conformance/parity/README.md` |
+
+Three rules follow from that table, and they are not stylistic:
+
+1. **Never write "pixel perfect" about native rendering.** It is not the target and it is not
+   measured. The target is near-pixel within a published budget, and the reason is a design
+   decision: the unstyled baseline is the platform's own system component, and native semantic
+   colors are resolved by the OS. Say "budgeted near-pixel contract" and link the ledger.
+2. **A count in prose cites its generated source.** Element support numbers come from
+   `OpenSource/Web/support/element-support.json`; component cells come from
+   `OpenSource/Conformance/library/matrix.json`. A number typed by hand goes stale silently, and
+   a stale number in a README is the same failure as a stale version.
+3. **Verified by review is written as verified by review.** A cell that no probe has executed is
+   never described as tested. `Documentation/guides/platform-support.md` is the page that holds
+   the whole picture in public, and a release that changes any of it updates that page in the
+   same commit.
+
+## 8. The release checklist
 
 ```bash
 # 1. the gates that decide whether a release is even legal
@@ -131,7 +166,7 @@ MIRROR_PUSH_TOKEN=<pat> ruby ClosedSource/scripts/mirror_public.rb <folder>
 Steps 3 to 5 are deliberate acts with operator credentials. Nothing in CI publishes on its own,
 and no lane holds a signing key.
 
-## 8. Deprecation
+## 9. Deprecation
 
 A published version is never unpublished or force-retagged: someone's build depends on it. To
 retire something, ship a new version that deprecates it, say so in the CHANGELOG under

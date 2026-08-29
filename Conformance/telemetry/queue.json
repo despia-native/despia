@@ -1,0 +1,501 @@
+{
+  "version": 1,
+  "_note": "The telemetry QUEUE POLICY — the pure core every renderer shares (parity/F10-telemetry.md): the fingerprint fold, deterministic sampling, the bounded dedupe ring and the backoff schedule. It is pure on purpose: the platform half (on-disk persistence, the flush timer, the transport) differs per renderer, but WHICH events survive a crash loop and WHETHER a given event is sampled must not. A crash loop sends a COUNT, not ten thousand events; the bound drops the OLDEST and counts the drop, so the sink is told what it did not receive. Sampling is a pure function of the fingerprint (FNV-1a 32-bit, permille of 10000) rather than a random draw, so the same event is sampled the same way on every device and a corpus can pin it. Twins: kernel TelemetryQueuePolicy + TelemetryQueue (Swift Engine/iOS/TelemetryPolicy.swift · Kotlin :core TelemetryPolicy.kt · TS packages/kernel/src/telemetry.ts).",
+  "fingerprint": [
+    {
+      "name": "a native crash with a moving address folds to one fingerprint",
+      "source": "app",
+      "code": "crash",
+      "message": "SIGSEGV at 0x00007ff8 in Checkout",
+      "expect": "app|crash|SIGSEGV at <addr> in Checkout"
+    },
+    {
+      "name": "the same crash at another address folds identically",
+      "source": "app",
+      "code": "crash",
+      "message": "SIGSEGV at 0x00001a2b in Checkout",
+      "expect": "app|crash|SIGSEGV at <addr> in Checkout"
+    },
+    {
+      "name": "an index error with a moving index folds",
+      "source": "dom",
+      "code": "render_failed",
+      "message": "index 5 out of bounds for length 3",
+      "expect": "dom|render_failed|index # out of bounds for length #"
+    },
+    {
+      "name": "whitespace runs collapse",
+      "source": "dom",
+      "code": "render_failed",
+      "message": "index   5    out of bounds",
+      "expect": "dom|render_failed|index # out of bounds"
+    },
+    {
+      "name": "an absent message is an empty tail",
+      "source": "telemetry",
+      "code": "queue_full",
+      "message": null,
+      "expect": "telemetry|queue_full|"
+    },
+    {
+      "name": "a long message is capped at 200 characters",
+      "source": "app",
+      "code": "crash",
+      "message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expect": "app|crash|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ],
+  "sampling": [
+    {
+      "fingerprint": "dom|render_failed|Checkout.dsx:#",
+      "rate": 1.0,
+      "expect": true
+    },
+    {
+      "fingerprint": "dom|render_failed|Checkout.dsx:#",
+      "rate": 0.0,
+      "expect": false
+    },
+    {
+      "fingerprint": "dom|render_failed|Checkout.dsx:#",
+      "rate": 0.5,
+      "expect": false
+    },
+    {
+      "fingerprint": "app|crash|SIGSEGV at <addr>",
+      "rate": 0.5,
+      "expect": false
+    },
+    {
+      "fingerprint": "telemetry|queue_full|",
+      "rate": 0.5,
+      "expect": true
+    },
+    {
+      "fingerprint": "a",
+      "rate": 0.25,
+      "expect": true
+    },
+    {
+      "fingerprint": "b",
+      "rate": 0.25,
+      "expect": false
+    },
+    {
+      "fingerprint": "c",
+      "rate": 0.1,
+      "expect": false
+    },
+    {
+      "fingerprint": "d",
+      "rate": 0.9,
+      "expect": false
+    },
+    {
+      "fingerprint": "app|crash|SIGSEGV at <addr>",
+      "rate": 1.0,
+      "expect": true
+    },
+    {
+      "fingerprint": "e",
+      "rate": 0.9,
+      "expect": true
+    }
+  ],
+  "backoff": [
+    {
+      "attempt": 0,
+      "expect": 0
+    },
+    {
+      "attempt": 1,
+      "expect": 1000
+    },
+    {
+      "attempt": 2,
+      "expect": 2000
+    },
+    {
+      "attempt": 3,
+      "expect": 4000
+    },
+    {
+      "attempt": 4,
+      "expect": 8000
+    },
+    {
+      "attempt": 5,
+      "expect": 16000
+    },
+    {
+      "attempt": 8,
+      "expect": 128000
+    },
+    {
+      "attempt": 9,
+      "expect": 256000
+    },
+    {
+      "attempt": 10,
+      "expect": 300000
+    },
+    {
+      "attempt": 20,
+      "expect": 300000
+    }
+  ],
+  "queue": [
+    {
+      "name": "distinct events accumulate",
+      "capacity": 4,
+      "windowMs": 1000,
+      "maxBatch": 10,
+      "steps": [
+        {
+          "offer": "a",
+          "at": 0
+        },
+        {
+          "offer": "b",
+          "at": 10
+        },
+        {
+          "offer": "c",
+          "at": 20
+        }
+      ],
+      "expect": [
+        {
+          "outcome": "accepted",
+          "size": 1,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "outcome": "accepted",
+          "size": 2,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "outcome": "accepted",
+          "size": 3,
+          "dropped": 0,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "name": "a crash loop inside the window is ONE event with a count",
+      "capacity": 8,
+      "windowMs": 5000,
+      "maxBatch": 10,
+      "steps": [
+        {
+          "offer": "a",
+          "at": 0
+        },
+        {
+          "offer": "a",
+          "at": 5
+        },
+        {
+          "offer": "a",
+          "at": 9
+        },
+        {
+          "offer": "a",
+          "at": 40
+        },
+        {
+          "batch": true
+        }
+      ],
+      "expect": [
+        {
+          "outcome": "accepted",
+          "size": 1,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "outcome": "deduped",
+          "size": 1,
+          "dropped": 0,
+          "count": 2
+        },
+        {
+          "outcome": "deduped",
+          "size": 1,
+          "dropped": 0,
+          "count": 3
+        },
+        {
+          "outcome": "deduped",
+          "size": 1,
+          "dropped": 0,
+          "count": 4
+        },
+        {
+          "batch": [
+            "a"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "the same fingerprint after the window is a new event",
+      "capacity": 8,
+      "windowMs": 100,
+      "maxBatch": 10,
+      "steps": [
+        {
+          "offer": "a",
+          "at": 0
+        },
+        {
+          "offer": "a",
+          "at": 250
+        },
+        {
+          "batch": true
+        }
+      ],
+      "expect": [
+        {
+          "outcome": "accepted",
+          "size": 1,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "outcome": "accepted",
+          "size": 2,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "batch": [
+            "a",
+            "a"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "the window slides from the LAST sighting, so a tight loop never re-emits",
+      "capacity": 8,
+      "windowMs": 100,
+      "maxBatch": 10,
+      "steps": [
+        {
+          "offer": "a",
+          "at": 0
+        },
+        {
+          "offer": "a",
+          "at": 90
+        },
+        {
+          "offer": "a",
+          "at": 180
+        },
+        {
+          "offer": "a",
+          "at": 270
+        }
+      ],
+      "expect": [
+        {
+          "outcome": "accepted",
+          "size": 1,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "outcome": "deduped",
+          "size": 1,
+          "dropped": 0,
+          "count": 2
+        },
+        {
+          "outcome": "deduped",
+          "size": 1,
+          "dropped": 0,
+          "count": 3
+        },
+        {
+          "outcome": "deduped",
+          "size": 1,
+          "dropped": 0,
+          "count": 4
+        }
+      ]
+    },
+    {
+      "name": "the bound drops the OLDEST and counts the drop",
+      "capacity": 3,
+      "windowMs": 10,
+      "maxBatch": 10,
+      "steps": [
+        {
+          "offer": "a",
+          "at": 0
+        },
+        {
+          "offer": "b",
+          "at": 100
+        },
+        {
+          "offer": "c",
+          "at": 200
+        },
+        {
+          "offer": "d",
+          "at": 300
+        },
+        {
+          "offer": "e",
+          "at": 400
+        },
+        {
+          "batch": true
+        }
+      ],
+      "expect": [
+        {
+          "outcome": "accepted",
+          "size": 1,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "outcome": "accepted",
+          "size": 2,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "outcome": "accepted",
+          "size": 3,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "outcome": "evicted",
+          "size": 3,
+          "dropped": 1,
+          "count": 1
+        },
+        {
+          "outcome": "evicted",
+          "size": 3,
+          "dropped": 2,
+          "count": 1
+        },
+        {
+          "batch": [
+            "c",
+            "d",
+            "e"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a batch is capped and an ack removes exactly what was sent",
+      "capacity": 8,
+      "windowMs": 10,
+      "maxBatch": 2,
+      "steps": [
+        {
+          "offer": "a",
+          "at": 0
+        },
+        {
+          "offer": "b",
+          "at": 100
+        },
+        {
+          "offer": "c",
+          "at": 200
+        },
+        {
+          "batch": true
+        },
+        {
+          "ack": 2
+        },
+        {
+          "batch": true
+        }
+      ],
+      "expect": [
+        {
+          "outcome": "accepted",
+          "size": 1,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "outcome": "accepted",
+          "size": 2,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "outcome": "accepted",
+          "size": 3,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "batch": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "size": 1
+        },
+        {
+          "batch": [
+            "c"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "acking more than the queue holds empties it and never underflows",
+      "capacity": 8,
+      "windowMs": 10,
+      "maxBatch": 5,
+      "steps": [
+        {
+          "offer": "a",
+          "at": 0
+        },
+        {
+          "ack": 5
+        },
+        {
+          "batch": true
+        }
+      ],
+      "expect": [
+        {
+          "outcome": "accepted",
+          "size": 1,
+          "dropped": 0,
+          "count": 1
+        },
+        {
+          "size": 0
+        },
+        {
+          "batch": []
+        }
+      ]
+    }
+  ]
+}

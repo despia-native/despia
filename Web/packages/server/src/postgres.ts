@@ -42,6 +42,7 @@
 
 import { RepoError, RepoSeam, type RepoQuery } from "./repo.ts";
 import { RateLimitSeam, type RateLimitStore } from "./ratelimit.ts";
+import { SpendSeam, type SpendStore } from "./spend.ts";
 import {
   assertChannel,
   RealtimeError,
@@ -330,8 +331,29 @@ export function buildQueueClaimStatement(request: QueueClaimRequest): Statement 
 export function buildQueueEnqueueStatement(request: QueueEnqueueRequest): Statement {
   const t = queueTable(request.queue);
   const params: unknown[] = [request.key, JSON.stringify(request.payload ?? {})];
+  const depth = request.maxPending;
+  if (typeof depth !== "number" || !Number.isFinite(depth) || depth <= 0) {
+    return {
+      text: `insert into ${t} (idempotency_key, payload) values ($1, $2::jsonb) on conflict (idempotency_key) do nothing returning id`,
+      params,
+    };
+  }
+  // THE DEPTH CEILING, in the same statement as the insert (QueueEnqueueRequest.maxPending). The
+  // pending count and the conditional insert travel together so the check cannot race apart from
+  // the write it guards. `existing` rides along because a RETRY OF A STORED DELIVERY must answer
+  // `duplicate` even at the ceiling — a sender retrying an event the queue already holds must
+  // get the same success it got the first time, whatever the backlog looks like (the webhook
+  // law). The count predicate matches the pending index's exactly, so the ceiling read is an
+  // index-only scan, not a table walk.
+  params.push(Math.trunc(depth));
   return {
-    text: `insert into ${t} (idempotency_key, payload) values ($1, $2::jsonb) on conflict (idempotency_key) do nothing returning id`,
+    text:
+      `with cap as (select count(*)::int as pending from ${t} where processed_at is null and dead_lettered_at is null), ` +
+      `existing as (select id from ${t} where idempotency_key = $1 limit 1), ` +
+      `ins as (insert into ${t} (idempotency_key, payload) select $1, $2::jsonb ` +
+      `where (select pending from cap) < $3::int and not exists (select 1 from existing) ` +
+      `on conflict (idempotency_key) do nothing returning id) ` +
+      `select (select pending from cap) as pending, (select id from ins) as inserted, (select id from existing) as existing`,
     params,
   };
 }
@@ -526,15 +548,34 @@ function queueTransport(run: SqlRunner): QueueTransport {
   return {
     enqueue: async (request: QueueEnqueueRequest): Promise<QueueEnqueueResult> => {
       const statement = buildQueueEnqueueStatement(request);
+      const capped = typeof request.maxPending === "number" && Number.isFinite(request.maxPending) && request.maxPending > 0;
       try {
         const [rows = []] = await run((c) => runQueueStatements(c, [statement]));
-        const inserted = rows[0] as { id?: unknown } | undefined;
-        // No row back means `do nothing` fired: the key was already present. That is the
-        // duplicate, and it is a success — see QueueEnqueueRequest.
-        return inserted === undefined
-          ? { id: null, duplicate: true }
-          : { id: String(inserted.id ?? ""), duplicate: false };
+        if (!capped) {
+          const inserted = rows[0] as { id?: unknown } | undefined;
+          // No row back means `do nothing` fired: the key was already present. That is the
+          // duplicate, and it is a success — see QueueEnqueueRequest.
+          return inserted === undefined
+            ? { id: null, duplicate: true }
+            : { id: String(inserted.id ?? ""), duplicate: false };
+        }
+        // The capped statement ALWAYS answers one row: the pending count, the inserted id (or
+        // null), and the pre-existing row's id (or null). Existing wins — a retry of a stored
+        // delivery is `duplicate` whatever the backlog looks like. Then an insert is success,
+        // and neither is the ceiling — `saturated`, the transient code, because the consumer
+        // draining is what clears it and a retry after backoff is the correct caller behaviour.
+        // (An exactly-concurrent first delivery of the same key can land as `saturated` once —
+        // the sender's retry then reads `duplicate`, which is the answer that matters.)
+        const row = (rows[0] ?? {}) as { pending?: unknown; inserted?: unknown; existing?: unknown };
+        if (row.existing !== null && row.existing !== undefined) return { id: null, duplicate: true };
+        if (row.inserted !== null && row.inserted !== undefined) return { id: String(row.inserted), duplicate: false };
+        throw new QueueError(
+          `queue "${request.queue}" is at its declared depth ceiling (${request.maxPending} outstanding) — ` +
+            `the enqueue is refused until the drain catches up`,
+          "saturated",
+        );
       } catch (e) {
+        if (e instanceof QueueError) throw e;
         throw asQueueFailure(request.queue, e);
       }
     },
@@ -916,6 +957,74 @@ function rateLimitStore(run: SqlRunner): RateLimitStore {
   };
 }
 
+// ── the spend counters (spend.ts) — the SAME table, deliberately ────────────────────────
+//
+//  The spend plane's durable counters ride `dsx_rate_counter`, not a table of their own. The
+//  shape is identical (bucket · epoch-aligned window · atomic add), the sweep already prunes
+//  expired windows on the emitted cron row, and — decisively — every provisioned deployment
+//  already HAS this table, so the plane is durable on day one with no migration to apply and no
+//  `not_provisioned` state to explain. Spend buckets are namespaced `spend|<of>`, which the
+//  rate plane's `<route.key>|<caller>` grammar can never produce.
+
+/** Multi-row atomic add: one statement, N budgets, Postgres decides every count under
+ *  concurrency. Entries are one-per-budget by construction, so the upsert can never touch the
+ *  same row twice in one statement. */
+export function buildSpendAddStatement(
+  entries: readonly { bucket: string; windowStartMs: number; windowMs: number; n: number }[],
+): Statement {
+  const params: unknown[] = [];
+  const p = (value: unknown): string => `$${params.push(value)}`;
+  const values = entries.map((e) => {
+    // The same three-window grace the rate hit uses, so the shared sweep prunes both planes.
+    const expires = new Date(e.windowStartMs + e.windowMs * 3).toISOString();
+    return `(${p(e.bucket)}, ${p(new Date(e.windowStartMs).toISOString())}::timestamptz, ${p(expires)}::timestamptz, ${p(Math.max(1, Math.trunc(e.n)))}::int)`;
+  });
+  return {
+    text:
+      `insert into ${RATE_TABLE} (bucket, window_start, expires_at, count) values ${values.join(", ")} ` +
+      `on conflict (bucket, window_start) do update set count = ${RATE_TABLE}.count + excluded.count returning bucket, count`,
+    params,
+  };
+}
+
+/** Read counts without adding — the reconcile half of the flush (spend.ts). Absent rows simply
+ *  return no row; the caller treats that as 0. */
+export function buildSpendReadStatement(entries: readonly { bucket: string; windowStartMs: number }[]): Statement {
+  const params: unknown[] = [];
+  const p = (value: unknown): string => `$${params.push(value)}`;
+  const pairs = entries.map((e) => `(${p(e.bucket)}, ${p(new Date(e.windowStartMs).toISOString())}::timestamptz)`);
+  return {
+    text: `select bucket, count from ${RATE_TABLE} where (bucket, window_start) in (${pairs.join(", ")})`,
+    params,
+  };
+}
+
+function decodeSpendRows(rows: readonly unknown[]): { bucket: string; count: number }[] {
+  return rows.map((row) => {
+    const r = (row ?? {}) as { bucket?: unknown; count?: unknown };
+    return { bucket: String(r.bucket ?? ""), count: Number(r.count ?? 0) };
+  });
+}
+
+function spendStore(run: SqlRunner): SpendStore {
+  return {
+    add: async (entries): Promise<{ bucket: string; count: number }[]> => {
+      if (entries.length === 0) return [];
+      const statement = buildSpendAddStatement(entries);
+      // NO TRANSACTION, same as the rate hit: one upsert is already atomic, and the flush treats
+      // a throw as "keep the local units, try again next interval" (spend.ts, bounded staleness).
+      const result = await run((c) => c.query(statement.text, statement.params));
+      return decodeSpendRows(result.rows);
+    },
+    read: async (entries): Promise<{ bucket: string; count: number }[]> => {
+      if (entries.length === 0) return [];
+      const statement = buildSpendReadStatement(entries);
+      const result = await run((c) => c.query(statement.text, statement.params));
+      return decodeSpendRows(result.rows);
+    },
+  };
+}
+
 // ── the durable event feed (realtime.ts) ────────────────────────────────────────────────
 
 const EVENT_TABLE = `${TABLE_PREFIX}event`;
@@ -1090,6 +1199,7 @@ function install(run: SqlRunner): void {
   };
   QueueSeam.transport = queueTransport(run);
   RateLimitSeam.store = rateLimitStore(run);
+  SpendSeam.store = spendStore(run);
   RealtimeSeam.transport = realtimeTransport(run);
   eventSweeper = async (retentionHours: number): Promise<number> => {
     const statement = buildEventSweepStatement(retentionHours);
@@ -1125,4 +1235,219 @@ export function installPostgresPool(pool: SqlPool, options: PostgresPoolGuardOpt
  */
 export function installPostgresClient(client: SqlClient): void {
   install(serialiser(client));
+}
+
+//
+//  ── THE RESERVED NAMESPACE: what Despia owns inside the customer's database ──────────────
+//
+//  The customer owns the database. Despia owns the `dsx_` system tables inside it, the way any
+//  framework owns its own migration table — so nobody is ever asked to write this SQL, and
+//  nobody has to know it exists. This registry is the ONE place that says what "provisioned"
+//  means; the emitted migration, the deploy's provisioning step, and the damage report all read
+//  it, so a table cannot be created by one and forgotten by another.
+//
+//  It exists because those three had already drifted: the monorepo emitter wrote the counter and
+//  event tables, the standalone `despia build` migration wrote neither, and a deployment that
+//  believed it was metered had nowhere to count. The registry is what makes that class
+//  structurally impossible rather than caught by review.
+//
+//  A queue table is here too, per declared queue: the same law, just parameterised by the
+//  document. Entity tables are NOT — those are the customer's own, declared in their document
+//  and theirs to name.
+//
+
+/** One framework-owned table: what it is for, the SQL that converges it, and the columns whose
+ *  absence means the runtime would fail against it (present-but-wrong is damage, not health). */
+export interface SystemTable {
+  table: string;
+  /** one sentence, written for a person reading a repair prompt — not a schema comment */
+  purpose: string;
+  /** convergent DDL: create-if-not-exists plus additive alters, safe on a live database */
+  sql: string;
+  columns: string[];
+}
+
+/**
+ * Every `dsx_` table this runtime requires, for a deployment draining `queues`.
+ *
+ * Ordered so a reader sees the always-present pair first. The column lists name what the
+ * runtime's own statements address — they are the shape check, and they are deliberately not
+ * the whole schema: an extra column somebody added is their business, a missing one is ours.
+ */
+export function systemTables(queues: readonly string[] = []): SystemTable[] {
+  const rows: SystemTable[] = [
+    {
+      table: RATE_TABLE,
+      purpose: "rate limits and spend ceilings — the durable counters every window is measured against",
+      sql: rateLimitTableSql(),
+      columns: ["bucket", "window_start", "expires_at", "count"],
+    },
+    {
+      table: EVENT_TABLE,
+      purpose: "the event feed — what the app and the dashboard subscribe to, spend alerts included",
+      sql: eventTableSql(),
+      columns: ["seq", "channel", "owner_id", "payload", "created_at"],
+    },
+  ];
+  for (const queue of [...new Set(queues)].sort()) {
+    rows.push({
+      table: queueTable(queue),
+      purpose: `the "${queue}" queue — messages waiting to be drained, and their delivery state`,
+      sql: queueTableSql(queue),
+      columns: ["id", "idempotency_key", "payload", "created_at", "claimed_at", "attempts"],
+    });
+  }
+  return rows;
+}
+
+/** The whole reserved namespace as one convergent script — what the emitted migration carries.
+ *  Re-runnable by construction. */
+export function systemSchemaSql(queues: readonly string[] = []): string {
+  return systemTables(queues).map((t) => t.sql.trimEnd()).join("\n\n") + "\n";
+}
+
+/**
+ * One DDL script as its individual statements.
+ *
+ * `provisionSystemStorage` applies them ONE AT A TIME rather than sending the script whole,
+ * because multi-statement text is a simple-protocol privilege: `pg` allows it, a parameterised
+ * driver or an embedded engine does not, and a provisioning step that works only against one
+ * driver is a provisioning step that fails on somebody's database at deploy time. Applying them
+ * singly also means a refusal names the statement that was refused.
+ *
+ * The split accumulates lines until one ends the statement, which is exactly the shape these
+ * scripts have. It is deliberately not a SQL parser: it is only ever handed the three DDL
+ * builders above, none of which carries a dollar-quoted body or a literal semicolon — the
+ * assertion below is what keeps that true if one ever grows one.
+ */
+export function ddlStatements(script: string): string[] {
+  if (script.includes("$$")) {
+    throw new Error("[dsx.provision] a system DDL script grew a dollar-quoted body — split it explicitly");
+  }
+  const out: string[] = [];
+  let current: string[] = [];
+  for (const line of script.split("\n")) {
+    const text = line.trim();
+    if (text === "" || text.startsWith("--")) continue;
+    current.push(line);
+    if (text.endsWith(";")) {
+      out.push(current.join("\n").trim());
+      current = [];
+    }
+  }
+  if (current.length > 0) out.push(current.join("\n").trim());
+  return out;
+}
+
+/** One table's health. `ok` is the only field a caller must act on; the rest is the report. */
+export interface SystemTableStatus {
+  table: string;
+  purpose: string;
+  present: boolean;
+  /** columns the runtime addresses that this table does not have (empty when absent entirely) */
+  missingColumns: string[];
+  ok: boolean;
+}
+
+/**
+ * Read the live database and answer what is actually there.
+ *
+ * One query for the whole namespace rather than one per table: a deploy runs this against a
+ * customer's database over the open internet, and a round trip per table is the difference
+ * between a check nobody notices and one they learn to skip.
+ *
+ * `information_schema` rather than a probe query per table, because a select against a missing
+ * table aborts the surrounding transaction in Postgres — the diagnosis would break the thing it
+ * is diagnosing.
+ */
+export async function inspectSystemStorage(
+  client: SqlClient,
+  queues: readonly string[] = [],
+): Promise<SystemTableStatus[]> {
+  const wanted = systemTables(queues);
+  const names = wanted.map((t) => t.table);
+  const { rows } = await client.query(
+    "select table_name, column_name from information_schema.columns " +
+      "where table_schema = current_schema() and table_name = any($1::text[])",
+    [names],
+  );
+  const found = new Map<string, Set<string>>();
+  for (const raw of rows as { table_name?: unknown; column_name?: unknown }[]) {
+    const table = String(raw.table_name ?? "");
+    const column = String(raw.column_name ?? "");
+    if (table === "") continue;
+    const set = found.get(table) ?? new Set<string>();
+    set.add(column);
+    found.set(table, set);
+  }
+  return wanted.map((spec) => {
+    const columns = found.get(spec.table);
+    const present = columns !== undefined;
+    const missingColumns = present ? spec.columns.filter((c) => !columns.has(c)) : [];
+    return {
+      table: spec.table,
+      purpose: spec.purpose,
+      present,
+      missingColumns,
+      ok: present && missingColumns.length === 0,
+    };
+  });
+}
+
+/** What one provisioning run did. `created` is what a receipt records and what a person is told
+ *  was fixed; `damaged` is what the run deliberately refused to touch. */
+export interface ProvisionOutcome {
+  /** every system table this deployment requires, after the run */
+  tables: SystemTableStatus[];
+  /** tables that were absent going in and exist because of this run */
+  created: string[];
+  /**
+   * Tables that are present and cannot serve the runtime — someone altered one of ours.
+   *
+   * NOT repaired automatically, and that is the honest answer rather than a missing feature. A
+   * generic `add column` restores a column but never the constraint it carried, so a dropped
+   * primary-key column would come back as an ordinary nullable one: the table would then pass
+   * every check here and still break the upsert it exists for. Naming it and refusing to publish
+   * beats a repair that reports success and leaves the deployment broken.
+   */
+  damaged: string[];
+  /** false when the database still does not match after applying — never silently tolerated */
+  verified: boolean;
+}
+
+/**
+ * Inspect, apply what is missing, then inspect again and answer both.
+ *
+ * The apply is unconditional over the whole namespace rather than only the damaged rows: the DDL
+ * is convergent (`create table if not exists`, `add column if not exists`), so applying all of it
+ * costs one round trip and cannot leave a partially-repaired table behind. That is also what
+ * makes repair and first-provision the same operation with the same code path — there is no
+ * "repair mode" to get wrong.
+ *
+ * The verify is a SECOND read, not the assumption that the apply worked. A grant this connection
+ * does not have, a schema it cannot write, an extension it lacks: each fails here, named, instead
+ * of surfacing later as a runtime error against a table nobody checked.
+ */
+export async function provisionSystemStorage(
+  client: SqlClient,
+  queues: readonly string[] = [],
+): Promise<ProvisionOutcome> {
+  const before = await inspectSystemStorage(client, queues);
+  const state = new Map(before.map((t) => [t.table, t]));
+  const created = before.filter((t) => !t.present).map((t) => t.table);
+  const damaged = before.filter((t) => t.present && !t.ok).map((t) => t.table);
+
+  for (const spec of systemTables(queues)) {
+    //  A damaged table's DDL is SKIPPED rather than attempted. Its create-if-not-exists no-ops
+    //  against the table that is already there, so the statements that would actually run are
+    //  the indexes and policies over columns it no longer has — each of which fails, turning a
+    //  precise report into a stack trace about the third one.
+    if (state.get(spec.table)?.present === true && state.get(spec.table)?.ok !== true) continue;
+    for (const statement of ddlStatements(spec.sql)) {
+      await client.query(statement);
+    }
+  }
+
+  const tables = await inspectSystemStorage(client, queues);
+  return { tables, created, damaged, verified: tables.every((t) => t.ok) };
 }

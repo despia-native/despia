@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "_note": "THE PERMISSION-FREE PATH (parity F12). `dsx.module.calendar.present` opens the SYSTEM event editor: iOS EKEventEditViewController, Android ACTION_INSERT on CalendarContract.Events, web a generated .ics handoff. None of the three needs an authorization grant, because the user is looking at the event and saves it themselves. This corpus pins that, and pins the RESULT FIDELITY LADDER, which is the part that is easy to fake: iOS knows exactly what the user did, Android knows only if a read grant lets it verify, and the web never knows. `unknown` is the honest answer at each rung where the platform does not report, and it is never upgraded to `saved` on a hope. Runners: TS (@despia/kernel calendar-core.ts, calendar-conformance.test.ts), Kotlin (:core CalendarCore, CalendarConformanceTest), Swift (Engine/iOS/CalendarCore.swift, CalendarConformance in the record lane).",
+
+  "permissionSurface": {
+    "_note": "action -> the grant it requires. `present` with an `id` is the one asterisk: reading the event back to prefill the editor is a read, so THAT spelling needs a read grant while the prefill-a-new-event spelling needs none.",
+    "present": "none",
+    "present.withId": "read",
+    "permission": "none",
+    "calendars": "read",
+    "events": "read",
+    "create": "write",
+    "update": "write",
+    "remove": "write",
+    "add": "none",
+    "ics": "none"
+  },
+
+  "resultFidelity": {
+    "_note": "renderer -> the results it can actually report. A renderer must never resolve a result outside its own list.",
+    "ios": ["saved", "cancelled", "deleted"],
+    "android": ["saved", "cancelled", "unknown"],
+    "web": ["unknown"]
+  },
+
+  "cases": [
+    {
+      "name": "an editor that reports the user's decision resolves it exactly",
+      "given": { "renderer": "ios", "access": "undetermined", "editorAction": "saved" },
+      "expect": { "result": "saved", "hasId": true, "prompted": false, "broadcast": "saved" }
+    },
+    {
+      "name": "a dismissed editor is cancelled, not an error",
+      "given": { "renderer": "ios", "access": "undetermined", "editorAction": "canceled" },
+      "expect": { "result": "cancelled", "hasId": false, "error": null, "broadcast": "canceled" }
+    },
+    {
+      "name": "deleting from inside the editor is its own outcome",
+      "given": { "renderer": "ios", "access": "granted", "editorAction": "deleted" },
+      "expect": { "result": "deleted", "hasId": false, "broadcast": "deleted" }
+    },
+    {
+      "name": "an editor that reports nothing, with no read grant to verify with, is unknown",
+      "given": { "renderer": "android", "access": "undetermined", "editorAction": null },
+      "expect": { "result": "unknown", "hasId": false, "broadcast": null }
+    },
+    {
+      "name": "the same editor WITH a read grant verifies against the store and reports saved",
+      "given": { "renderer": "android", "access": "granted", "editorAction": null, "eventFound": true },
+      "expect": { "result": "saved", "hasId": true, "broadcast": "saved" }
+    },
+    {
+      "name": "verification that finds nothing reports cancelled, not saved",
+      "given": { "renderer": "android", "access": "granted", "editorAction": null, "eventFound": false },
+      "expect": { "result": "cancelled", "hasId": false, "broadcast": "canceled" }
+    },
+    {
+      "name": "the .ics handoff is a real editor path, and it too reports unknown",
+      "given": { "renderer": "web", "access": "denied", "editorAction": null },
+      "expect": { "result": "unknown", "hasId": false, "broadcast": null }
+    },
+    {
+      "name": "an unparseable start is refused BEFORE anything is presented",
+      "given": { "renderer": "ios", "access": "undetermined", "start": "next tuesday", "end": "2026-09-01T09:15:00Z" },
+      "expect": { "error": "invalid_date", "presented": false }
+    },
+    {
+      "name": "an end before its start is refused too",
+      "given": { "renderer": "ios", "access": "undetermined", "start": "2026-09-01T10:00:00Z", "end": "2026-09-01T09:00:00Z" },
+      "expect": { "error": "invalid_date", "presented": false }
+    },
+    {
+      "name": "present({ id }) without a read grant refuses rather than opening an empty editor",
+      "given": { "renderer": "ios", "access": "undetermined", "id": "e1" },
+      "expect": { "error": "permission_denied", "presented": false }
+    }
+  ]
+}

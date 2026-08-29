@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Despia Logic Editor — the formula canvas</title>
+<!-- Zero-setup demo: open this file in a browser from a checkout (it loads
+     src/logic-editor.js next to it). Double-click the canvas to add a node,
+     drag a port to wire, double-click a value to edit, wheel to zoom,
+     drag empty space to pan. The Output card shows the LIVE result and the
+     compiled JSE — the clean text that lands in a .dsx document. -->
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; background: #101011; color: #e7e7ea;
+         font-family: 'Inter', -apple-system, system-ui, sans-serif;
+         transition: background 130ms ease-out, color 130ms ease-out; }
+  header { display: flex; align-items: center; gap: 14px; padding: 7px 16px; }
+  header b { font-size: 13.5px; }
+  header span { font-size: 12px; color: #77777f; }
+  #theme { margin-left: auto; background: #232327; color: #c9c9d1; border: 1px solid rgba(255,255,255,0.08);
+           border-radius: 6px; padding: 4px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+  #mount { flex: 1; min-height: 0; border-top: 1px solid #232326; border-bottom: 1px solid #232326; }
+  footer { height: 132px; overflow: auto; padding: 8px 16px; font-family: ui-monospace, 'SF Mono', monospace;
+           font-size: 11px; color: #9a9aa2; }
+  footer .jse { color: #7fb2ff; }
+  body.light { background: #F4F5F8; color: #23262f; }
+  body.light header span { color: #7b8090; }
+  body.light #theme { background: #ffffff; color: #3a3f4c; border-color: rgba(20,25,50,0.14); }
+  body.light #mount { border-color: rgba(20,25,50,0.10); }
+  body.light footer { color: #5d6270; }
+  body.light footer .jse { color: #3f5f8f; }
+</style>
+</head>
+<body>
+<header>
+  <b>StackLogic — the Despia formula editor</b>
+  <span>double-click canvas: add node · drag ports (+): wire · double-click a value well: inspect · wheel: zoom · drag space: pan</span>
+  <button id="theme" title="Cycle theme">Theme: Auto</button>
+</header>
+<div id="mount"></div>
+<footer id="log"></footer>
+
+<script src="src/logic-editor.js"></script>
+<script>
+  // The demo graph: includes → if → capitalize, plus a user-declared function
+  // ("Your formulas" in the palette) — the DSX `<script>`-function twin:
+  // freeform code as a lego block.
+  const graph = {
+    v: 1, kind: "formula", name: "membership",
+    inputs: [
+      { name: "title", sample: "hello despia" },
+      { name: "isPro", sample: true }
+    ],
+    functions: [
+      {
+        name: "slugify",
+        params: ["text"],
+        body: "return lower(text).split(' ').join('-')",
+        description: "Lowercase a title and join its words with dashes."
+      }
+    ],
+    nodes: {
+      val: { kind: "path", path: "title" },
+      str: { kind: "path", path: "isPro" },
+      inc: { kind: "fn", fn: "includes", args: [{ node: "val" }, { value: "despia" }] },
+      pick: { kind: "if", cases: [{ when: { node: "str" }, then: { value: "Pro member" } }], else: { value: "Member" } },
+      cap: { kind: "fn", fn: "capitalize", args: [{ node: "val" }] },
+      root: { kind: "if", cases: [{ when: { node: "inc" }, then: { node: "pick" } }], else: { node: "cap" } }
+    },
+    out: { node: "root" }
+  };
+
+  const logic = new StackLogic(document.getElementById("mount"), { graph, scope: {} });
+
+  const logEl = document.getElementById("log");
+  const line = (html) => {
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    logEl.prepend(div);
+    while (logEl.children.length > 40) logEl.lastChild.remove();
+  };
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  logic.on("ready", (e) => line(`ready · ${e.nodes} nodes · <span class="jse">${esc(e.jse)}</span>`));
+  logic.on("change", (e) => line(`change · <span class="jse">${esc(e.jse)}</span>`));
+  logic.on("select", (e) => line(`select · ${e.id} (${e.kind})`));
+  logic.on("preview", (e) => line(`preview · result = ${esc(JSON.stringify(e.result))}`));
+
+  // theme: Auto follows the OS; the button pins Light/Dark. Page chrome follows
+  // whatever the editor resolved to.
+  const themeBtn = document.getElementById("theme");
+  const MODES = ["auto", "dark", "light"];
+  let mode = "auto";
+  const applyTheme = (m) => {
+    mode = m;
+    logic.setTheme(m);
+    themeBtn.textContent = "Theme: " + m[0].toUpperCase() + m.slice(1);
+    document.body.classList.toggle("light", logic.viewport.classList.contains("sl-light"));
+  };
+  themeBtn.addEventListener("click", () => applyTheme(MODES[(MODES.indexOf(mode) + 1) % MODES.length]));
+  window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => applyTheme(mode));
+
+  // deep links for docs/screenshots: #light · #dark · #inspect (combinable, comma-separated)
+  const flags = location.hash.replace("#", "").split(",");
+  if (flags.includes("light")) applyTheme("light");
+  else if (flags.includes("dark")) applyTheme("dark");
+  else applyTheme("auto");
+  if (flags.includes("inspect")) logic.inspect("inc");
+</script>
+</body>
+</html>

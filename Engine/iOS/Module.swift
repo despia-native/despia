@@ -248,6 +248,12 @@ public final class ModuleRegistry {
     /// primary pattern; `unsupported_platform` is the honest answer when someone calls anyway.
     public var platformSupport: [String: [String]] = [:]
 
+    /// "<scheme>.<action>" → the platforms that ACTION supports. Sparse: only actions whose
+    /// manifest narrows their module's set appear, and an action-level row OUTRANKS its
+    /// module's, because it is the more specific claim (a module present on web whose `read`
+    /// has no browser twin must answer `unsupported_platform` for `read` and nothing else).
+    public var platformSupportByAction: [String: [String]] = [:]
+
     /// This kernel's deployment target in `platformSupport` lists. A Catalyst build is a
     /// macOS product even though it uses UIKit compatibility, so it must never report iOS or
     /// accept an iOS-only package as supported. Keep this compile-time and immutable: the
@@ -258,6 +264,19 @@ public final class ModuleRegistry {
         #else
         return "ios"
         #endif
+    }
+
+    /// The ACTION-AWARE read. An action-level narrowing decides on its own — including when
+    /// the module IS implemented here, which is the case the scheme-only lookup cannot see and
+    /// the one that produced 359 dishonest `not_loaded` answers on the web lane (X1 H3). With
+    /// no action row the answer is the module's, byte for byte.
+    public func unsupportedPlatforms(_ scheme: String, action: String?) -> [String]? {
+        if let action, !action.isEmpty {
+            let key = "\(scheme.lowercased()).\(action.lowercased().replacingOccurrences(of: "/", with: "."))"
+            lock.lock(); let declared = platformSupportByAction[key]; lock.unlock()
+            if let declared { return declared.contains(currentPlatform) ? nil : declared }
+        }
+        return unsupportedPlatforms(scheme)
     }
 
     /// Non-nil ⇒ `scheme` exists in the FULL module catalog but has NO implementation on this
@@ -622,6 +641,7 @@ public final class ModuleRegistry {
         // can already consult it. Both twins now fill this the same way — through a seam the
         // build installs, never a symbol the kernel names (the Kotlin twin always did).
         platformSupport = KernelTables.platformSupportByScheme
+        platformSupportByAction = KernelTables.platformSupportByAction
         lock.unlock()
     }
 

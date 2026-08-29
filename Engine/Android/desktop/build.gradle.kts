@@ -696,6 +696,11 @@ dependencies {
     // depending on an installed Windows/Linux display server. Target-native installer
     // UI remains in the OS CI lanes; these renderer laws run identically on every host.
     testImplementation("org.jetbrains.compose.ui:ui-test:1.10.3")
+    // TEST-ONLY: the real Material 3 Switch, the same component the Android :render
+    // system path mounts. DesktopSwitchAnimationUiTest drives it through the DSX store
+    // round-trip under a hand-stepped clock — the one runnable oracle for the M3 control
+    // motion contract on a device-free box. The shipped desktop renderer stays Material 2.
+    testImplementation(compose.material3)
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -770,6 +775,19 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
     useJUnitPlatform()
     forkEvery = 1
     maxParallelForks = 1
+    // A failure here has to say what it saw. The Windows lane surfaces the gradle CONSOLE and
+    // uploads installers, not the HTML/XML test report, so Gradle's default one-line
+    // "AssertionFailedError at File.kt:240" was the whole record of a red - which is why
+    // DesktopRendererUiTest's paint assertions carry measured values in their messages and why
+    // its diagnosis ledger calls the message "the ONE channel the Windows lane surfaces". That
+    // channel was closed. FULL prints the assertion message and its stack on every failure.
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
 }
 
 // The pure-JVM law, desktop edition (checkPureJvm family — desktop-status.md).
@@ -889,3 +907,39 @@ tasks.register<JavaExec>("desktopDemoRun") {
 }
 
 tasks.named("check") { dependsOn("desktopSelfTest", "desktopDemoSelfTest") }
+
+// The parity capture plane (OpenSource/Conformance/parity/README.md, "The desktop capture
+// plane"). It renders the whole fixture corpus offscreen and REWRITES the committed
+// reference/desktop plane, so it is deliberately not part of the unit lane: `test` stays a
+// read-only suite, `parityCapture` is the recorder the CI step and the host-side differ
+// consume. The Skiko UI gate is forced on here because the capture asserts geometry, never
+// pixels, so software rasterization is sufficient and a headless runner must still record.
+val parityFixturesDir = repositoryRealRoot.resolve("OpenSource/Conformance/parity/fixtures").toFile()
+val parityDesktopPlaneDir = repositoryRealRoot.resolve("OpenSource/Conformance/parity/reference/desktop").toFile()
+val parityCaptureTestClass = "despia.engine.desktop.DesktopParityCaptureTest"
+// Text measurement is font-dependent, so a capture is only byte-reproducible on the host
+// that recorded it: CI records its OWN plane into the build directory and diffs that,
+// while `-PdsxParityRecord=true` refreshes the committed reference/desktop plane.
+val parityRecordPlane = providers.gradleProperty("dsxParityRecord").orNull
+    ?.equals("true", ignoreCase = true) == true
+
+tasks.named<Test>("test") {
+    filter { excludeTestsMatching(parityCaptureTestClass) }
+}
+
+tasks.register<Test>("parityCapture") {
+    group = "verification"
+    description = "Records the Compose Desktop parity capture plane from Conformance/parity/fixtures " +
+        "(build/parity-desktop; -PdsxParityRecord=true rewrites reference/desktop)."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter { includeTestsMatching(parityCaptureTestClass) }
+    environment("DSX_DESKTOP_UI_TESTS", "1")
+    systemProperty("dsx.repo.root", repositoryRealRoot.toString())
+    val captureOut = if (parityRecordPlane) parityDesktopPlaneDir
+    else layout.buildDirectory.dir("parity-desktop").get().asFile
+    systemProperty("dsx.parity.capture.out", captureOut.absolutePath)
+    doFirst { logger.lifecycle("parityCapture -> ${captureOut.absolutePath}") }
+    inputs.dir(parityFixturesDir).withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.upToDateWhen { false }
+}

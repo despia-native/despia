@@ -59,7 +59,16 @@ class ActionConformanceTest {
                 val runner = JSERunner(store)
                 @Suppress("UNCHECKED_CAST")
                 val runItem = c["runItem"] as? Map<String, Any?>
-                runner.run(JSE.string(c["run"]), runItem)
+                val runAction = c["runAction"] as? String
+                if (runAction != null) {
+                    // The HOST entry path — what an HTTP request, a CLI command and a queue
+                    // message all do: a payload, and no caller scope.
+                    @Suppress("UNCHECKED_CAST")
+                    val payload = (c["runPayload"] as? Map<String, Any?>) ?: emptyMap()
+                    runner.runAction(runAction, payload, runItem)
+                } else {
+                    runner.run(JSE.string(c["run"]), runItem)
+                }
 
                 @Suppress("UNCHECKED_CAST")
                 val expectStore = (c["expectStore"] as? Map<String, Any?>) ?: emptyMap()

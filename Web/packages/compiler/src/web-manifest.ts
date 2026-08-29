@@ -49,6 +49,8 @@ export type DsxJsonWeb = {
   dependencies?: unknown;
   /** package-relative browser module bundled into its own lazy chunk (A3) */
   entry?: unknown;
+  /** opt-in BOOT registration for the entry's default-export WebModule (studio-apps.md §8) */
+  boot?: unknown;
 };
 
 export type PackageWeb = {
@@ -68,6 +70,11 @@ export type PackageWeb = {
   dependencies: Record<string, string>;
   /** package-relative browser module, bundled into its own chunk */
   entry?: string;
+  /** the entry's default export is a WebModule the page REGISTERS AT BOOT. Opt-in on
+   *  purpose: the lazy default is what makes a heavy dependency affordable to declare
+   *  (build.ts A3), and a bus module — a facet-component host, a scheme provider — is
+   *  the case that genuinely needs to exist before the first tag resolves. */
+  boot?: boolean;
 };
 
 export type WebManifestDiagnostics = { errors: string[]; warnings: string[] };
@@ -117,6 +124,16 @@ export function readPackageWeb(scheme: string, web: DsxJsonWeb | undefined): {
     if (typeof web.entry !== "string" || !RELATIVE_SHAPE.test(web.entry) || web.entry.includes("..")) {
       diagnostics.errors.push(`[dsx web] ${scheme}: "entry" must be a package-relative module path with no ".."`);
     } else out.entry = web.entry;
+  }
+
+  if (web.boot !== undefined) {
+    if (web.boot !== true && web.boot !== false) {
+      diagnostics.errors.push(`[dsx web] ${scheme}: "boot" is true or false`);
+    } else if (web.boot && out.entry === undefined) {
+      diagnostics.errors.push(`[dsx web] ${scheme}: "boot" requires an "entry" — there is nothing to register without one`);
+    } else if (web.boot) {
+      out.boot = true;
+    }
   }
 
   if (web.dependencies !== undefined) {

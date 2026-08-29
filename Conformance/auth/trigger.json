@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "_note": "A1 — the LOGIN-TRIGGER fold (completeness/A1-auth-hardening.md H2). LoginHelper decides, on EVERY main-frame navigation, whether the URL about to load is a configured identity provider; a match cancels the app's own navigation and hands the URL to a spoofed-user-agent web view that shares the app's cookie jar. A raw `hasPrefix` therefore hands an attacker who controls `idp.example.attacker.invalid` a login surface wearing the IdP's clothes. The rule pinned here: a configured prefix that PARSES AS AN ABSOLUTE URL is pinned to its exact scheme, host and port and refuses userinfo; a configured prefix that is not a URL keeps the legacy raw-prefix behaviour, because deployments configure bare host fragments and silently dropping them would disable their logins. Both halves are load-bearing and both are cased below. isAllowedAuthorizationUrl is the second half of the same policy: what LoginHelper's Android launcher will hand to a browser at all.",
+
+  "matchesConfiguredTrigger": {
+    "_note": "matchesConfiguredTrigger(candidate, configuredPrefix). The raw prefix is a NECESSARY condition, never a sufficient one: it is checked first (so nothing that fails the legacy test starts matching), then an absolute prefix additionally pins the origin. Case is deliberately NOT folded on the prefix test — an uppercase host that fails the byte prefix simply does not match, which is the fail-closed direction (the navigation proceeds into the app surface it was already going to).",
+    "verdicts": [true, false],
+    "cases": [
+      { "name": "the exact configured origin matches",
+        "candidate": "https://accounts.google.com/o/oauth2/v2/auth?client_id=x",
+        "prefix": "https://accounts.google.com", "expect": true },
+
+      { "name": "a deeper path under the configured origin matches",
+        "candidate": "https://accounts.google.com/signin/oauth/consent",
+        "prefix": "https://accounts.google.com/", "expect": true },
+
+      { "name": "a configured path prefix still matches inside the same origin",
+        "candidate": "https://www.facebook.com/v19.0/dialog/oauth?client_id=x",
+        "prefix": "https://www.facebook.com/v19.0/dialog", "expect": true },
+
+      { "name": "SUBDOMAIN SUFFIX — the hazard: idp.example.attacker.invalid is not idp.example",
+        "candidate": "https://idp.example.attacker.invalid/login",
+        "prefix": "https://idp.example", "expect": false },
+
+      { "name": "suffix without a dot is not the host either",
+        "candidate": "https://accounts.google.commerce.invalid/o/oauth2/auth",
+        "prefix": "https://accounts.google.com", "expect": false },
+
+      { "name": "NON-DEFAULT PORT is a different origin",
+        "candidate": "https://idp.example:8443/login",
+        "prefix": "https://idp.example", "expect": false },
+
+      { "name": "the explicit default port is the same origin",
+        "candidate": "https://idp.example:443/login",
+        "prefix": "https://idp.example", "expect": true },
+
+      { "name": "a configured explicit port is still a BYTE prefix first — an implicit port does not match it",
+        "candidate": "https://idp.example/login",
+        "prefix": "https://idp.example:443", "expect": false },
+
+      { "name": "a configured explicit port matches a candidate that writes the same one",
+        "candidate": "https://idp.example:443/login",
+        "prefix": "https://idp.example:443", "expect": true },
+
+      { "name": "USERINFO — idp.example@evil.tld passes a raw prefix and is refused here",
+        "candidate": "https://idp.example@evil.tld/login",
+        "prefix": "https://idp.example", "expect": false },
+
+      { "name": "userinfo with a password is refused the same way",
+        "candidate": "https://idp.example:pw@evil.tld/login",
+        "prefix": "https://idp.example", "expect": false },
+
+      { "name": "a backslash in the authority is refused, never re-parsed",
+        "candidate": "https://idp.example\\@evil.tld/login",
+        "prefix": "https://idp.example", "expect": false },
+
+      { "name": "a percent-encoded dot does not fold into the host",
+        "candidate": "https://idp.example%2eattacker.invalid/login",
+        "prefix": "https://idp.example", "expect": false },
+
+      { "name": "a trailing dot is a different host — fail closed",
+        "candidate": "https://idp.example./login",
+        "prefix": "https://idp.example", "expect": false },
+
+      { "name": "scheme downgrade is a different origin",
+        "candidate": "http://accounts.google.com/o/oauth2/auth",
+        "prefix": "https://accounts.google.com", "expect": false },
+
+      { "name": "a fragment belongs to the real host, so the origin pin still matches",
+        "candidate": "https://idp.example#@evil.tld",
+        "prefix": "https://idp.example", "expect": true },
+
+      { "name": "LEGACY non-URL prefix keeps raw-prefix behaviour",
+        "candidate": "accounts.google.com/o/oauth2/auth",
+        "prefix": "accounts.google.com", "expect": true },
+
+      { "name": "a legacy prefix that does not prefix does not match",
+        "candidate": "https://accounts.google.com/o/oauth2/auth",
+        "prefix": "accounts.google.com", "expect": false },
+
+      { "name": "an empty configured prefix never matches — an unset trigger is not a wildcard",
+        "candidate": "https://accounts.google.com/", "prefix": "", "expect": false },
+
+      { "name": "an empty candidate never matches a real prefix",
+        "candidate": "", "prefix": "https://accounts.google.com", "expect": false },
+
+      { "name": "a schemeless-authority prefix is legacy, not absolute",
+        "candidate": "//accounts.google.com/x", "prefix": "//accounts.google.com", "expect": true },
+
+      { "name": "an absolute prefix with no host can never be pinned",
+        "candidate": "https:///o/oauth2/auth", "prefix": "https://", "expect": false },
+
+      { "name": "'https://' claims a scheme and yields no origin — it is not a wildcard",
+        "candidate": "https://evil.tld/anything", "prefix": "https://", "expect": false },
+
+      { "name": "a script-URL prefix claims a scheme and yields no origin — refused, never legacy",
+        "candidate": "javascript:alert(1)", "prefix": "javascript:alert", "expect": false },
+
+      { "name": "a bare host:port prefix parses as a scheme with no authority — refused",
+        "candidate": "accounts.google.com:8080/o/oauth2/auth",
+        "prefix": "accounts.google.com:8080", "expect": false },
+
+      { "name": "uppercase candidate host fails the byte prefix — fail closed, never intercepted",
+        "candidate": "https://ACCOUNTS.GOOGLE.COM/o/oauth2/auth",
+        "prefix": "https://accounts.google.com", "expect": false },
+
+      { "name": "a custom-scheme prefix pins its own scheme and host",
+        "candidate": "fbconnect://success?token=1", "prefix": "fbconnect://success", "expect": true },
+
+      { "name": "a custom-scheme prefix does not match a lookalike host",
+        "candidate": "fbconnect://success.evil.tld/?token=1", "prefix": "fbconnect://success", "expect": false }
+    ]
+  },
+
+  "isAllowedAuthorizationUrl": {
+    "_note": "isAllowedAuthorizationUrl(raw) — what the Android launcher may hand to a browser. Confidential transport only, a real host, and no URL credentials: a javascript:/intent:/file: authorization start is never an authorization start, and userinfo in an authorization URL is a phishing primitive that some browsers still render.",
+    "verdicts": [true, false],
+    "cases": [
+      { "name": "a plain https authorization URL is allowed",
+        "url": "https://accounts.google.com/o/oauth2/v2/auth?client_id=x&response_type=code", "expect": true },
+      { "name": "http is refused", "url": "http://accounts.google.com/o/oauth2/auth", "expect": false },
+      { "name": "javascript: is refused", "url": "javascript:alert(1)", "expect": false },
+      { "name": "intent: is refused", "url": "intent://scan/#Intent;scheme=zxing;end", "expect": false },
+      { "name": "file: is refused", "url": "file:///etc/passwd", "expect": false },
+      { "name": "a custom scheme is refused as a START (it is a callback, not an authorize URL)",
+        "url": "myapp://oauth", "expect": false },
+      { "name": "userinfo is refused", "url": "https://user:pw@accounts.google.com/o/oauth2/auth", "expect": false },
+      { "name": "a bare userinfo marker is refused", "url": "https://accounts.google.com@evil.tld/x", "expect": false },
+      { "name": "an empty host is refused", "url": "https:///o/oauth2/auth", "expect": false },
+      { "name": "an empty string is refused", "url": "", "expect": false },
+      { "name": "a relative URL is refused", "url": "/o/oauth2/auth", "expect": false },
+      { "name": "uppercase HTTPS is still https", "url": "HTTPS://accounts.google.com/x", "expect": true },
+      { "name": "a backslash in the authority is refused", "url": "https://accounts.google.com\\@evil.tld/x", "expect": false },
+      { "name": "a space in the authority is refused", "url": "https://accounts.google.com /x", "expect": false }
+    ]
+  }
+}

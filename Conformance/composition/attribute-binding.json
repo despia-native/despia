@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "_schema": "despia-composition-v1",
+  "_note": [
+    "THE ATTRIBUTE-BINDING FOLD. Markup has exactly one way to write a consumer attribute -",
+    "`name=\"…\"` - and three things an author can mean by it: a literal, one value, or a",
+    "sentence built out of values. The fold is the pure syntactic function that decides which,",
+    "and it is the same function on all three renderers because a component that receives an",
+    "object on one and the string \"[object Object]\" on another is not one component.",
+    "",
+    "  static  - no `{{` anywhere. The attribute IS its own text.",
+    "  value   - the trimmed template is exactly ONE `{{ … }}` and nothing else. The",
+    "            attribute carries the EXPRESSION'S VALUE: an object stays an object, a",
+    "            number stays a number, null stays null.",
+    "  text    - anything else (a mix of literal and holes, or several holes). Every hole is",
+    "            string-coerced and concatenated, because a sentence is a string.",
+    "",
+    "WHY `value` HAD TO EXIST. Before this fold a .dsx component's props were interpolated",
+    "unconditionally, so every prop arrived as a string. That is invisible for a label and",
+    "fatal for structure: `<Node data=\"{{ item.children }}\"/>` handed the child the text",
+    "\"[object Object],[object Object]\" and a recursive component - a tree rendering itself -",
+    "could not pass its own children down, which is the shape every outliner, file browser,",
+    "comment thread and DOM inspector is made of. The module-facet path had ALREADY made this",
+    "decision correctly and privately (dom/src/mount.ts mountFacet), so the two component",
+    "kinds disagreed about what a prop is. This corpus is that decision, promoted to law and",
+    "made the same in three places.",
+    "",
+    "SCANNING MATCHES INTERPOLATION, deliberately. A hole ends at the FIRST `}}` - the same",
+    "naive scan the interpolator itself performs. A closer inside a string literal therefore",
+    "ends the hole on every renderer identically; the fold is never allowed to disagree with",
+    "the interpolator about where an expression stops, because a disagreement there is a",
+    "silent type change, and a shared wrong answer is repairable while a split one is not.",
+    "",
+    "WHITESPACE IS TRIMMED before the shape is judged, so a hole indented across lines in",
+    "real markup is still one hole. Interior whitespace inside the braces belongs to the",
+    "expression and the evaluator trims it in turn.",
+    "",
+    "Runners - three implementations, all three execute this file:",
+    "  TS     - OpenSource/Web/packages/kernel/test/composition-conformance.test.ts (per-PR)",
+    "  Kotlin - :core CompositionConformanceTest (per-PR, gradle, SDK-free)",
+    "  Swift  - CompositionConformance, driven by RecordMain.swift on the record lane"
+  ],
+
+  "fold": [
+    { "name": "plain literal", "template": "primary", "kind": "static" },
+    { "name": "empty", "template": "", "kind": "static" },
+    { "name": "literal with braces that are not holes", "template": "{ a: 1 }", "kind": "static" },
+    { "name": "single brace pair is not a hole", "template": "{x}", "kind": "static" },
+
+    { "name": "sole hole", "template": "{{ item }}", "kind": "value", "expr": " item " },
+    { "name": "sole hole, no inner spaces", "template": "{{item}}", "kind": "value", "expr": "item" },
+    { "name": "sole hole, outer whitespace trimmed", "template": "  {{ item }}  ", "kind": "value", "expr": " item " },
+    { "name": "sole hole across lines", "template": "\n  {{ item.children }}\n", "kind": "value", "expr": " item.children " },
+    { "name": "sole hole holding a ternary", "template": "{{ a ? b : c }}", "kind": "value", "expr": " a ? b : c " },
+    { "name": "sole hole holding a spaced object literal", "template": "{{ { id: row.id } }}", "kind": "value", "expr": " { id: row.id } " },
+    { "name": "sole hole holding a spaced array literal", "template": "{{ [a, b] }}", "kind": "value", "expr": " [a, b] " },
+    { "name": "unspaced object literal loses its last brace to the scan", "template": "{{ {id: 1} }}", "kind": "value", "expr": " {id: 1} " },
+    { "name": "object literal flush against the closer is NOT a sole hole", "template": "{{ {id: 1}}}", "kind": "text" },
+
+    { "name": "two holes", "template": "{{ a }}{{ b }}", "kind": "text" },
+    { "name": "hole with a leading literal", "template": "Hi {{ name }}", "kind": "text" },
+    { "name": "hole with a trailing literal", "template": "{{ count }} items", "kind": "text" },
+    { "name": "hole inside a sentence", "template": "{{ a }} of {{ b }}", "kind": "text" },
+    { "name": "unterminated hole", "template": "{{ a", "kind": "text" },
+    { "name": "closer before opener", "template": "}} {{ a }}", "kind": "text" }
+  ],
+
+  "_foldNote": [
+    "THE BRACE EDGE, pinned rather than papered over. A hole ends at the first `}}`, so an",
+    "object literal written the conventional way - `{{ { id: row.id } }}`, with a space",
+    "before the closer - is a perfectly ordinary sole hole and carries the object. The same",
+    "literal written flush - `{{ {id: 1}}}` - is not: the object's own `}` plus the hole's",
+    "first `}` form the terminator, the hole closes one character early, and the trailing",
+    "`}` becomes literal text, so the fold reports `text`.",
+    "",
+    "No renderer is allowed to get clever and brace-balance its way out of this. The fold",
+    "must agree with the interpolator about where an expression stops, and the interpolator",
+    "scans naively; a renderer that balanced braces here would be the only one that did,",
+    "which is a silent type split - strictly worse than a limitation all three share and",
+    "an author can see. The fix in markup is a space, which is how anyone writes it anyway."
+  ],
+
+  "typed": [
+    {
+      "name": "object survives as an object",
+      "template": "{{ row }}",
+      "vars": { "row": { "id": "a", "label": "Alpha" } },
+      "type": "object",
+      "json": { "id": "a", "label": "Alpha" }
+    },
+    {
+      "name": "array survives as an array",
+      "template": "{{ kids }}",
+      "vars": { "kids": [ { "id": "x" }, { "id": "y" } ] },
+      "type": "array",
+      "json": [ { "id": "x" }, { "id": "y" } ]
+    },
+    {
+      "name": "nested array of arrays survives",
+      "template": "{{ grid }}",
+      "vars": { "grid": [ [ 1, 2 ], [ 3 ] ] },
+      "type": "array",
+      "json": [ [ 1, 2 ], [ 3 ] ]
+    },
+    {
+      "name": "number survives as a number",
+      "template": "{{ depth }}",
+      "vars": { "depth": 3 },
+      "type": "number",
+      "json": 3
+    },
+    {
+      "name": "zero survives as a number, not the empty string",
+      "template": "{{ depth }}",
+      "vars": { "depth": 0 },
+      "type": "number",
+      "json": 0
+    },
+    {
+      "name": "false survives as a boolean, not the string \"false\"",
+      "template": "{{ open }}",
+      "vars": { "open": false },
+      "type": "boolean",
+      "json": false
+    },
+    {
+      "name": "true survives as a boolean",
+      "template": "{{ open }}",
+      "vars": { "open": true },
+      "type": "boolean",
+      "json": true
+    },
+    {
+      "name": "absent reads as null, not the string \"null\"",
+      "template": "{{ missing }}",
+      "vars": {},
+      "type": "null",
+      "json": null
+    },
+    {
+      "name": "a member read off an object prop stays typed",
+      "template": "{{ row.count }}",
+      "vars": { "row": { "count": 7 } },
+      "type": "number",
+      "json": 7
+    },
+    {
+      "name": "a sentence is a string even when its holes are typed",
+      "template": "{{ depth }} deep",
+      "vars": { "depth": 3 },
+      "type": "string",
+      "json": "3 deep"
+    },
+    {
+      "name": "two typed holes concatenate as strings",
+      "template": "{{ a }}{{ b }}",
+      "vars": { "a": 1, "b": 2 },
+      "type": "string",
+      "json": "12"
+    },
+    {
+      "name": "a static attribute is its own text",
+      "template": "primary",
+      "vars": {},
+      "type": "string",
+      "json": "primary"
+    },
+    {
+      "name": "an object in a sentence stringifies, and that is why sole holes exist",
+      "template": "x{{ row }}",
+      "vars": { "row": { "id": "a" } },
+      "type": "string"
+    },
+    {
+      "name": "a spaced object literal evaluates to an object",
+      "template": "{{ { id: row.id } }}",
+      "vars": { "row": { "id": "a" } },
+      "type": "object",
+      "json": { "id": "a" }
+    },
+    {
+      "name": "a flush object literal falls back to text",
+      "template": "{{ {id: 1}}}",
+      "vars": {},
+      "type": "string"
+    }
+  ],
+
+  "recursion": {
+    "_note": [
+      "THE RECURSION CONTRACT. A component that names itself is the point of the `value`",
+      "kind: a tree renders one node and hands the node's own children to a nested instance",
+      "of itself. That only terminates because the DATA terminates - the child list runs out.",
+      "",
+      "So the depth cap is NOT a feature budget and must never be tuned to taste. It exists",
+      "for exactly one case: data that is corrupt or cyclic, where the child list never runs",
+      "out and the renderer would recurse until the stack dies. A crash is the worst possible",
+      "answer to bad data, so the cap converts it into a bounded render. Legitimate nesting",
+      "must never reach it.",
+      "",
+      "`depth` counts component EXPANSIONS from the surface root, and the cap is uniform",
+      "across renderers so a tree that draws on one draws on all three."
+    ],
+    "cap": 256,
+    "cases": [
+      { "name": "root", "depth": 0, "expands": true },
+      { "name": "ordinary nesting", "depth": 31, "expands": true },
+      { "name": "past the historical 32", "depth": 32, "expands": true },
+      { "name": "deep but legitimate", "depth": 255, "expands": true },
+      { "name": "at the cap", "depth": 256, "expands": false },
+      { "name": "past the cap", "depth": 257, "expands": false }
+    ]
+  }
+}

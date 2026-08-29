@@ -98,11 +98,20 @@ class RenderSubscriptionPolicyTest {
     }
 
     @Test
+    fun nestedListAndGridShareTheOneLazyNestingRule() {
+        // `<list>` reads the SAME policy as `<grid>`: a LazyColumn nested in a `<scroll>` is
+        // measured with an infinite maximum height and Compose throws, so the ancestor stamp
+        // has to pick the eager arm even when the author never wrote scroll="false".
+        assertTrue(LazyScrollPolicy.usesEagerRows(scroll = null, inVerticalScrollContainer = true))
+        assertTrue(LazyScrollPolicy.usesEagerRows(scroll = "true", inVerticalScrollContainer = true))
+    }
+
+    @Test
     fun nestedGridUsesEagerRowsWhileRootGridRemainsVirtualized() {
-        assertTrue(GridScrollPolicy.usesEagerRows(scroll = null, inVerticalScrollContainer = true))
-        assertTrue(GridScrollPolicy.usesEagerRows(scroll = "false", inVerticalScrollContainer = false))
-        assertFalse(GridScrollPolicy.usesEagerRows(scroll = null, inVerticalScrollContainer = false))
-        assertFalse(GridScrollPolicy.usesEagerRows(scroll = "true", inVerticalScrollContainer = false))
+        assertTrue(LazyScrollPolicy.usesEagerRows(scroll = null, inVerticalScrollContainer = true))
+        assertTrue(LazyScrollPolicy.usesEagerRows(scroll = "false", inVerticalScrollContainer = false))
+        assertFalse(LazyScrollPolicy.usesEagerRows(scroll = null, inVerticalScrollContainer = false))
+        assertFalse(LazyScrollPolicy.usesEagerRows(scroll = "true", inVerticalScrollContainer = false))
     }
 
     @Test

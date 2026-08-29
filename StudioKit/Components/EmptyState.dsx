@@ -1,0 +1,13 @@
+<!-- EmptyState — a fact and the one control that changes it, and nothing between them. The
+     control is NOT the accent: nobody has chosen anything yet, which is what the state says. -->
+<vstack class="sk-empty" grow="width" style="align-items: center; gap: 0.5rem; padding: 1.5rem 0">
+  <head>
+    <attribute as="subject"/>
+    <attribute as="action" default=""/>
+    <event as="act"/>
+  </head>
+  <text value="{{ dsx.attribute.subject }}" class="sk-empty-subject"/>
+  <button label="{{ dsx.attribute.action }}" class="sk-btn sk-btn-quiet"
+          visible-if="dsx.attribute.action != ''"
+          a11yLabel="{{ dsx.attribute.action }}" on:tap="dsx.event('act', {})"/>
+</vstack>

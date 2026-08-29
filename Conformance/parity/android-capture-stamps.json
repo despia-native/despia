@@ -1,0 +1,469 @@
+{
+  "schema": "dsx-android-capture-stamps-v1",
+  "_note": "Sidecar for the integrator, modelled on desktop-capture-stamps.json. This is the FIRST Android DEVICE capture of the parity plane: the on-device seam (ParityCaptureInstrumentedTest) ran through the lane's own driver (ClosedSource/scripts/android_parity_capture.sh) on a real emulator and its JSON was pulled off the device. Every row below proposes a stamp of value \"review\" on the android column's proof dimension. NOTHING here was written into OpenSource/Conformance/library/matrix.json: the capture proves the element composed, laid out and was measured on the device at both locked planes in both schemes - it does NOT prove the presentation is correct, and the diff's dominant breach families are two UNDECIDED cross-renderer law questions (DEVICE-RUN-FINDINGS.md sections 2.1 and 2.2), so no cell may be elevated to verified from it.",
+  "generatedBy": "the device agent's first Android parity capture run",
+  "generatedOn": "2026-08-20",
+  "capture": {
+    "plane": "build/parity-native-android (pulled off the device; not committed - the recording host owns its own plane)",
+    "renderer": "android",
+    "engine": "compose",
+    "host": "DSX_API36_Phone_Final - Android 16 / API 36 google_apis arm64 pixel_9 emulator, wiped, animation scales zeroed, keyguard dismissed (the codemagic run_emulator_suite sequence)",
+    "harness": "OpenSource/Engine/Android/render/src/androidTest/kotlin/despia/engine/render/ParityCaptureInstrumentedTest.kt",
+    "seam": "OpenSource/Engine/Android/render/src/main/kotlin/despia/engine/render/ParityCapture.kt",
+    "driver": "ClosedSource/scripts/android_parity_capture.sh (BUILD SUCCESSFUL, \"pulled 20 capture file(s)\")",
+    "diff": "ClosedSource/scripts/parity_native_diff.rb (report-first, exit 0): 1165 breach(es), 2468 report row(s) vs OpenSource/Conformance/parity/reference/web",
+    "fixtures": 10,
+    "captures": 20
+  },
+  "notElevated": "No component below is claimed VERIFIED. Every proposed value is \"review\". Per-component box-axis agreement is deliberately NOT computed here: parity_native_diff.rb truncates its per-fixture breach list at 40, so a per-tag tally from its output would understate breaches, and re-deriving the pairing with a second implementation would be a second opinion on the very thing the differ owns. The per-fixture totals below are the differ's own complete numbers.",
+  "perFixture": {
+    "control-strip.w1366": {
+      "pairedNative": 31,
+      "nativeNodes": 31,
+      "webFamilyHosts": 31,
+      "breaches": 71
+    },
+    "control-strip.w390": {
+      "pairedNative": 31,
+      "nativeNodes": 31,
+      "webFamilyHosts": 31,
+      "breaches": 47
+    },
+    "dashboard.w1366": {
+      "pairedNative": 54,
+      "nativeNodes": 54,
+      "webFamilyHosts": 54,
+      "breaches": 167
+    },
+    "dashboard.w390": {
+      "pairedNative": 54,
+      "nativeNodes": 54,
+      "webFamilyHosts": 54,
+      "breaches": 80
+    },
+    "form-screen.w1366": {
+      "pairedNative": 9,
+      "nativeNodes": 9,
+      "webFamilyHosts": 9,
+      "breaches": 18
+    },
+    "form-screen.w390": {
+      "pairedNative": 9,
+      "nativeNodes": 9,
+      "webFamilyHosts": 9,
+      "breaches": 15
+    },
+    "landing-hero.w1366": {
+      "pairedNative": 27,
+      "nativeNodes": 27,
+      "webFamilyHosts": 27,
+      "breaches": 71
+    },
+    "landing-hero.w390": {
+      "pairedNative": 27,
+      "nativeNodes": 27,
+      "webFamilyHosts": 27,
+      "breaches": 53
+    },
+    "list-feed.w1366": {
+      "pairedNative": 37,
+      "nativeNodes": 37,
+      "webFamilyHosts": 37,
+      "breaches": 101
+    },
+    "list-feed.w390": {
+      "pairedNative": 37,
+      "nativeNodes": 37,
+      "webFamilyHosts": 37,
+      "breaches": 71
+    },
+    "overlay-sheet.w1366": {
+      "pairedNative": 8,
+      "nativeNodes": 8,
+      "webFamilyHosts": 8,
+      "breaches": 18
+    },
+    "overlay-sheet.w390": {
+      "pairedNative": 8,
+      "nativeNodes": 8,
+      "webFamilyHosts": 8,
+      "breaches": 18
+    },
+    "settings-groups.w1366": {
+      "pairedNative": 21,
+      "nativeNodes": 21,
+      "webFamilyHosts": 21,
+      "breaches": 37
+    },
+    "settings-groups.w390": {
+      "pairedNative": 21,
+      "nativeNodes": 21,
+      "webFamilyHosts": 21,
+      "breaches": 22
+    },
+    "split-screen.w1366": {
+      "pairedNative": 30,
+      "nativeNodes": 30,
+      "webFamilyHosts": 30,
+      "breaches": 86
+    },
+    "split-screen.w390": {
+      "pairedNative": 30,
+      "nativeNodes": 30,
+      "webFamilyHosts": 30,
+      "breaches": 76
+    },
+    "tab-shell.w1366": {
+      "pairedNative": 12,
+      "nativeNodes": 12,
+      "webFamilyHosts": 19,
+      "breaches": 41
+    },
+    "tab-shell.w390": {
+      "pairedNative": 12,
+      "nativeNodes": 12,
+      "webFamilyHosts": 19,
+      "breaches": 39
+    },
+    "type-ramp.w1366": {
+      "pairedNative": 31,
+      "nativeNodes": 31,
+      "webFamilyHosts": 31,
+      "breaches": 80
+    },
+    "type-ramp.w390": {
+      "pairedNative": 31,
+      "nativeNodes": 31,
+      "webFamilyHosts": 31,
+      "breaches": 54
+    }
+  },
+  "components": {
+    "button": {
+      "authoredTag": "button",
+      "instancesCaptured": 28,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "dashboard.w1366",
+        "dashboard.w390",
+        "form-screen.w1366",
+        "form-screen.w390",
+        "landing-hero.w1366",
+        "landing-hero.w390",
+        "overlay-sheet.w1366",
+        "overlay-sheet.w390",
+        "split-screen.w1366",
+        "split-screen.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: control-strip.w1366, control-strip.w390, dashboard.w1366, dashboard.w390, form-screen.w1366, form-screen.w390, landing-hero.w1366, landing-hero.w390, overlay-sheet.w1366, overlay-sheet.w390, split-screen.w1366, split-screen.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "divider": {
+      "authoredTag": "divider",
+      "instancesCaptured": 2,
+      "captures": [
+        "type-ramp.w1366",
+        "type-ramp.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: type-ramp.w1366, type-ramp.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "grid": {
+      "authoredTag": "grid",
+      "instancesCaptured": 4,
+      "captures": [
+        "dashboard.w1366",
+        "dashboard.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: dashboard.w1366, dashboard.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "hstack": {
+      "authoredTag": "hstack",
+      "instancesCaptured": 60,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "dashboard.w1366",
+        "dashboard.w390",
+        "form-screen.w1366",
+        "form-screen.w390",
+        "landing-hero.w1366",
+        "landing-hero.w390",
+        "list-feed.w1366",
+        "list-feed.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "split-screen.w1366",
+        "split-screen.w390",
+        "tab-shell.w1366",
+        "tab-shell.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: control-strip.w1366, control-strip.w390, dashboard.w1366, dashboard.w390, form-screen.w1366, form-screen.w390, landing-hero.w1366, landing-hero.w390, list-feed.w1366, list-feed.w390, settings-groups.w1366, settings-groups.w390, split-screen.w1366, split-screen.w390, tab-shell.w1366, tab-shell.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "image": {
+      "authoredTag": "image",
+      "instancesCaptured": 16,
+      "captures": [
+        "list-feed.w1366",
+        "list-feed.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "tab-shell.w1366",
+        "tab-shell.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: list-feed.w1366, list-feed.w390, settings-groups.w1366, settings-groups.w390, tab-shell.w1366, tab-shell.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "list": {
+      "authoredTag": "list",
+      "instancesCaptured": 4,
+      "captures": [
+        "list-feed.w1366",
+        "list-feed.w390",
+        "split-screen.w1366",
+        "split-screen.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: list-feed.w1366, list-feed.w390, split-screen.w1366, split-screen.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "progress": {
+      "authoredTag": "progress",
+      "instancesCaptured": 2,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: control-strip.w1366, control-strip.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "row": {
+      "authoredTag": "row",
+      "instancesCaptured": 20,
+      "captures": [
+        "list-feed.w1366",
+        "list-feed.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "split-screen.w1366",
+        "split-screen.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: list-feed.w1366, list-feed.w390, settings-groups.w1366, settings-groups.w390, split-screen.w1366, split-screen.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "scroll": {
+      "authoredTag": "scroll",
+      "instancesCaptured": 16,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "dashboard.w1366",
+        "dashboard.w390",
+        "form-screen.w1366",
+        "form-screen.w390",
+        "landing-hero.w1366",
+        "landing-hero.w390",
+        "list-feed.w1366",
+        "list-feed.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "tab-shell.w1366",
+        "tab-shell.w390",
+        "type-ramp.w1366",
+        "type-ramp.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: control-strip.w1366, control-strip.w390, dashboard.w1366, dashboard.w390, form-screen.w1366, form-screen.w390, landing-hero.w1366, landing-hero.w390, list-feed.w1366, list-feed.w390, settings-groups.w1366, settings-groups.w390, tab-shell.w1366, tab-shell.w390, type-ramp.w1366, type-ramp.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "slider": {
+      "authoredTag": "slider",
+      "instancesCaptured": 2,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: control-strip.w1366, control-strip.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "spinner": {
+      "authoredTag": "spinner",
+      "instancesCaptured": 2,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: control-strip.w1366, control-strip.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "stack": {
+      "authoredTag": "stack",
+      "instancesCaptured": 136,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "dashboard.w1366",
+        "dashboard.w390",
+        "form-screen.w1366",
+        "form-screen.w390",
+        "landing-hero.w1366",
+        "landing-hero.w390",
+        "list-feed.w1366",
+        "list-feed.w390",
+        "overlay-sheet.w1366",
+        "overlay-sheet.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "split-screen.w1366",
+        "split-screen.w390",
+        "tab-shell.w1366",
+        "tab-shell.w390",
+        "type-ramp.w1366",
+        "type-ramp.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: control-strip.w1366, control-strip.w390, dashboard.w1366, dashboard.w390, form-screen.w1366, form-screen.w390, landing-hero.w1366, landing-hero.w390, list-feed.w1366, list-feed.w390, overlay-sheet.w1366, overlay-sheet.w390, settings-groups.w1366, settings-groups.w390, split-screen.w1366, split-screen.w390, tab-shell.w1366, tab-shell.w390, type-ramp.w1366, type-ramp.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "tabs": {
+      "authoredTag": "tabs",
+      "instancesCaptured": 2,
+      "captures": [
+        "tab-shell.w1366",
+        "tab-shell.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: tab-shell.w1366, tab-shell.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "text": {
+      "authoredTag": "text",
+      "instancesCaptured": 218,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "dashboard.w1366",
+        "dashboard.w390",
+        "form-screen.w1366",
+        "form-screen.w390",
+        "landing-hero.w1366",
+        "landing-hero.w390",
+        "list-feed.w1366",
+        "list-feed.w390",
+        "overlay-sheet.w1366",
+        "overlay-sheet.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390",
+        "split-screen.w1366",
+        "split-screen.w390",
+        "tab-shell.w1366",
+        "tab-shell.w390",
+        "type-ramp.w1366",
+        "type-ramp.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: control-strip.w1366, control-strip.w390, dashboard.w1366, dashboard.w390, form-screen.w1366, form-screen.w390, landing-hero.w1366, landing-hero.w390, list-feed.w1366, list-feed.w390, overlay-sheet.w1366, overlay-sheet.w390, settings-groups.w1366, settings-groups.w390, split-screen.w1366, split-screen.w390, tab-shell.w1366, tab-shell.w390, type-ramp.w1366, type-ramp.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "textfield": {
+      "authoredTag": "textfield",
+      "instancesCaptured": 2,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: control-strip.w1366, control-strip.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    },
+    "toggle": {
+      "authoredTag": "toggle",
+      "instancesCaptured": 6,
+      "captures": [
+        "control-strip.w1366",
+        "control-strip.w390",
+        "settings-groups.w1366",
+        "settings-groups.w390"
+      ],
+      "proposedStamp": {
+        "column": "android",
+        "dimension": "proof",
+        "value": "review",
+        "verified": "2026-08-20",
+        "evidence": "Android DEVICE parity capture 2026-08-20: this element composed and was measured on a real API 36 emulator at both locked planes (390x844 and 1366x1024 CSS px @2x) in both schemes through the lane's own driver, and its settled boxes were diffed against reference/web by ClosedSource/scripts/parity_native_diff.rb (report-first). Captured in: control-strip.w1366, control-strip.w390, settings-groups.w1366, settings-groups.w390. Review-grade only: the diff's dominant families are the two undecided law questions in DEVICE-RUN-FINDINGS.md 2.1/2.2."
+      }
+    }
+  }
+}

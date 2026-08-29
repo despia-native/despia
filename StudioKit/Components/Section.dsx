@@ -1,0 +1,16 @@
+<!-- Section — rows under a quiet section word, with an optional count. The word names a
+     GROUP of things rather than being one of them, so it takes the caps voice and chrome ink
+     (the kit's one sectioning device; nothing else in an app gets caps). -->
+<vstack class="sk-section" grow="width" style="gap: 0.375rem">
+  <head>
+    <attribute as="title"/>
+    <attribute as="count" default=""/>
+  </head>
+  <hstack grow="width" style="align-items: center; gap: 0.5rem">
+    <text value="{{ dsx.attribute.title }}" class="sk-section-word"/>
+    <spacer/>
+    <text value="{{ dsx.attribute.count }}" class="sk-section-count" fontFeature="tnum"
+          visible-if="dsx.attribute.count != ''"/>
+  </hstack>
+  <slot/>
+</vstack>

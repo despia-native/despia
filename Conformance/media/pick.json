@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "_note": "The `media` module's PURE CORE, part two: the PICK PLAN - the fold from what an author wrote to what a facet presents. Three runners execute this file (TS media-conformance.test.ts, Kotlin :core MediaConformanceTest, Swift MediaCore reference). Opening a picker is platform work; deciding what was ASKED FOR is not, and every rule below exists because it is a shape callers get wrong. parity/F04-media.md §3a, §6.",
+
+  "types": ["image", "video", "any"],
+  "sources": ["library", "camera"],
+  "maxSelection": 64,
+
+  "_note_plans": "The fold, row by row. `permissionFree` is the whole privacy posture in one boolean and is the reason this is a shared core rather than three facets: a library pick must resolve to the permission-free system picker on every platform, and a boolean that means something different on Android is how an App Store privacy rejection happens.",
+  "plans": [
+    { "name": "the default is one image-or-video from the library, permission-free",
+      "args": {},
+      "expect": { "type": "any", "source": "library", "limit": 1, "multiple": false, "ordered": false, "permissionFree": true } },
+
+    { "name": "multiple with no limit means the system's own maximum, which is 0 here",
+      "args": { "multiple": true },
+      "expect": { "type": "any", "source": "library", "limit": 0, "multiple": true, "ordered": false, "permissionFree": true } },
+
+    { "name": "an explicit limit is honoured",
+      "args": { "multiple": true, "limit": 5 },
+      "expect": { "type": "any", "source": "library", "limit": 5, "multiple": true, "ordered": false, "permissionFree": true } },
+
+    { "name": "a limit above one IMPLIES multiple - the shorthand every caller writes",
+      "args": { "limit": 5 },
+      "expect": { "type": "any", "source": "library", "limit": 5, "multiple": true, "ordered": false, "permissionFree": true } },
+
+    { "name": "a limit of one is a single pick, however it was spelled",
+      "args": { "limit": 1 },
+      "expect": { "type": "any", "source": "library", "limit": 1, "multiple": false, "ordered": false, "permissionFree": true } },
+
+    { "name": "multiple with a limit of one folds back to a single pick",
+      "args": { "multiple": true, "limit": 1 },
+      "expect": { "type": "any", "source": "library", "limit": 1, "multiple": false, "ordered": false, "permissionFree": true } },
+
+    { "name": "an explicit multiple:false wins over a large limit",
+      "args": { "multiple": false, "limit": 9 },
+      "expect": { "type": "any", "source": "library", "limit": 1, "multiple": false, "ordered": false, "permissionFree": true } },
+
+    { "name": "a limit past the ceiling is clamped, never honoured - 400 assets is an out-of-memory bug",
+      "args": { "multiple": true, "limit": 400 },
+      "expect": { "type": "any", "source": "library", "limit": 64, "multiple": true, "ordered": false, "permissionFree": true } },
+
+    { "name": "a fractional limit floors",
+      "args": { "multiple": true, "limit": 7.9 },
+      "expect": { "type": "any", "source": "library", "limit": 7, "multiple": true, "ordered": false, "permissionFree": true } },
+
+    { "name": "a zero or negative limit means the system maximum, not zero assets",
+      "args": { "multiple": true, "limit": -3 },
+      "expect": { "type": "any", "source": "library", "limit": 0, "multiple": true, "ordered": false, "permissionFree": true } },
+
+    { "name": "ordered survives a multi-pick",
+      "args": { "multiple": true, "limit": 4, "ordered": true },
+      "expect": { "type": "any", "source": "library", "limit": 4, "multiple": true, "ordered": true, "permissionFree": true } },
+
+    { "name": "ordered is folded off for a single pick - a facet must never have to decide what it means",
+      "args": { "ordered": true },
+      "expect": { "type": "any", "source": "library", "limit": 1, "multiple": false, "ordered": false, "permissionFree": true } },
+
+    { "name": "images only",
+      "args": { "type": "image", "multiple": true, "limit": 3 },
+      "expect": { "type": "image", "source": "library", "limit": 3, "multiple": true, "ordered": false, "permissionFree": true } },
+
+    { "name": "photo is an accepted spelling of image",
+      "args": { "type": "Photo" },
+      "expect": { "type": "image", "source": "library", "limit": 1, "multiple": false, "ordered": false, "permissionFree": true } },
+
+    { "name": "videos only",
+      "args": { "type": "video" },
+      "expect": { "type": "video", "source": "library", "limit": 1, "multiple": false, "ordered": false, "permissionFree": true } },
+
+    { "name": "the camera returns one shot per presentation, whatever was asked for",
+      "args": { "source": "camera", "multiple": true, "limit": 5 },
+      "expect": { "type": "any", "source": "camera", "limit": 1, "multiple": false, "ordered": false, "permissionFree": false } },
+
+    { "name": "a camera pick is the ONE pick that is not permission-free",
+      "args": { "source": "camera", "type": "image" },
+      "expect": { "type": "image", "source": "camera", "limit": 1, "multiple": false, "ordered": false, "permissionFree": false } },
+
+    { "name": "an unknown type is refused rather than widened to any",
+      "args": { "type": "pdf" }, "expect": { "error": "unsupported_format" } },
+
+    { "name": "an unknown source is refused rather than folded to library",
+      "args": { "source": "gallery" }, "expect": { "error": "invalid_source" } }
+  ],
+
+  "_note_mime": "What a facet hands its picker. `any` is an EMPTY list, which every picker reads as no filter - enumerating every type it might see would be wrong the first time a new codec shipped.",
+  "mimeTypes": [
+    { "type": "image", "expect": ["image/*"] },
+    { "type": "video", "expect": ["video/*"] },
+    { "type": "any", "expect": [] }
+  ],
+
+  "_note_resolve": "The shape `pick` and `pickDocument` settle with. Every field except `path` is optional because the sources genuinely differ: a document picker knows no pixel dimensions, a still has no duration, and EXIF is absent from a video and from anything the user shared through a privacy-scoped picker. A facet fills what it has and omits the rest - it never invents a zero, because a caller cannot tell an invented zero from a measured one.",
+  "resolve": {
+    "required": ["path"],
+    "optional": ["uri", "width", "height", "duration", "mimeType", "size", "fileName", "orientation", "exif", "base64"],
+    "cancelled": { "assets": [], "cancelled": true }
+  },
+
+  "_note_cancellation": "CANCELLATION IS NOT FAILURE. A user dismissing a picker chose something; a promise that rejects makes every call site write a try/catch to handle an ordinary outcome, and the catch then swallows the real errors too. Both pick actions resolve { assets: [], cancelled: true } on dismissal, on all three renderers, and `cancelled` is present on the success path too so a caller reads one field rather than inferring from an empty array.",
+  "cancellation": [
+    { "name": "a dismissed library picker resolves", "action": "pick", "outcome": "dismissed",
+      "expect": { "cancelled": true, "assets": 0 } },
+    { "name": "a dismissed camera resolves", "action": "pick", "outcome": "dismissed",
+      "expect": { "cancelled": true, "assets": 0 } },
+    { "name": "a dismissed document picker resolves", "action": "pickDocument", "outcome": "dismissed",
+      "expect": { "cancelled": true, "assets": 0 } },
+    { "name": "a successful pick still carries the field", "action": "pick", "outcome": "picked",
+      "expect": { "cancelled": false, "assets": 1 } }
+  ],
+
+  "_note_invariants": "Promises no fold row can express.",
+  "invariants": {
+    "cancelResolves": "Dismissal resolves { cancelled: true, assets: [] } and never fails. A user closing a sheet is an outcome, not an error, and making it an error forces a try/catch that then hides the real ones.",
+    "orderedIsSelectionOrder": "With ordered:true the assets arrive in the order the USER tapped them, not in library order. Without it, the platform's own order stands; no facet sorts silently, because a caller who wanted an order can ask for one.",
+    "pathIsADocumentPath": "Every asset's `path` is a Core/Files document path in a writable root, not a platform URL, so it feeds straight into files.upload / files.move with no path arithmetic at the call site. `uri` carries the platform's own identifier alongside it for the cases that need it.",
+    "copiedBeforeResolve": "A picked asset is copied out of the picker's privacy-scoped location before the call settles. A URL that stops resolving the moment the picker deallocates is the defect this prevents, and it is the one that only shows up on a real device.",
+    "limitIsAdvisory": "A platform whose picker cannot enforce a selection cap enforces it on the way out: the plan's limit is a promise about what the CALLER receives, not about what the sheet allowed."
+  }
+}

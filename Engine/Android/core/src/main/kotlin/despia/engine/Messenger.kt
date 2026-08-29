@@ -331,7 +331,7 @@ class DSXMessengerMount internal constructor(
                 if (mountedDispatch(
                         scheme, action, params, rid, surface, registration,
                     )) return@runInboundIfActive
-                val supported = ModuleRegistry.shared.unsupportedPlatforms(scheme)
+                val supported = ModuleRegistry.shared.unsupportedPlatforms(scheme, action)
                 if (supported != null) {
                     // In the catalog but NOT implemented on this OS: the graceful, structured
                     // `unsupported_platform` envelope (message + data pinned in
@@ -395,7 +395,7 @@ object DSXModuleCallMount {
                     // `unavailable` path (excluded-by-this-app / unknown scheme, today's
                     // behavior — and the whole branch is inert while platformSupport is empty,
                     // so the parity-pinned conformance corpus is untouched).
-                    val supported = ModuleRegistry.shared.unsupportedPlatforms(scheme)
+                    val supported = ModuleRegistry.shared.unsupportedPlatforms(scheme, actionPath)
                     if (supported != null) {
                         onTerminal(JSEModuleOutcome.Error("unsupported_platform",
                             ModuleRegistry.shared.unsupportedPlatformData(scheme, supported)))

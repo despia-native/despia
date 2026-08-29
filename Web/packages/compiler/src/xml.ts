@@ -12,12 +12,35 @@
 //    • comments (`<!-- -->`) skipped; CDATA verbatim; exactly one root element
 //
 
+/** A half-open byte range into the source the node was parsed from. */
+export type XmlSpan = { start: number; end: number };
+
 export type XmlNode = {
   tag: string;
   attrs: { [name: string]: string };
   children: XmlNode[];
   /** concatenated text content (code-tag bodies land here verbatim) */
   text: string;
+  /**
+   * WHERE THIS NODE CAME FROM, recorded so an editor can change a document by SPLICING the
+   * author's own bytes instead of re-printing a tree over them.
+   *
+   * This exists because the alternative is a second parser. An editor needs positions; this
+   * one did not record them; so an editor would have had to parse `.dsx` itself, and then the
+   * thing that compiles and the thing the editor shows are two implementations of one grammar
+   * waiting to disagree. Recording spans here is additive - every existing consumer ignores
+   * these fields - and it keeps one parser.
+   *
+   * `span` covers the whole element including both tags. `openTag` covers `<tag …>` or
+   * `<tag …/>`, so an insertion point for a first child is `openTag.end`. `attrs` and `text`
+   * carry their own ranges for surgical edits.
+   */
+  span?: XmlSpan;
+  openTag?: XmlSpan;
+  /** per-attribute ranges: `whole` spans `name="value"`, `value` spans just the value bytes */
+  attrSpans?: { [name: string]: { whole: XmlSpan; value: XmlSpan } };
+  /** the raw body range of a code tag, or of a text-only element */
+  textSpan?: XmlSpan;
 };
 
 /** Hard parser boundaries for authored and remotely supplied DSX documents.
@@ -146,30 +169,50 @@ function parseElement(c: Cursor, budget: ParseBudget, depth: number): XmlNode {
     throw new DsxParseError(`node count exceeds ${DSX_PARSE_LIMITS.maxNodes}-node limit`, c.line());
   }
   if (c.peek() !== "<") throw new DsxParseError("expected '<'", c.line());
+  const nodeStart = c.i;
   c.i += 1;
   const tag = readName(c);
   if (tag.length === 0) throw new DsxParseError("empty tag name", c.line());
-  const node: XmlNode = { tag, attrs: {}, children: [], text: "" };
+  const node: XmlNode = {
+    tag, attrs: {}, children: [], text: "",
+    span: { start: nodeStart, end: nodeStart }, attrSpans: {},
+  };
   // attributes
   for (;;) {
     c.skipWs();
     if (c.eof()) throw new DsxParseError(`unterminated <${tag}>`, c.line());
-    if (c.startsWith("/>")) { c.i += 2; return node; }
-    if (c.peek() === ">") { c.i += 1; break; }
+    if (c.startsWith("/>")) {
+      c.i += 2;
+      node.span!.end = c.i;
+      node.openTag = { start: nodeStart, end: c.i };
+      return node;
+    }
+    if (c.peek() === ">") { c.i += 1; node.openTag = { start: nodeStart, end: c.i }; break; }
+    const attrStart = c.i;
     const name = readName(c);
     if (name.length === 0) throw new DsxParseError(`bad attribute in <${tag}>`, c.line());
     c.skipWs();
-    if (c.peek() !== "=") { node.attrs[name] = ""; continue; } // bare attribute
+    if (c.peek() !== "=") {
+      node.attrs[name] = ""; // bare attribute
+      node.attrSpans![name] = { whole: { start: attrStart, end: c.i }, value: { start: c.i, end: c.i } };
+      continue;
+    }
     c.i += 1;
     c.skipWs();
     const q = c.peek();
     if (q !== '"' && q !== "'") throw new DsxParseError(`unquoted value for ${name} in <${tag}>`, c.line());
     c.i += 1;
+    const valueStart = c.i;
     let value = "";
     while (!c.eof() && c.peek() !== q) { value += c.peek(); c.i += 1; } // `<` inside is literal
     if (c.eof()) throw new DsxParseError(`unterminated value for ${name} in <${tag}>`, c.line());
+    const valueEnd = c.i;
     c.i += 1;
     node.attrs[name] = decodeEntities(value, () => c.line());
+    node.attrSpans![name] = {
+      whole: { start: attrStart, end: c.i },
+      value: { start: valueStart, end: valueEnd },
+    };
   }
   // CODE TAGS: raw body to the matching close — never markup
   if (CODE_TAGS.has(tag)) {
@@ -177,7 +220,9 @@ function parseElement(c: Cursor, budget: ParseBudget, depth: number): XmlNode {
     const end = c.s.indexOf(close, c.i);
     if (end < 0) throw new DsxParseError(`unterminated <${tag}> code body`, c.line());
     node.text = c.s.substring(c.i, end);
+    node.textSpan = { start: c.i, end };
     c.i = end + close.length;
+    node.span!.end = c.i;
     return node;
   }
   // children + text
@@ -210,6 +255,7 @@ function parseElement(c: Cursor, budget: ParseBudget, depth: number): XmlNode {
         c.i = save;
         throw new DsxParseError(`mismatched close: expected </${tag}>, found </${closeName}>`, c.line());
       }
+      node.span!.end = c.i;
       return node;
     }
     if (c.peek() === "<" && isNameChar(c.s[c.i + 1] ?? "")) {

@@ -1,9 +1,9 @@
-# Module build artifacts — binary dependencies without committing binaries
+# Module build artifacts: binary dependencies without committing binaries
 
 Some modules need a binary they don't want in git: an exported game content pack, a
 vendor engine, a large `.xcframework`. Too large (or too derived) to commit — and we
 never want it hosted on a private Despia CDN either. So the module **declares how to
-resolve it** and the build does: by *exporting* it from an in-repo project (`godot`),
+resolve it** and the build does: by *compiling* it from an in-repo project (`cmake-android`),
 by *compiling* it from hash-pinned public upstream inputs (`cmake-android`), or by
 *fetching* a hash-pinned public artifact directly (`fetch`). The result lands in the
 package folder where the module's linking/bundling picks it up. Nothing binary is
@@ -15,63 +15,33 @@ generic *Build Module Frameworks* step in both lanes). It's the counterpart to
 [`weights`](module-weights.md) (large ML blobs bundled as app resources): a module
 *declares* a binary dependency in its own manifest, the build *resolves* it.
 
-## The live example: Godot content (`tool: "godot"`)
+## The live example: the on-device AI engine (`tool: "cmake-android"`)
 
-The Godot package (`ClosedSource/DSX/Modules/Core/Godot`) runs the embedded Godot
-engine (linked via SPM — see its README) and plays **content packs** (`.pck`). Its
-zero-config demo pack is produced in CI from an in-repo Godot project:
+`Core/LocalAI` ships a native engine it does not vendor as a binary. Its manifest
+declares the artifact and the build produces it:
 
 ```json
 "build": [
-  { "output":  "GodotDemo.pck",
-    "tool":    "godot",
-    "project": "ClosedSource/Codemagic/Example/Godot/GodotSampleProject",
-    "preset":  "iOS" }
+  { "output":   "kotlin/jniLibs/arm64-v8a/libdespia_ai.so",
+    "tool":     "cmake-android",
+    "platform": "android",
+    "project":  "ClosedSource/DSX/Modules/Core/LocalAI/kotlin/jni",
+    "abi":      "arm64-v8a",
+    "api":      24,
+    "sources":  [ { "from": "path:OpenSource/AI@0.0.1" } ] }
 ]
 ```
 
-- **`build[].output`** — the artifact to produce, dropped in the package folder
-  (module-folder files ship as app resources, so the pack rides the binary).
-- **`build[].tool`** — the builder: `godot` | `cmake-android` | `fetch` (each below).
-- **`build[].project`** — repo-relative path to the source project built in CI.
-- **`build[].preset`** — (godot) the export preset name in the project's
-  `export_presets.cfg`.
-- **`build[].platform`** / **`url_env`** / **`sha256_env`** — every tool honors these:
-  the lane gate and the operator prebuilt fast-path (both detailed under
-  `cmake-android` below).
+Three things in that block are the whole primitive. The **output** is what the
+module needs at link time and what CI is asked to produce. The **tool** names a
+builder the lane already knows, so no step in `codemagic.yaml` mentions this
+module. And `from: "path:OpenSource/AI@0.0.1"` is an IN-REPO locator: nothing
+downloads, the pin in `dsx.lock.json` is a content digest over that package tree,
+and the row stays SBOM-visible exactly like a vendored dependency would.
 
-What happens in the build:
-
-```
-codemagic step "Build Module Frameworks"  →  ruby scripts/build_frameworks.rb
-   │
-   ├─ hash the Godot project → cache key
-   ├─ cache HIT  → restore the exported pack instantly  ──────────────────┐
-   └─ cache MISS → download the EXACT editor the project declares         │
-                   (project.godot config/features → the official          │
-                    godot-builds release zip; NO license/account — MIT)   │
-                   → godot --headless --import                            │
-                   → godot --headless --export-pack "iOS" GodotDemo.pck ──┘
-   ▼
-drops GodotDemo.pck in DSX/Modules/Core/Godot/  (ships as an app resource)
-   ▼
-<Godot/> boots the SPM-linked engine and runs the pack (OTA copies still win)
-```
-
-The step runs **before `prepare_modules`** (so the produced file is present for
-resource bundling and any `if_present` pod gate) and **before `pod install`**.
-
-Provisioning is entirely **self-contained and dynamic**: the required editor version
-comes from the project's own `config/features` tag (never pinned in a script or in
-codemagic.yaml), the editor is ONE self-contained notarized zip from the official
-godot-builds release, and there is **no license, serial, account, or activation** —
-Godot is MIT. `GODOT_BIN` (use a local editor) and `GODOT_VERSION` (pin an exact
-patch release) override. A data-only `.pck` export needs no export templates and no
-signing.
-
-**Soft-skip**: no editor findable/installable, or any step fails → warn + proceed.
-The app still builds; the `<Godot/>` screen visibly reports why the demo content is
-missing. Local gates and non-engine builds are unaffected.
+`Core/Payments/Plaid` and `Core/Rive` use the same shape with `tool: "fetch"` to
+pull a pinned xcframework and a pinned wasm respectively, so the manifest is the
+only place a binary dependency is ever named.
 
 ## The second tool: `cmake-android` — a module-built native library
 
@@ -104,14 +74,14 @@ against the module's own JNI shim. The live example is LocalAI's
   an explicit https `url` + 64-hex `sha256`, plus an `extract` map of archive members
   (`.tgz`/`.zip`/`.aar`) → names staged into the dir CMake receives as
   **`-DDSX_BUILD_INPUTS`** (the tool↔project contract). Pins live with the module —
-  **never in a script or codemagic.yaml** (the godot rule: nothing tool- or
+  **never in a script or codemagic.yaml** (the manifest rule: nothing tool- or
   module-specific outside the manifest + the generic driver).
 - **`abi`** / **`api`** — optional (`arm64-v8a` / 24).
 
 Flow: the **env fast-path** first (`url_env`/`sha256_env`, below), then `output`
 already present (a previous run, a committed copy) → left untouched; else fetch each
 source, extract into the staging dir, configure with the NDK toolchain (`c++_static`,
-Release), build, `llvm-strip`, publish (cache + package folder). Cached like the godot
+Release), build, `llvm-strip`, publish (cache + package folder). Cached like every other
 tool — artifact keyed by project content + resolved pins + abi/api **+ NDK version**
 (a CI toolchain bump rebuilds instead of pinning the fleet to a stale runtime);
 pinned downloads keyed by their sha256 — both under `ClosedSource/.framework-cache/`
@@ -155,10 +125,10 @@ broken shim must never silently ship an engine-less app).
    genuinely unpinnable — a public artifact belongs in the manifest per option 1
    (LocalAI's engine is fully manifest-declared and uses no env keys).
 
-**`platform`** gates the entry to its lane (defaults per tool: `godot` → `ios`,
+**`platform`** gates the entry to its lane (defaults per tool: `fetch` → all lanes,
 `cmake-android` → `android`, `fetch` → every lane); each Codemagic lane passes
 `--platform <ios|android>`, so the iOS lane never NDK-compiles an Android engine and
-the Linux android lane never downloads the macOS Godot editor.
+the Linux android lane never downloads a macOS-only editor.
 
 ## The third tool: `fetch` — a pinned prebuilt artifact, no compile
 
@@ -245,7 +215,7 @@ over `from`. Version bump = edit the locator, re-run `--lock`, commit both files
 | a big ML blob bundled as a resource | `weights` (pinned file fetch; `url_env` for signed URLs) |
 | a prebuilt binary upstream hosts (xcframework, `.so`, pack) | `build` + **`fetch`** (pin + optional archive subtree) |
 | a native lib that must be LINKED from upstream static libs + its own shim | `build` + **`cmake-android`** (pins + its own CMake project) |
-| an artifact exported from an in-repo project | `build` + **`godot`** (or the next tool) |
+| an artifact compiled from an in-repo project | `build` + **`cmake-android`** (or the next tool) |
 | its own shared C++/foreign source compiled into the app | `languages` |
 
 The invariants across all of them: the module OWNS its declaration (URLs, pins,
@@ -320,7 +290,8 @@ make the LINK side safe when the binary may not exist yet:
 If the SDK's build **needs a credential** (a proprietary engine license, a private
 registry token), the module declares it in its own `dsx.json` `secrets` block and it
 arrives per-client at build time — the **[module-secrets.md](module-secrets.md)**
-primitive. (Godot needs none — that's half the reason it's the in-repo engine.)
+primitive. (`cmake-android` needs none, which is half the reason the engine is built
+from in-repo sources rather than pulled from a vendor.)
 
 ## Caching (npm-like)
 
@@ -329,7 +300,7 @@ resolved pins + abi/api + NDK version) and stashed in
 `ClosedSource/.framework-cache/` — along with per-version editor downloads and every
 sha-keyed pinned source download. The cache deliberately lives OUTSIDE
 `DSX/Modules/`: that tree is a filesystem-synchronized group of the app target, so
-anything cached inside it (e.g. the downloaded macOS Godot editor app) would ship
+anything cached inside it (a downloaded editor app, say) would ship
 into the app bundle as a resource and break the App Store upload.
 Codemagic's `cache_paths` includes it (both lanes), so unchanged inputs **restore
 instantly** instead of re-exporting/recompiling every build. Edit the project or bump
@@ -337,7 +308,7 @@ a pin → the key changes → it rebuilds once. `ruby scripts/build_frameworks.r
 --check` is an offline dry-run (reports what would build and whether the cache is
 warm) for the local gate.
 
-**Never in git.** `output` (`*.pck`, `*.xcframework/`) and `.framework-cache/` are
+**Never in git.** `output` (`*.xcframework/`, `*.so`, fetched vendor bundles) and `.framework-cache/` are
 `.gitignored`.
 
 ## Alternative: Git LFS (commit once, no rebuild)
@@ -346,9 +317,9 @@ If you'd rather **store** a prebuilt artifact than produce it in CI, commit it v
 Git LFS — still no CDN, and CI pulls it on clone:
 
 ```bash
-git lfs track "ClosedSource/DSX/Modules/Core/Godot/GodotDemo.pck"
+git lfs track "ClosedSource/DSX/Modules/Core/<YourModule>/vendor/engine.xcframework"
 # remove the matching ignore line from .gitignore so it can be tracked
-git add .gitattributes ClosedSource/DSX/Modules/Core/Godot/GodotDemo.pck
+git add .gitattributes ClosedSource/DSX/Modules/Core/<YourModule>/vendor/engine.xcframework
 git commit -m "Vendor the demo pack via LFS"
 ```
 
@@ -376,7 +347,7 @@ an independently reviewed exact approval.
 - A small committed asset → use **`files`**.
 - A large ML data blob bundled as a resource → use **[`weights`](module-weights.md)**.
 - A normal source/registry pod or Swift package → use **`pods`** / **`spm`** (this is
-  how the Godot ENGINE itself arrives — only its CONTENT uses `build`).
+  how an ENGINE itself arrives - only the artifacts it consumes use `build`).
 
 `build` is for a **binary artifact resolved at build time** — exported from an
 in-repo project or pinned to public upstream bytes — that you don't want in git or on

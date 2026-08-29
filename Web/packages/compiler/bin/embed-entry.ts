@@ -1,10 +1,14 @@
 // Pure custom-element entry generation shared by build-demo and focused slicing
 // tests. Conditional imports remain testable without a destructive demo build.
 
+import { BRIDGE_ATTRS } from "../src/cssmap.ts";
 import type { Registry } from "../src/resolve.ts";
 import type { XmlNode } from "../src/xml.ts";
 
-const BOUND_COLLECTION_TAGS: ReadonlySet<string> = new Set(["list", "grid", "pager"]);
+// Kept in step with mount.ts by hand, which is the shape this file has always had: the
+// tree-shaker cannot import the runtime it is deciding whether to include. `flow` joined on
+// 2026-08-26 (runtime-pressure R29).
+const BOUND_COLLECTION_TAGS: ReadonlySet<string> = new Set(["list", "grid", "pager", "flow"]);
 const FULL_APPLICATION_CHROME_TAGS: ReadonlySet<string> = new Set(["Drawer", "MenuBar"]);
 const FULL_APPLICATION_MEDIA_TAGS: ReadonlySet<string> = new Set(["svg", "lightbox"]);
 const PLAYBACK_MEDIA_TAGS: ReadonlySet<string> = new Set(["audio", "video"]);
@@ -171,6 +175,107 @@ export function registryUsesInterpolatedAttribute(registry: Registry, attribute:
   return Object.values(registry.components).some((component) => visit(component.root));
 }
 
+/** The JSE REGEX ENGINE is optional (regex.ts JSE_REGEX_FULL/ABSENT, the JS-globals fold's
+ *  sibling): a regex VALUE is minted only by a `/…/` literal, the `RegExp` global, or the
+ *  `regex()` builtin — or handed back by code outside the closed slice. A SUPERSET text
+ *  test, like the folds above: any `/` (division, a URL in a label) keeps the engine, which
+ *  is the safe direction; the string-pattern halves of replace/split stay real either way. */
+/** BLOCK ITERATION (loops in expression blocks, corpus core-004 + block-scope mutation,
+ *  core-003): reachable only through a loop keyword, a block-bodied lambda / function
+ *  (any brace body can mutate its locals), or ++/--. Foreign payloads keep it — the
+ *  usual superset direction: a mention anywhere keeps the subsystem. */
+export function registryUsesBlockIteration(registry: Registry): boolean {
+  return /(?:^|[^\w.$])(?:for|while|do)\s*\(|=>\s*\{|\bfunction\b|\+\+|--/.test(sliceExpressionText(registry))
+    || registryMountsForeignComponent(registry);
+}
+
+/** The SOURCE HIGHLIGHTER (highlight.ts, the `<code>` surface's scanner) is optional: it is
+ *  reachable only through the `highlight()` builtin, which a document either names or does
+ *  not. Superset by construction, like every fold above - the word anywhere keeps it. */
+export function registryUsesHighlight(registry: Registry): boolean {
+  return /\bhighlight\b/.test(sliceExpressionText(registry))
+    || registryMountsForeignComponent(registry);
+}
+
+/** Every element name the slice actually authors. */
+function sliceTags(registry: Registry): Set<string> {
+  const tags = new Set<string>();
+  const visit = (node: XmlNode): void => {
+    tags.add(node.tag);
+    for (const child of node.children) visit(child);
+  };
+  for (const component of Object.values(registry.components)) visit(component.root);
+  return tags;
+}
+
+/** THE ZOOM ANNOUNCEMENT (R21) is reachable only by a document that has a `<canvas>` AND a
+ *  `transform` to put it under: a widget with neither cannot observe the event, so the
+ *  announcement folds out of the renderer's style binder entirely. Superset by
+ *  construction like every fold here - either half anywhere in the slice keeps it. */
+export function registryUsesCanvasZoom(registry: Registry): boolean {
+  return (sliceTags(registry).has("canvas") && /\btransform\b/.test(sliceExpressionText(registry)))
+    || registryMountsForeignComponent(registry);
+}
+
+export function registryUsesRegex(registry: Registry): boolean {
+  return /[/]|\bRegExp\b|\bregex\b/.test(sliceExpressionText(registry))
+    || registryMountsForeignComponent(registry);
+}
+
+/** A literal spelling anywhere in the slice's authored text (attrs, text bodies, head
+ *  JSE) or its compiled css — the safety net for css folds whose classes/attributes an
+ *  author can also hand-write (`class="dsx-surface-thin"`, a `[data-dsx-theme]` sidecar
+ *  rule). Superset by construction: a mention anywhere keeps the subsystem. */
+export function registryMentions(registry: Registry, needle: string): boolean {
+  return sliceExpressionText(registry).includes(needle) || registry.css.includes(needle);
+}
+
+/** The NON-DEFAULT button skin (theme.ts BUTTON_VARIANTS_CSS_*): variant="bordered" and
+ *  the destructive/cancel role words stamp data attributes only from authored variant=/
+ *  role= (elements.ts buttonEl), so a slice that authors none of those spellings folds
+ *  the skin. Interpolated variant/role can resolve to any word at runtime, so either
+ *  keeps it — the usual superset direction. */
+export function registryUsesButtonVariants(registry: Registry): boolean {
+  return /\b(?:bordered|destructive|cancel)\b/.test(sliceExpressionText(registry))
+    || registryUsesInterpolatedAttribute(registry, "variant")
+    || registryUsesInterpolatedAttribute(registry, "role")
+    || registryMountsForeignComponent(registry);
+}
+
+/** The RUNTIME STYLE-FORMULA bridge (cssmap.ts vocabulary tables + the legacy-attr
+ *  runtime half) is optional: static styles are mapped at BUILD time, so only a
+ *  `{{ }}`-reactive style/bridge attr, a semantic `color=` (elements bind it live), or
+ *  rows arriving from data (bound collections carry tinted swipe actions) can reach the
+ *  mapper at runtime. Foreign payloads keep it, as everywhere: this build cannot read them. */
+export function registryUsesStyleFormulas(registry: Registry): boolean {
+  if (registryUsesInterpolatedAttribute(registry, "style")) return true;
+  // the compiled spelling of a sole-`{{ }}` style attribute (css.ts rewrites it into a
+  // whole-declaration-list hole) — the mapper is exactly what consumes it at runtime
+  if (registryUsesAttribute(registry, "__style_list")) return true;
+  for (const attr of BRIDGE_ATTRS) {
+    if (registryUsesInterpolatedAttribute(registry, attr)) return true;
+  }
+  return registryUsesAttribute(registry, "color")
+    || registryUsesBoundCollections(registry)
+    || registryMountsForeignComponent(registry);
+}
+
+/** The STYLE-OVERRIDE plane (kernel style-overrides.ts + the mount split, the
+ *  instantiate seed and the JSE `dsx.override` branch) is optional: a knob is
+ *  reachable only through a declared `<override>` head, an `override:` usage
+ *  spelling on a component tag, or a `dsx.override` read — a slice that authors
+ *  none of them can never mint or resolve one, so the resolver and both doors
+ *  fold away. Superset as everywhere: foreign payloads keep it. */
+export function registryUsesStyleOverrides(registry: Registry): boolean {
+  if (Object.values(registry.components).some((c) => (c.head?.overrides?.length ?? 0) > 0)) return true;
+  const visit = (node: XmlNode): boolean => (
+    Object.keys(node.attrs).some((name) => name.startsWith("override:")) || node.children.some(visit)
+  );
+  if (Object.values(registry.components).some((component) => visit(component.root))) return true;
+  return /\bdsx\.override\b/.test(sliceExpressionText(registry))
+    || registryMountsForeignComponent(registry);
+}
+
 export type EmbedEntryFeatures = {
   universalGlobals: boolean;
   controlElements: boolean;
@@ -209,6 +314,16 @@ export function embedEntrySource(options: EmbedEntryOptions): string {
     .some((attribute) => registryUsesAttribute(options.registry, attribute));
   const withOptionalCss = f.controlElements || f.formElements || f.richElements ||
     f.nativeControls || f.structuralControls || f.overlayControls || f.dataControls || playback || f.universalGlobals;
+  // The compiled default `overrides: []` on every head is dead payload in a widget: the
+  // runtime reads the field absence-tolerantly (mount.ts `?? []`), so empty rows are
+  // dropped from the embedded registry rather than shipped once per component.
+  const components: Registry["components"] = {};
+  for (const [name, component] of Object.entries(options.registry.components)) {
+    if ((component.head?.overrides?.length ?? 0) > 0) { components[name] = component; continue; }
+    const { overrides: _empty, ...head } = component.head;
+    components[name] = { ...component, head: head as typeof component.head };
+  }
+  const payload = { ...options.registry, components };
   return [
     `import { defineDsxElement } from "@despia/element";`,
     ...(f.universalGlobals ? [
@@ -240,7 +355,7 @@ export function embedEntrySource(options: EmbedEntryOptions): string {
       "MEDIA_PLAYBACK_CSS",
     ].join(", ")} } from "@despia/dom/media-surfaces";`] : []),
     ...(options.facetSrc !== undefined ? [`import facet from ${JSON.stringify(options.facetSrc)};`] : []),
-    `const registry = JSON.parse(${JSON.stringify(JSON.stringify(options.registry))});`,
+    `const registry = JSON.parse(${JSON.stringify(JSON.stringify(payload))});`,
     ...(withOptionalCss ? [`registry.css = [${[
       ...(f.controlElements ? ["CONTROL_ELEMENTS_CSS"] : []),
       ...(f.formElements ? ["FORM_ELEMENTS_CSS"] : []),
@@ -266,4 +381,92 @@ export function embedEntrySource(options: EmbedEntryOptions): string {
     `defineDsxElement({ tag: ${JSON.stringify(options.tag)}, component: ${JSON.stringify(options.component)}, registry${options.facetSrc !== undefined ? ", modules: [facet]" : ""} });`,
     "",
   ].join("\n");
+}
+
+/** Every `__DSX_OPTIONAL_*` fold an embed build sets, in ONE place. The map used to be
+ *  hand-written at each call site — the demo builder and three test harnesses — and two of
+ *  those copies had already drifted a fold behind, so the same slice measured one size in
+ *  the gate and another in the build. Adding a fold is now a single edit here, and a gate
+ *  cannot go green on a bundle the builder would ship differently. */
+export type EmbedFolds = {
+  apis: boolean; webmcp: boolean; globals: boolean; rich: boolean; icons: boolean;
+  boundCollections: boolean; surfaces: boolean; pressed: boolean; role: boolean;
+  classFormulas: boolean; theme: boolean; density: boolean; disabled: boolean;
+  desktopInput: boolean; declaredInput: boolean; gestures: boolean; scaffold: boolean;
+  staticElements: boolean; controls: boolean; controlMetrics: boolean; markdown: boolean;
+  jsGlobals: boolean; fetch: boolean; regex: boolean; highlight: boolean; canvasZoom: boolean;
+  blockIteration: boolean; styleFormulas: boolean; styleOverrides: boolean;
+  buttonVariants: boolean; spring: boolean;
+};
+
+/** The fold names, enumerable at runtime so a gate can prove the builder sets every one. */
+export const EMBED_FOLD_KEYS: readonly (keyof EmbedFolds)[] = [
+  "apis", "webmcp", "globals", "rich", "icons", "boundCollections", "surfaces", "pressed",
+  "role", "classFormulas", "theme", "density", "controlMetrics", "disabled", "desktopInput",
+  "declaredInput", "gestures", "scaffold", "staticElements", "controls", "markdown",
+  "jsGlobals", "fetch", "regex", "highlight", "canvasZoom", "blockIteration",
+  "styleFormulas", "styleOverrides", "buttonVariants", "spring",
+];
+
+export function embedDefines(folds: Partial<EmbedFolds> = {}): Record<string, string> {
+  const on = (key: keyof EmbedFolds): string => (folds[key] ? "true" : "false");
+  return {
+    // A self-contained embed is mounted by a host page, not by a DSX app boot, so nothing
+    // ever installs a link transport into it — the route walk and its unreachable mapping
+    // are dead weight in every widget. (The link seam itself was already tree-shaken; what
+    // shipped was the dispatch rungs in bus.ts, which no seam can remove.)
+    "globalThis.__DSX_OPTIONAL_LINK__": "false",
+    // embeds replace-mount on upgrade by design (/web/13 v1) — the adopt walk
+    // and its instantiate seam are app-boot machinery, never embed payload.
+    "globalThis.__DSX_OPTIONAL_ADOPT__": "false",
+    // a sliced widget is never edited in place — the P5 editability stamps shed
+    "globalThis.__DSX_OPTIONAL_EDIT_TAGS__": "false",
+    // the src-origin gate belongs to a Studio app mount (studio-apps.md §8); an embed
+    // has no such mount, so the gate and its policy map shed with it
+    "globalThis.__DSX_OPTIONAL_APPSCOPE__": "false",
+    "globalThis.__DSX_OPTIONAL_STRINGS__": "false",
+    "globalThis.__DSX_OPTIONAL_APIS__": on("apis"),
+    "globalThis.__DSX_OPTIONAL_WEBMCP__": on("webmcp"),
+    "globalThis.__DSX_OPTIONAL_GLOBALS__": on("globals"),
+    "globalThis.__DSX_OPTIONAL_RICH__": on("rich"),
+    "globalThis.__DSX_OPTIONAL_ICONS__": on("icons"),
+    "globalThis.__DSX_OPTIONAL_BOUND_COLLECTIONS__": on("boundCollections"),
+    "globalThis.__DSX_OPTIONAL_SURFACES__": on("surfaces"),
+    "globalThis.__DSX_OPTIONAL_PRESSED__": on("pressed"),
+    "globalThis.__DSX_OPTIONAL_ROLE__": on("role"),
+    "globalThis.__DSX_OPTIONAL_CLASS_FORMULAS__": on("classFormulas"),
+    "globalThis.__DSX_OPTIONAL_THEME__": on("theme"),
+    "globalThis.__DSX_OPTIONAL_DENSITY__": on("density"),
+    "globalThis.__DSX_OPTIONAL_CONTROL_METRICS__": on("controlMetrics"),
+    "globalThis.__DSX_OPTIONAL_DISABLED__": on("disabled"),
+    "globalThis.__DSX_OPTIONAL_DESKTOP_INPUT__": on("desktopInput"),
+    "globalThis.__DSX_OPTIONAL_INPUT__": on("declaredInput"),
+    "globalThis.__DSX_OPTIONAL_GESTURES__": on("gestures"),
+    "globalThis.__DSX_OPTIONAL_SCAFFOLD__": on("scaffold"),
+    "globalThis.__DSX_OPTIONAL_STATIC_ELEMENTS__": on("staticElements"),
+    "globalThis.__DSX_OPTIONAL_CONTROLS__": on("controls"),
+    "globalThis.__DSX_OPTIONAL_MARKDOWN__": on("markdown"),
+    "globalThis.__DSX_OPTIONAL_JS_GLOBALS__": on("jsGlobals"),
+    "globalThis.__DSX_OPTIONAL_FETCH__": on("fetch"),
+    "globalThis.__DSX_OPTIONAL_REGEX__": on("regex"),
+    "globalThis.__DSX_OPTIONAL_HIGHLIGHT__": on("highlight"),
+    "globalThis.__DSX_OPTIONAL_CANVAS_ZOOM__": on("canvasZoom"),
+    "globalThis.__DSX_OPTIONAL_BLOCK_ITERATION__": on("blockIteration"),
+    "globalThis.__DSX_OPTIONAL_STYLE_FORMULAS__": on("styleFormulas"),
+    "globalThis.__DSX_OPTIONAL_STYLE_OVERRIDES__": on("styleOverrides"),
+    "globalThis.__DSX_OPTIONAL_BUTTON_VARIANTS__": on("buttonVariants"),
+    "globalThis.__DSX_OPTIONAL_SPRING__": on("spring"),
+  };
+}
+
+/** The density plane's toggle / slider / field / textarea metrics (theme.ts
+ *  CONTROL_METRICS_CSS): read only by the control sheets, so a slice that imports none of
+ *  them folds 28 token declarations. Universal globals count — their toggle factory reads
+ *  the same metrics — and so does a sheet that names one of the tokens by hand. */
+export function registryUsesControlMetrics(registry: Registry, features: EmbedEntryFeatures): boolean {
+  return features.controlElements || features.formElements || features.nativeControls
+    || features.structuralControls || features.overlayControls || features.dataControls
+    || features.universalGlobals
+    || ["--dsx-toggle-", "--dsx-slider-", "--dsx-field-density", "--dsx-textarea-density"]
+      .some((token) => registryMentions(registry, token));
 }

@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "_note": "Interruption is the whole plan (parity/F14-recorder.md 3b). A phone call, Siri, or another app taking the audio session arrives mid-take on every platform, and the naive handling loses the recording: either the recorder keeps writing silence, or it tears the session down and the partial file is never finalised. This corpus pins the ONE transition table all three renderers run, the two broadcasts it emits, and the invariant that matters more than either: after an interruption the take is still there and `stop` still hands back a playable file.",
+
+  "sequences": [
+    {
+      "name": "a phone call auto-pauses and the returning session offers a resume",
+      "steps": ["start", "interrupt", "endInterruption", "resume", "stop"],
+      "expect": ["recording", "interrupted", "paused", "recording", "idle"],
+      "emits": [null, "interrupted", "resumable", null, null]
+    },
+    {
+      "name": "the take survives an interruption the user never resumes",
+      "steps": ["start", "interrupt", "stop"],
+      "expect": ["recording", "interrupted", "idle"],
+      "emits": [null, "interrupted", null],
+      "stopProducesFile": true
+    },
+    {
+      "name": "a returning session never auto-resumes",
+      "steps": ["start", "interrupt", "endInterruption"],
+      "expect": ["recording", "interrupted", "paused"],
+      "emits": [null, "interrupted", "resumable"],
+      "_note": "Coming back from a call to find the app quietly recording again is worse than a take that needs one tap. `paused`, not `recording`."
+    },
+    {
+      "name": "back to back interruptions do not stack or double-emit",
+      "steps": ["start", "interrupt", "interrupt", "endInterruption", "endInterruption"],
+      "expect": ["recording", "interrupted", "interrupted", "paused", "paused"],
+      "emits": [null, "interrupted", null, "resumable", null]
+    },
+    {
+      "name": "an interruption while already paused changes nothing",
+      "steps": ["start", "pause", "interrupt"],
+      "expect": ["recording", "paused", "paused"],
+      "emits": [null, null, null],
+      "_note": "The session was not ours to lose. Emitting `interrupted` here would make the UI flash a state the user never entered."
+    },
+    {
+      "name": "an interruption with nothing running is inert",
+      "steps": ["interrupt", "endInterruption"],
+      "expect": ["idle", "idle"],
+      "emits": [null, null]
+    },
+    {
+      "name": "cancel during an interruption discards, and does not resurrect",
+      "steps": ["start", "interrupt", "cancel", "endInterruption"],
+      "expect": ["recording", "interrupted", "idle", "idle"],
+      "emits": [null, "interrupted", null, null]
+    },
+    {
+      "name": "a manual resume out of an interruption skips the paused step",
+      "steps": ["start", "interrupt", "resume"],
+      "expect": ["recording", "interrupted", "recording"],
+      "emits": [null, "interrupted", null],
+      "_note": "The user pressed the button while the banner was still up. Refusing that would be pedantry."
+    },
+    {
+      "name": "a new take after an interrupted one starts clean",
+      "steps": ["start", "interrupt", "stop", "start"],
+      "expect": ["recording", "interrupted", "idle", "recording"],
+      "emits": [null, "interrupted", null, null]
+    }
+  ],
+
+  "broadcasts": {
+    "_note": "Both ride the ordinary bus broadcast channel on the `recorder` scheme, so a page hears them through dsx.on(\"recorder\", ...) and native hears them through dsx.module.recorder.on(...). No bespoke channel.",
+    "interrupted": { "payload": ["reason", "durationMs"], "reasons": ["call", "assistant", "route", "other"] },
+    "resumable": { "payload": ["durationMs"] }
+  },
+
+  "invariants": {
+    "_note": "The properties an implementation must hold that a transition table cannot express. Each platform facet asserts them in its own tests; they are written here so the three cannot drift on what the promise IS.",
+    "partialTakeIsPlayable": "after an interruption, the bytes written so far are finalised into a valid container before the state leaves `recording`; `stop` then resolves the same { path, durationMs, bytes, format } it would have resolved without the interruption",
+    "noSilencePadding": "the paused interval contributes nothing to the file and nothing to durationMs; a two-minute call in the middle of a take does not produce two minutes of silence",
+    "meterStopsWhilePaused": "no meter event is emitted in `paused` or `interrupted`, so a level meter bound to context.level rests at its last value rather than reading zero and looking broken",
+    "sessionRestoredOnStop": "the audio session category and options in force before `start` are restored on `stop` and on `cancel`, including the interrupted path"
+  }
+}

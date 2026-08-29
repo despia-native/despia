@@ -1,9 +1,10 @@
-<cli as="dsx" version="0.1.0" summary="the DSX web toolchain">
+<cli as="despia" version="0.0.1" summary="the Despia toolchain for DSX projects">
   <head>
     <!--
       THE DESPIA CLI'S OWN COMMAND SURFACE, AUTHORED IN DSX.
 
-      This document is the single source of truth for what `dsx` accepts: the command table,
+      This document is the single source of truth for what `despia` accepts (the command is
+      the brand; `dsx` stays as an alias bin, and DSX remains the language): the command table,
       every flag, the usage text, and — for `doctor` — the implementation. `cli.ts` reads it
       at startup and dispatches from it, so a command cannot exist in the help and not in the
       parser, or take a flag the help never mentions. Those are the two bugs every hand-rolled
@@ -20,6 +21,13 @@
       `on:tap` handler runs on, reaching only the seams this head declares.
     -->
     <root as="project" path="."/>
+    <!--
+      `npx` is the ONLY program any command here may run, and it is declared rather than
+      assumed: a reader can see the whole blast radius of `despia deploy` without reading its
+      body. It pins the run to the project's own wrangler version, so a deploy never drifts
+      onto whatever is installed globally.
+    -->
+    <exec as="npx"/>
 
     <action as="check" inputs="label, ok, detail">
       if (ok) {
@@ -32,11 +40,11 @@
 
     <action as="doctor" inputs="project">
       dsx.variable.problems = 0
-      dsx.module.out.print({ text: 'dsx doctor — ' + (project ? project : '.') })
+      dsx.module.out.print({ text: 'despia doctor — ' + (project ? project : '.') })
       dsx.module.out.print({ text: '' })
 
       const identity = await dsx.module.fs.read({ root: 'project', path: 'dsx.json' })
-      dsx.action.check({ label: 'dsx.json is present', ok: identity.ok, detail: 'run `npm create dsx` to scaffold one' })
+      dsx.action.check({ label: 'dsx.json is present', ok: identity.ok, detail: 'run `npm create despia` to scaffold one' })
 
       let scheme = ''
       if (identity.ok) {
@@ -75,6 +83,105 @@
       dsx.module.out.print({ text: 'all checks passed — ' + (screens.length) + ' component(s)' + (scheme ? ', scheme "' + scheme + '"' : '') })
       return 0
     </action>
+
+    <!--
+      DEPLOY. Plan by default, apply on request — deploying migrates real data and publishes a
+      real endpoint, so the default prints the exact ordered commands and changes NOTHING. The
+      plan is also the honest artifact: it is what an agent shows a human before asking.
+
+      There is no author TypeScript here either. The command reads the emitted manifest through
+      the declared root and runs the one declared program, which means the whole set of files
+      and processes a deploy can touch is visible above without reading a line of this body.
+    -->
+    <action as="deploy" inputs="target, apply, plan, ref, project">
+      const chosen = target
+      if (chosen !== 'cloudflare' && chosen !== 'supabase') {
+        throw { reason: 'invalid', message: 'unknown deploy target "' + chosen + '" — despia deploy cloudflare | supabase' }
+      }
+      // Both flags together is a contradiction, and resolving it silently either way publishes
+      // something somebody did not mean to publish or refuses something they did.
+      if (plan && apply) {
+        throw { reason: 'invalid', message: '--plan and --apply contradict each other. --plan is the default; pass only --apply to execute.' }
+      }
+
+      const manifest = 'deploy/cloudflare/wrangler.jsonc'
+      const migration = 'server/generated/migration.sql'
+      const wanted = chosen === 'cloudflare' ? manifest : migration
+      const emitted = await dsx.module.fs.exists({ root: 'project', path: wanted })
+      if (emitted.data !== true) {
+        throw {
+          reason: 'not_found',
+          message: 'there is nothing to deploy — ' + wanted + ' does not exist. Run `despia build` first: it compiles server/*.dsx and writes deploy/.'
+        }
+      }
+
+      dsx.module.out.print({ text: '' })
+      dsx.module.out.print({ text: 'despia deploy — target ' + chosen })
+      if (apply) {
+        dsx.module.out.print({ text: 'APPLYING — this changes a live deployment.' })
+      } else {
+        dsx.module.out.print({ text: 'PLAN ONLY — nothing will be changed. Re-run with --apply to execute.' })
+      }
+      dsx.module.out.print({ text: '' })
+
+      if (chosen === 'supabase') {
+        dsx.module.out.print({ text: '  1. link the project' })
+        dsx.module.out.print({ text: '     $ supabase link --project-ref ' + (ref ? ref : '<your-project-ref>') })
+        dsx.module.out.print({ text: '  2. apply the emitted schema' })
+        dsx.module.out.print({ text: '     $ psql "$SUPABASE_DB_URL" -f ' + migration })
+        dsx.module.out.print({ text: '' })
+        if (apply) {
+          throw {
+            reason: 'unavailable',
+            message: 'the supabase target plans but does not apply yet: the emitted schema is ' + migration + ' and running it needs a database URL this command deliberately never handles. Run the two commands above.'
+          }
+        }
+        dsx.module.out.print({ text: 'plan only. Nothing was changed.' })
+        return 0
+      }
+
+      dsx.module.out.print({ text: '  1. provision Despia system storage in your database' })
+      dsx.module.out.print({ text: '     $ npx despia provision --apply' })
+      dsx.module.out.print({ text: '     creates only the reserved dsx_ tables the runtime needs — your own tables are untouched' })
+      dsx.module.out.print({ text: '  2. publish the worker — the route table AND the built site, one deploy' })
+      dsx.module.out.print({ text: '     $ npx wrangler deploy --config ' + manifest })
+      dsx.module.out.print({ text: '' })
+      dsx.module.out.print({ text: '  A secret is never written into the manifest. Deliver each one once, before the' })
+      dsx.module.out.print({ text: '  first deploy — the value arrives on stdin, never in a process list:' })
+      dsx.module.out.print({ text: '     $ npx wrangler secret put <NAME> --config ' + manifest })
+      dsx.module.out.print({ text: '' })
+
+      if (apply) {
+        // STORAGE BEFORE PUBLISH, and a refusal rather than a warning: a worker that goes live
+        // against a database with no counter table meters nothing and publishes no events, which
+        // is exactly the deployment the guardrails exist to prevent. The customer connected an
+        // account; they are not asked to run a second command to make it usable.
+        dsx.module.out.print({ text: 'provisioning Despia system storage …' })
+        const storage = await dsx.module.exec.run({ name: 'npx', args: ['despia', 'provision', '--apply'] })
+        if (storage.ok !== true) {
+          throw { reason: 'unavailable', message: 'npx is not runnable here, so system storage could not be provisioned and nothing was published.' }
+        }
+        dsx.module.out.print({ text: storage.data.stdout })
+        if (storage.data.code !== 0) {
+          throw { reason: 'failed', message: 'Despia system storage is not ready — see above. NOTHING was published: a deployment that cannot meter or publish events is not a working deployment.' }
+        }
+
+        dsx.module.out.print({ text: 'publishing …' })
+        const published = await dsx.module.exec.run({ name: 'npx', args: ['wrangler', 'deploy', '--config', manifest] })
+        if (published.ok !== true) {
+          throw { reason: 'unavailable', message: 'npx is not runnable here, so the worker was not published.' }
+        }
+        dsx.module.out.print({ text: published.data.stdout })
+        if (published.data.code !== 0) {
+          throw { reason: 'failed', message: 'wrangler exited ' + published.data.code + ' — the worker was NOT published.' }
+        }
+        dsx.module.out.print({ text: 'done — wrangler printed the live URL above.' })
+        return 0
+      }
+
+      dsx.module.out.print({ text: 'plan only. Nothing was changed.' })
+      return 0
+    </action>
   </head>
 
   <command as="build" handler="build" summary="compile a project's .dsx sources into a deployable static site">
@@ -97,7 +204,126 @@
     <positional as="files" variadic="true" summary="lint these files instead of the project"/>
   </command>
 
+  <command as="review" handler="review" summary="the design lint: the objective floor of the design bar (a11y names + grouping, tap targets, the type scale, contrast, token discipline)">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json); with --app, the app package dir"/>
+    <flag as="strict" type="boolean" summary="warnings are failures too (CI)"/>
+    <flag as="app" type="boolean" summary="review a Despia app package (studio-apps.md §13): the design floor PLUS token-only colour, the remote-literal ban, and the byte budget — what the apps shelf CI runs"/>
+    <positional as="files" variadic="true" summary="review these files instead of the project"/>
+  </command>
+
   <command as="doctor" action="doctor" summary="check a project for the mistakes that make a build fail later">
     <flag as="project" type="string" summary="project root to check (default: the working directory)"/>
+  </command>
+
+  <!-- The database seam is deliberately absent from the seam list, so this command is a HOST
+       one: a body may name out · env · fs · exec and nothing else, and opening a connection to
+       a customer's database is exactly the kind of reach that list exists to refuse. -->
+  <command as="provision" handler="provision" summary="create and verify Despia's own tables inside your database — reports by default; --apply creates">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="apply" type="boolean" summary="create what is missing (the default only reports)"/>
+  </command>
+
+  <command as="report" handler="report" summary="judge a pasted diagnostic blob: genuine .dsxreport, modified, or not a report at all">
+    <positional as="verb" summary="verify"/>
+    <positional as="file" summary="a .dsxreport file, or any paste containing one ('-' reads stdin)"/>
+  </command>
+
+  <command as="deploy" action="deploy" summary="take the built backend and site live — prints the plan; --apply runs it">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="plan" type="boolean" summary="print the ordered commands and change nothing (the default)"/>
+    <flag as="apply" type="boolean" summary="actually run the plan"/>
+    <flag as="ref" type="string" summary="supabase: the project ref to link"/>
+    <positional as="target" summary="cloudflare | supabase"/>
+  </command>
+
+  <command as="export" handler="export" summary="a real Xcode / Android Studio project from this project's own modules (nothing withheld)">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="kernel" type="string" summary="a kernel checkout (default: DSX_KERNEL, or the monorepo; clone despia-native/despia-kernel)"/>
+    <flag as="out" type="string" summary="output directory (default: export/&lt;platform&gt; in the project)"/>
+    <flag as="bundle-id" type="string" summary="bundle / application id (default: com.example.&lt;name&gt;)"/>
+    <positional as="platform" summary="ios | android | all"/>
+  </command>
+
+  <command as="shot" handler="shot" summary="store screenshots of this app, rendered from its own documents - no device, no simulator">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="check" type="boolean" summary="re-render the committed set and fail on drift, instead of writing images"/>
+    <flag as="plan" type="boolean" summary="report what would be captured, and every unresolved binding, without rendering"/>
+    <flag as="budget" type="string" summary="allowed pixel drift for --check, as a fraction (default 0)"/>
+    <positional as="name" variadic="true" summary="only these shots (default: every shot in dsx.shots.json)"/>
+  </command>
+
+  <command as="film" handler="film" summary="marketing films of this app, rendered from its own documents - the composition is the source of truth, the video is an output">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor of the composition with dsx.config.json)"/>
+    <flag as="master" type="boolean" summary="encode the mp4 master with ffmpeg (H.264, store slots) instead of the zero-install webm preview"/>
+    <flag as="out" type="string" summary="output directory (default: beside the composition)"/>
+    <flag as="frames" type="string" summary="render only the first N frames - the fast check loop"/>
+    <positional as="action" summary="check (parse + validate, render nothing) or render"/>
+    <positional as="composition" summary="the film document, e.g. marketing/launch/composition.dsx"/>
+  </command>
+
+  <command as="edit" handler="edit" summary="the visual editor, served locally against this project (no account, no hosting)">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="port" type="string" summary="listen port (default 5273)"/>
+    <flag as="host" type="string" summary="listen address (default loopback-only; anything else needs --token)"/>
+    <flag as="token" type="string" summary="this run's admission credential (default: DESPIA_EDIT_TOKEN, else minted and printed)"/>
+  </command>
+
+  <command as="search" handler="search" summary="find a package — the bundled first-party index answers offline; --remote adds the community index">
+    <flag as="remote" type="boolean" summary="also search the community index (network)"/>
+    <flag as="index" type="string" summary="a community index.json path or URL (default: the published registry index)"/>
+    <positional as="query" summary="a scheme, name, or action — despia search camera"/>
+  </command>
+
+  <command as="add" handler="add" summary="resolve a package from its git tag, verify the tree hash, pin it in dsx.lock.json">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="no-deps" type="boolean" summary="pin only this package; wire its declared requirements by hand"/>
+    <flag as="dry-run" type="boolean" summary="print the full pin plan and write nothing"/>
+    <positional as="package" summary="github:owner/repo@1.2.0 — @version optional, newest release tag pinned forever"/>
+  </command>
+
+  <command as="remove" handler="remove" summary="unpin a package from dsx.lock.json (the cache keeps the bytes)">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="dry-run" type="boolean" summary="say what would be unpinned and write nothing"/>
+    <positional as="package" summary="github:owner/repo"/>
+  </command>
+
+  <command as="list" handler="list" summary="every pinned package, and whether its bytes are resolved in the cache">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+  </command>
+
+  <command as="app" handler="app" summary="the Despia Apps plane: what is installed, what each app may reach, whether every pin verifies — and every installed app's tools, runnable headless under the same consented grants the Studio enforces (an interface is one consumer of an app)">
+    <flag as="project" type="string" summary="project root (default: the nearest ancestor with dsx.config.json)"/>
+    <flag as="args" type="string" summary="for run: the tool's arguments as a JSON object"/>
+    <positional as="verb" summary="list — every discovered app and its state · grants [scheme] — asked vs granted, verbatim · verify — re-hash every installed pin against dsx.lock.json · tools [scheme] — every runnable tool with its args · run &lt;scheme&gt; &lt;tool&gt; — invoke it headless (the same action, seams and budgets a mounted surface gets) · history [scheme] — every change an app made, with its commit, branch and pull request · revert &lt;change&gt; — restore the documents one change touched"/>
+    <positional as="scheme" summary="for grants/tools/history: one app's scheme (default: all); for run: the app to invoke; for revert: the change id"/>
+    <positional as="tool" summary="for run: the tool name (despia app tools lists them)"/>
+  </command>
+
+  <command as="submit" handler="submit" summary="the apps-shelf submission recipe: validate this package as an app, run the app lint tier, hash the tree, and print the exact apps.json row and pull-request steps (nothing leaves this machine — a submission is a PR a human opens)">
+    <flag as="project" type="string" summary="the app package dir (default: the working directory)"/>
+    <flag as="coordinate" type="string" summary="your registry coordinate, github:owner/repo (prefilled into the row)"/>
+  </command>
+
+  <command as="mcp" handler="mcp" summary="serve the toolchain over MCP on stdio, so a coding agent that cannot run a shell can still build, lint, add packages and export">
+    <flag as="list" type="boolean" summary="print the generated tool list and exit, instead of serving"/>
+  </command>
+
+  <command as="licence" handler="licence" summary="sign the entitlements a purchase recorded, where the signing key actually lives">
+    <flag as="api" type="string" summary="the platform base URL, e.g. https://api.despia.com"/>
+    <flag as="key" type="string" summary="the Ed25519 private key PEM (default: DESPIA_SIGNING_KEY)"/>
+    <flag as="token" type="string" summary="the service-role token for the internal routes (default: DESPIA_SERVICE_TOKEN)"/>
+    <flag as="dry-run" type="boolean" summary="sign nothing and post nothing — print what is waiting"/>
+    <positional as="verb" summary="sign"/>
+  </command>
+
+  <command as="ota" handler="ota" summary="build, publish and roll back over-the-air content (the content plane)">
+    <flag as="in" type="string" summary="content source directory (build; default: the project's Components/)"/>
+    <flag as="out" type="string" summary="the OTA folder to write or act on (default: dist-ota)"/>
+    <flag as="runtime-version" type="string" summary="build: the MINIMUM installed runtime, e.g. 1.4.0 — every older install keeps what it has"/>
+    <flag as="rollout" type="string" summary="build: stage it — 0.1 for ten percent of installs, or 0.1:salt to fix the cohort (default salt: the generation id)"/>
+    <flag as="project" type="string" summary="project root supplying the default content directory"/>
+    <flag as="target" type="string" summary="publish destination: dir:&lt;path&gt; | s3://bucket/prefix | netlify | cloudflare"/>
+    <flag as="apply" type="boolean" summary="publish actually runs its commands (default: plan only)"/>
+    <positional as="verb" summary="build | publish | rollback"/>
   </command>
 </cli>

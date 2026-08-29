@@ -1,0 +1,17 @@
+[
+  {
+    "line": 5,
+    "level": "error",
+    "rule": "attr-unknown"
+  },
+  {
+    "line": 6,
+    "level": "error",
+    "rule": "attr-unknown"
+  },
+  {
+    "line": 7,
+    "level": "notice",
+    "rule": "attr-census-gap"
+  }
+]

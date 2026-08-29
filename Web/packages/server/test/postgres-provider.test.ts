@@ -1,7 +1,7 @@
 // The shipped provider owns the node-postgres options. Its defaults are part of the production
 // boundary: pg's own false/zero timeout defaults and unbounded waiter queue are not acceptable.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -72,7 +72,13 @@ test("postgres provider: zero/false/malformed attempts fail boot rather than dis
   assert.equal(POSTGRES_SAFE_DEFAULTS.maxInFlight, 100);
 });
 
-test("postgres provider: canonical residence and emitted provider stay source-identical", () => {
+test("postgres provider: canonical residence and emitted provider stay source-identical", (t) => {
+  // The canonical residence ships in ClosedSource; an open drop skips this tether
+  // LOUDLY (the component-fold-conformance rule) - the defaults tests above still run.
+  if (!existsSync(fileURLToPath(new URL("../../../../../ClosedSource", import.meta.url)))) {
+    t.skip("open drop without ClosedSource - the canonical provider residence ships closed");
+    return;
+  }
   const generated = readFileSync(fileURLToPath(new URL("../generated/modules/postgres/index.ts", import.meta.url)), "utf-8");
   const canonical = readFileSync(
     fileURLToPath(new URL("../../../../../ClosedSource/DSX/Modules/Core/Server/Providers/Postgres/web/server/index.ts", import.meta.url)),

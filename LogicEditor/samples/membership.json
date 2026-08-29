@@ -1,0 +1,19 @@
+{
+  "_note": "The demo formula — a node graph that compiles to: title.includes('despia') ? (isPro ? 'Pro member' : 'Member') : upper(title.slice(0, 1)) + title.slice(1)",
+  "v": 1,
+  "kind": "formula",
+  "name": "membership",
+  "inputs": [
+    { "name": "title", "sample": "hello despia" },
+    { "name": "isPro", "sample": true }
+  ],
+  "nodes": {
+    "val": { "kind": "path", "path": "title" },
+    "str": { "kind": "path", "path": "isPro" },
+    "inc": { "kind": "fn", "fn": "includes", "args": [{ "node": "val" }, { "value": "despia" }] },
+    "pick": { "kind": "if", "cases": [{ "when": { "node": "str" }, "then": { "value": "Pro member" } }], "else": { "value": "Member" } },
+    "cap": { "kind": "fn", "fn": "capitalize", "args": [{ "node": "val" }] },
+    "root": { "kind": "if", "cases": [{ "when": { "node": "inc" }, "then": { "node": "pick" } }], "else": { "node": "cap" } }
+  },
+  "out": { "node": "root" }
+}

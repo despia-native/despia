@@ -9,11 +9,12 @@ package despia.engine.render
 
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import despia.engine.ControlsCore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StackStyleTest {
@@ -102,24 +103,36 @@ class StackStyleTest {
         assertNull(StackStyle.aspect(null))
     }
 
-    // ── gradientColors()/gradientAxis(): "c1|c2|…" stops + direction axis ─────────────
+    // ── the gradient stops and the legacy direction axis ─────────────────────────────
+    //
+    // These used to test StackStyle's OWN gradient parsers, which were a second opinion about
+    // ControlsCore.resolveGradient - the shared, corpus-pinned fold the other three renderers
+    // already painted from, and the reason six of the nine declared gradient properties were
+    // inert on this renderer. The parsers are gone (StackGradients.kt); the facts they protected
+    // are not, so they are asserted here through the path that now carries them.
 
     @Test fun gradientStopsParse() {
-        val cols = StackStyle.gradientColors("#FF0000|rgba(0,0,255,1)|white")!!
+        val cols = ControlsCore.resolveGradient(gradient = "#FF0000|rgba(0,0,255,1)|white").colors
         assertEquals(3, cols.size)
-        assertEquals(0xFFFF0000.toInt(), argb(cols[0]))
-        assertEquals(0xFF0000FF.toInt(), argb(cols[1]))
-        assertEquals(argb(Color.White), argb(cols[2]))
-        assertNull(StackStyle.gradientColors("#FF0000"))   // 2+ stops required (Swift gate)
-        assertNull(StackStyle.gradientColors(null))
+        assertEquals(0xFFFF0000.toInt(), argb(StackStyle.color(cols[0])))
+        assertEquals(0xFF0000FF.toInt(), argb(StackStyle.color(cols[1])))
+        assertEquals(argb(Color.White), argb(StackStyle.color(cols[2])))
+        // 2+ stops required (the Swift gate): one colour is a fill, so nothing is painted.
+        assertTrue(StackGradients.layers { k -> if (k == "gradient") "#FF0000" else null }.isEmpty())
+        assertTrue(StackGradients.layers { null }.isEmpty())
     }
 
     @Test fun gradientDirAxes() {
-        // vertical is the default (top → bottom); infinity = size-relative far edge
-        assertEquals(Offset.Zero to Offset(0f, Float.POSITIVE_INFINITY), StackStyle.gradientAxis(null))
-        assertEquals(Offset.Zero to Offset(Float.POSITIVE_INFINITY, 0f), StackStyle.gradientAxis("horizontal"))
-        assertEquals(Offset.Zero to Offset.Infinite, StackStyle.gradientAxis("diagonal"))
-        assertEquals(StackStyle.gradientAxis(null), StackStyle.gradientAxis("vertical"))
+        fun axis(dir: String?): Pair<Pair<Double, Double>, Pair<Double, Double>> {
+            val g = ControlsCore.resolveGradient(gradient = "#000|#fff", gradientDir = dir)
+            return (g.start.x to g.start.y) to (g.end.x to g.end.y)
+        }
+        // vertical is the default (top → bottom), in UNIT space now rather than Compose's
+        // size-relative infinity idiom - which is what lets an arbitrary angle exist at all.
+        assertEquals((0.5 to 0.0) to (0.5 to 1.0), axis(null))
+        assertEquals((0.0 to 0.5) to (1.0 to 0.5), axis("horizontal"))
+        assertEquals(axis(null), axis("vertical"))
+        assertEquals(135.0, ControlsCore.resolveGradient(gradient = "#000|#fff", gradientDir = "diagonal").angle, 1e-6)
     }
 
     // ── material(): the pinned dim-translucent iOS-dark approximations ────────────────

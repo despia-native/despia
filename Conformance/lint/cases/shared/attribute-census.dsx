@@ -1,0 +1,8 @@
+<stack background="#fff" padding="12">
+  <head>
+    <variable as="n">return 1</variable>
+  </head>
+  <button value="Save" on:tap="n = 2"/>
+  <text valeu="typo"/>
+  <text value="fine" mysteryWord="x"/>
+</stack>

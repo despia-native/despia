@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "_note": "Core/Device (parity/F06-device.md), the FIELD MATRIX. Every action's fields, their type, and which renderers can legitimately answer them. This is the executable form of the module's central promise: a field the platform cannot answer is ABSENT, never 0, \"\", false or an invented value, so a caller checks for the key rather than for a falsy value (durability P4, typed absence). A runner asserts three things per row: the field is present on every renderer listed in `on`, it is absent on every renderer not listed, and where it is present it carries the declared type. `always` means present on all three.",
+  "_runner": "No runner is wired yet (registration is in the F06 handoff).",
+
+  "renderers": ["ios", "android", "web"],
+
+  "actions": {
+    "info": {
+      "brand": { "type": "string", "on": ["ios", "android"], "_note": "web only when userAgentData names one" },
+      "manufacturer": { "type": "string", "on": ["ios", "android"] },
+      "model": { "type": "string", "on": ["ios", "android"],
+        "_note": "the PLATFORM's own answer and deliberately not normalized: Android returns the marketing name (Pixel 8), iOS the family (iPhone), because iOS exposes no marketing name and a hand-kept table of them is wrong the week a phone launches" },
+      "modelId": { "type": "string", "on": ["ios"], "_note": "the machine id. Android has no such concept and answers designName instead" },
+      "designName": { "type": "string", "on": ["android"], "_note": "Build.DEVICE, the board" },
+      "deviceType": { "type": "string", "on": "always", "enum": ["phone", "tablet", "desktop", "tv", "watch"] },
+      "osName": { "type": "string", "on": "always" },
+      "osVersion": { "type": "string", "on": "always" },
+      "osBuild": { "type": "string", "on": ["ios", "android"] },
+      "isDevice": { "type": "boolean", "on": ["ios", "android"], "_note": "a browser cannot know it is not an emulator" },
+      "totalMemory": { "type": "number", "on": ["ios", "android"], "_note": "web only where navigator.deviceMemory exists, and then it is a coarse GB bucket" },
+      "supportedCpuArchitectures": { "type": "array", "on": ["ios", "android"] },
+      "deviceYearClass": { "type": "number", "on": ["ios", "android"], "_note": "needs totalMemory; see year-class.json" },
+      "isRooted": { "type": "boolean", "on": ["ios", "android"], "_note": "a HINT. Mandatory/Security owns the real posture" }
+    },
+
+    "app": {
+      "name": { "type": "string", "on": "always" },
+      "version": { "type": "string", "on": "always" },
+      "buildNumber": { "type": "string", "on": "always" },
+      "bundleId": { "type": "string", "on": "always" },
+      "installTime": { "type": "number", "on": "always",
+        "_note": "exact on Android (PackageInfo), derived on iOS (the Documents directory's creation date), and on the web it is when this browser profile first ran the app" },
+      "lastUpdateTime": { "type": "number", "on": "always" },
+      "installSource": { "type": "string", "on": "always",
+        "enum": ["appstore", "testflight", "playstore", "amazon", "sideload", "emulator", "simulator", "pwa", "browser", "unknown"] },
+      "installReferrer": { "type": "string", "on": [],
+        "_note": "needs the Play Install Referrer library, which this module deliberately does not depend on. Absent everywhere until an app adds it" },
+      "installationId": { "type": "string", "on": "always",
+        "_note": "a random UUID, never derived from hardware. Survives a reinstall on iOS (keychain) and does not on Android (app container): platform truth, documented, not smoothed over. Absent when generate_installation_id is off" },
+      "isFirstLaunch": { "type": "boolean", "on": "always", "_note": "see first-launch.json" },
+      "previousVersion": { "type": "string", "on": "always", "_note": "absent on a first install, present for the life of an upgraded install" }
+    },
+
+    "screen": {
+      "width": { "type": "number", "on": "always" },
+      "height": { "type": "number", "on": "always" },
+      "scale": { "type": "number", "on": "always" },
+      "fontScale": { "type": "number", "on": "always" },
+      "refreshRate": { "type": "number", "on": ["ios", "android"] },
+      "insets": { "type": "object", "on": "always", "_note": "see insets.json" },
+      "cornerRadius": { "type": "number", "on": ["ios", "android"], "_note": "Android needs API 31; absent below that, never guessed" },
+      "hasNotch": { "type": "boolean", "on": "always" },
+      "hasDynamicIsland": { "type": "boolean", "on": "always", "_note": "always false off iOS. The field exists so one question works everywhere" }
+    },
+
+    "locale": {
+      "locales": { "type": "array", "on": "always" },
+      "region": { "type": "string", "on": "always" },
+      "timezone": { "type": "string", "on": "always" },
+      "currency": { "type": "string", "on": ["ios", "android"], "_note": "Intl exposes no locale to currency mapping, so the web omits it" },
+      "measurementSystem": { "type": "string", "on": "always", "enum": ["metric", "us", "uk"] },
+      "isRTL": { "type": "boolean", "on": "always" },
+      "calendar": { "type": "string", "on": "always" },
+      "temperatureUnit": { "type": "string", "on": "always", "enum": ["celsius", "fahrenheit"] },
+      "hour12": { "type": "boolean", "on": "always" }
+    },
+
+    "power": {
+      "level": { "type": "number", "on": "always", "_note": "absent wherever there is no readable battery, including a browser that removed the API" },
+      "state": { "type": "string", "on": "always", "enum": ["charging", "full", "unplugged", "unknown"] },
+      "lowPowerMode": { "type": "boolean", "on": "always", "_note": "always false on the web: no API, and every caller branches on it" },
+      "thermalState": { "type": "string", "on": ["ios", "android"], "_note": "Android needs API 29; see power.json" }
+    },
+
+    "capabilities": {
+      "_note": "Ten plain booleans rather than ten optionals: a capability check that can be null is a capability check nobody writes. false means not present OR not detectable from here, and the module README says which is which per platform. This answers PRESENCE, never permission.",
+      "biometric": { "type": "boolean", "on": "always" },
+      "nfc": { "type": "boolean", "on": "always" },
+      "camera": { "type": "boolean", "on": "always" },
+      "cellular": { "type": "boolean", "on": "always" },
+      "telephony": { "type": "boolean", "on": "always" },
+      "pencil": { "type": "boolean", "on": "always" },
+      "haptics": { "type": "boolean", "on": "always" },
+      "alwaysOnDisplay": { "type": "boolean", "on": "always" },
+      "hdr": { "type": "boolean", "on": "always" },
+      "wideColor": { "type": "boolean", "on": "always" }
+    }
+  },
+
+  "context": {
+    "_note": "The nine reactive vars, their defaults, and what publishes them. `orientation` is a PLAIN READ: Core/Orientation owns locking and the claim stack, and this module never writes orientation.",
+    "orientation": { "type": "string", "default": "portrait", "publishedBy": "rotation callback" },
+    "lowPowerMode": { "type": "boolean", "default": false, "publishedBy": "power callback" },
+    "thermalState": { "type": "string", "default": "nominal", "publishedBy": "thermal callback" },
+    "fontScale": { "type": "number", "default": 1, "publishedBy": "text size callback" },
+    "insets": { "type": "object", "default": { "top": 0, "bottom": 0, "left": 0, "right": 0 }, "publishedBy": "geometry callback" },
+    "batteryLevel": { "type": "number", "default": -1, "publishedBy": "battery callback" },
+    "isForeground": { "type": "boolean", "default": true, "publishedBy": "app lifecycle" },
+    "locale": { "type": "string", "default": "en-US", "publishedBy": "locale change callback" },
+    "isRTL": { "type": "boolean", "default": false, "publishedBy": "locale change callback" }
+  }
+}

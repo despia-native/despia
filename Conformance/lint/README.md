@@ -8,7 +8,7 @@ runner and silently drift on another.
 
 | File | Role |
 |---|---|
-| `facts.json` | the SHARED rule ground truth (doc 09 step 1): built-in tags, code/declaration tags, head order and ranks, handler budgets, identifier tags, keyed collections. Edit it and every runner that loads it changes at once |
+| `facts.json` | the SHARED rule ground truth (doc 09 step 1): built-in tags, capitalized global element tags (kernel elements like `Table` that need no package component — the Ruby gate resolves them from the Swift Foundation pool, the repo's ground truth; the shipped CLI carries the tethered literal), code/declaration tags, head order and ranks, handler budgets, identifier tags, keyed collections. Edit it and every runner that loads it changes at once |
 | `cases/shared/*.dsx` + `.expected.json` | the rules all runners own — run on all three |
 | `cases/web/*` | the WEB-ONLY rules (the doc 05 `<api>` flags, the doc 04 route-table checks) — TS side only |
 

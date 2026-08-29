@@ -30,6 +30,16 @@
       "type": "string",
       "default": null,
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Pressable/swift/Pressable.swift:35,44 (dsx.followHref() — tap navigates the route table after on"
+    },
+    "disabled": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Pressable/swift/Pressable.swift:31 (the W9 disabled-grammar pair \u2014 `disabled` OR `disabled-if` truthy disables; all three renderers)"
+    },
+    "disabled-if": {
+      "type": "expr",
+      "default": null,
+      "_src": "the conditional half of the W9 disabled-grammar pair, ratified with `disabled` and implemented on all three renderers - see the `disabled` row above"
     }
   },
   "geometry": {

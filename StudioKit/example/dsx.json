@@ -1,0 +1,41 @@
+{
+  "name": "Copy",
+  "scheme": "copy",
+  "version": "1.0.0",
+  "summary": "Edit every word on a screen in one list, and find the placeholder text you forgot to replace",
+  "studioApi": 1,
+  "_note": "THE REFERENCE APP (studio-apps.md §13). Copy this package, rename the scheme, and you have a Despia app that already obeys every rule the shelf checks: a docked side panel as its placement, StudioKit for every pixel, grants it actually uses and no others, a tool row that runs headless from the CLI and MCP, and no colour literal anywhere. It is also a real app rather than a demo - copy is the thing every team fixes last and ships wrong, and this reads a screen's words through the tree seam and writes them back through the surgery door, so every change is a commit you can revert. The browser oracle (packages/dom/oracle/studio-apps-browser.ts) mounts THIS package rather than a copy of it, so the screenshots in the proof set are pictures of the example an author is handed.",
+  "facets": {
+    "apps": {
+      "panel": {
+        "slot": "studio.panel",
+        "component": "Components/Copy.dsx",
+        "title": "Copy",
+        "icon": "pencil.line",
+        "order": "200",
+        "grants": [
+          "project:read",
+          "project:write",
+          "selection:read"
+        ]
+      },
+      "inspector": {
+        "slot": "studio.inspector.section",
+        "component": "Components/Words.dsx",
+        "title": "Copy",
+        "order": "210",
+        "grants": [
+          "project:read",
+          "selection:read"
+        ]
+      },
+      "audit": {
+        "slot": "tool",
+        "action": "findPlaceholders",
+        "run": "Server/Tools.dsx#findPlaceholders",
+        "title": "Find placeholder copy",
+        "description": "Scan this project's screens for text nobody replaced - Lorem ipsum, TODO, Untitled, 'Text' - and report where each one is, so a launch never ships with a placeholder on it. Runs from the panel, from `despia app run copy findPlaceholders`, and from an agent over MCP"
+      }
+    }
+  }
+}

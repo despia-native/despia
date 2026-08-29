@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "component": "Spotlight",
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Spotlight.dsx",
+  "_note": "<Spotlight> — coach marks (U11): a scrim, a ring around the thing being explained, and a card that walks the user through. Each step announces 'Step 2 of 4: <title>. <body>' as ONE utterance, ONE-BASED, because that is how the copy on screen reads. THE RING GEOMETRY is the fold worth pinning: a zstack centres its children, so a caller rect in the spotlight's own box coordinates becomes the offset of its CENTRE from the box's centre, and a step with NO RECT is simply a card - the honest thing to show when the target is off screen - rather than a ring at 0,0 pointing at nothing. The walk clamps into the step set at both ends, and an empty set turns the whole overlay off, so an onboarding with no steps cannot leave a scrim over an unreachable screen. DECLARED FALLBACKS: `ref=` does not exist yet, so the caller supplies the rect; and a true focus trap needs the modal primitive <sheet>/<alert> own, so the scrim swallowing every tap is what is claimed here and nothing more.",
+  "cases": [
+    {
+      "name": "a walk with steps is on, seated at the first one",
+      "attributes": { "steps": "[{\"title\":\"Library\",\"body\":\"All saved.\",\"x\":16,\"y\":90,\"width\":120,\"height\":44},{\"title\":\"Two\"}]" },
+      "vars": { "spotlightIndex": 0, "spotlightBox": { "width": 390, "height": 844 } },
+      "expect": [
+        { "expr": "dsx.variable.spotlightOn", "value": true },
+        { "expr": "dsx.variable.spotlightAt", "value": 0 },
+        { "expr": "dsx.variable.spotlightLast", "value": false },
+        { "expr": "dsx.variable.spotlightUtterance", "value": "Step 1 of 2: Library. All saved." }
+      ]
+    },
+    {
+      "name": "EMPTY: no steps turns the overlay OFF, so no scrim traps an untouchable screen",
+      "attributes": { "steps": "[]" },
+      "expect": [
+        { "expr": "dsx.variable.spotlightSteps", "value": [] },
+        { "expr": "dsx.variable.spotlightOn", "value": false }
+      ]
+    },
+    {
+      "name": "a missing `steps` is off, not a thrown parse",
+      "attributes": {},
+      "expect": [{ "expr": "dsx.variable.spotlightOn", "value": false }]
+    },
+    {
+      "name": "text that is not a JSON array fails open to off",
+      "attributes": { "steps": "coach marks please" },
+      "expect": [{ "expr": "dsx.variable.spotlightOn", "value": false }]
+    },
+    {
+      "name": "active defaults to on, and active=\"false\" dismisses from outside",
+      "attributes": { "steps": "[{\"title\":\"A\"}]", "active": "false" },
+      "expect": [{ "expr": "dsx.variable.spotlightOn", "value": false }]
+    },
+    {
+      "name": "the ring centres on the caller's rect inside the measured box",
+      "attributes": { "steps": "[{\"title\":\"Library\",\"x\":16,\"y\":90,\"width\":120,\"height\":44}]" },
+      "vars": { "spotlightIndex": 0, "spotlightBox": { "width": 390, "height": 844 } },
+      "expect": [
+        { "expr": "dsx.variable.spotlightHasRect", "value": true },
+        { "expr": "dsx.variable.spotlightRingX", "value": -119 },
+        { "expr": "dsx.variable.spotlightRingY", "value": -310 }
+      ]
+    },
+    {
+      "name": "a step with NO RECT is a card, not a ring at the origin",
+      "attributes": { "steps": "[{\"title\":\"Anywhere\",\"body\":\"No target.\"}]" },
+      "vars": { "spotlightIndex": 0, "spotlightBox": { "width": 390, "height": 844 } },
+      "expect": [
+        { "expr": "dsx.variable.spotlightHasRect", "value": false },
+        { "expr": "dsx.variable.spotlightUtterance", "value": "Step 1 of 1: Anywhere. No target." }
+      ]
+    },
+    {
+      "name": "a rect with zero width is no rect — half a ring is worse than none",
+      "attributes": { "steps": "[{\"title\":\"A\",\"x\":10,\"y\":10,\"width\":0,\"height\":44}]" },
+      "vars": { "spotlightIndex": 0, "spotlightBox": { "width": 390, "height": 844 } },
+      "expect": [{ "expr": "dsx.variable.spotlightHasRect", "value": false }]
+    },
+    {
+      "name": "before the box is measured the ring still resolves to a number, never NaN",
+      "attributes": { "steps": "[{\"title\":\"A\",\"x\":16,\"y\":90,\"width\":120,\"height\":44}]" },
+      "vars": { "spotlightIndex": 0, "spotlightBox": { "width": 0, "height": 0 } },
+      "expect": [
+        { "expr": "dsx.variable.spotlightRingX", "value": 76 },
+        { "expr": "dsx.variable.spotlightRingY", "value": 112 }
+      ]
+    },
+    {
+      "name": "the walk clamps at the end and reports the last step as last",
+      "attributes": { "steps": "[{\"title\":\"A\"},{\"title\":\"B\"}]" },
+      "vars": { "spotlightIndex": 9, "spotlightBox": { "width": 390, "height": 844 } },
+      "expect": [
+        { "expr": "dsx.variable.spotlightAt", "value": 1 },
+        { "expr": "dsx.variable.spotlightLast", "value": true },
+        { "expr": "dsx.variable.spotlightUtterance", "value": "Step 2 of 2: B" }
+      ]
+    },
+    {
+      "name": "the walk clamps at the start too",
+      "attributes": { "steps": "[{\"title\":\"A\"},{\"title\":\"B\"}]" },
+      "vars": { "spotlightIndex": -4, "spotlightBox": { "width": 390, "height": 844 } },
+      "expect": [{ "expr": "dsx.variable.spotlightAt", "value": 0 }]
+    },
+    {
+      "name": "a step with no body drops the sentence rather than announcing a trailing full stop",
+      "attributes": { "steps": "[{\"title\":\"A\"},{\"title\":\"B\",\"body\":\"\"}]" },
+      "vars": { "spotlightIndex": 1, "spotlightBox": { "width": 390, "height": 844 } },
+      "expect": [{ "expr": "dsx.variable.spotlightUtterance", "value": "Step 2 of 2: B" }]
+    },
+    {
+      "name": "the button copy is localizable and defaults in English",
+      "attributes": { "steps": "[{\"title\":\"A\"}]" },
+      "expect": [
+        { "expr": "dsx.attribute.nextLabel", "value": "Next" },
+        { "expr": "dsx.attribute.backLabel", "value": "Back" },
+        { "expr": "dsx.attribute.doneLabel", "value": "Done" },
+        { "expr": "dsx.attribute.skipLabel", "value": "Skip" }
+      ]
+    },
+    {
+      "name": "the walk starts where `current` says, one-based in and zero-based inside",
+      "attributes": { "steps": "[{\"title\":\"A\"},{\"title\":\"B\"},{\"title\":\"C\"}]" },
+      "vars": { "spotlightIndex": 2, "spotlightBox": { "width": 390, "height": 844 } },
+      "expect": [
+        { "expr": "dsx.variable.spotlightAt", "value": 2 },
+        { "expr": "dsx.variable.spotlightStep.title", "value": "C" },
+        { "expr": "dsx.variable.spotlightLast", "value": true }
+      ]
+    }
+  ]
+}

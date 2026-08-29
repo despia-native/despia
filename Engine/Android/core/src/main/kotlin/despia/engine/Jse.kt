@@ -112,6 +112,7 @@ class StackStore {
     var fnDepth = 0                                               // guards user-function recursion (capped at 32 — bounded, can't hang)
     var evalDepth = 0                                             // guards expression-evaluator recursion (capped at 64 in JSE.eval — past it the expression yields null + logs)
     var attrDefaults: MutableMap<String, String> = HashMap()      // declared prop defaults: <attribute as="x" default="…"/>
+    var overrideDecls: MutableMap<String, OverrideDecl> = LinkedHashMap()  // declared style knobs: <override as="x" type="…" default="…"/>
 }
 
 object JSE {                  // JSE — the expression evaluator
@@ -154,6 +155,60 @@ object JSE {                  // JSE — the expression evaluator
     /// BUDGET — entering author JSE from a fresh tick gives every cascade the full,
     /// empty stack.) Direct gestures and measure= stay synchronous, exactly like iOS.
     fun afterRender(work: () -> Unit) = afterRenderDispatch(work)
+
+    /**
+     * How deep a component may expand before the renderer stops.
+     *
+     * NOT a budget, and never to be tuned for taste. A component that names itself is a
+     * legitimate and common shape - a tree, an outliner, a comment thread, a file browser -
+     * and it terminates because the DATA terminates. This exists for the one case where the
+     * data does not: a cycle or a corrupt child list, where the only alternatives are an
+     * unbounded render and a dead stack. Bounded output beats a crash, and legitimate
+     * nesting must never reach it. The previous 32 was a guess made before anything
+     * recursive shipped and it capped real trees. Uniform on all three renderers (corpus
+     * Conformance/composition/attribute-binding.json `recursion`). It lives in :core rather
+     * than beside its one caller so the SDK-free lane can gate it against the corpus.
+     */
+    const val COMPONENT_DEPTH_CAP = 256
+
+    /** What an author meant by one `name="..."` attribute. Corpus:
+     *  OpenSource/Conformance/composition/attribute-binding.json. Twins: the TS
+     *  `attributeBinding` and the Swift `JSE.attributeBinding`. */
+    sealed class AttributeBinding {
+        object Static : AttributeBinding()
+        data class Value(val expr: String) : AttributeBinding()
+        object Text : AttributeBinding()
+    }
+
+    /**
+     * The attribute-binding FOLD - pure syntax, no store, no evaluation.
+     *
+     * A sole `{{ ... }}` carries the expression's VALUE; anything mixed carries the string.
+     * Without the distinction every consumer prop arrives interpolated, which is invisible
+     * for a label and fatal for structure: a component that renders its own children cannot
+     * hand them down, so a tree, an outliner or a comment thread is unbuildable.
+     *
+     * A hole ends at the FIRST `}}`, matching `interpolate`'s own scan exactly. The two must
+     * never disagree about where an expression stops - that disagreement is a silent type
+     * change, and one shared wrong answer is repairable where a split one is not.
+     */
+    fun attributeBinding(template: String): AttributeBinding {
+        if (!template.contains("{{")) return AttributeBinding.Static
+        val t = template.trim()
+        if (!t.startsWith("{{")) return AttributeBinding.Text
+        val close = t.indexOf("}}", 2)
+        if (close < 0 || close != t.length - 2) return AttributeBinding.Text
+        return AttributeBinding.Value(t.substring(2, close))
+    }
+
+    /** Resolve one consumer attribute to the value it should carry: typed when the template
+     *  is a sole hole, its own text when it has none, the interpolated sentence otherwise. */
+    fun bindAttribute(template: String, store: StackStore, item: Map<String, Any?>?): Any? =
+        when (val b = attributeBinding(template)) {
+            is AttributeBinding.Static -> template
+            is AttributeBinding.Value -> eval(b.expr, store, item)
+            is AttributeBinding.Text -> interpolate(template, store, item)
+        }
 
     fun interpolate(s: String, store: StackStore, item: Map<String, Any?>?): String {
         if (!s.contains("{{")) return s
@@ -231,7 +286,8 @@ object JSE {                  // JSE — the expression evaluator
     /// A single expression returns directly; a `{ }` block runs `if (…) { } else if { } else { }`,
     /// `const`/`let`, and `return` (early, or the last bare expression as an implicit return) —
     /// exactly like a JS function body. PURE: `const`/`let`/`x = e` write a throwaway local scope
-    /// (seeded with `item`), never the store. Total — branches only, no `for`/`while` — so it
+    /// (seeded with `item`), never the store. Total — the full statement grammar incl.
+    /// BUDGETED loops (10000 iterations per evaluation, corpus core-004) — so it
     /// always terminates. 1:1 JS, interpreted natively (no JS engine, no bridge).
     fun evalBlock(body: String, store: StackStore, item: Map<String, Any?>?): Any? {
         val trimmed = body.trim()                             // Swift .whitespacesAndNewlines
@@ -392,12 +448,20 @@ object JSE {                  // JSE — the expression evaluator
     /// The bounded-JS statement interpreter for a `{ }` body — `if (…) { } else if { } else { }`,
     /// braceless `if (c) return x`, `const`/`let`, `return`, nested `function` decls (skipped here;
     /// registered at the node), and bare expression statements (the last is the implicit value).
-    /// Branches only — no `for`/`while` — so a block is always total.
-    private class JSEval(val t: List<Token>, val store: StackStore, scope: Map<String, Any?>) {
+    /// Branches + BUDGETED loops (10000 iterations per evaluation, core-004) — a block
+    /// is always total.
+    private class LoopBudget { var used = 0 }
+
+    private class JSEval(
+        val t: List<Token>, val store: StackStore, scope: Map<String, Any?>,
+        share: MutableMap<String, Any?>? = null, budget: LoopBudget? = null,
+    ) {
         var i = 0
-        var scope: MutableMap<String, Any?> = HashMap(scope)      // Swift value-copies the dict
+        var scope: MutableMap<String, Any?> = share ?: HashMap(scope)   // Swift value-copies the dict
         var result: Any? = null
         var done = false
+        var flow: String? = null                                  // "break" | "continue" — consumed by the owning loop
+        val budget: LoopBudget = budget ?: LoopBudget()
 
         fun cur(): Token? = if (i < t.size) t[i] else null
         fun isOp(s: String): Boolean { val tk = cur(); return tk is Token.Op && tk.v == s }
@@ -405,7 +469,7 @@ object JSE {                  // JSE — the expression evaluator
 
         /// Run statements until end-of-tokens or a closing `}` (left for the caller to consume).
         fun runBlock() {
-            while (!done) {
+            while (!done && flow == null) {
                 val tk = cur() ?: return
                 if (tk is Token.Op && tk.v == "}") return
                 if (tk is Token.Op && tk.v == ";") { i += 1; continue }
@@ -440,6 +504,11 @@ object JSE {                  // JSE — the expression evaluator
         private fun statement(execute: Boolean) {
             if (isKw("function")) { skipFunction(); return }
             if (isKw("if")) { ifStmt(execute); return }
+            if (isKw("for")) { forStmt(execute); return }
+            if (isKw("while")) { whileStmt(execute); return }
+            if (isKw("do")) { doStmt(execute); return }
+            if (isKw("break")) { i += 1; if (isOp(";")) i += 1; if (execute) flow = "break"; return }
+            if (isKw("continue")) { i += 1; if (isOp(";")) i += 1; if (execute) flow = "continue"; return }
             if (isKw("const") || isKw("let") || isKw("var")) { declStmt(execute); return }
             if (isKw("return")) { returnStmt(execute); return }
             val toks = capture(setOf(";")); if (isOp(";")) i += 1
@@ -479,6 +548,147 @@ object JSE {                  // JSE — the expression evaluator
             val toks = capture(setOf(";")); if (isOp(";")) i += 1
             if (execute) { result = if (toks.isEmpty()) null else evalExpr(toks); done = true }
         }
+        /// One loop iteration on the SHARED ledger — 10000 per block evaluation, the
+        /// action runner's bounded-execution law. Past it every loop stops; total stays.
+        private fun loopStep(): Boolean { budget.used += 1; return budget.used <= 10000 }
+
+        /// Capture a loop body: a `{ … }` group (braces consumed) or one bare statement.
+        private fun captureBranchTokens(): List<Token> {
+            if (isOp("{")) {
+                i += 1
+                val out = ArrayList<Token>()
+                var d = 1
+                while (true) {
+                    val tk = cur() ?: break
+                    if (tk is Token.Op && tk.v == "{") d += 1
+                    else if (tk is Token.Op && tk.v == "}") { d -= 1; if (d == 0) { i += 1; break } }
+                    out.add(tk); i += 1
+                }
+                return out
+            }
+            val out = capture(setOf(";")); if (isOp(";")) i += 1
+            return out
+        }
+
+        /// Run captured statements against THIS block's scope (shared, not copied) and
+        /// its shared budget; a `return` settles this block, break/continue surface as
+        /// flow for the owning loop to consume.
+        private fun runCaptured(body: List<Token>) {
+            val e = JSEval(body, store, emptyMap(), share = scope, budget = budget)
+            e.runBlock()
+            if (e.done) { result = e.result; done = true }
+            flow = e.flow
+        }
+
+        private fun splitOnSemis(toks: List<Token>): List<List<Token>> {
+            val out = ArrayList<List<Token>>()
+            var cur = ArrayList<Token>()
+            var d = 0
+            for (tk in toks) {
+                if (tk is Token.Op) {
+                    if (tk.v == "(" || tk.v == "[" || tk.v == "{") d += 1
+                    else if (tk.v == ")" || tk.v == "]" || tk.v == "}") d -= 1
+                    else if (d == 0 && tk.v == ";") { out.add(cur); cur = ArrayList(); continue }
+                }
+                cur.add(tk)
+            }
+            out.add(cur)
+            return out
+        }
+
+        /// `for (init; cond; step)` · `for ([const] pattern of expr)` · `for ([const] k
+        /// in expr)` — the loop grammar in expression blocks (corpus core-004), budgeted,
+        /// with the classic form gated on top-level `;` (a classic cond may contain the
+        /// `in` OPERATOR).
+        private fun forStmt(execute: Boolean) {
+            i += 1                                                 // 'for'
+            val head = captureParen()
+            val body = captureBranchTokens()
+            if (!execute) return
+            val parts = splitOnSemis(head)
+            if (parts.size == 3) {
+                runCaptured(parts[0])
+                if (done) return
+                flow = null
+                while (true) {
+                    if (parts[1].isNotEmpty() && !truthy(evalExpr(parts[1]))) break
+                    if (!loopStep()) break
+                    runCaptured(body)
+                    if (done) return
+                    if (flow == "break") { flow = null; break }
+                    flow = null
+                    runCaptured(parts[2])
+                    if (done) return
+                    flow = null
+                }
+                return
+            }
+            var p = 0
+            val first = head.getOrNull(p)
+            if (first is Token.Ident && (first.v == "const" || first.v == "let" || first.v == "var")) p += 1
+            var kwAt = -1
+            var kind: String? = null
+            var d = 0
+            var k = p
+            while (k < head.size) {
+                val tk = head[k]
+                if (tk is Token.Op) {
+                    if (tk.v == "(" || tk.v == "[" || tk.v == "{") d += 1
+                    else if (tk.v == ")" || tk.v == "]" || tk.v == "}") d -= 1
+                }
+                if (d == 0 && tk is Token.Ident && (tk.v == "of" || tk.v == "in")) { kwAt = k; kind = tk.v; break }
+                k += 1
+            }
+            if (kwAt < 0 || kind == null) return
+            val patToks = head.subList(p, kwAt)
+            val exprToks = head.subList(kwAt + 1, head.size)
+            val decls = parseDeclarators(patToks + listOf(Token.Op("="), Token.Num(0.0)))
+            if (decls.size != 1) return
+            val pattern = decls[0].pattern
+            val seq = if (kind == "of") spreadValues(evalExpr(exprToks)) else forInKeys(evalExpr(exprToks))
+            for (el in seq) {
+                if (!loopStep()) break
+                bindPattern(pattern, el, { n, value -> scope[n] = value ?: NSNull }, { toks2 -> evalExpr(toks2) })
+                runCaptured(body)
+                if (done) return
+                if (flow == "break") { flow = null; break }
+                flow = null
+            }
+        }
+
+        private fun whileStmt(execute: Boolean) {
+            i += 1                                                 // 'while'
+            val cond = captureParen()
+            val body = captureBranchTokens()
+            if (!execute) return
+            while (truthy(evalExpr(cond))) {
+                if (!loopStep()) break
+                runCaptured(body)
+                if (done) return
+                if (flow == "break") { flow = null; break }
+                flow = null
+            }
+        }
+
+        private fun doStmt(execute: Boolean) {
+            i += 1                                                 // 'do'
+            val body = captureBranchTokens()
+            var cond: List<Token> = emptyList()
+            if (isKw("while")) {
+                i += 1
+                cond = captureParen()
+                if (isOp(";")) i += 1
+            }
+            if (!execute) return
+            do {
+                if (!loopStep()) break
+                runCaptured(body)
+                if (done) return
+                if (flow == "break") { flow = null; break }
+                flow = null
+            } while (truthy(evalExpr(cond)))
+        }
+
         private fun skipFunction() {
             while (true) {
                 val tk = cur() ?: break
@@ -507,11 +717,164 @@ object JSE {                  // JSE — the expression evaluator
             // local assignment `x = e` (single ident LHS), else a bare expression (implicit value).
             if (toks.size >= 2) {
                 val t0 = toks[0]; val t1 = toks[1]
-                if (t0 is Token.Ident && t1 is Token.Op && t1.v == "=") {
+                if (t0 is Token.Ident && !t0.v.contains(".") && t1 is Token.Op && t1.v == "=") {
                     scope[t0.v] = evalExpr(toks.drop(2)) ?: NSNull; return
                 }
             }
+            // BLOCK-SCOPE MUTATION (corpus core-003): dotted / computed-key / indexed
+            // assignment into a scope name, compound assignment, ++/--, and statement-
+            // position `.push(…)` all REBUILD the local (value semantics — never an
+            // alias, never the store). The accumulator idioms, made real.
+            val lead = toks.getOrNull(0)
+            if (lead is Token.Op && (lead.v == "++" || lead.v == "--")) {
+                if (pathMutation(toks.drop(1) + lead)) return      // prefix form → the postfix shape
+            }
+            if (pathMutation(toks)) return
             result = evalExpr(toks)
+        }
+
+        /// Parse and perform `NAME(seg…) op= rhs` / `NAME(seg…).push(args)`; true when
+        /// handled. A dotted ident is ONE token (the tokenizer's dotted-ident rule), so
+        /// static segments split out of the leading token and every post-bracket run.
+        private fun pathMutation(toks: List<Token>): Boolean {
+            val t0 = toks.getOrNull(0)
+            if (toks.size < 2 || t0 !is Token.Ident) return false
+            val head = t0.v.split(".")
+            val name = head[0]
+            // dsx.* / global.* / route.* / cookie.* are NAMESPACES, not block locals —
+            // a block body never writes them (the evalBlock purity contract).
+            if (name.isEmpty() || name == "dsx" || name == "global" || name == "route" || name == "cookie") return false
+            val segs = ArrayList<Any>()                              // String (static) | List<Token> (computed)
+            for (part in head.drop(1)) segs.add(part)
+            var j = 1
+            while (true) {
+                val a = toks.getOrNull(j); val b = toks.getOrNull(j + 1)
+                if (a is Token.Op && a.v == "." && b is Token.Ident) {
+                    for (part in b.v.split(".")) segs.add(part); j += 2; continue
+                }
+                if (a is Token.Op && a.v == "[") {
+                    val inner = ArrayList<Token>(); var d = 1; var k = j + 1
+                    while (k < toks.size) {
+                        val tk = toks[k]
+                        if (tk is Token.Op && (tk.v == "[" || tk.v == "(" || tk.v == "{")) d += 1
+                        if (tk is Token.Op && (tk.v == "]" || tk.v == ")" || tk.v == "}")) { d -= 1; if (d == 0) break }
+                        inner.add(tk); k += 1
+                    }
+                    if (k >= toks.size) return false
+                    segs.add(inner); j = k + 1; continue
+                }
+                break
+            }
+            val opTok = toks.getOrNull(j)
+            // `x++` / `m.n--` — read-modify-write through the same path law.
+            if (opTok is Token.Op && (opTok.v == "++" || opTok.v == "--") && j == toks.size - 1) {
+                val parts = evalSegs(segs)
+                val value = arith(getInLocal(baseFor(name), parts), 1.0, if (opTok.v == "++") "+" else "-")
+                if (parts.isEmpty()) scope[name] = value ?: NSNull
+                else scope[name] = setInLocal(baseFor(name), parts, value ?: NSNull)
+                return true
+            }
+            // `path.push(a, b)` — statement-position growth of the local array (push has
+            // no pure reading; pop/shift stay pure reads, stdlib-002). The whole
+            // statement must be exactly the call.
+            if (segs.isNotEmpty() && segs.last() == "push" && opTok is Token.Op && opTok.v == "(") {
+                val inner = ArrayList<Token>(); var d = 1; var k = j + 1
+                while (k < toks.size) {
+                    val tk = toks[k]
+                    if (tk is Token.Op && (tk.v == "(" || tk.v == "[" || tk.v == "{")) d += 1
+                    if (tk is Token.Op && (tk.v == ")" || tk.v == "]" || tk.v == "}")) { d -= 1; if (d == 0) break }
+                    inner.add(tk); k += 1
+                }
+                if (d != 0 || k != toks.size - 1) return false
+                segs.removeAt(segs.size - 1)
+                val parts = evalSegs(segs)
+                val arr = ArrayList(asArray(getInLocal(baseFor(name), parts)))
+                for (run in splitTopLevelTokens(inner)) if (run.isNotEmpty()) arr.add(evalExpr(run) ?: NSNull)
+                scope[name] = setInLocal(baseFor(name), parts, arr)
+                return true
+            }
+            if (opTok !is Token.Op) return false
+            if (opTok.v != "=" && opTok.v != "+=" && opTok.v != "-=" && opTok.v != "*=" && opTok.v != "/=" && opTok.v != "%=") return false
+            val rhsToks = toks.drop(j + 1)
+            if (rhsToks.isEmpty()) return false
+            val rhs = evalExpr(rhsToks)
+            val parts = evalSegs(segs)
+            val value = if (opTok.v == "=") rhs
+                        else arith(getInLocal(baseFor(name), parts), rhs, opTok.v.substring(0, 1))
+            if (parts.isEmpty()) { scope[name] = value ?: NSNull; return true }
+            scope[name] = setInLocal(baseFor(name), parts, value ?: NSNull)
+            return true
+        }
+
+        /// The container a path write rebuilds from: the block's own binding, else the
+        /// normal lookup (a caller-scope name copies in on first write — the evalBlock
+        /// purity contract: reads shadow, writes stay local).
+        private fun baseFor(name: String): Any? =
+            if (scope.containsKey(name)) scope[name] else evalExpr(listOf(Token.Ident(name)))
+
+        /// Path segments to keys: a static ident stays a string, a computed `[e]`
+        /// evaluates in this scope.
+        private fun evalSegs(segs: List<Any>): List<Any?> = segs.map { seg ->
+            if (seg is String) seg else @Suppress("UNCHECKED_CAST") evalExpr(seg as List<Token>)
+        }
+
+        /// Walk `parts` into `container` — the read twin of setInLocal; missing → null.
+        private fun getInLocal(container: Any?, parts: List<Any?>): Any? {
+            var cur: Any? = container
+            for (p in parts) {
+                cur = when {
+                    cur is List<*> -> {
+                        val idx = number(p)
+                        if (idx != null && idx >= 0 && idx < cur.size) cur[idx.toInt()] else null
+                    }
+                    cur is Map<*, *> -> @Suppress("UNCHECKED_CAST") (cur as Map<String, Any?>)[string(p)]
+                    else -> return null
+                }
+            }
+            return cur
+        }
+
+        /// Rebuild `container` with `parts` set to `value` — BY COPY at every level
+        /// (value semantics: a block-scope path write never aliases another binding).
+        /// A numeric part indexes an array (in bounds, or appends at exactly length);
+        /// anything else keys a dict; a missing nest is created — total, never a throw.
+        private fun setInLocal(container: Any?, parts: List<Any?>, value: Any?): Any? {
+            if (parts.isEmpty()) return value
+            val headSeg = parts[0]
+            val rest = parts.drop(1)
+            if (container is List<*>) {
+                val idx = number(headSeg)
+                if (idx != null) {
+                    val iN = idx.toInt()
+                    val copy = ArrayList<Any?>(container)
+                    if (iN in 0 until copy.size) copy[iN] = setInLocal(copy[iN], rest, value)
+                    else if (iN == copy.size) copy.add(setInLocal(null, rest, value))
+                    return copy
+                }
+            }
+            @Suppress("UNCHECKED_CAST")
+            val d = if (container is Map<*, *>) LinkedHashMap(container as Map<String, Any?>)
+                    else LinkedHashMap<String, Any?>()
+            val key = string(headSeg)
+            d[key] = setInLocal(d[key], rest, value)
+            return d
+        }
+
+        /// Split a token run on top-level commas (argument lists in block statements).
+        private fun splitTopLevelTokens(toks: List<Token>): List<List<Token>> {
+            val out = ArrayList<List<Token>>()
+            var cur = ArrayList<Token>()
+            var d = 0
+            for (tk in toks) {
+                if (tk is Token.Op) {
+                    if (tk.v == "(" || tk.v == "[" || tk.v == "{") d += 1
+                    else if (tk.v == ")" || tk.v == "]" || tk.v == "}") d -= 1
+                    else if (d == 0 && tk.v == ",") { out.add(cur); cur = ArrayList(); continue }
+                }
+                cur.add(tk)
+            }
+            out.add(cur)
+            return out
         }
         /// Collect tokens up to a top-level stop op (depth-aware); does NOT consume the stop.
         private fun capture(stops: Set<String>): List<Token> {
@@ -695,6 +1058,56 @@ object JSE {                  // JSE — the expression evaluator
         return out.toString()
     }
 
+    /// Pass 0 — decode the XML OPERATOR entities. A code body arrives RAW from the markup
+    /// reader on every renderer (code tags are lifted 1:1), so an author who spells `&&`
+    /// as `&amp;&amp;` (attribute muscle memory) hands the lexer `& amp ; & amp ;`:
+    /// bitwise ops over an `amp` identifier that silently evaluate to 0 (the wave-7 F4
+    /// "0" write). The three entities with OPERATOR meaning decode here, outside
+    /// string/template/regex literals only. `&quot;`/`&apos;` stay untouched (decoding
+    /// them would move literal boundaries) and a bare `&` stays literal — the markup
+    /// reader's smart-entity rule, mirrored. Corpus: jse/syntax-006.json (three runners).
+    internal fun decodeOperatorEntities(s: String): String {
+        if (!s.contains("&amp;") && !s.contains("&lt;") && !s.contains("&gt;")) return s
+        val c = s.toCharArray()
+        val out = StringBuilder()
+        var i = 0
+        var prevSig: Char? = null
+        while (i < c.size) {
+            val ch = c[i]
+            if (ch == '\'' || ch == '"') { i = copyQuoted(c, i, out); prevSig = ch; continue }
+            if (ch == '`') { i = copyTemplate(c, i, out); prevSig = '`'; continue }
+            if (ch == '/' && (charAllowsRegex(prevSig) || (prevSig != null && isWordChar(prevSig) && regexAfterKeyword(out)))) {
+                val end = scanRegexEnd(c, i)
+                if (end > 0) {
+                    var k = i
+                    while (k < end) { out.append(c[k]); k += 1 }
+                    prevSig = c[end - 1]
+                    i = end
+                    continue
+                }
+            }
+            if (ch == '&') {
+                val rest = String(c, i + 1, minOf(4, c.size - i - 1))
+                val op = when {
+                    rest.startsWith("amp;") -> '&'
+                    rest.startsWith("lt;") -> '<'
+                    rest.startsWith("gt;") -> '>'
+                    else -> null
+                }
+                if (op != null) {
+                    out.append(op)
+                    prevSig = op
+                    i += if (op == '&') 5 else 4
+                    continue
+                }
+            }
+            out.append(ch)
+            if (!ch.isWhitespace()) prevSig = ch
+            i += 1
+        }
+        return out.toString()
+    }
+
     /// The jsLeaf continuation heuristic (the statement runners' ASI rule), char-level.
     private fun lineContinues(out: StringBuilder, c: CharArray, after: Int): Boolean {
         var t = out.length - 1
@@ -794,11 +1207,11 @@ object JSE {                  // JSE — the expression evaluator
         return out.toString()
     }
 
-    /// The shared entry: lone `\r` line endings normalized, comments out, then
-    /// statement-boundary newlines to `;`.
+    /// The shared entry: lone `\r` line endings normalized, operator entities decoded,
+    /// comments out, then statement-boundary newlines to `;`.
     internal fun preprocessSource(s: String): String {
         val normalized = if (s.contains('\r')) s.replace(Regex("\\r(?!\\n)"), "\n") else s
-        return asiSemicolons(stripComments(normalized))
+        return asiSemicolons(stripComments(decodeOperatorEntities(normalized)))
     }
 
     // ── string-literal escapes (the JS set; unknown escape = the char itself) ────────
@@ -1566,6 +1979,7 @@ object JSE {                  // JSE — the expression evaluator
                                        "toString", "padStart", "padEnd", "toHex", "toBase64", "encode", "decode",
                                        "repeat", "substring", "lastIndexOf", "trimStart", "trimEnd", "charAt", "charCodeAt",
                                        "codePointAt", "normalize", "matchAll", "fill", "toReversed", "with", "toSpliced",
+                                       "pop", "shift",
                                        "entries", "keys", "values", "toFixed",
                                        "getUTCFullYear", "getUTCMonth", "getUTCDate", "getUTCDay", "getUTCHours",
                                        "getUTCMinutes", "getUTCSeconds", "getUTCMilliseconds", "getTimezoneOffset",
@@ -1903,6 +2317,11 @@ object JSE {                  // JSE — the expression evaluator
                 return arr
             }
             "toReversed" -> return asArray(base).reversed()
+            // JS pop()/shift() mutate; JSE values are value-typed on the native runtimes, so
+            // the JSE spelling is the PURE read (the toReversed/toSpliced family's law): last/
+            // first element out, receiver untouched. Corpus: stdlib-002.
+            "pop" -> return asArray(base).lastOrNull()
+            "shift" -> return asArray(base).firstOrNull()
             "with" -> {
                 val arr = ArrayList<Any?>(asArray(base))
                 var i = safeIntI(number(a.getOrNull(0)) ?: 0.0)
@@ -1922,6 +2341,28 @@ object JSE {                  // JSE — the expression evaluator
             "entries" -> return asArray(base).withIndex().map { listOf(it.index.toDouble(), it.value ?: NSNull) }
             "keys" -> return asArray(base).indices.map { it.toDouble() }
             "values" -> return ArrayList<Any?>(asArray(base))
+            "toLocaleString" -> {
+                // NUMBER grouping (corpus stdlib-002): deterministic en-US-style thousands
+                // separators over the JSE string of the value — hand-rolled, so no platform
+                // locale reaches it and three renderers print one string. Date dicts keep
+                // the real locale formatting below; any other receiver keeps the null law.
+                val v = number(base)
+                if (v != null && base !is Map<*, *>) {
+                    val txt = string(v)
+                    val neg = txt.startsWith("-")
+                    val bare = if (neg) txt.substring(1) else txt
+                    val dot = bare.indexOf('.')
+                    val whole = if (dot < 0) bare else bare.substring(0, dot)
+                    val frac = if (dot < 0) "" else bare.substring(dot)
+                    val grouped = StringBuilder()
+                    for (k in whole.indices) {
+                        if (k > 0 && (whole.length - k) % 3 == 0) grouped.append(',')
+                        grouped.append(whole[k])
+                    }
+                    return (if (neg) "-" else "") + grouped.toString() + frac
+                }
+                return null                                       // non-number receivers keep the old path (dates intercept earlier)
+            }
             "toFixed" -> {
                 val v = number(base)
                 if (v == null || !v.isFinite()) return string(base)
@@ -1974,6 +2415,10 @@ object JSE {                  // JSE — the expression evaluator
         // generic computation, 1:1 syntax, native under the hood. See JSECore below.
         if (JSECore.handles(name)) return JSECore.call(name, a)
         when (name) {
+            // SOURCE, DRAWN. The `<code>` surface needs token spans in markup, and a page
+            // cannot reach the scanner any other way - so the kernel exposes it instead of
+            // every caller shipping a fourth tokenizer. Pure: text in, rows of spans out.
+            "highlight" -> return Highlight.jseValue(s(0))
             "upper" -> return s(0).uppercase()
             "lower" -> return s(0).lowercase()
             "cap", "capitalize" -> return capitalizedSwift(s(0))
@@ -2092,7 +2537,15 @@ object JSE {                  // JSE — the expression evaluator
     private fun safeIntI(d: Double): Int =
         safeInt(d).coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
     fun equals(a: Any?, b: Any?): Boolean {   // internal: JSECore's Map/Set share it
-        val x = number(a); val y = number(b)
+        // The scope sentinel reads as null here: a bound-but-null lambda param / const /
+        // destructured key is stored as NSNull, and `x == null` is the guard every author
+        // writes. Without this the sentinel fell through to string coercion ("<null>" != "")
+        // and the guard was silently false. Null equals only null — includes/indexOf/switch/
+        // Map/Set all ride this function, so they inherit the law. Corpus: core-002.
+        val an = if (a === NSNull) null else a
+        val bn = if (b === NSNull) null else b
+        if (an == null || bn == null) return an == null && bn == null
+        val x = number(an); val y = number(bn)
         if (x != null && y != null) {
             val xv: Double = x; val yv: Double = y             // primitive ==: NaN != NaN, -0.0 == 0.0 (Swift semantics)
             return xv == yv
@@ -2438,6 +2891,7 @@ object JSE {                  // JSE — the expression evaluator
             "route" -> join("route")
             "cookie" -> join("cookie")                   // web/native cookie jar — dsx.cookie.name (a value) / dsx.cookie (the whole jar)
             "attribute" -> join("attribute")             // a component's ATTRIBUTES — dsx.attribute.name (never "props")
+            "override" -> join("override")               // a component's STYLE contract — dsx.override.name (Conformance/overrides)
             "item", "this" -> join("item")               // dsx.this ≡ dsx.item — the current <list>/<grid> row
             "element" -> join("item.__element")          // dsx.element.* — the nearest `container`-marked ancestor's live { width, height }
             "params" -> join("route.params")
@@ -2497,6 +2951,21 @@ object JSE {                  // JSE — the expression evaluator
             val jar = cookieJar()
             return if (parts.size == 1) jar else walk(parts.drop(1), jar)
         }
+        // The style-override plane: `dsx.override.<name>` — the component's declared style
+        // knobs, resolved through the shared core (item __overrides -> store var -> default,
+        // typed fail-open coercion; corpus OpenSource/Conformance/overrides).
+        if (first == "override") {
+            @Suppress("UNCHECKED_CAST")
+            val itemOv = item?.get("__overrides") as? Map<String, Any?>
+            @Suppress("UNCHECKED_CAST")
+            val storeOv = store.vars["dsx.override"] as? Map<String, Any?>
+            if (parts.size == 1) return StyleOverrides.resolvePlane(store.overrideDecls.values, itemOv, storeOv)
+            val name = parts[1]
+            val decl = store.overrideDecls[name] ?: return null
+            val raw = itemOv?.get(name) ?: storeOv?.get(name)
+            val v = StyleOverrides.resolve(decl, raw)
+            return if (parts.size == 2) v else walk(parts.drop(2), v)
+        }
         // Explicit local scope: `item.*` (list row) / `attribute.*` (a component's attributes).
         if (first == "item" || first == "attribute") {
             val v = walk(parts.drop(1), item)
@@ -2512,7 +2981,11 @@ object JSE {                  // JSE — the expression evaluator
             }
             if (v == null && first == "attribute" && parts.size == 2) {
                 val def = store.attrDefaults[parts[1]]
-                if (def != null) return eval(def, store, item)
+                //  `default=""` MEANS THE EMPTY STRING (the TS/Swift twins say the same): an
+                //  empty expression evaluated to null, so every attribute declared with an
+                //  empty default read as ABSENT and the usual `!= ''` guard fired for one
+                //  nobody set.
+                if (def != null) return if (def.trim().isEmpty()) "" else eval(def, store, item)
             }
             return v
         }
@@ -2738,7 +3211,7 @@ internal object JSECore {
             "URL", "URLSearchParams", "Headers", "Request", "Blob", "File", "FormData",
             "Date", "AbortController", "structuredClone",
             "encodeURIComponent", "decodeURIComponent", "encodeURI", "decodeURI",
-            "parseInt", "parseFloat", "isNaN", "Number", "String", "Boolean",
+            "parseInt", "parseFloat", "isNaN", "isFinite", "Number", "String", "Boolean",
             "Map", "Set", "Error", "RegExp", "WebSocket" -> true
             else -> false
         }

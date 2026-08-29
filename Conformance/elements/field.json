@@ -55,6 +55,16 @@
       "type": "color",
       "default": "label",
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:119 — system-defaults.md base pass: default rides the semantic token (was the pinned `white`)"
+    },
+    "disabled": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Forms/Field/swift/Field.swift:35 (the W9 disabled-grammar pair \u2014 `disabled` OR `disabled-if` truthy disables; all three renderers)"
+    },
+    "disabled-if": {
+      "type": "expr",
+      "default": null,
+      "_src": "the conditional half of the W9 disabled-grammar pair, ratified with `disabled` and implemented on all three renderers - see the `disabled` row above"
     }
   },
   "geometry": {

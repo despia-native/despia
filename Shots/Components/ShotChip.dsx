@@ -1,0 +1,20 @@
+<hstack style="align-items: center; gap: 0.42rem; padding: 10px 16px; border-radius: 999px;
+               background: rgba(14,14,20,0.82);
+               backdrop-filter: blur(18px) saturate(1.4);
+               border: 1px solid rgba(255,255,255,0.20);
+               box-shadow: 0 10px 26px rgba(0,0,0,0.30); flex: 0 0 auto">
+  <head>
+    <!-- ONE FLOW CHIP: the same dark glass pill the decoration layer draws, but as an
+         ORDINARY FLOW ELEMENT. A feature chip that participates in the column reserves its
+         own space, so it is INCAPABLE of landing on top of the app screen - which is exactly
+         how a freeform percent-positioned chip once ended up covering the greeting it was
+         meant to sit above. Flow is the containment law working for free. -->
+    <attribute as="chip"/>
+  </head>
+
+  <image visible-if="dsx.attribute.chip.icon" icon="{{ dsx.attribute.chip.icon }}" iconSize="18"
+         style="color: {{ dsx.attribute.chip.tint ? dsx.attribute.chip.tint : '#ffd166' }}"/>
+  <text value="{{ dsx.attribute.chip.label }}"
+        style="color: #ffffff; font-size: 15px; font-weight: 650; line-height: 1.15;
+               letter-spacing: -0.01em; white-space: nowrap"/>
+</hstack>

@@ -1,0 +1,66 @@
+{
+  "_note": "Core/LightSensor (F17.9) — the platform-neutral corpus for ambient light. A raw lux number is almost never what an app wants: it wants 'is this a dark room?' so it can dim a reader, or 'is this direct sun?' so it can raise the screen. Left to each caller that threshold is invented three times per app and differs across platforms, so the BUCKETS are pinned here with real illuminance references. The HYSTERESIS is pinned for a different reason: Android's TYPE_LIGHT fires on every hardware sample and the values jitter by several lux with no change in the room, so an unfiltered stream wakes the bridge dozens of times a second to say nothing. Read by kernel/test/lightsensor-conformance.test.ts (TS, reference), :core LightSensorConformanceTest (Kotlin) and Engine/iOS/LightSensor.swift.",
+
+  "limits": {
+    "minIntervalMs": 50,
+    "defaultIntervalMs": 1000,
+    "maxIntervalMs": 60000,
+    "minAbsoluteChange": 1,
+    "minRelativeChange": 0.1
+  },
+
+  "categories": ["dark", "dim", "indoor", "overcast", "daylight", "sunlight"],
+  "thresholds": [10, 50, 1000, 10000, 30000],
+
+  "category": [
+    { "name": "pitch dark", "lux": 0, "expect": "dark" },
+    { "name": "a room with the lights off", "lux": 5, "expect": "dark" },
+    { "name": "the dark/dim boundary is exclusive on the low side", "lux": 9.99, "expect": "dark" },
+    { "name": "ten lux is already dim", "lux": 10, "expect": "dim" },
+    { "name": "candlelight", "lux": 25, "expect": "dim" },
+    { "name": "fifty lux is indoor lighting", "lux": 50, "expect": "indoor" },
+    { "name": "an ordinary office", "lux": 400, "expect": "indoor" },
+    { "name": "a thousand lux is daylight through a window", "lux": 1000, "expect": "overcast" },
+    { "name": "an overcast sky", "lux": 5000, "expect": "overcast" },
+    { "name": "ten thousand is full daylight in shade", "lux": 10000, "expect": "daylight" },
+    { "name": "bright shade", "lux": 25000, "expect": "daylight" },
+    { "name": "thirty thousand is direct sun", "lux": 30000, "expect": "sunlight" },
+    { "name": "midday sun", "lux": 100000, "expect": "sunlight" },
+    { "name": "a nonsense negative reading is no light, not a separate category the hardware cannot distinguish", "lux": -5, "expect": "dark" }
+  ],
+
+  "interval": [
+    { "name": "absent falls back to a second", "raw": null, "expect": 1000 },
+    { "name": "zero is not an interval", "raw": 0, "expect": 1000 },
+    { "name": "negative is not an interval", "raw": -100, "expect": 1000 },
+    { "name": "below the floor is hardware jitter, not light", "raw": 5, "expect": 50 },
+    { "name": "the floor itself", "raw": 50, "expect": 50 },
+    { "name": "inside the band is honoured", "raw": 2500, "expect": 2500 },
+    { "name": "a fractional millisecond rounds", "raw": 2500.4, "expect": 2500 },
+    { "name": "above the ceiling clamps rather than refusing", "raw": 600000, "expect": 60000 }
+  ],
+
+  "emit": [
+    { "name": "the first reading always lands", "previous": null, "next": 300, "expect": true },
+    { "name": "an identical reading is silence", "previous": 300, "next": 300, "expect": false },
+    { "name": "sensor jitter below the noise floor is silence", "previous": 300, "next": 300.5, "expect": false },
+    { "name": "a change above the noise floor but under a tenth is still silence", "previous": 300, "next": 310, "expect": false },
+    { "name": "exactly a tenth lands", "previous": 300, "next": 330, "expect": true },
+    { "name": "a big change lands", "previous": 300, "next": 900, "expect": true },
+    { "name": "a drop lands too — the rule is symmetric", "previous": 900, "next": 300, "expect": true },
+    { "name": "a CATEGORY change always lands, even when the numbers barely moved", "previous": 9.5, "next": 10.2, "expect": true },
+    { "name": "two lux is everything in a dark room", "previous": 3, "next": 5, "expect": true },
+    { "name": "two lux is nothing in direct sun", "previous": 50000, "next": 50002, "expect": false },
+    { "name": "from zero, anything above the noise floor lands", "previous": 0, "next": 2, "expect": true },
+    { "name": "from zero, a sub-lux flicker does not", "previous": 0, "next": 0.4, "expect": false },
+    { "name": "a non-finite reading is never delivered", "previous": 300, "next": "nonsense", "expect": false }
+  ],
+
+  "sample": [
+    { "name": "an ordinary reading", "lux": 400, "expect": { "lux": 400, "category": "indoor" } },
+    { "name": "zero", "lux": 0, "expect": { "lux": 0, "category": "dark" } },
+    { "name": "a negative hardware reading is clamped, because there is no negative light", "lux": -3, "expect": { "lux": 0, "category": "dark" } },
+    { "name": "a fractional reading is kept as read — rounding would lose a dark room's whole range", "lux": 7.25, "expect": { "lux": 7.25, "category": "dark" } },
+    { "name": "direct sun", "lux": 82000, "expect": { "lux": 82000, "category": "sunlight" } }
+  ]
+}

@@ -1,0 +1,53 @@
+<scroll style="background: background">
+<head>
+  <!--
+    Parity fixture: the LANDING PAGE. The starter's public page (App.dsx): brand
+    bar with the sign-in pair, eyebrow + display headline + subcopy, the CTA row,
+    the numbered feature list on hairline separators, and the footer strip. The
+    fidelity ruling keeps landing composition distinct from app chrome; this
+    fixture pins the landing side of that line.
+  -->
+</head>
+<stack style="gap: 0; max-width: 46rem; align-self: center; width: 100%; padding: 0 1.5rem">
+
+  <hstack style="align-items: center; gap: 1rem; padding: 1.125rem 0; border-bottom: 1px solid separator">
+    <text value="Field Notes" style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em"/>
+    <spacer/>
+    <text value="Sign in" style="color: secondary; font-weight: 500; padding: 0.5rem 0.25rem"/>
+    <button label="Open app" variant="prominent"/>
+  </hstack>
+
+  <stack style="gap: 1.25rem; padding: 5rem 0 4.5rem">
+    <text value="THE DESPIA STARTER" style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; color: secondary"/>
+    <text value="Your field notes, everywhere." style="font-size: 3rem; font-weight: 800; letter-spacing: -0.03em"/>
+    <text value="One codebase. A native iOS app, a native Android app, an installable web app and this page." style="font-size: 1.125rem; color: secondary"/>
+    <hstack style="gap: 1.5rem; margin-top: 0.75rem; align-items: center">
+      <button label="Open the app" variant="prominent"/>
+      <text value="How it works" style="color: secondary; font-weight: 500"/>
+    </hstack>
+  </stack>
+
+  <stack style="gap: 0; padding: 0 0 4rem">
+    <hstack style="gap: 1.25rem; padding: 1.5rem 0; border-top: 1px solid separator; align-items: flex-start">
+      <text value="01" style="font-weight: 600; color: tertiary; font-size: 0.875rem; padding-top: 0.2rem"/>
+      <stack style="gap: 0.25rem; flex: 1">
+        <text value="A real account" style="font-weight: 600"/>
+        <text value="Email sign-in against a live backend." style="color: secondary"/>
+      </stack>
+    </hstack>
+    <hstack style="gap: 1.25rem; padding: 1.5rem 0; border-top: 1px solid separator; border-bottom: 1px solid separator; align-items: flex-start">
+      <text value="02" style="font-weight: 600; color: tertiary; font-size: 0.875rem; padding-top: 0.2rem"/>
+      <stack style="gap: 0.25rem; flex: 1">
+        <text value="One set of documents" style="font-weight: 600"/>
+        <text value="A handful of .dsx files, rendered native on iOS and Android and hydrated here." style="color: secondary"/>
+      </stack>
+    </hstack>
+  </stack>
+
+  <hstack style="gap: 1rem; padding: 1.5rem 0 2rem; border-top: 1px solid separator; align-items: center">
+    <text value="Field Notes, the Despia starter" style="color: tertiary; font-size: 0.8125rem"/>
+    <spacer/>
+    <text value="About" style="color: secondary; font-size: 0.8125rem; padding: 0.25rem"/>
+  </hstack>
+</stack>
+</scroll>

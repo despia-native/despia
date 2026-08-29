@@ -119,6 +119,51 @@ class RemoteBundleGateTest {
 
     // ── Fail-open when OFF (Article 7) ────────────────────────────────────────────────────────────
 
+    /**
+     * ANDROIDKEYSTORE REGISTERS "Ed25519" AND CANNOT IMPORT ONE, so the gate must not take the
+     * default provider. Measured 2026-08-22 on an API 36 emulator: a signature that verified in
+     * Ruby and on the JVM was refused on device, because `KeyFactory.getInstance("Ed25519")`
+     * resolved to AndroidKeyStore and `generatePublic(X509EncodedKeySpec(...))` threw
+     *
+     *     InvalidKeySpecException: To generate a key pair in Android Keystore, use
+     *     KeyPairGenerator initialized with android.security.keystore.KeyGenParameterSpec
+     *
+     * which the verify path's catch-all turned into `false` -- surfaced to the user as "altered
+     * or signed by another key". Every Ed25519 verification on Android 13+ was affected,
+     * remote-bundle signatures included, so a correctly signed OTA would have been refused by
+     * every modern device while this suite stayed green.
+     *
+     * IT STAYED GREEN FOR A REASON, and the reason is why this test asserts the CHOICE rather
+     * than the outcome. The JDK's KeyFactory does delayed provider selection: when the first
+     * provider throws InvalidKeySpecException it silently falls through to the next one, so a
+     * hostile provider cannot make `verify` fail on a JVM at all. Android's JCA does not fall
+     * through. An outcome test here would pass under the bug and prove nothing -- it was written
+     * that way first, and it did.
+     */
+    @Test fun theEd25519ProviderIsNeverAndroidKeyStore() {
+        val hostile = object : java.security.Provider("AndroidKeyStore", "1.0", "test double") {
+            init { put("KeyFactory.Ed25519", HostileEd25519KeyFactory::class.java.name) }
+        }
+        java.security.Security.insertProviderAt(hostile, 1)
+        RemoteBundleGate._resetEd25519ProviderProbe()
+        try {
+            assertEquals(
+                "AndroidKeyStore",
+                java.security.KeyFactory.getInstance("Ed25519").provider.name,
+                "the double must be first, or this test proves nothing",
+            )
+            assertTrue(
+                RemoteBundleGate.ed25519ProviderName != null &&
+                    RemoteBundleGate.ed25519ProviderName != "AndroidKeyStore",
+                "the gate must choose a provider that can import a raw key, not the default one " +
+                    "(chose ${RemoteBundleGate.ed25519ProviderName})",
+            )
+        } finally {
+            java.security.Security.removeProvider("AndroidKeyStore")
+            RemoteBundleGate._resetEd25519ProviderProbe()
+        }
+    }
+
     @Test fun absentConfigIsDisabledAndTrusted() {
         assertFalse(RemoteBundleGate.isEnabled)                    // default source ⇒ no block ⇒ OFF
         assertFalse(RemoteBundleGate.requiresVerification)
@@ -659,4 +704,27 @@ class RemoteBundleGateTest {
             RemoteBundleGate.hexSHA256("abc".toByteArray()),
         )
     }
+}
+
+/**
+ * A KeyFactory that advertises Ed25519 and refuses to import one, which is exactly what
+ * AndroidKeyStore does. Public and top-level because a JCA provider instantiates it by name.
+ */
+class HostileEd25519KeyFactory : java.security.KeyFactorySpi() {
+    override fun engineGeneratePublic(keySpec: java.security.spec.KeySpec): java.security.PublicKey =
+        throw java.security.spec.InvalidKeySpecException(
+            "To generate a key pair in Android Keystore, use KeyPairGenerator initialized with " +
+                "android.security.keystore.KeyGenParameterSpec",
+        )
+
+    override fun engineGeneratePrivate(keySpec: java.security.spec.KeySpec): java.security.PrivateKey =
+        throw java.security.spec.InvalidKeySpecException("not supported")
+
+    override fun <T : java.security.spec.KeySpec> engineGetKeySpec(
+        key: java.security.Key,
+        keySpec: Class<T>,
+    ): T = throw java.security.spec.InvalidKeySpecException("not supported")
+
+    override fun engineTranslateKey(key: java.security.Key): java.security.Key =
+        throw java.security.InvalidKeyException("not supported")
 }

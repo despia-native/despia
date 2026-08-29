@@ -1,4 +1,4 @@
-# Security model — what JSE/DSX can do, and what holds it
+# Security model: what JSE/DSX can do, and what holds it
 
 > JSE can fetch, upload files, read/write cookies and shared state, use crypto, call
 > modules, and open sockets. That power needs a stated model. This doc is honest about

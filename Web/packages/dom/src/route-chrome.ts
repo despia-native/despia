@@ -43,4 +43,11 @@ export class FrameChromeClaims<T> {
     const top = liveFrames[liveFrames.length - 1];
     return top === undefined ? undefined : this.claims.get(top);
   }
+
+  /** The claim of the frame directly beneath the top - the Back destination - so the
+   *  chrome can label its back affordance with the previous screen's title. */
+  covered(liveFrames: readonly number[]): T | undefined {
+    const beneath = liveFrames[liveFrames.length - 2];
+    return beneath === undefined ? undefined : this.claims.get(beneath);
+  }
 }

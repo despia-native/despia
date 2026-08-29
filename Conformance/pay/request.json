@@ -1,0 +1,242 @@
+{
+  "_note": "Core/Pay (F17.2) — the platform-neutral corpus for the native wallet sheet. Apple Pay, Google Pay and the Payment Request API take three differently-shaped requests and each hides a bad one differently: one shows a wrong number, one throws, one silently drops a row. So the money arithmetic, the currency exponents, the network vocabulary and the SUM CHECK are decided here and pinned once. Read by kernel/test/payment-conformance.test.ts (TS, reference), :core PaymentConformanceTest (Kotlin), and Engine/iOS/Payment.swift. Expected values were authored by hand from ISO 4217 and the three platform contracts, never recorded from an implementation.",
+
+  "limits": {
+    "maxMinor": 1000000000000,
+    "_note": "A trillion of the smallest coin. Above this is a data-entry error, not a purchase."
+  },
+
+  "vocabulary": {
+    "networks": ["amex", "cartesBancaires", "discover", "eftpos", "electron", "elo", "girocard", "interac", "jcb", "maestro", "mada", "mastercard", "unionPay", "visa"],
+    "capabilities": ["threeDS", "debit", "credit", "emv"],
+    "fields": ["name", "email", "phone", "postalAddress"],
+    "statuses": ["success", "failure", "invalidBillingAddress", "invalidShippingAddress", "invalidShippingContact", "pinRequired", "pinIncorrect", "pinLockout"]
+  },
+
+  "exponent": [
+    { "name": "the ISO default is two", "code": "USD", "expect": 2 },
+    { "name": "lowercase folds", "code": "eur", "expect": 2 },
+    { "name": "surrounding whitespace is trimmed", "code": "  GBP ", "expect": 2 },
+    { "name": "yen has no minor unit", "code": "JPY", "expect": 0 },
+    { "name": "won has no minor unit", "code": "KRW", "expect": 0 },
+    { "name": "dinar has three decimals — the case that breaks every hand-written checkout", "code": "KWD", "expect": 3 },
+    { "name": "an unlisted but well-formed code is assumed to be two", "code": "ZZZ", "expect": 2 },
+    { "name": "two letters is not a currency", "code": "US", "expect": -1 },
+    { "name": "a digit is not a currency letter", "code": "US1", "expect": -1 },
+    { "name": "absent is not a currency", "code": "", "expect": -1 }
+  ],
+
+  "amount": [
+    { "name": "a plain two-decimal string", "raw": "12.34", "exponent": 2, "ok": true, "minor": 1234 },
+    { "name": "a whole-number string still pays out in minor units", "raw": "5", "exponent": 2, "ok": true, "minor": 500 },
+    { "name": "one decimal place is padded, not truncated", "raw": "5.1", "exponent": 2, "ok": true, "minor": 510 },
+    { "name": "zero is a legal amount", "raw": "0", "exponent": 2, "ok": true, "minor": 0 },
+    { "name": "zero with decimals is the same zero", "raw": "0.00", "exponent": 2, "ok": true, "minor": 0 },
+    { "name": "a negative line is a discount", "raw": "-2.50", "exponent": 2, "ok": true, "minor": -250 },
+    { "name": "an explicit plus sign is accepted", "raw": "+7.00", "exponent": 2, "ok": true, "minor": 700 },
+    { "name": "surrounding whitespace is trimmed", "raw": "  9.99  ", "exponent": 2, "ok": true, "minor": 999 },
+    { "name": "a whole JSON number is read as major units", "raw": 5, "exponent": 2, "ok": true, "minor": 500 },
+    { "name": "a whole JSON number in a zero-decimal currency is itself", "raw": 500, "exponent": 0, "ok": true, "minor": 500 },
+    { "name": "a three-decimal currency keeps all three", "raw": "1.234", "exponent": 3, "ok": true, "minor": 1234 },
+    { "name": "a three-decimal currency pads a short fraction", "raw": "1.2", "exponent": 3, "ok": true, "minor": 1200 },
+    { "name": "the classic float trap is exact as a string", "raw": "0.30", "exponent": 2, "ok": true, "minor": 30 },
+    { "name": "a fractional JSON number is refused rather than rounded", "raw": 0.1, "exponent": 2, "ok": false, "error": "invalid_amount" },
+    { "name": "even an apparently safe fractional number is refused — the rule has no exceptions", "raw": 12.5, "exponent": 2, "ok": false, "error": "invalid_amount" },
+    { "name": "more decimals than the currency has is refused, not rounded", "raw": "1.234", "exponent": 2, "ok": false, "error": "invalid_amount" },
+    { "name": "a fraction in a zero-decimal currency is refused", "raw": "100.5", "exponent": 0, "ok": false, "error": "invalid_amount" },
+    { "name": "a currency symbol is not part of an amount", "raw": "$12.34", "exponent": 2, "ok": false, "error": "invalid_amount" },
+    { "name": "a thousands separator is not part of an amount", "raw": "1,234.00", "exponent": 2, "ok": false, "error": "invalid_amount" },
+    { "name": "an empty string is not an amount", "raw": "", "exponent": 2, "ok": false, "error": "invalid_amount" },
+    { "name": "a bare decimal point is not an amount", "raw": ".50", "exponent": 2, "ok": false, "error": "invalid_amount" },
+    { "name": "beyond the ceiling is a data-entry error", "raw": "99999999999", "exponent": 2, "ok": false, "error": "invalid_amount" },
+    { "name": "an unknown currency exponent poisons the parse", "raw": "1.00", "exponent": -1, "ok": false, "error": "invalid_currency" }
+  ],
+
+  "format": [
+    { "name": "two decimals are always shown", "minor": 1234, "exponent": 2, "expect": "12.34" },
+    { "name": "a whole amount still shows its decimals", "minor": 500, "exponent": 2, "expect": "5.00" },
+    { "name": "a sub-unit amount keeps its leading zero", "minor": 7, "exponent": 2, "expect": "0.07" },
+    { "name": "zero", "minor": 0, "exponent": 2, "expect": "0.00" },
+    { "name": "a discount keeps its sign", "minor": -250, "exponent": 2, "expect": "-2.50" },
+    { "name": "a zero-decimal currency shows no point", "minor": 500, "exponent": 0, "expect": "500" },
+    { "name": "a three-decimal currency shows three", "minor": 1234, "exponent": 3, "expect": "1.234" },
+    { "name": "a three-decimal currency pads", "minor": 5, "exponent": 3, "expect": "0.005" }
+  ],
+
+  "networks": [
+    { "name": "an empty request means everything the device can do", "raw": [], "ok": true, "expect": ["amex", "cartesBancaires", "discover", "eftpos", "electron", "elo", "girocard", "interac", "jcb", "maestro", "mada", "mastercard", "unionPay", "visa"] },
+    { "name": "the canonical order is imposed, not the caller's", "raw": ["visa", "amex"], "ok": true, "expect": ["amex", "visa"] },
+    { "name": "duplicates collapse", "raw": ["visa", "Visa", "VISA"], "ok": true, "expect": ["visa"] },
+    { "name": "the spellings the world writes all fold", "raw": ["American Express", "master-card", "china_unionpay"], "ok": true, "expect": ["amex", "mastercard", "unionPay"] },
+    { "name": "a comma string is a list", "raw": "visa,mastercard", "ok": true, "expect": ["mastercard", "visa"] },
+    { "name": "an unknown network is refused rather than silently dropped — a dropped network is a customer who cannot pay", "raw": ["visa", "bitcoin"], "ok": false, "error": "unknown_network" }
+  ],
+
+  "capabilities": [
+    { "name": "the default is 3DS plus both card kinds", "raw": [], "ok": true, "expect": ["threeDS", "debit", "credit"] },
+    { "name": "3DS folds from every spelling", "raw": ["3DS"], "ok": true, "expect": ["threeDS"] },
+    { "name": "3-d secure written out", "raw": ["3d-secure"], "ok": true, "expect": ["threeDS"] },
+    { "name": "canonical order is imposed", "raw": ["emv", "debit"], "ok": true, "expect": ["debit", "emv"] },
+    { "name": "an unknown capability is refused", "raw": ["telepathy"], "ok": false, "error": "unknown_capability" }
+  ],
+
+  "fields": [
+    { "name": "the default collects nothing — asking for an address you do not need is a conversion tax", "raw": [], "ok": true, "expect": [] },
+    { "name": "canonical order is imposed", "raw": ["email", "name"], "ok": true, "expect": ["name", "email"] },
+    { "name": "address spellings fold", "raw": ["shipping address"], "ok": true, "expect": ["postalAddress"] },
+    { "name": "an unknown field is refused", "raw": ["shoeSize"], "ok": false, "error": "unknown_field" }
+  ],
+
+  "status": [
+    { "name": "absent means success — the common case needs no word", "raw": null, "ok": true, "expect": "success" },
+    { "name": "empty means success", "raw": "", "ok": true, "expect": "success" },
+    { "name": "success", "raw": "success", "ok": true, "expect": "success" },
+    { "name": "ok folds to success", "raw": "ok", "ok": true, "expect": "success" },
+    { "name": "failed folds to failure", "raw": "failed", "ok": true, "expect": "failure" },
+    { "name": "the address rejections keep their own words", "raw": "invalid-shipping-address", "ok": true, "expect": "invalidShippingAddress" },
+    { "name": "a typo is refused rather than read as a decline", "raw": "sucess", "ok": false, "error": "unknown_status" }
+  ],
+
+  "request": [
+    {
+      "name": "a two-line cart",
+      "raw": {
+        "merchant": "merchant.com.example.store",
+        "currency": "USD",
+        "items": [
+          { "label": "Coffee beans", "amount": "18.00" },
+          { "label": "Shipping", "amount": "4.99" }
+        ],
+        "total": { "label": "Example Store", "amount": "22.99" }
+      },
+      "ok": true,
+      "plan": {
+        "merchant": "merchant.com.example.store",
+        "currency": "USD",
+        "exponent": 2,
+        "items": [
+          { "label": "Coffee beans", "amountMinor": 1800, "kind": "final" },
+          { "label": "Shipping", "amountMinor": 499, "kind": "final" }
+        ],
+        "total": { "label": "Example Store", "amountMinor": 2299, "kind": "final" },
+        "networks": ["amex", "cartesBancaires", "discover", "eftpos", "electron", "elo", "girocard", "interac", "jcb", "maestro", "mada", "mastercard", "unionPay", "visa"],
+        "capabilities": ["threeDS", "debit", "credit"],
+        "shipping": [],
+        "contact": []
+      }
+    },
+    {
+      "name": "a discount line is legal and counts toward the total",
+      "raw": {
+        "merchant": "merchant.com.example.store",
+        "currency": "USD",
+        "items": [
+          { "label": "Jacket", "amount": "120.00" },
+          { "label": "Autumn sale", "amount": "-20.00" }
+        ],
+        "total": { "label": "Example Store", "amount": "100.00" }
+      },
+      "ok": true,
+      "plan": {
+        "merchant": "merchant.com.example.store",
+        "currency": "USD",
+        "exponent": 2,
+        "items": [
+          { "label": "Jacket", "amountMinor": 12000, "kind": "final" },
+          { "label": "Autumn sale", "amountMinor": -2000, "kind": "final" }
+        ],
+        "total": { "label": "Example Store", "amountMinor": 10000, "kind": "final" },
+        "networks": ["amex", "cartesBancaires", "discover", "eftpos", "electron", "elo", "girocard", "interac", "jcb", "maestro", "mada", "mastercard", "unionPay", "visa"],
+        "capabilities": ["threeDS", "debit", "credit"],
+        "shipping": [],
+        "contact": []
+      }
+    },
+    {
+      "name": "a pending line is exempt from the sum, because its amount is not yet known",
+      "raw": {
+        "merchant": "m",
+        "currency": "USD",
+        "items": [
+          { "label": "Desk", "amount": "300.00" },
+          { "label": "Shipping", "amount": "0", "type": "pending" }
+        ],
+        "total": { "label": "Example", "amount": "300.00" },
+        "networks": ["visa"],
+        "capabilities": ["3ds"],
+        "shipping": ["postalAddress"],
+        "contact": ["email"]
+      },
+      "ok": true,
+      "plan": {
+        "merchant": "m",
+        "currency": "USD",
+        "exponent": 2,
+        "items": [
+          { "label": "Desk", "amountMinor": 30000, "kind": "final" },
+          { "label": "Shipping", "amountMinor": 0, "kind": "pending" }
+        ],
+        "total": { "label": "Example", "amountMinor": 30000, "kind": "final" },
+        "networks": ["visa"],
+        "capabilities": ["threeDS"],
+        "shipping": ["postalAddress"],
+        "contact": ["email"]
+      }
+    },
+    {
+      "name": "a zero-decimal currency needs no decimal point anywhere",
+      "raw": {
+        "merchant": "m",
+        "currency": "JPY",
+        "items": [{ "label": "Ramen", "amount": "1200" }],
+        "total": { "label": "Example", "amount": "1200" }
+      },
+      "ok": true,
+      "plan": {
+        "merchant": "m",
+        "currency": "JPY",
+        "exponent": 0,
+        "items": [{ "label": "Ramen", "amountMinor": 1200, "kind": "final" }],
+        "total": { "label": "Example", "amountMinor": 1200, "kind": "final" },
+        "networks": ["amex", "cartesBancaires", "discover", "eftpos", "electron", "elo", "girocard", "interac", "jcb", "maestro", "mada", "mastercard", "unionPay", "visa"],
+        "capabilities": ["threeDS", "debit", "credit"],
+        "shipping": [],
+        "contact": []
+      }
+    },
+    {
+      "name": "the sum check catches the single most common wallet bug",
+      "raw": {
+        "merchant": "m",
+        "currency": "USD",
+        "items": [
+          { "label": "A", "amount": "10.00" },
+          { "label": "B", "amount": "5.00" }
+        ],
+        "total": { "label": "Example", "amount": "14.99" }
+      },
+      "ok": false,
+      "error": "total_mismatch"
+    },
+    {
+      "name": "one cent out is still out",
+      "raw": {
+        "merchant": "m",
+        "currency": "USD",
+        "items": [{ "label": "A", "amount": "10.00" }],
+        "total": { "label": "Example", "amount": "10.01" }
+      },
+      "ok": false,
+      "error": "total_mismatch"
+    },
+    { "name": "no merchant identifier", "raw": { "currency": "USD", "items": [{ "label": "A", "amount": "1.00" }], "total": { "label": "T", "amount": "1.00" } }, "ok": false, "error": "missing_merchant" },
+    { "name": "a blank merchant identifier is no identifier", "raw": { "merchant": "   ", "currency": "USD", "items": [{ "label": "A", "amount": "1.00" }], "total": { "label": "T", "amount": "1.00" } }, "ok": false, "error": "missing_merchant" },
+    { "name": "an empty cart has nothing to charge for", "raw": { "merchant": "m", "currency": "USD", "items": [], "total": { "label": "T", "amount": "0" } }, "ok": false, "error": "no_items" },
+    { "name": "a missing currency", "raw": { "merchant": "m", "items": [{ "label": "A", "amount": "1.00" }], "total": { "label": "T", "amount": "1.00" } }, "ok": false, "error": "invalid_currency" },
+    { "name": "a line with no label — the customer would see a blank row", "raw": { "merchant": "m", "currency": "USD", "items": [{ "label": "", "amount": "1.00" }], "total": { "label": "T", "amount": "1.00" } }, "ok": false, "error": "invalid_label" },
+    { "name": "a negative total is not a payment", "raw": { "merchant": "m", "currency": "USD", "items": [{ "label": "Refund", "amount": "-1.00" }], "total": { "label": "T", "amount": "-1.00" } }, "ok": false, "error": "invalid_amount" },
+    { "name": "the total may not be pending", "raw": { "merchant": "m", "currency": "USD", "items": [{ "label": "A", "amount": "1.00" }], "total": { "label": "T", "amount": "1.00", "type": "pending" } }, "ok": false, "error": "invalid_amount" },
+    { "name": "a missing total", "raw": { "merchant": "m", "currency": "USD", "items": [{ "label": "A", "amount": "1.00" }] }, "ok": false, "error": "invalid_amount" },
+    { "name": "an unknown network refuses the whole request", "raw": { "merchant": "m", "currency": "USD", "items": [{ "label": "A", "amount": "1.00" }], "total": { "label": "T", "amount": "1.00" }, "networks": ["bitcoin"] }, "ok": false, "error": "unknown_network" }
+  ]
+}

@@ -1,5 +1,5 @@
 //
-//  config.ts — the project contract `dsx build` / `dsx dev` / `dsx lint` read.
+//  config.ts — the project contract `despia build` / `despia dev` / `despia lint` read.
 //
 //  A DSX project IS a DSX package: a folder holding `dsx.json` (identity + scheme) and
 //  `Components/**/*.dsx` — the same shape `buildRegistry` consumes for a module in the
@@ -27,6 +27,11 @@ export type ProjectConfig = {
   outDir: string;
   /** additional package roots folded into the registry (each: dsx.json + Components/) */
   packages: string[];
+  /** PLATFORM module schemes this app reaches (`dsx.module.<scheme>` guarded by
+   *  `.available`) that no configured package claims — the native side provides them.
+   *  Declare-then-reach: the linter admits exactly these names and keeps warning on
+   *  anything undeclared, so a typo'd scheme still surfaces. */
+  modules: string[];
   /** the unified route table (/web/04). Absent = a pathless, component-push app. */
   routes: Registry["routes"];
   notFound: string | undefined;
@@ -37,12 +42,26 @@ export type ProjectConfig = {
   theme: string | undefined;
   /** app identity seeded under `global.app` */
   app: { [key: string]: unknown };
+  /**
+   * App-wide constants, read as `dsx.const.*` (networking.md N0). Sourced from `App.json`
+   * `consts` — the same file the native export reads — with a `dsx.config.json` `consts` block
+   * overriding it, so a local build can point at a local backend without editing the shipped
+   * root plan.
+   *
+   * THE WEB BUILD USED TO DROP THESE ENTIRELY. `boot.ts` has always accepted them and
+   * `export.ts` has always read App.json, but nothing carried them into a `despia build`, so
+   * `dsx.const.*` was permanently empty on web. That fails SILENTLY and in the worst place: an
+   * absent const is typed-null by law (right, for gating), so a URL built from one collapses to
+   * a relative path and the request goes to the site's own origin instead of the API.
+   */
+  consts: { [key: string]: unknown };
 };
 
 type RawConfig = {
   name?: unknown; scheme?: unknown; entry?: unknown; outDir?: unknown; packages?: unknown;
+  modules?: unknown;
   routes?: unknown; notFound?: unknown; router?: unknown; lang?: unknown; theme?: unknown;
-  app?: unknown;
+  app?: unknown; consts?: unknown;
 };
 
 export class ConfigError extends Error {}
@@ -56,7 +75,7 @@ function readJson(path: string): unknown {
 }
 
 /** Walk up from `from` for the nearest dsx.config.json. Returns null when there is none —
- *  the caller then knows it is not standing in a project (and `dsx build` says so). */
+ *  the caller then knows it is not standing in a project (and `despia build` says so). */
 export function findProjectRoot(from: string): string | null {
   let cursor = resolve(from);
   for (;;) {
@@ -69,6 +88,39 @@ export function findProjectRoot(from: string): string | null {
 
 /** Read + normalize a project's configuration. Every relative path resolves against the
  *  project root, and every defaulted field is defaulted HERE, so no command re-derives it. */
+/**
+ * `App.json` `consts`, overlaid by any `dsx.config.json` `consts`.
+ *
+ * App.json is the ROOT PLAN and the shipped source of truth (the native export already reads
+ * it), so a project states its constants once and both targets get them. The config override
+ * exists for the local case — pointing a development build at a local backend without editing
+ * the file that ships.
+ *
+ * Only flat scalars cross: the plane is read into interpolations (`{{ dsx.const.apiBase }}`),
+ * so a nested object would stringify as "[object Object]" into a URL. Anything else is dropped
+ * rather than mangled.
+ */
+function readConsts(root: string, override: unknown): { [key: string]: unknown } {
+  const out: { [key: string]: unknown } = {};
+  const take = (source: unknown): void => {
+    if (source === null || typeof source !== "object" || Array.isArray(source)) return;
+    for (const [key, value] of Object.entries(source as Record<string, unknown>)) {
+      if (value === null || ["string", "number", "boolean"].includes(typeof value)) out[key] = value;
+    }
+  };
+  const appJson = join(root, "App.json");
+  if (existsSync(appJson)) {
+    try {
+      take((JSON.parse(readFileSync(appJson, "utf8")) as { consts?: unknown }).consts);
+    } catch {
+      // A malformed App.json is the root plan's own gate to report, not this reader's: failing
+      // the build here would turn one bad character into "your constants vanished".
+    }
+  }
+  take(override);
+  return out;
+}
+
 export function loadConfig(root: string): ProjectConfig {
   const configPath = join(root, CONFIG_FILENAME);
   if (!existsSync(configPath)) throw new ConfigError(`no ${CONFIG_FILENAME} in ${root}`);
@@ -99,6 +151,17 @@ export function loadConfig(root: string): ProjectConfig {
     }
   }
 
+  const modules: string[] = [];
+  if (raw.modules !== undefined) {
+    if (!Array.isArray(raw.modules)) throw new ConfigError(`${configPath}: "modules" must be an array of platform module schemes`);
+    for (const scheme of raw.modules) {
+      if (typeof scheme !== "string" || !/^[a-z][a-z0-9_.-]*$/.test(scheme)) {
+        throw new ConfigError(`${configPath}: "modules" entries must be lowercase scheme tokens (got ${JSON.stringify(scheme)})`);
+      }
+      modules.push(scheme);
+    }
+  }
+
   const outDirRaw = str(raw.outDir) ?? "dist";
   return {
     root,
@@ -107,6 +170,7 @@ export function loadConfig(root: string): ProjectConfig {
     entry,
     outDir: isAbsolute(outDirRaw) ? outDirRaw : resolve(root, outDirRaw),
     packages,
+    modules,
     routes: Array.isArray(raw.routes) ? raw.routes as Registry["routes"] : undefined,
     notFound: str(raw.notFound),
     router: raw.router !== undefined && typeof raw.router === "object" && raw.router !== null
@@ -117,6 +181,7 @@ export function loadConfig(root: string): ProjectConfig {
     app: raw.app !== undefined && typeof raw.app === "object" && raw.app !== null
       ? raw.app as { [key: string]: unknown }
       : { name, version: "0.0.0", build: "web", env: "debug" },
+    consts: readConsts(root, raw.consts),
   };
 }
 

@@ -1,0 +1,324 @@
+{
+  "version": 1,
+  "_note": "SELECTION, HOVER, BRUSH, ZOOM AND PAN - the payload arithmetic. nearestIndex is the rule the shipped iOS selectOverlay and the Kotlin detectTapGestures already use (tap-x as a fraction of the plot, rounded onto the index grid), lifted out verbatim so on:select keeps its exact behaviour and on:hover inherits it. A brush shorter than one percent of the plot is a CLEAR, not a one-pixel selection, because a tap inside a brushable chart is a tap. Zoom and pan clamp to the full data extent - no rubber band past the data, no inversion, and a floor on the span so a pinch cannot divide by zero.",
+  "tolerance": 1e-09,
+  "nearestIndex": [
+    {
+      "name": "the left edge",
+      "fraction": 0.0,
+      "count": 5,
+      "expect": 0
+    },
+    {
+      "name": "the right edge",
+      "fraction": 1.0,
+      "count": 5,
+      "expect": 4
+    },
+    {
+      "name": "the middle",
+      "fraction": 0.5,
+      "count": 5,
+      "expect": 2
+    },
+    {
+      "name": "rounds up at the half step",
+      "fraction": 0.125,
+      "count": 5,
+      "expect": 1
+    },
+    {
+      "name": "past the right edge clamps",
+      "fraction": 1.4,
+      "count": 5,
+      "expect": 4
+    },
+    {
+      "name": "a single point",
+      "fraction": 0.7,
+      "count": 1,
+      "expect": 0
+    },
+    {
+      "name": "no points is minus one",
+      "fraction": 0.5,
+      "count": 0,
+      "expect": -1
+    }
+  ],
+  "nearestValueIndex": [
+    {
+      "name": "an exact hit",
+      "value": 30.0,
+      "values": [
+        10.0,
+        20.0,
+        30.0,
+        40.0
+      ],
+      "expect": 2
+    },
+    {
+      "name": "nearer the lower neighbour",
+      "value": 22.0,
+      "values": [
+        10.0,
+        20.0,
+        30.0,
+        40.0
+      ],
+      "expect": 1
+    },
+    {
+      "name": "a tie takes the lower index",
+      "value": 25.0,
+      "values": [
+        10.0,
+        20.0,
+        30.0,
+        40.0
+      ],
+      "expect": 1
+    },
+    {
+      "name": "before the first",
+      "value": -100.0,
+      "values": [
+        10.0,
+        20.0
+      ],
+      "expect": 0
+    },
+    {
+      "name": "an empty series is minus one",
+      "value": 5.0,
+      "values": [],
+      "expect": -1
+    }
+  ],
+  "brush": [
+    {
+      "name": "a left-to-right drag",
+      "from": 0.25,
+      "to": 0.75,
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "expect": {
+        "start": 25.0,
+        "end": 75.0,
+        "cleared": false
+      }
+    },
+    {
+      "name": "a right-to-left drag reports the same window",
+      "from": 0.75,
+      "to": 0.25,
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "expect": {
+        "start": 25.0,
+        "end": 75.0,
+        "cleared": false
+      }
+    },
+    {
+      "name": "a tap clears the brush instead of selecting a sliver",
+      "from": 0.5,
+      "to": 0.502,
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "expect": {
+        "start": 0.0,
+        "end": 100.0,
+        "cleared": true
+      }
+    },
+    {
+      "name": "a drag off both edges clamps to the domain",
+      "from": -0.4,
+      "to": 1.9,
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "expect": {
+        "start": 0.0,
+        "end": 100.0,
+        "cleared": false
+      }
+    },
+    {
+      "name": "a non-zero domain origin",
+      "from": 0.0,
+      "to": 0.5,
+      "domain": [
+        1000.0,
+        2000.0
+      ],
+      "expect": {
+        "start": 1000.0,
+        "end": 1500.0,
+        "cleared": false
+      }
+    }
+  ],
+  "zoom": [
+    {
+      "name": "zooming in on the centre",
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "full": [
+        0.0,
+        100.0
+      ],
+      "factor": 2.0,
+      "anchor": 0.5,
+      "expect": {
+        "lo": 25.0,
+        "hi": 75.0
+      }
+    },
+    {
+      "name": "zooming in on the left edge stays inside the extent",
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "full": [
+        0.0,
+        100.0
+      ],
+      "factor": 2.0,
+      "anchor": 0.0,
+      "expect": {
+        "lo": 0.0,
+        "hi": 50.0
+      }
+    },
+    {
+      "name": "zooming out past the extent snaps to the extent",
+      "domain": [
+        25.0,
+        75.0
+      ],
+      "full": [
+        0.0,
+        100.0
+      ],
+      "factor": 0.25,
+      "anchor": 0.5,
+      "expect": {
+        "lo": 0.0,
+        "hi": 100.0
+      }
+    },
+    {
+      "name": "the span floor stops an infinite pinch",
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "full": [
+        0.0,
+        100.0
+      ],
+      "factor": 1000.0,
+      "anchor": 0.5,
+      "expect": {
+        "lo": 49.5,
+        "hi": 50.5
+      }
+    },
+    {
+      "name": "a zoomed window near the right edge is pushed in, not clipped",
+      "domain": [
+        90.0,
+        100.0
+      ],
+      "full": [
+        0.0,
+        100.0
+      ],
+      "factor": 0.5,
+      "anchor": 1.0,
+      "expect": {
+        "lo": 80.0,
+        "hi": 100.0
+      }
+    }
+  ],
+  "pan": [
+    {
+      "name": "panning right inside the extent",
+      "domain": [
+        20.0,
+        40.0
+      ],
+      "full": [
+        0.0,
+        100.0
+      ],
+      "delta": 0.5,
+      "expect": {
+        "lo": 30.0,
+        "hi": 50.0
+      }
+    },
+    {
+      "name": "panning off the left edge clamps and keeps the span",
+      "domain": [
+        10.0,
+        30.0
+      ],
+      "full": [
+        0.0,
+        100.0
+      ],
+      "delta": -1.0,
+      "expect": {
+        "lo": 0.0,
+        "hi": 20.0
+      }
+    },
+    {
+      "name": "panning off the right edge clamps and keeps the span",
+      "domain": [
+        80.0,
+        100.0
+      ],
+      "full": [
+        0.0,
+        100.0
+      ],
+      "delta": 1.0,
+      "expect": {
+        "lo": 80.0,
+        "hi": 100.0
+      }
+    },
+    {
+      "name": "a full-extent window cannot pan",
+      "domain": [
+        0.0,
+        100.0
+      ],
+      "full": [
+        0.0,
+        100.0
+      ],
+      "delta": 0.5,
+      "expect": {
+        "lo": 0.0,
+        "hi": 100.0
+      }
+    }
+  ]
+}

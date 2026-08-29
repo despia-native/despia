@@ -5,7 +5,8 @@ framework built around DSX (DespiaScript): you describe an application once, in 
 and it runs as real SwiftUI on iOS, real Jetpack Compose on Android, and real DOM on the
 web. The same grammar builds your backend: APIs, data, workers, and MCP tools, and your
 command-line programs. Nothing is emulated and nothing is wrapped: each platform gets its
-own native kernel, and a shared conformance corpus holds all of them to identical behavior.
+own native kernel, and a shared conformance corpus holds every one of them to the same
+behavior, fixture by fixture.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.0.1-orange.svg)](Documentation/RELEASING.md)
@@ -56,9 +57,24 @@ truth on every platform.
 | Server | Backend routes, workers, and MCP tools authored in DSX | [`Web/packages/server`](Web/packages/server) |
 | CLI | Command-line programs as `.dsx` documents | [`Web/packages/cli`](Web/packages/cli) |
 
-The claim that these behave identically is not marketing: it is falsifiable. Every kernel
-runs the same fixture corpus in [`Conformance/`](Conformance), and a behavior change that
-does not land on every runtime fails a gate before it ships.
+The claim that these behave the same is not marketing: it is falsifiable, and the parts
+that are not yet proven are named instead of implied. Every kernel runs the same fixture
+corpus in [`Conformance/`](Conformance). Measured on 2026-08-19: 857 of 857 conformance
+assertions pass on the TypeScript kernel, 2,775 of 2,775 tests pass on the Kotlin kernel,
+both on every pull request, and the Swift kernel replays the same corpora on the record
+lane. A behavior change that does not land on every runtime fails a gate before it ships.
+
+Rendering is held to a second contract, and it is a different promise. The web renderer is
+verified against a committed reference plane, which a skin change re-records in the same
+commit so the reference diff is the review surface. Native rendering is held to a
+budgeted near-pixel contract with a published gap ledger, on purpose: a Despia app is meant
+to look like the platform it runs on, so the unstyled baseline is the real system component
+on each OS and native semantic colors are resolved by the OS rather than pinned by us. Two
+of the three native capture lanes are wired and have not run on a device yet, so native
+fidelity today is verified by source review, and the component matrix records that per cell
+rather than rounding it up. [Platform support](Documentation/guides/platform-support.md) is
+the whole picture in one page: what is measured, what is budgeted, and every element the web
+renderer does not implement.
 
 ## The same grammar is your backend
 
@@ -151,6 +167,26 @@ your backend. The [quickstart](Documentation/guides/quickstart.md) walks the who
 Already have a web app? [Getting started](Documentation/guides/getting-started.md) covers
 Convert, the migration door: your existing product becomes a native app first, and adopts
 the rest of the framework at whatever pace suits you.
+
+## Building with AI agents
+
+DSX is newer than every model's training data, so the framework ships the context agents
+need instead of hoping they guess:
+
+- **Every scaffolded project carries an agent brief.** `AGENTS.md` (imported by
+  `CLAUDE.md`) teaches the verify loop, the grammar in one screen, and the design bar, so
+  Claude Code, Cursor, Codex and peers start correct instead of hallucinating React.
+- **Skills, installable anywhere:** `npx skills add despia-native/skills` adds the
+  app-authoring skills (the language, the design bar, the React Native translation table)
+  to any project for 16+ agent hosts. Sources and the worked example app they teach from:
+  [`Skills/`](Skills).
+- **The toolchain is an MCP server.** `despia mcp` serves every CLI command (build, lint,
+  review, add, export) to a coding agent over stdio, generated from the same command table
+  the terminal uses; `despia edit` serves the same tools over HTTP to connect an agent to
+  the running project.
+- **Taste has a gate.** `despia review` is the design lint: accessible names, tap-target
+  floors, the type scale, contrast, token discipline. Agents close the loop against it the
+  same way they close the loop against `despia lint`.
 
 ## What is in this repository
 

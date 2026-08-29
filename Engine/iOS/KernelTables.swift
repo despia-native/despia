@@ -63,6 +63,12 @@ public enum KernelTables {
     /// scheme → the platforms that module supports, for every module in the PRODUCT.
     public static var platformSupportByScheme: [String: [String]] = [:]
 
+    /// "<scheme>.<action>" → the platforms THAT ACTION supports, for every action whose
+    /// manifest NARROWS its module's set (X2 §4 `platforms`). Sparse on purpose: an action
+    /// with no narrowing has no row and inherits its module's, so the common case costs
+    /// nothing and the table names exactly the claims someone had to justify in writing.
+    public static var platformSupportByAction: [String: [String]] = [:]
+
     // ── delegate policy (a module's dsx.json `delegate` block) ────────────────────────
 
     /// The declared combine policy for an event. `JSON` is a kernel type, so this shape can

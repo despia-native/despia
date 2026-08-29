@@ -50,11 +50,11 @@ export function readSfMap(path: string = SF_MAP_PATH): SfMap {
 
 /** A conservative SVG path grammar: commands + numbers only. Nothing here reaches innerHTML,
  *  but a generated attribute value should still be provably inert and provably a path. */
-const PATH_SHAPE = /^M[MmLlHhVvCcSsQqTtAaZz0-9 .,\-]*$/;
+const PATH_SHAPE = /^[Mm][MmLlHhVvCcSsQqTtAaZz0-9 .,\-]*$/;
 
 export function assertDrawablePath(name: string, d: string): void {
   if (!PATH_SHAPE.test(d)) {
-    throw new Error(`[dsx icons] ${name}: 'web' must be an SVG path starting at M — got ${JSON.stringify(d)}`);
+    throw new Error(`[dsx icons] ${name}: 'web' must be an SVG path starting at M/m — got ${JSON.stringify(d)}`);
   }
 }
 
@@ -100,8 +100,8 @@ export function renderIconsModule(map: SfMap): string {
 //  Gate:        packages/dom/test/icons.test.ts — drift from the corpus FAILS the suite.
 //
 //  Two tiers, mirroring the corpus \`_web_axis\` note and the Android render ladder:
-//    ICON_VECTORS   rung 1 — a 24x24 stroke path (viewBox 0 0 24 24, fill none,
-//                   stroke currentColor, stroke-width 2, round caps/joins).
+//    ICON_VECTORS   rung 1 — a 24x24 FILL path (viewBox 0 0 24 24, fill currentColor,
+//                   stroke none) — Boxicons per the corpus _web_axis v2 note.
 //    ICON_FALLBACKS rung 2 — the corpus's plain unicode stand-in, drawn as SVG <text>, for the
 //                   pictographic rows a 2px stroke cannot honestly carry. Emitted ONLY for rows
 //                   with no rung-1 path; a name in ICON_VECTORS never appears here.

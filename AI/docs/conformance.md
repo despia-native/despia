@@ -24,11 +24,18 @@ from above (envelope shape, delta-only token events, cancel from inside the
 callback, the bounded validator):
 
 ```
-clang++ -std=c++17 -pthread -DDESPIA_AI_VERSION='"0.1.0"' \
-  engine/src/context.cpp engine/src/api.cpp mock/mock_backend.cpp \
+clang++ -std=c++17 -pthread -DDESPIA_AI_VERSION='"0.0.1"' \
+  engine/src/context.cpp engine/src/api.cpp \
+  engine/src/backends/g2p/g2p_backend.cpp mock/mock_backend.cpp \
   engine/test/abi_test.cpp -o abi_test && ./abi_test
 ```
 
-Real-model inference is never in these gates. It lives in a nightly smoke lane
-against a digest-pinned tiny model, because a per-PR gate that downloads
-gigabytes is a per-PR gate nobody keeps green.
+`g2p_backend.cpp` is in that list because `registerBuiltinBackends` names it
+unconditionally: it links nothing, so it is always compiled in and a build
+without it does not link.
+
+Real-model inference is never in these gates, and there is no lane that runs it
+either. The real-weights drivers are `engine/test/model_smoke.c`,
+`stream_smoke.c` and `governor_smoke.c`: they are built so they cannot rot, and
+they are run by hand against a downloaded model. A per-PR gate that downloads
+gigabytes is a per-PR gate nobody keeps green, so nothing pretends to be one.

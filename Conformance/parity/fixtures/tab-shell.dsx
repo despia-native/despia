@@ -1,0 +1,44 @@
+<tabs>
+  <head>
+    <!--
+      Parity fixture: the TAB SHELL. The compact app frame the fidelity ruling makes
+      a release bar: a bottom tab bar with icon + label per pane, panes as full
+      screens. Three panes exercise the active/inactive treatment and prove the
+      shell composes with the grouped-list and feed languages inside it.
+    -->
+    <variable as="notifications">return 3</variable>
+  </head>
+
+  <scroll tabTitle="Home" tabIcon="house" style="background: background">
+    <stack style="gap: 0.25rem; padding: 2rem 1.5rem">
+      <text value="Home" style="font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em"/>
+      <text value="Today at a glance." style="color: secondary"/>
+      <stack style="border-radius: 14px; background: secondaryGroupedBackground; padding: 0 1rem; margin-top: 1rem">
+        <hstack style="align-items: center; gap: 0.75rem; padding: 0.875rem 0; border-bottom: 1px solid separator">
+          <text value="Unread notes"/>
+          <spacer/>
+          <text bind="dsx.variable.notifications" style="color: tertiary"/>
+        </hstack>
+        <hstack style="align-items: center; gap: 0.75rem; padding: 0.875rem 0">
+          <text value="Synced just now"/>
+          <spacer/>
+          <image icon="chevron.right" style="color: tertiary; width: 1rem; height: 1rem"/>
+        </hstack>
+      </stack>
+    </stack>
+  </scroll>
+
+  <scroll tabTitle="Search" tabIcon="magnifyingglass" style="background: background">
+    <stack style="gap: 1rem; padding: 2rem 1.5rem">
+      <text value="Search" style="font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em"/>
+      <searchbar placeholder="Search notes"/>
+    </stack>
+  </scroll>
+
+  <scroll tabTitle="Profile" tabIcon="person.crop.circle" style="background: background">
+    <stack style="gap: 0.25rem; padding: 2rem 1.5rem">
+      <text value="Profile" style="font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em"/>
+      <text value="Signed in as Ada." style="color: secondary"/>
+    </stack>
+  </scroll>
+</tabs>

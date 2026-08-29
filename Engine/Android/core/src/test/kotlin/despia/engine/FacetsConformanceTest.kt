@@ -82,6 +82,7 @@ class FacetsConformanceTest {
         val actions = (local[chain] as? List<*> ?: emptyList<Any?>()).map { JSE.string(it) }
         val excluded = world(doc)["excluded"] as? Map<String, Any?> ?: emptyMap()
         val platforms = world(doc)["platforms"] as? Map<String, Any?> ?: emptyMap()
+        val platformActions = world(doc)["platformActions"] as? Map<String, Any?> ?: emptyMap()
         return FacetFacts(
             local = actions.contains(action),
             module = local.containsKey(chain),
@@ -91,6 +92,9 @@ class FacetsConformanceTest {
             linked = false,
             excluded = excluded.containsKey(chain),
             offPlatform = platforms.containsKey(chain),
+            // The ACTION-level narrowing (X2 §4). Read here for the same reason `offPlatform`
+            // is: both are PRE-FILTERED build data, so the ladder never asks what OS it is on.
+            offPlatformAction = platformActions.containsKey("$chain.$action"),
         )
     }
 
@@ -146,11 +150,12 @@ class FacetsConformanceTest {
         var seen = 0
         for (row in rows) {
             for (facet in listOf(null, "app", "watch", "widget", "activity", "unregistered")) {
-                for (bits in 0 until 64) {
+                for (bits in 0 until 128) {
                     val v = FacetLadder.resolve(FacetFacts(
                         local = bits and 1 != 0, module = bits and 2 != 0, facet = facet, row = row,
                         transport = bits and 4 != 0, linked = bits and 8 != 0,
-                        excluded = bits and 16 != 0, offPlatform = bits and 32 != 0))
+                        excluded = bits and 16 != 0, offPlatform = bits and 32 != 0,
+                        offPlatformAction = bits and 64 != 0))
                     seen += 1
                     if (v.rung == FacetLadder.Rung.UNAVAILABLE)
                         assertTrue(v.code in FacetLadder.codes, "untyped absence ${v.code}")
@@ -158,7 +163,7 @@ class FacetsConformanceTest {
                 }
             }
         }
-        assertEquals(rows.size * 6 * 64, seen)
+        assertEquals(rows.size * 6 * 128, seen)
     }
 
     // MARK: - Funnel wiring (the same ladder, live at Context._call)

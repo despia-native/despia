@@ -52,8 +52,12 @@ test("every catalog universal attribute has a web-support decision (and no stray
 
 test("rows carry a valid status, and unsupported rows carry a reason", () => {
   for (const [key, row] of Object.entries(ledgerRows)) {
-    assert.ok(["supported", "partial", "unsupported"].includes(row.status ?? ""),
-      `${key}: status must be supported|partial|unsupported, got ${JSON.stringify(row.status)}`);
+    // `polyfilled` is a FIRST-CLASS status (constitution Article 10): the same observable
+    // behaviour built out of different parts. `unsupported` is not a status but a defect with a
+    // register row - ClosedSource/release/platform-parity-register.json, gated by
+    // check_platform_parity.rb, which is where the degradation and the plan have to be written.
+    assert.ok(["supported", "polyfilled", "partial", "unsupported"].includes(row.status ?? ""),
+      `${key}: status must be supported|polyfilled|partial|unsupported, got ${JSON.stringify(row.status)}`);
     if (row.status !== "supported") {
       assert.ok((row.reason ?? "").length > 0, `${key}: a non-supported row must record WHY`);
     }

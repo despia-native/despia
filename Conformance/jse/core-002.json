@@ -1,0 +1,75 @@
+{
+  "_note": "JSE conformance corpus - NULL EQUALITY (2026-08-22). A bound-but-null name (lambda param, const, destructured key) is stored as the NSNull scope sentinel on every runtime; `== null` / `!= null` MUST see through the sentinel, and so must every builtin that rides equals (includes, indexOf, lastIndexOf). Before this file the sentinel fell through to string coercion ('<null>' != ''), so the single most common guard an author writes - x == null - was silently false. Swift = reference (record lane authoritates expected).",
+  "cases": [
+    {
+      "name": "param-null-equals-null",
+      "scope": {},
+      "expression": "[null].map(x => x == null)",
+      "expected": [
+        true
+      ]
+    },
+    {
+      "name": "param-null-not-equals-null",
+      "scope": {},
+      "expression": "[null].map(x => x != null)",
+      "expected": [
+        false
+      ]
+    },
+    {
+      "name": "filter-out-nulls",
+      "scope": {},
+      "expression": "[1, null, 2].filter(x => x != null).length",
+      "expected": 2
+    },
+    {
+      "name": "const-null-equals-null",
+      "scope": {},
+      "expression": "(() => { const x = null; return x == null })()",
+      "expected": true
+    },
+    {
+      "name": "destructured-missing-key-is-null",
+      "scope": {},
+      "expression": "(({ a }) => a == null)({})",
+      "expected": true
+    },
+    {
+      "name": "scope-null-equals-null",
+      "scope": {
+        "x": null
+      },
+      "expression": "x == null",
+      "expected": true
+    },
+    {
+      "name": "indexOf-null-finds-null",
+      "scope": {},
+      "expression": "[1, null, 2].indexOf(null)",
+      "expected": 1
+    },
+    {
+      "name": "includes-null",
+      "scope": {},
+      "expression": "[1, null, 2].includes(null)",
+      "expected": true
+    },
+    {
+      "name": "param-null-is-not-zero",
+      "scope": {},
+      "expression": "[null].map(x => x == 0)",
+      "expected": [
+        false
+      ]
+    },
+    {
+      "name": "param-null-is-not-string",
+      "scope": {},
+      "expression": "[null].map(x => x == 'null')",
+      "expected": [
+        false
+      ]
+    }
+  ]
+}

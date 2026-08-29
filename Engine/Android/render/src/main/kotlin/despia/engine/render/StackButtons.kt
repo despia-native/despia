@@ -91,6 +91,7 @@ object SystemButton {
     // as before".
     private val SAFE_BASE = setOf(
         "id", "key", "label", "icon", "variant", "role", "href", "disabled",
+        "disabled-if", "density",
         "class", "css-owner", "visible-if", "keep", "enter", "anim", "animDuration",
         "transition", "a11yGroup", "a11yLabel", "a11yHint", "a11yValue", "a11yTrait",
         "a11yHidden",

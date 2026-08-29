@@ -1,4 +1,4 @@
-# Custom UX — the escape hatches
+# Custom UX: the escape hatches
 
 > Audience: app authors building bespoke controls. The built-in elements cover the common
 > cases; when you need something the system doesn't give you — a TikTok scrubber, a

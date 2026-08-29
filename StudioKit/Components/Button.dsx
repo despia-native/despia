@@ -1,0 +1,12 @@
+<!-- Button — three variants and no fourth. `primary` is the one commit on a surface (a
+     neutral fill with a 1px accent ring); `quiet` is everything else; `danger` is the press
+     that destroys something. An app that ships two primaries on one panel has not decided
+     what the panel is for. -->
+<button class="sk-btn sk-btn-{{ dsx.attribute.variant }}" label="{{ dsx.attribute.label }}"
+        a11yLabel="{{ dsx.attribute.label }}" on:tap="dsx.event('tap', {})">
+  <head>
+    <attribute as="label"/>
+    <attribute as="variant" default="quiet"/>
+    <event as="tap"/>
+  </head>
+</button>

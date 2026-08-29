@@ -1,4 +1,4 @@
-# Editor catalog — the web-canvas element schema
+# Editor catalog: the web-canvas element schema
 
 > Audience: anyone touching DSX **elements** (a new tag, a new attribute, a renamed alias) or
 > building the web preview editor ("the canvas" — the dashboard's visual builder + its web

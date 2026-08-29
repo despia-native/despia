@@ -1,4 +1,4 @@
-# Authoring a package as an SDK — DSX best practices
+# Authoring a package as an SDK: DSX best practices
 
 > Companion to [`writing-a-module.md`](writing-a-module.md): that's *how to make a module*; this is *how to
 > make a good one* — an SDK others build on. **Only existing primitives** — `dsx.action` + `dsx.resolve`

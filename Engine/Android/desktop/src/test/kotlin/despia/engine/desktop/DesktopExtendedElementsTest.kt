@@ -21,9 +21,9 @@ class DesktopExtendedElementsTest {
         assertEquals(
             linkedSetOf(
                 "Accordion", "ChatBubble", "Checkbox", "Drawer", "LevelMeter", "MenuBar",
-                "ProgressRing", "RadioGroup", "Skeleton", "Table", "calendar", "carousel",
+                "ProgressRing", "RadioGroup", "Signature", "Skeleton", "Table", "calendar", "carousel",
                 "contextmenu", "datepicker", "field", "lightbox", "menu", "otp", "pager",
-                "popover", "rangeslider", "searchbar", "stars", "wheelpicker",
+                "popover", "rangeslider", "searchbar", "split", "stars", "wheelpicker",
             ) + desktopStudioNativeTags,
             desktopExtendedNativeTags,
         )

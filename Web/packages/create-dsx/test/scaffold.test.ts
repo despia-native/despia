@@ -1,6 +1,6 @@
 //
-//  scaffold.test.ts — what `npm create dsx` writes, and the contract that matters most:
-//  the generated project COMPILES with `dsx build` and LINTS clean with `dsx lint --strict`,
+//  scaffold.test.ts — what `npm create despia` writes, and the contract that matters most:
+//  the generated project COMPILES with `despia build` and LINTS clean with `despia lint --strict`,
 //  as generated, with nothing edited. That end-to-end loop is the last test in this file.
 //
 
@@ -37,7 +37,7 @@ test("the minimal template writes a complete, self-describing package", () => {
   try {
     const result = scaffold({ directory: join(w.dir, "my-app") });
     assert.deepEqual(result.files, [
-      ".gitignore", "Components/App.dsx", "README.md", "dsx.config.json", "dsx.json", "package.json",
+      ".gitignore", "AGENTS.md", "CLAUDE.md", "Components/App.dsx", "README.md", "dsx.config.json", "dsx.json", "package.json",
     ]);
     assert.equal(result.name, "my-app");
     assert.equal(result.scheme, "myapp");
@@ -54,7 +54,7 @@ test("the minimal template writes a complete, self-describing package", () => {
     };
     assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["@despia/compiler", "@despia/dom", "@despia/kernel", "@despia/server"]);
     assert.deepEqual(Object.keys(pkg.devDependencies), ["@despia/cli"]);
-    assert.deepEqual(pkg.scripts, { build: "dsx build", dev: "dsx dev", lint: "dsx lint --strict" });
+    assert.deepEqual(pkg.scripts, { build: "despia build", dev: "despia dev", lint: "despia lint --strict", review: "despia review --strict" });
   } finally {
     w.cleanup();
   }
@@ -70,6 +70,28 @@ test("the routed template adds a second component and the route table that reach
     };
     assert.deepEqual(config.routes.map((r) => r.path), ["/", "/about"]);
     assert.deepEqual(config.routes.map((r) => r.component), ["routed.App", "routed.About"]);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("the agent brief ships in every project: the loop, the grammar, the design bar", () => {
+  const w = work();
+  try {
+    const result = scaffold({ directory: join(w.dir, "briefed") });
+    const brief = readFileSync(join(result.root, "AGENTS.md"), "utf8");
+    // the three things an agent must know: DSX is not what it pattern-matches to,
+    // the verify loop is mandatory, and the design bar exists
+    assert.match(brief, /NOT React, React Native, HTML, Vue or Flutter/);
+    assert.match(brief, /npm run lint/);
+    assert.match(brief, /npm run dev/);
+    assert.match(brief, /semantic tokens first/);
+    assert.match(brief, /at least 44 points/);
+    assert.match(brief, /empty, loading and error states/);
+    // no em/en dashes: the brief is published prose (RELEASING.md house rule)
+    assert.doesNotMatch(brief, /[–—]/, "the agent brief carries an em/en dash");
+    // CLAUDE.md is a one-line import so Claude Code and AGENTS.md hosts read one brief
+    assert.equal(readFileSync(join(result.root, "CLAUDE.md"), "utf8"), "@AGENTS.md\n");
   } finally {
     w.cleanup();
   }
@@ -169,7 +191,7 @@ test("the CLI surfaces a scaffold failure as exit 1 with the reason", () => {
 
 // ── the contract ───────────────────────────────────────────────────────────────────────
 
-test("END TO END: every template scaffolds a project that `dsx build` compiles and `dsx lint --strict` passes", async () => {
+test("END TO END: every template scaffolds a project that `despia build` compiles and `despia lint --strict` passes", async () => {
   for (const template of TEMPLATES) {
     const w = work();
     try {

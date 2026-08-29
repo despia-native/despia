@@ -1,0 +1,118 @@
+{
+  "_note": "The localization KERNEL SEAM corpus (architecture/localization.md): a string-table LOOKUP, nothing more - the English source string is the key, tables map it per locale, and every miss is identity byte-for-byte (Article 7). THE LAWS ENCODED HERE: (1) locale ladder - global.locale (state) overrides the device language, 'en' and empty resolve to no table; (2) candidate order - the full lowercase BCP-47 tag is tried before the bare language, and the FIRST candidate that yields a non-empty merged table wins outright (no cross-candidate merging); (3) tier merge - the runtime tier (global.strings.<tag>, state) merges OVER the bundle table for the same candidate, key by key; a runtime overlay whose keys are not all strings is ignored whole (the all-or-nothing cast every renderer shares); (4) caching - the merged table reloads only when (resolved lang, global.strings.version) changes, so a runtime-table writer MUST bump global.strings.version to be seen (the steps case pins both halves); (5) fail-open - no table, no match, invalid table JSON, empty input: the input returns unchanged. Runners: TS packages/kernel/test/strings-conformance.test.ts (per-PR) - Kotlin :core StringsConformanceTest (gradle, per-PR) - Swift StringsConformance (RecordMain, record lane). Case shape: device = the device language seam; state = the global store (dot-keyed paths); tables = bundle-tier JSON TEXT per tag (text, so invalid JSON is expressible); steps = ordered lookups with optional state patches between them; every expectation is the localize() return value.",
+  "cases": [
+    {
+      "name": "no-table-is-identity",
+      "device": "de",
+      "input": "Save",
+      "expect": "Save"
+    },
+    {
+      "name": "empty-string-is-identity",
+      "device": "de",
+      "tables": { "de": "{\"Save\":\"Sichern\"}" },
+      "input": "",
+      "expect": ""
+    },
+    {
+      "name": "bundle-table-resolves-the-device-language",
+      "device": "de",
+      "tables": { "de": "{\"Save\":\"Sichern\"}" },
+      "input": "Save",
+      "expect": "Sichern"
+    },
+    {
+      "name": "a-miss-falls-back-to-the-source-string",
+      "device": "de",
+      "tables": { "de": "{\"Save\":\"Sichern\"}" },
+      "input": "Cancel",
+      "expect": "Cancel"
+    },
+    {
+      "name": "global-locale-overrides-the-device-language",
+      "device": "en-us",
+      "state": { "locale": "de" },
+      "tables": { "de": "{\"Save\":\"Sichern\"}" },
+      "input": "Save",
+      "expect": "Sichern"
+    },
+    {
+      "name": "english-is-the-source-language-never-a-table",
+      "device": "en",
+      "tables": { "en": "{\"Save\":\"HIJACKED\"}" },
+      "input": "Save",
+      "expect": "Save"
+    },
+    {
+      "name": "the-full-tag-is-tried-before-the-bare-language",
+      "device": "pt-br",
+      "tables": { "pt-br": "{\"Save\":\"Salvar\"}", "pt": "{\"Save\":\"Guardar\"}" },
+      "input": "Save",
+      "expect": "Salvar"
+    },
+    {
+      "name": "the-bare-language-catches-a-regional-device",
+      "device": "pt-br",
+      "tables": { "pt": "{\"Save\":\"Guardar\"}" },
+      "input": "Save",
+      "expect": "Guardar"
+    },
+    {
+      "name": "a-winning-candidate-is-not-merged-with-the-next",
+      "device": "pt-br",
+      "tables": { "pt-br": "{\"Save\":\"Salvar\"}", "pt": "{\"Save\":\"Guardar\",\"Cancel\":\"Cancelar\"}" },
+      "input": "Cancel",
+      "expect": "Cancel"
+    },
+    {
+      "name": "the-runtime-tier-merges-over-the-bundle-table",
+      "device": "de",
+      "state": { "strings.de": { "Save": "Speichern" }, "strings.version": "1" },
+      "tables": { "de": "{\"Save\":\"Sichern\",\"Cancel\":\"Abbrechen\"}" },
+      "input": "Save",
+      "expect": "Speichern"
+    },
+    {
+      "name": "the-bundle-keys-the-runtime-tier-does-not-name-survive-the-merge",
+      "device": "de",
+      "state": { "strings.de": { "Save": "Speichern" }, "strings.version": "1" },
+      "tables": { "de": "{\"Save\":\"Sichern\",\"Cancel\":\"Abbrechen\"}" },
+      "input": "Cancel",
+      "expect": "Abbrechen"
+    },
+    {
+      "name": "the-runtime-tier-alone-is-a-table",
+      "device": "de",
+      "state": { "strings.de": { "Save": "Speichern" }, "strings.version": "1" },
+      "input": "Save",
+      "expect": "Speichern"
+    },
+    {
+      "name": "invalid-bundle-json-fails-open",
+      "device": "de",
+      "tables": { "de": "{not json" },
+      "input": "Save",
+      "expect": "Save"
+    },
+    {
+      "name": "a-runtime-write-is-invisible-until-the-version-bumps",
+      "device": "de",
+      "tables": { "de": "{\"Save\":\"Sichern\"}" },
+      "steps": [
+        { "input": "Save", "expect": "Sichern" },
+        { "state": { "strings.de": { "Save": "Speichern" } }, "input": "Save", "expect": "Sichern" },
+        { "state": { "strings.version": "2" }, "input": "Save", "expect": "Speichern" }
+      ]
+    },
+    {
+      "name": "a-locale-write-re-resolves-immediately",
+      "device": "en-us",
+      "tables": { "de": "{\"Save\":\"Sichern\"}", "fr": "{\"Save\":\"Enregistrer\"}" },
+      "steps": [
+        { "input": "Save", "expect": "Save" },
+        { "state": { "locale": "de" }, "input": "Save", "expect": "Sichern" },
+        { "state": { "locale": "fr" }, "input": "Save", "expect": "Enregistrer" }
+      ]
+    }
+  ]
+}

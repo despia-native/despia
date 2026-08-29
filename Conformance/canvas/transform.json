@@ -1,0 +1,604 @@
+{
+ "_note": "The 2-D TRANSFORM plane. THE LAW: a matrix is the six-number affine [a,b,c,d,e,f] \u2014 x' = a\u00b7x + c\u00b7y + e, y' = b\u00b7x + d\u00b7y + f \u2014 the SVG and Canvas2D spelling, NOT a mat3 and NOT the scene kernel's column-major mat4 (a 2-D canvas has no third axis and borrowing the 3-D shape would invite silent index drift). The `transform` attribute takes the SVG function list \u2014 translate \u00b7 scale \u00b7 rotate (optionally about a centre) \u00b7 skewX \u00b7 skewY \u00b7 matrix, degrees \u2014 and applies it LEFT TO RIGHT: 'translate(10,0) scale(2)' means translate \u2218 scale, the leftmost function outermost, so M = M1\u00b7M2\u00b7\u2026\u00b7Mn. Composition down the tree is world = parentWorld \u00b7 local, the same fold the scene kernel uses one dimension up. ARTICLE 7: an unknown function, a wrong-arity function, a non-numeric argument or junk between functions costs exactly ONE diagnostic and is SKIPPED \u2014 every other function in the list still applies. `parse` pins the matrix and mapped points; `compose` pins the world matrix of each display-list op in a nested tree. Expected values come from an independent scratch implementation.",
+ "parse": [
+  {
+   "name": "empty is the identity",
+   "transform": "",
+   "matrix": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      3,
+      4
+     ],
+     "out": [
+      3.0,
+      4.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "translate with both arguments",
+   "transform": "translate(10,20)",
+   "matrix": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    10.0,
+    20.0
+   ],
+   "points": [
+    {
+     "in": [
+      0,
+      0
+     ],
+     "out": [
+      10.0,
+      20.0
+     ]
+    },
+    {
+     "in": [
+      1,
+      2
+     ],
+     "out": [
+      11.0,
+      22.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "translate with one argument leaves y alone",
+   "transform": "translate(10)",
+   "matrix": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    10.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      0,
+      0
+     ],
+     "out": [
+      10.0,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "uniform scale",
+   "transform": "scale(2)",
+   "matrix": [
+    2.0,
+    0.0,
+    0.0,
+    2.0,
+    0.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      3,
+      4
+     ],
+     "out": [
+      6.0,
+      8.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "non-uniform scale",
+   "transform": "scale(2,3)",
+   "matrix": [
+    2.0,
+    0.0,
+    0.0,
+    3.0,
+    0.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      3,
+      4
+     ],
+     "out": [
+      6.0,
+      12.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rotate 90 sends +X to +Y",
+   "transform": "rotate(90)",
+   "matrix": [
+    0.0,
+    1.0,
+    -1.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      1,
+      0
+     ],
+     "out": [
+      0.0,
+      1.0
+     ]
+    },
+    {
+     "in": [
+      0,
+      1
+     ],
+     "out": [
+      -1.0,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rotate about a centre",
+   "transform": "rotate(90 5 5)",
+   "matrix": [
+    0.0,
+    1.0,
+    -1.0,
+    0.0,
+    10.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      5,
+      0
+     ],
+     "out": [
+      10.0,
+      5.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "skewX",
+   "transform": "skewX(45)",
+   "matrix": [
+    1.0,
+    0.0,
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      0,
+      1
+     ],
+     "out": [
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "skewY",
+   "transform": "skewY(30)",
+   "matrix": [
+    1.0,
+    0.57735,
+    0.0,
+    1.0,
+    0.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      1,
+      0
+     ],
+     "out": [
+      1.0,
+      0.57735
+     ]
+    }
+   ]
+  },
+  {
+   "name": "matrix() is taken verbatim",
+   "transform": "matrix(2 0 0 2 5 5)",
+   "matrix": [
+    2.0,
+    0.0,
+    0.0,
+    2.0,
+    5.0,
+    5.0
+   ],
+   "points": [
+    {
+     "in": [
+      1,
+      1
+     ],
+     "out": [
+      7.0,
+      7.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a list applies LEFT TO RIGHT, outermost first",
+   "transform": "translate(10,0) scale(2)",
+   "matrix": [
+    2.0,
+    0.0,
+    0.0,
+    2.0,
+    10.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      1,
+      1
+     ],
+     "out": [
+      12.0,
+      2.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "the same list reversed is a different matrix",
+   "transform": "scale(2) translate(10,0)",
+   "matrix": [
+    2.0,
+    0.0,
+    0.0,
+    2.0,
+    20.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      1,
+      1
+     ],
+     "out": [
+      22.0,
+      2.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "whitespace and commas are interchangeable",
+   "transform": "translate(1 2),scale(3)",
+   "matrix": [
+    3.0,
+    0.0,
+    0.0,
+    3.0,
+    1.0,
+    2.0
+   ],
+   "points": [
+    {
+     "in": [
+      1,
+      1
+     ],
+     "out": [
+      4.0,
+      5.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "an unknown function is skipped with one diagnostic",
+   "transform": "wobble(3) translate(5,5)",
+   "matrix": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    5.0,
+    5.0
+   ],
+   "points": [
+    {
+     "in": [
+      0,
+      0
+     ],
+     "out": [
+      5.0,
+      5.0
+     ]
+    }
+   ],
+   "diagnostics": 1
+  },
+  {
+   "name": "a wrong-arity rotate is skipped",
+   "transform": "rotate(1,2) translate(5,5)",
+   "matrix": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    5.0,
+    5.0
+   ],
+   "points": [
+    {
+     "in": [
+      0,
+      0
+     ],
+     "out": [
+      5.0,
+      5.0
+     ]
+    }
+   ],
+   "diagnostics": 1
+  },
+  {
+   "name": "junk between functions is one diagnostic",
+   "transform": "translate(1,1) ??? scale(2)",
+   "matrix": [
+    2.0,
+    0.0,
+    0.0,
+    2.0,
+    1.0,
+    1.0
+   ],
+   "points": [
+    {
+     "in": [
+      1,
+      1
+     ],
+     "out": [
+      3.0,
+      3.0
+     ]
+    }
+   ],
+   "diagnostics": 1
+  },
+  {
+   "name": "a non-numeric argument is one diagnostic",
+   "transform": "translate(a,b) scale(2)",
+   "matrix": [
+    2.0,
+    0.0,
+    0.0,
+    2.0,
+    0.0,
+    0.0
+   ],
+   "points": [
+    {
+     "in": [
+      1,
+      1
+     ],
+     "out": [
+      2.0,
+      2.0
+     ]
+    }
+   ],
+   "diagnostics": 1
+  }
+ ],
+ "compose": [
+  {
+   "name": "nested groups multiply parent \u00b7 child",
+   "tree": [
+    {
+     "kind": "group",
+     "attrs": {
+      "key": "outer",
+      "transform": "translate(10,10)"
+     },
+     "children": [
+      {
+       "kind": "group",
+       "attrs": {
+        "key": "inner",
+        "transform": "scale(2)"
+       },
+       "children": [
+        {
+         "kind": "rect",
+         "attrs": {
+          "key": "r",
+          "x": 0,
+          "y": 0,
+          "width": 4,
+          "height": 4
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "nodes": [
+    {
+     "key": "outer/inner/r",
+     "transform": [
+      2.0,
+      0.0,
+      0.0,
+      2.0,
+      10.0,
+      10.0
+     ],
+     "points": [
+      {
+       "in": [
+        1,
+        1
+       ],
+       "out": [
+        12.0,
+        12.0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a rotation inside a translation rotates about the translated origin",
+   "tree": [
+    {
+     "kind": "group",
+     "attrs": {
+      "key": "g",
+      "transform": "translate(50,50)"
+     },
+     "children": [
+      {
+       "kind": "group",
+       "attrs": {
+        "key": "h",
+        "transform": "rotate(90)"
+       },
+       "children": [
+        {
+         "kind": "line",
+         "attrs": {
+          "key": "l",
+          "x1": 0,
+          "y1": 0,
+          "x2": 10,
+          "y2": 0
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "nodes": [
+    {
+     "key": "g/h/l",
+     "transform": [
+      0.0,
+      1.0,
+      -1.0,
+      0.0,
+      50.0,
+      50.0
+     ],
+     "points": [
+      {
+       "in": [
+        10,
+        0
+       ],
+       "out": [
+        50.0,
+        60.0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a shape's own transform composes after its ancestors'",
+   "tree": [
+    {
+     "kind": "group",
+     "attrs": {
+      "key": "g",
+      "transform": "scale(3)"
+     },
+     "children": [
+      {
+       "kind": "circle",
+       "attrs": {
+        "key": "c",
+        "cx": 0,
+        "cy": 0,
+        "r": 1,
+        "transform": "translate(2,0)"
+       }
+      }
+     ]
+    }
+   ],
+   "nodes": [
+    {
+     "key": "g/c",
+     "transform": [
+      3.0,
+      0.0,
+      0.0,
+      3.0,
+      6.0,
+      0.0
+     ],
+     "points": [
+      {
+       "in": [
+        0,
+        0
+       ],
+       "out": [
+        6.0,
+        0.0
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

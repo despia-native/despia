@@ -69,6 +69,7 @@ function xml(tag: string, attrs: { [k: string]: string } = {}, children: XmlNode
 function stubApi(node: XmlNode): ElementApi {
   return {
     bindText(expr, apply) { if (expr !== undefined) apply(expr.includes("{{") ? "" : expr); },
+    bindDisplay(expr, apply) { if (expr !== undefined) apply(expr.includes("{{") ? "" : expr); },
     bindValue() {},
     writeBack() {},
     handler() {},

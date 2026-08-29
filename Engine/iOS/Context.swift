@@ -694,6 +694,19 @@ public final class Context {
     private static func unhandledCallError(scheme: String, action: String, delivered: Bool = true) -> ModuleCallError {
         // What dispatch actually looked up: the first path segment, lowercased (URL-host contract).
         let host = action.split(separator: "/").first.map { String($0).lowercased() } ?? action.lowercased()
+        // THE ACTION-LEVEL NARROWING OUTRANKS `unknown_action`. A module present on this
+        // platform whose manifest says THIS action cannot run here did not lose an action to a
+        // typo — the caller asked for something declared impossible, and `unknown_action` would
+        // read as a caller bug it is not (X2 §1). Only the action-keyed table can answer this;
+        // the scheme-level check below stays where it was, after the loaded-module branch.
+        if let supported = ModuleRegistry.shared.unsupportedPlatforms(scheme, action: host),
+           ModuleRegistry.shared.unsupportedPlatforms(scheme) == nil {
+            let data = ModuleRegistry.shared.unsupportedPlatformData(scheme, supported)
+            reportCallFailure(scheme: scheme, action: action, code: "unsupported_platform",
+                              data: data, delivered: delivered,
+                              hint: "action implemented on: \(supported.joined(separator: ", "))")
+            return .actionFailed(code: "unsupported_platform", data: data)
+        }
         if ModuleRegistry.shared.isAvailable(scheme) {
             let known = ModuleRegistry.shared.actionNames(scheme)
             let hint = known.isEmpty
@@ -703,7 +716,7 @@ public final class Context {
                               data: ["action": host], delivered: delivered, hint: hint)
             return .actionFailed(code: "unknown_action", data: ["action": host])
         }
-        if let supported = ModuleRegistry.shared.unsupportedPlatforms(scheme) {
+        if let supported = ModuleRegistry.shared.unsupportedPlatforms(scheme, action: host) {
             let data = ModuleRegistry.shared.unsupportedPlatformData(scheme, supported)
             reportCallFailure(scheme: scheme, action: action, code: "unsupported_platform",
                               data: data, delivered: delivered,

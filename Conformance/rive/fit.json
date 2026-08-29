@@ -1,0 +1,357 @@
+{
+  "_note": "THE FIT AND ALIGNMENT FOLD — the artboard-into-box placement, and the one piece of geometry in this corpus. THE LAW. (1) Six fit words (cover · contain · fill · fitWidth · fitHeight · none) and nine alignment positions, both folded case-insensitively and with separators stripped, so `Bottom-Right`, `bottomright` and `bottomRight` are one word. `top`/`bottom`/`left`/`right` are the aliases of the four edge centres. (2) An unknown word FOLDS TO THE DEFAULT and is DIAGNOSED rather than refused: a typo in a presentation attribute must not blank an animation, but it must not be silent either. An ABSENT attribute is not a diagnostic. (3) Scale is exact and shared: contain = min, cover = max, fill = per-axis, fitWidth/fitHeight = one axis, none = 1. Placement is align * (box - content * scale), so the same nine factors serve every fit. (4) A zero-sized artboard is diagnosed and placed at scale 1 rather than dividing by zero — the corpus asserts the number, because a NaN transform is an invisible animation nobody can debug. Numbers are asserted to 1e-6; PIXELS are the vendor renderer's and are not pinned anywhere in this corpus. Function: riveFit(fit, alignment, cw, ch, bw, bh) on all three.",
+  "cases": [
+    {
+      "name": "the default fold is contain + center",
+      "fit": null,
+      "alignment": null,
+      "content": [
+        100,
+        100
+      ],
+      "box": [
+        200,
+        400
+      ],
+      "placement": {
+        "fit": "contain",
+        "alignment": "center",
+        "scaleX": 2.0,
+        "scaleY": 2.0,
+        "x": 0.0,
+        "y": 100.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "contain letterboxes and centres",
+      "fit": "contain",
+      "alignment": "center",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        200,
+        200
+      ],
+      "placement": {
+        "fit": "contain",
+        "alignment": "center",
+        "scaleX": 2.0,
+        "scaleY": 2.0,
+        "x": 0.0,
+        "y": 50.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "cover fills and overflows",
+      "fit": "cover",
+      "alignment": "center",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        200,
+        200
+      ],
+      "placement": {
+        "fit": "cover",
+        "alignment": "center",
+        "scaleX": 4.0,
+        "scaleY": 4.0,
+        "x": -100.0,
+        "y": 0.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "fill stretches both axes independently",
+      "fit": "fill",
+      "alignment": "center",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        200,
+        200
+      ],
+      "placement": {
+        "fit": "fill",
+        "alignment": "center",
+        "scaleX": 2.0,
+        "scaleY": 4.0,
+        "x": 0.0,
+        "y": 0.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "fitWidth locks the width and lets the height fall where it may",
+      "fit": "fitWidth",
+      "alignment": "top",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "fitWidth",
+        "alignment": "topCenter",
+        "scaleX": 3.0,
+        "scaleY": 3.0,
+        "x": 0.0,
+        "y": 0.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "fitHeight locks the height",
+      "fit": "fitHeight",
+      "alignment": "left",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "fitHeight",
+        "alignment": "centerLeft",
+        "scaleX": 4.0,
+        "scaleY": 4.0,
+        "x": 0.0,
+        "y": 0.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "none keeps the artboard's own scale",
+      "fit": "none",
+      "alignment": "center",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "none",
+        "alignment": "center",
+        "scaleX": 1.0,
+        "scaleY": 1.0,
+        "x": 100.0,
+        "y": 75.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "topLeft pins to the origin",
+      "fit": "contain",
+      "alignment": "topLeft",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "contain",
+        "alignment": "topLeft",
+        "scaleX": 3.0,
+        "scaleY": 3.0,
+        "x": 0.0,
+        "y": 0.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "bottomRight pins to the far corner",
+      "fit": "contain",
+      "alignment": "bottomRight",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "contain",
+        "alignment": "bottomRight",
+        "scaleX": 3.0,
+        "scaleY": 3.0,
+        "x": 0.0,
+        "y": 50.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "the alignment vocabulary folds case and separators",
+      "fit": "CONTAIN",
+      "alignment": "Bottom-Right",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "contain",
+        "alignment": "bottomRight",
+        "scaleX": 3.0,
+        "scaleY": 3.0,
+        "x": 0.0,
+        "y": 50.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "top is the alias of topCenter",
+      "fit": "contain",
+      "alignment": "top",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "contain",
+        "alignment": "topCenter",
+        "scaleX": 3.0,
+        "scaleY": 3.0,
+        "x": 0.0,
+        "y": 0.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "left is the alias of centerLeft",
+      "fit": "contain",
+      "alignment": "left",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "contain",
+        "alignment": "centerLeft",
+        "scaleX": 3.0,
+        "scaleY": 3.0,
+        "x": 0.0,
+        "y": 25.0,
+        "diagnostics": 0
+      }
+    },
+    {
+      "name": "an unknown fit word folds to contain and is DIAGNOSED",
+      "fit": "squish",
+      "alignment": "center",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "contain",
+        "alignment": "center",
+        "scaleX": 3.0,
+        "scaleY": 3.0,
+        "x": 0.0,
+        "y": 25.0,
+        "diagnostics": 1
+      }
+    },
+    {
+      "name": "an unknown alignment word folds to center and is DIAGNOSED",
+      "fit": "contain",
+      "alignment": "nowhere",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "contain",
+        "alignment": "center",
+        "scaleX": 3.0,
+        "scaleY": 3.0,
+        "x": 0.0,
+        "y": 25.0,
+        "diagnostics": 1
+      }
+    },
+    {
+      "name": "an artboard with no intrinsic size is diagnosed, never divided by",
+      "fit": "cover",
+      "alignment": "center",
+      "content": [
+        0,
+        0
+      ],
+      "box": [
+        300,
+        200
+      ],
+      "placement": {
+        "fit": "cover",
+        "alignment": "center",
+        "scaleX": 1.0,
+        "scaleY": 1.0,
+        "x": 150.0,
+        "y": 100.0,
+        "diagnostics": 1
+      }
+    },
+    {
+      "name": "a zero box places at the origin without dividing by zero",
+      "fit": "contain",
+      "alignment": "center",
+      "content": [
+        100,
+        50
+      ],
+      "box": [
+        0,
+        0
+      ],
+      "placement": {
+        "fit": "contain",
+        "alignment": "center",
+        "scaleX": 0.0,
+        "scaleY": 0.0,
+        "x": 0.0,
+        "y": 0.0,
+        "diagnostics": 0
+      }
+    }
+  ]
+}

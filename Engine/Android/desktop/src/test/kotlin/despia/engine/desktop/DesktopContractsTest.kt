@@ -296,6 +296,18 @@ class DesktopContractsTest {
             ),
         )
         assertEquals(32, MAX_DESKTOP_COMPONENT_DEPTH)
+        // the style plane: `override:` spellings leave the props plane, and the verb door's
+        // dict folds UNDER them (item-beats-store — corpus Conformance/overrides)
+        assertEquals(
+            mapOf<String, Any?>(
+                "kind" to "beta",
+                "__overrides" to mapOf<String, Any?>("radius" to "6", "tint" to "accent"),
+            ),
+            desktopComponentAttributes(
+                linkedMapOf("tag" to "Badge", "kind" to "beta", "override:radius" to "6"),
+                doorOverrides = mapOf("radius" to "12", "tint" to "accent"),
+            ),
+        )
     }
 
     @Test

@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "component": "Timeline",
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Timeline.dsx",
+  "_note": "<Timeline> — the vertical activity rail (U11). Two laws. (1) THE *Field INDIRECTION IS RESOLVED ONCE, in `timelineRows`, so the row template reads a fixed shape and no markup does a dynamic key lookup; a row key the caller did not supply becomes an empty string, never `undefined` printed into the UI. (2) STATE IS SPOKEN. `done` and `active` are the only two words that mean anything; every other value — a typo, a null, a state from someone else's schema — normalises to `pending`, and each row announces 'completed' / 'in progress' / 'not started' plus its POSITION IN SET, because the dot's colour reaches nobody using a screen reader. Empty renders zero rows and keeps the list landmark, which is the difference between 'nothing has happened yet' and 'this screen is broken'.",
+  "cases": [
+    {
+      "name": "the shipped shape passes through with every field resolved",
+      "attributes": { "bind": "[{\"title\":\"Packed\",\"time\":\"09:12\",\"state\":\"done\"},{\"title\":\"Shipped\",\"state\":\"active\"}]" },
+      "expect": [
+        { "expr": "dsx.variable.timelineRows", "value": [
+          { "key": "r0", "title": "Packed", "time": "09:12", "icon": "", "state": "done" },
+          { "key": "r1", "title": "Shipped", "time": "", "icon": "", "state": "active" }
+        ] }
+      ],
+      "root": [{ "attr": "a11yLabel", "value": "Timeline" }]
+    },
+    {
+      "name": "EMPTY: no rows, and the list landmark still names itself",
+      "attributes": { "bind": "[]" },
+      "expect": [{ "expr": "dsx.variable.timelineRows", "value": [] }],
+      "root": [{ "attr": "role", "value": "list" }, { "attr": "a11yLabel", "value": "Timeline" }]
+    },
+    {
+      "name": "a missing `bind` is empty, not a thrown parse",
+      "attributes": {},
+      "expect": [{ "expr": "dsx.variable.timelineRows", "value": [] }]
+    },
+    {
+      "name": "text that is not a JSON array fails open to empty",
+      "attributes": { "bind": "{\"title\":\"one\"}" },
+      "expect": [{ "expr": "dsx.variable.timelineRows", "value": [] }]
+    },
+    {
+      "name": "the *Field indirection reads the caller's own schema",
+      "attributes": {
+        "bind": "[{\"label\":\"Ordered\",\"at\":\"Mon\",\"glyph\":\"cart\",\"phase\":\"done\"}]",
+        "titleField": "label", "timeField": "at", "iconField": "glyph", "stateField": "phase"
+      },
+      "expect": [
+        { "expr": "dsx.variable.timelineRows[0].title", "value": "Ordered" },
+        { "expr": "dsx.variable.timelineRows[0].time", "value": "Mon" },
+        { "expr": "dsx.variable.timelineRows[0].icon", "value": "cart" },
+        { "expr": "dsx.variable.timelineRows[0].state", "value": "done" }
+      ]
+    },
+    {
+      "name": "an unknown state word normalises to pending rather than reaching the dot",
+      "attributes": { "bind": "[{\"title\":\"A\",\"state\":\"cancelled\"},{\"title\":\"B\"}]" },
+      "expect": [
+        { "expr": "dsx.variable.timelineRows[0].state", "value": "pending" },
+        { "expr": "dsx.variable.timelineRows[1].state", "value": "pending" }
+      ]
+    },
+    {
+      "name": "a caller-supplied rail name replaces the default landmark label",
+      "attributes": { "bind": "[]", "a11yLabel": "Order history" },
+      "root": [{ "attr": "a11yLabel", "value": "Order history" }]
+    },
+    {
+      "name": "a done row announces its state and its position in the set",
+      "attributes": { "bind": "[{\"title\":\"Packed\",\"time\":\"09:12\",\"state\":\"done\"},{\"title\":\"Shipped\"}]" },
+      "item": { "title": "Packed", "time": "09:12", "state": "done", "index": 0 },
+      "expect": [
+        { "expr": "dsx.formula.timelineUtterance", "value": "Packed, 09:12, completed, 1 of 2" },
+        { "expr": "dsx.formula.timelineStateWord", "value": "completed" },
+        { "expr": "dsx.formula.timelineDotFill", "value": "accent" }
+      ]
+    },
+    {
+      "name": "an active row with no timestamp drops the time clause, not the state clause",
+      "attributes": { "bind": "[{\"title\":\"Packed\"},{\"title\":\"Shipped\",\"state\":\"active\"}]" },
+      "item": { "title": "Shipped", "time": "", "state": "active", "index": 1 },
+      "expect": [
+        { "expr": "dsx.formula.timelineUtterance", "value": "Shipped, in progress, 2 of 2" },
+        { "expr": "dsx.formula.timelineStateWord", "value": "in progress" },
+        { "expr": "dsx.formula.timelineDotFill", "value": "background" }
+      ]
+    },
+    {
+      "name": "a pending row says 'not started' — the hollow dot is not the signal",
+      "attributes": { "bind": "[{\"title\":\"A\"},{\"title\":\"B\"},{\"title\":\"C\"}]" },
+      "item": { "title": "C", "time": "", "state": "pending", "index": 2 },
+      "expect": [
+        { "expr": "dsx.formula.timelineUtterance", "value": "C, not started, 3 of 3" },
+        { "expr": "dsx.formula.timelineDotFill", "value": "fill" }
+      ]
+    }
+  ]
+}

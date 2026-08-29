@@ -7,15 +7,34 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
-  "engines": { "node": ">=20" },
-  "repository": { "type": "git", "url": "git+https://github.com/despia-native/despia.git", "directory": "Web/packages/element" },
-  "homepage": "https://github.com/despia-native/despia-framework/tree/main/OpenSource/Web/packages/element",
-  "bugs": { "url": "https://github.com/despia-native/despia/issues" },
-  "publishConfig": { "access": "public", "provenance": true },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/despia-native/despia.git",
+    "directory": "Web/packages/element"
+  },
+  "homepage": "https://github.com/despia-native/despia/tree/main/Web/packages/element",
+  "bugs": {
+    "url": "https://github.com/despia-native/despia/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
     "build": "npm run clean && tsc -p tsconfig.build.json",

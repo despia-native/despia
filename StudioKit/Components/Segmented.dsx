@@ -1,0 +1,17 @@
+<!-- Segmented — a closed vocabulary of two to four choices, all visible at once. More than
+     four is a Select: a segmented row that wraps has stopped being one control. `options` is
+     a list of { id, label }; the chosen id comes back on `pick`. -->
+<hstack class="sk-seg" style="gap: 1px; align-items: center">
+  <head>
+    <attribute as="options"/>
+    <attribute as="value" default=""/>
+    <event as="pick"/>
+  </head>
+  <list bind="dsx.attribute.options" key="id" axis="horizontal" scroll="false" class="sk-seg-row">
+    <pressable class="sk-seg-btn {{ item.id == dsx.attribute.value ? 'sk-seg-on' : '' }}"
+               style="align-items: center; justify-content: center"
+               a11yLabel="{{ item.label }}" on:tap="dsx.event('pick', { value: item.id })">
+      <text value="{{ item.label }}" class="sk-seg-label" lineLimit="1"/>
+    </pressable>
+  </list>
+</hstack>

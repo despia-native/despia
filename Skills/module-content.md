@@ -1,4 +1,4 @@
-# `content` — bundled content folders (dsx.json) and the `dsx.content` primitive
+# `content`: bundled content folders (dsx.json) and the `dsx.content` primitive
 
 The kernel owns ONE content plane: `dsx.content` (`OpenSource/Engine/iOS/Content.swift`).
 App-authored content ships as **folders** — a manifest listing files (with optional

@@ -8,14 +8,26 @@ import { mkdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startServer } from "../../compiler/bin/serve.ts";
-import { browserEngine, launchBrowser } from "./browser-engine.ts";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+
+import { browserEngine, browserExecutablePath, launchBrowser } from "./browser-engine.ts";
+import { record as recordBaselines, check as checkBaselines } from "./appearance-gate.ts";
 
 const engine = browserEngine();
-const outDir = process.argv[2] ?? join(
-  resolve(dirname(fileURLToPath(import.meta.url)), "../../.."),
-  "demo/shots",
-  engine,
-);
+// --record rewrites the committed baselines, --check diffs against them. Both walk into a
+// scratch directory, so a check never disturbs the shots a human is looking at.
+const MODE: "write" | "record" | "check" =
+  process.argv.includes("--record") ? "record"
+  : process.argv.includes("--check") ? "check" : "write";
+const positional = process.argv.slice(2).find((a2) => !a2.startsWith("--"));
+const outDir = MODE === "write"
+  ? (positional ?? join(
+      resolve(dirname(fileURLToPath(import.meta.url)), "../../.."),
+      "demo/shots",
+      engine,
+    ))
+  : mkdtempSync(join(tmpdir(), `dsx-appearance-${engine}-`));
 mkdirSync(outDir, { recursive: true });
 
 const errors: string[] = [];
@@ -39,6 +51,9 @@ try {
   await page.getByText("Flex layout", { exact: true }).first().click();
   await page.waitForSelector('[data-dsx-owner="Flex"]', { timeout: 8000 });
   if (!new URL(page.url()).pathname.endsWith("/flex")) errors.push(`routed push did not sync URL: ${page.url()}`);
+  // the push fade (dsxRouteFrames, 160ms) marks the frame `dsx-motion-dsx` while it
+  // runs — wait it out so the evidence shot is the SETTLED frame, never a mid-fade blend
+  await page.waitForSelector(".dsx-frame.dsx-motion-dsx", { state: "detached", timeout: 2000 });
   await page.screenshot({ path: join(outDir, "02-flex.png") });
   console.log("✓ Flex page rendered (url → /flex)");
 
@@ -64,7 +79,21 @@ try {
   // → Basics page (haptics/clipboard/share buttons; buttons must not crash)
   await page.getByText("Basics", { exact: true }).first().click();
   await page.waitForSelector('[data-dsx-owner="Basics"]', { timeout: 8000 });
+  await page.waitForSelector(".dsx-frame.dsx-motion-dsx", { state: "detached", timeout: 2000 }); // settle the pop+push fades before the shot
   await page.getByRole("button", { name: "Light" }).click();
+  // SETTLE THE PRESS SPRING. The button releases from scale(0.97) over --dsx-dur-slow
+  // (300ms), so screenshotting straight after the click captured whichever frame the
+  // release happened to be on: this shot drifted intermittently in a 75x48 CSS region
+  // right over the button, ~1% of pixels, passing on the very next run at the same
+  // commit. Waiting for the transform to come back to rest makes the capture a fact
+  // rather than a race - the same reason the pop+push fades are settled two lines up.
+  await page.waitForFunction(() => {
+    const button = [...document.querySelectorAll("button")]
+      .find((b) => (b.textContent ?? "").trim() === "Light");
+    if (button === undefined) return true;
+    const t = getComputedStyle(button).transform;
+    return t === "none" || t === "matrix(1, 0, 0, 1, 0, 0)";
+  }, undefined, { timeout: 2000 });
   await page.screenshot({ path: join(outDir, "04-basics.png") });
   console.log("✓ Basics page rendered; haptic tap survived");
 
@@ -533,9 +562,19 @@ try {
   if (p5First.colors < 6) errors.push(`P5 scene canvas is too flat for a lit multi-node rig: ${p5First.colors} distinct colors`);
   else console.log(`✓ P5 scene painted (point light + fog + rows: ${p5First.colors} distinct colors)`);
   await page.screenshot({ path: join(outDir, "12-scene-p5.png") });
-  await page.waitForTimeout(400);
-  const p5Second = await probeP5();
-  if (p5Second.hash === p5First.hash) errors.push("P5 scene did not animate — the looping <animate> tween is not re-rendering");
+  // POLL, do not sample twice. This compared one frame against another exactly 400ms later,
+  // which fails whenever the tween's loop lands on the same phase at both instants - a real
+  // flake that reds the lane on a commit that changed nothing. Watching for a change inside a
+  // budget asserts the same thing more strongly: the tween must repaint at SOME point within
+  // 3s, and a scene that never repaints still fails, which is the defect worth catching.
+  let p5Second = p5First;
+  for (let i = 0; i < 15 && p5Second.hash === p5First.hash; i++) {
+    await page.waitForTimeout(200);
+    p5Second = await probeP5();
+  }
+  if (p5Second.hash === p5First.hash) {
+    errors.push("P5 scene did not animate in 3s — the looping <animate> tween is not re-rendering");
+  }
   else console.log("✓ P5 looping tween animates (two probes differ — no on:frame handler authored)");
   // a spawned row appears after a store write (the bound group's keyed reconcile)
   const enemiesBefore = (await page.getByText(/Enemies: \d+/).textContent()) ?? "";
@@ -688,10 +727,14 @@ try {
         unnamedButtons,
       };
     });
-    // 24 since `macwindow` reached the web tier. That commit moved the three sibling pins
-    // (render.test.ts ×2, demo-craft.test.ts) and missed this one, which only a browser run
-    // surfaces — so the walk had been red on every viewport since.
-    if (audit.rows !== 24) errors.push(`${entry.name}: expected 24 launcher rows, got ${audit.rows}`);
+    // 25 since the `dashboard` row ("Analytics dashboard", component Dashboard) landed in
+    // 92f8da8d on 2026-08-22. This is the SECOND time this pin was missed while its siblings
+    // moved: the note that stood here recorded the same thing happening when `macwindow`
+    // reached the web tier. Only a browser run surfaces it, and a run that exits here never
+    // reaches the appearance check below, so the miss hid the gate as well as the row. If it
+    // happens a third time, the launcher should publish its own count instead of every
+    // consumer keeping a copy.
+    if (audit.rows !== 25) errors.push(`${entry.name}: expected 25 launcher rows, got ${audit.rows}`);
     if (audit.overflow > 1) errors.push(`${entry.name}: horizontal overflow ${audit.overflow}px`);
     if (audit.duplicates.length > 0) errors.push(`${entry.name}: duplicate ids ${audit.duplicates.join(", ")}`);
     if (audit.unnamedButtons > 0) errors.push(`${entry.name}: ${audit.unnamedButtons} unnamed button(s)`);
@@ -706,15 +749,19 @@ try {
     // This gives reviewers the three responsive compositions and the important
     // interaction states without tripling every screenshot in this oracle.
     await matrixPage.goto(`http://localhost:${port}/demo/site/gallery`, { waitUntil: "networkidle" });
-    const gallery = matrixPage.locator('[data-dsx-owner="Gallery"]').last();
+    // FIRST, not last: `data-dsx-owner` marks every node the component owns, so the
+    // selector matches 87 elements and only index 0 is the surface root. The last is a
+    // text span inside a closed sheet — zero-sized, never visible, and what this line
+    // used to wait 8s for before failing the whole walk.
+    const gallery = matrixPage.locator('[data-dsx-owner="Gallery"]').first();
     await gallery.waitFor({ state: "visible", timeout: 8000 });
 
     // The Gallery is a TABBED scaffold, and `visible-if` OMITS an inactive panel from the DOM
     // rather than hiding it, so exactly one panel exists at a time. The audit therefore walks
-    // the four sections and measures each in turn. Doing it before the interaction states below
+    // every section in the rail and measures each in turn. Doing it before the interaction states below
     // matters: switching tabs would discard the focus/hover/populated states the screenshot is
     // meant to capture.
-    const SECTIONS = ["Controls", "Inputs", "Feedback", "Patterns"] as const;
+    const SECTIONS = ["Controls", "Inputs", "Feedback", "Media", "Patterns"] as const;
     let sectionsRendered = 0;
     let totalControls = 0;
     for (const section of SECTIONS) {
@@ -905,3 +952,16 @@ if (fatal.length > 0) {
   process.exit(1);
 }
 console.log(`\nall pages [${engine}] green → ${outDir}`);
+
+// The binary that actually took these shots, not an env var that may not be set: the
+// resolver is what launchBrowser used, so the manifest records the browser the pixels
+// came out of and a mismatch is a real mismatch rather than a missing variable.
+const exe = browserExecutablePath(engine);
+if (MODE === "record") {
+  const m = recordBaselines(outDir, engine, exe);
+  console.log(`recorded ${m.shots.length} baseline(s) on ${m.browserVersion}`);
+} else if (MODE === "check") {
+  const r = checkBaselines(outDir, engine, exe, join(outDir, `diff-${engine}`));
+  for (const l of r.lines) console.log(r.ok ? l : `  ${l}`);
+  if (!r.ok) { console.error(`✗ appearance [${engine}] drifted`); process.exit(1); }
+}

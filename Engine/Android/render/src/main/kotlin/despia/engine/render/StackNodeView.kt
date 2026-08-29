@@ -152,13 +152,31 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.Badge
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
+import despia.engine.RefRegistry
+import despia.engine.TypeRamp
+import despia.engine.StackRef
 import despia.engine.input.DsxInputRuntime
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -168,19 +186,29 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -196,23 +224,35 @@ import despia.engine.CSSResolver
 import despia.engine.DSX
 import despia.engine.DSXCookies
 import despia.engine.DSXStrings
+import despia.engine.DSXBusDispatch
+import despia.engine.DSXDispatchVerdict
 import despia.engine.JSE
 import despia.engine.JSERunner
+import despia.engine.LayoutSemantics
+import despia.engine.StackDensity
 import despia.engine.OnHandler
 import despia.engine.Platform
 import despia.engine.PlatformAttrs
 import despia.engine.ScreenReadiness
+import despia.engine.OverrideDecl
 import despia.engine.SlotContent
 import despia.engine.StackDiagnostics
 import despia.engine.StackFormula
+import despia.engine.StyleOverrides
 import despia.engine.StackNode
 import despia.engine.StackStore
+import despia.engine.StackTooltip
+import despia.engine.StackTooltipLifecycle
 import despia.engine.registerAction
 import despia.engine.render.elements.SelectionControl
 import despia.engine.render.elements.blockHits
 import despia.engine.varsFlow
 import despia.engine.writeBound
 import java.util.WeakHashMap
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // MARK: - ComposeStackComponents — the :render twin of Stack.swift's StackComponents
 // (XML-template components + native globals + the runtime registry + privileged
@@ -234,7 +274,17 @@ class ComposeStackComponentContext(
     val nodeText: String?,
     val rowWrite: ((String, Any) -> Unit)?,
     val componentTag: String,
-)
+) {
+    /// Call a module action over the bus — the twin of markup's `dsx.module.scheme.method(args)`
+    /// and of Swift's `StackComponentContext.dispatch`. Read `.succeeded` to gate anything
+    /// ([DSXDispatchVerdict]); `then` reports a settle that only arrives after a round trip.
+    fun dispatch(call: String, args: Map<String, Any?> = emptyMap(),
+                 then: ((DSXDispatchVerdict) -> Unit)? = null): DSXDispatchVerdict =
+        DSXBusDispatch.run(call, args, then)
+
+    /// Fire a haptic through the `haptic` module — the single owner, never a private vibrator.
+    fun haptic(style: String): DSXDispatchVerdict = dispatch("haptic.$style")
+}
 
 object ComposeStackComponents {
     private class NodeDef(val template: StackNode, val scope: String?)
@@ -476,7 +526,13 @@ internal object ScrollNestingPolicy {
  * chunked-row layout. Root grids remain virtualized unless the author explicitly asks for
  * `scroll="false"`.
  */
-internal object GridScrollPolicy {
+/// A lazy scroller may never nest inside a vertical scroll: Compose measures the inner
+/// LazyColumn/LazyVerticalGrid with an infinite maximum height and throws. `<list>` and
+/// `<grid>` therefore share ONE rule — render rows eagerly when the author said
+/// `scroll="false"` OR when a scrolling / hugging ancestor stamped LocalInScrollContainer
+/// (`<scroll>`, the sheet's fit-content slot). The iOS twin is the same law from the other
+/// side: a greedy List collapses under a ScrollView, so ScrollAwareSystemList drops it.
+internal object LazyScrollPolicy {
     fun usesEagerRows(scroll: String?, inVerticalScrollContainer: Boolean): Boolean =
         scroll == "false" || inVerticalScrollContainer
 }
@@ -489,10 +545,7 @@ internal object GridScrollPolicy {
  * original eager hierarchy.
  */
 internal object ScrollVirtualizationPolicy {
-    private val DECLARATIONS = setOf(
-        "head", "event", "expects", "action", "api", "variable", "var", "let",
-        "component", "formula", "script", "functions", "style", "watch", "attribute",
-    )
+    private val DECLARATIONS = despia.engine.LayoutSemantics.declarationTags
     private val CONTAINER_DYNAMIC_ATTRS = setOf(
         "visible-if", "keep", "transition", "anim", "enter", "theme",
         "on:appear", "on:disappear",
@@ -742,7 +795,9 @@ fun StackNodeView(
         // Standalone StackNodeView callers retain the safe pre-root path.
         cssEnvironment()
     }
-    val attrs = resolvedAttrs(node, store, item, css)
+    // `@keyframes` is driven HERE rather than inside resolvedAttrs: sampling needs a frame loop
+    // and resolvedAttrs is a pure fold called from non-composable callers too (R28).
+    val attrs = animatedAttrs(node, resolvedAttrs(node, store, item, css), css)
 
     // Two visibility modes (Swift visibilityBody): default inserts/removes — with
     // transition=/anim= the flip animates (AnimatedVisibility, Swift's `.transition` +
@@ -833,18 +888,38 @@ private fun NodeContent(
         fun themed(k: String): String? = (attrs[k] ?: named[k])?.let { JSE.interpolate(it, store, item) }
         StackTheme.subtreePin(themed("theme"), themed("background"))
     } else null
-    if (pinnedDark != null) {
-        ForcedSchemeSubtree(pinnedDark) {
+    val themedBody: @Composable () -> Unit = {
+        if (pinnedDark != null) {
+            ForcedSchemeSubtree(pinnedDark) {
+                NodeBody(
+                    node, attrs, store, env, item, rowWrite,
+                    surfaceSnapshot, globalSnapshot, cookieSnapshot, keepAlive, isVisible,
+                )
+            }
+        } else {
             NodeBody(
                 node, attrs, store, env, item, rowWrite,
                 surfaceSnapshot, globalSnapshot, cookieSnapshot, keepAlive, isVisible,
             )
         }
-    } else {
-        NodeBody(
-            node, attrs, store, env, item, rowWrite,
-            surfaceSnapshot, globalSnapshot, cookieSnapshot, keepAlive, isVisible,
+    }
+    // DENSITY pin (`density="comfortable|compact"` — the W9 subtree knob; shared law:
+    // OpenSource/Conformance/input/density.json, StackDensity — the Stack.swift ~6037
+    // `.environment(\.controlSize)` twin). Compose M3 ships no control-size system, so the
+    // platform's own size knob here is the M3 minimum interactive component size: compact
+    // pins this subtree onto the 40dp desktop-density floor (the split-toggle target
+    // precedent), comfortable restores the platform 48dp — every M3 control and every
+    // `minimumInteractiveComponentSize()`-floored DSX metric re-derives its target from it.
+    // Nearest pin wins by provider nesting; no authored pin composes byte-identically.
+    val densityPin = StackDensity.resolve(attrs["density"]?.let { JSE.interpolate(it, store, item) })
+    if (densityPin != null) {
+        CompositionLocalProvider(
+            LocalMinimumInteractiveComponentSize provides
+                (if (densityPin == StackDensity.COMPACT) 40.dp else 48.dp),
+            content = themedBody,
         )
+    } else {
+        themedBody()
     }
 }
 
@@ -916,19 +991,26 @@ private fun NodeBody(
     // The wrapper decision keys on the ATTRS (stable per composition), never the animated
     // value — a settled entry must not change composition structure (a remount would
     // refire on:appear and reset child state).
+    val rawContent: @Composable () -> Unit = {
+        Raw(
+            node, attrs, m, store, env, item, rowWrite,
+            surfaceSnapshot, globalSnapshot, cookieSnapshot,
+        )
+    }
+    // tooltip= — the universal element hint's render adapter (StackTooltipHost below).
+    // Same structure rule: the wrapper keys on the ATTR's presence, never the (reactive)
+    // resolved value, so a bound tooltip going empty mid-flight can never remount Raw.
+    // Inside the motion Box, like iOS (keep-hidden blocks hits, so a hidden element can
+    // never reveal); inside the passthrough/container providers below, so the reveal
+    // wiring sees LocalDsxPassthrough exactly like decorate's interactive arms.
+    val hinted: @Composable () -> Unit =
+        if (attrs["tooltip"] != null) ({ StackTooltipHost(attrs, store, item, rawContent) })
+        else rawContent
     val body: @Composable () -> Unit = {
         if (keepAlive || attrs["enter"] != null) {
-            Box(motion) {
-                Raw(
-                    node, attrs, m, store, env, item, rowWrite,
-                    surfaceSnapshot, globalSnapshot, cookieSnapshot,
-                )
-            }
+            Box(motion) { hinted() }
         } else {
-            Raw(
-                node, attrs, m, store, env, item, rowWrite,
-                surfaceSnapshot, globalSnapshot, cookieSnapshot,
-            )
+            hinted()
         }
     }
     // container/passthrough scope providers — around Raw, so the element's own modifier
@@ -944,6 +1026,130 @@ private fun NodeBody(
             LocalDsxPassthrough provides true, content = body)
         else -> body()
     }
+}
+
+/// Hover-intent delay before a tooltip shows — the web twin's TOOLTIP_INTENT_DELAY_MS
+/// (mount.ts); keyboard focus shows immediately, exactly like the web adapter.
+private const val TOOLTIP_INTENT_DELAY_MS = 300L
+
+/// `tooltipSide=` word → the M3 anchor-position solver's slot (pure; plain-JVM tested —
+/// StackTooltipAdapterTest). Start/End follow layout direction (leading/trailing under
+/// RTL) and the M3 provider collision-flips at the window edge — the web placeFloating
+/// behavior. The resolve() fold has already normalized unknowns to "top".
+@OptIn(ExperimentalMaterial3Api::class)
+internal fun tooltipAnchorPosition(side: String): TooltipAnchorPosition = when (side) {
+    "bottom" -> TooltipAnchorPosition.Below
+    "leading" -> TooltipAnchorPosition.Start
+    "trailing" -> TooltipAnchorPosition.End
+    else -> TooltipAnchorPosition.Above
+}
+
+/// tooltip= / tooltipSide= — the universal element hint (design-system.md Wave 3 (c)1; the
+/// shared law: OpenSource/Conformance/input/tooltip.json; twins: web mount.ts wireTooltip,
+/// Stack.swift decorate's UIToolTipInteraction arm). The RENDER adapter drives the REAL M3
+/// plain tooltip surface (system-defaults.md: the unstyled baseline IS the platform) from
+/// the corpus-pinned StackTooltipLifecycle — TooltipBox's own gestures stay OFF
+/// (enableUserInput = false) because M3's long-press reveal would break the law's touch
+/// gate: only a hover-capable pointer (mouse/stylus Enter, the on:hover arm's kind gate)
+/// after the shared hover-intent delay, or KEYBOARD focus (InputMode.Keyboard — the
+/// :focus-visible analogue; hasFocus covers the merged control inside), ever reveals.
+/// Touch and TalkBack focus never do (Article 7) and lose nothing — the resolved text
+/// always doubles as the element's description (StackStyle's a11y arm, the hint slot).
+/// Escape dismisses through the machine; DECLARED (the on:adjust trade): a hardware
+/// Escape reaches this node only while focus sits within, so a hover-only show dismisses
+/// by pointer-out instead. Text and side interpolate per recomposition (the reactive
+/// twin of the web's bindText); text resolving empty mid-flight unmounts the machine (the
+/// web sync()); a passthrough subtree wires no reveal (the interactive-arms gate) while
+/// the composition structure stays byte-stable either way.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StackTooltipHost(
+    attrs: Map<String, String>,
+    store: StackStore,
+    item: Map<String, Any?>?,
+    content: @Composable () -> Unit,
+) {
+    val resolved = StackTooltip.resolve(
+        attrs["tooltip"]?.let { JSE.interpolate(it, store, item) },
+        attrs["tooltipSide"]?.let { JSE.interpolate(it, store, item) },
+    )
+    // rememberUpdatedState so the pointerInput(Unit) loop below reads the LIVE resolution
+    // (and the passthrough gate) without restarting — hover state must survive a text edit.
+    val current by rememberUpdatedState(if (LocalDsxPassthrough.current) null else resolved)
+    val machine = remember { StackTooltipLifecycle() }
+    var revealed by remember { mutableStateOf(false) }
+    fun dispatch(actions: List<String>) {
+        for (action in actions) revealed = action == "show"
+    }
+    val tooltipState = rememberTooltipState(isPersistent = true)   // OUR machine owns hide — never the M3 auto-timeout
+    LaunchedEffect(revealed) {
+        if (revealed) tooltipState.show() else tooltipState.dismiss()
+    }
+    val gone = current == null
+    LaunchedEffect(gone) { if (gone) dispatch(machine.unmount()) }
+    val inputModeManager = LocalInputModeManager.current
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+            tooltipAnchorPosition(resolved?.side ?: "top")),
+        tooltip = { PlainTooltip { Text(current?.text ?: "") } },
+        state = tooltipState,
+        focusable = false,        // the bubble must never steal focus (stealing would blur-hide it)
+        enableUserInput = false,  // reveal is the machine's alone — see the header
+        modifier = Modifier
+            .pointerInput(Unit) {
+                coroutineScope {
+                    var intent: Job? = null
+                    try {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                when (event.type) {
+                                    PointerEventType.Enter -> {
+                                        val capable = event.changes.any { hoverPointerKind(it.type) != "touch" }
+                                        if (capable && current != null && intent == null) {
+                                            intent = launch {
+                                                delay(TOOLTIP_INTENT_DELAY_MS)
+                                                intent = null
+                                                if (current != null) dispatch(machine.hoverStart(true))
+                                            }
+                                        }
+                                    }
+                                    PointerEventType.Exit -> {
+                                        intent?.cancel(); intent = null
+                                        dispatch(machine.hoverEnd())
+                                    }
+                                    // a press is activation, not hover intent (the web pointerdown)
+                                    PointerEventType.Press -> { intent?.cancel(); intent = null }
+                                    else -> {}
+                                }
+                            }
+                        }
+                    } finally {
+                        // cancelled at unmount — an accepted show still receives its hide
+                        // (the on:hover arm's finally).
+                        intent?.cancel()
+                        dispatch(machine.unmount())
+                    }
+                }
+            }
+            .onFocusChanged { state ->
+                if (state.hasFocus) {
+                    if (current != null) {
+                        dispatch(machine.focus(inputModeManager.inputMode == InputMode.Keyboard))
+                    }
+                } else {
+                    dispatch(machine.blur())
+                }
+            }
+            .onPreviewKeyEvent { event ->
+                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown && revealed) {
+                    dispatch(machine.escape())
+                    true
+                } else {
+                    false
+                }
+            },
+    ) { content() }
 }
 
 /// The DSX-CSS environment, read from Compose so every input is a TRACKED recomposition
@@ -1178,6 +1384,12 @@ internal val LocalDsxPassthrough = compositionLocalOf { false }
 /// (elementModifier's registered slots included) inherits the passthrough gate for free.
 internal fun Modifier.decorate(node: StackNode, a: Map<String, String>, store: StackStore, env: JSERunner, item: Map<String, Any?>?): Modifier {   // internal: the elements/ wave re-applies it (elementModifier — Elements.kt)
     var out: Modifier = this
+    // The parity-capture seam (ParityCapture.kt): armed only by the capture harness,
+    // one @Volatile null read per element otherwise. Leftmost, so the reported bounds
+    // are the element's full styled box.
+    ParityCapture.session?.let { s ->
+        if (s.capturesNode(node)) out = s.modifier(node, a).then(out)
+    }
     val isControl = node.tag in tapControls
     val tapAction = if (isControl) null else a["on:tap"]
     // `href=` alone makes any non-control element a link (tap → route.push, /web/04)
@@ -1271,6 +1483,16 @@ internal fun Modifier.decorate(node: StackNode, a: Map<String, String>, store: S
     // NOT gated by passthrough: measurement is observation, not interaction (iOS's
     // allowsHitTesting leaves GeometryReader running too).
     a["measure"]?.takeIf { it.isNotEmpty() }?.let { out = out.then(Modifier.dsxMeasure(it, store, item)) }
+    // `ref="name"` — publish this element's backing view so a MODULE can reach it
+    // (capture.element, scroll.toElement, Spotlight). The kernel names no consumer: it
+    // publishes under StackRef.key and the module resolves over the bus. Law:
+    // Conformance/input/ref.json; the recycling rule lives in RefRegistry, not here.
+    a["ref"]?.takeIf { StackRef.key(it) != null }?.let { out = out.then(Modifier.dsxRef(it)) }
+    // U03 `shared=` — measure into the flight registry and pose while the pair flies. The
+    // DESTINATION declares mode/anim/order, the source is the fallback, the frame's own `anim`
+    // is the floor (Conformance/router/shared.json). A node without the attribute pays one
+    // map lookup and composes identically.
+    if (a["shared"] != null) out = out.then(Modifier.sharedElement(store.frameId, a))
     // `on:adjust` — the assistive adjustable action that makes an `on:drag` control operable
     // WITHOUT sight (Stack.swift decorate's accessibilityAdjustableAction). iOS gets a first-
     // class .adjustable trait (a VoiceOver swipe up/down); Compose has no adjustable trait for
@@ -1380,6 +1602,24 @@ private fun Modifier.dsxMeasure(key: String, store: StackStore, item: Map<String
         }
         if (!JSE.equals(JSE.eval(key, store, item), value)) store.writeBound(key, value)
     }
+}
+
+/// `ref=` — publish the element's backing view into the shared-handle registry while it is on
+/// screen, and withdraw on dispose. The registry is process-wide and its recycling rule (only the
+/// CURRENT provider may clear) lives in the shared RefRegistry core, so a recycled row that
+/// unmounts AFTER the incoming row claimed the name cannot kill the visible one.
+private fun Modifier.dsxRef(name: String): Modifier = composed {
+    val view = LocalView.current
+    DisposableEffect(name, view) {
+        DSXRefs.registry.provide(name, view)
+        onDispose { DSXRefs.registry.clear(name, view) }
+    }
+    this@dsxRef
+}
+
+/// The ONE process-wide ref table for this renderer, so every surface resolves the same names.
+private object DSXRefs {
+    val registry = RefRegistry<android.view.View>()
 }
 
 private fun runTap(node: StackNode, action: String, a: Map<String, String>, store: StackStore, env: JSERunner, item: Map<String, Any?>?) {
@@ -1520,7 +1760,11 @@ private fun Raw(
                 Children(node, store, env, item, rowWrite)
             }
         }
-        "event", "expects" -> {}                                // purely declarative contracts
+        // <tool> is the AGENT interface row (proposals/webmcp.md): it names a declared
+        // action and renders nothing. Inert on this renderer by nature, not by omission -
+        // there is no `document.modelContext` outside a browser, so the row is validated by
+        // the shared WebMcp fold and waits for its consumer.
+        "event", "expects", "tool" -> {}                        // purely declarative contracts
         "action" -> registerHeadAction(node, a, store)
         "api" -> StackApiView(a, store, env, item)
         "variable", "var", "let" -> {
@@ -1566,6 +1810,21 @@ private fun Raw(
                           store, env, item)
             }
         }
+        "override" -> {
+            // <override as="radius" type="length" default="12"/> — DECLARES a style knob
+            // (the component STYLE contract beside the attribute DATA contract). The raw
+            // values arrive through the item scope's __overrides dict (the tag door) or
+            // the store's dsx.override var (the mount/update door); Jse.kt's lookup
+            // resolves reads through StyleOverrides.resolve. Corpus:
+            // OpenSource/Conformance/overrides/style-overrides.json.
+            val name = a["as"]
+            if (!name.isNullOrEmpty() && store.overrideDecls[name] == null) {
+                store.overrideDecls[name] = OverrideDecl(
+                    name = name, type = a["type"], default = a["default"],
+                    options = a["options"], min = a["min"], max = a["max"],
+                )
+            }
+        }
         "style" -> {
             a["as"]?.let { name ->
                 val def = HashMap(a); def.remove("as"); def.remove("id")
@@ -1577,8 +1836,9 @@ private fun Raw(
             if (slot != null) {
                 val name = a["name"]
                 for (kid in slot.children.filter { it.attrs["slot"] == name }) {
-                    // Rendered in the CONSUMER's scope (slot.env / slot.item), like iOS.
-                    StackNodeView(kid, store, slot.env, slot.item, slot.rowWrite)
+                    // Rendered in the CONSUMER's scope AND store (slot.env carries the
+                    // caller's store - the instance-store law), like iOS and the web.
+                    StackNodeView(kid, slot.env.store, slot.env, slot.item, slot.rowWrite)
                 }
             }
         }
@@ -1667,16 +1927,6 @@ private fun Raw(
             }
         }
         "text", "label" -> {
-            // DEFERRAL — `markdown="true"` has NO twin here (android-status.md, and the
-            // declaration now also rides Conformance/elements/text.json's notes). iOS renders it
-            // through Text(AttributedString(markdown:)) and web through dom/src/markdown.ts (the
-            // same inline vocabulary: emphasis · strong · code · strikethrough · links). This
-            // branch hands BasicText a plain String, so the attribute shows the RAW SOURCE on
-            // Android. NOT an OS floor — Compose expresses these spans through AnnotatedString,
-            // so this is missing work, not a Material gap; it lands with the block-level
-            // <Markdown> wave and its shared corpus (v4-launch/execution-plan.md A4/A4b) so the
-            // twin arrives fixtures-first rather than as an Android-only dialect.
-            //
             // bind= takes precedence over value= over text content (StackReference).
             // Bound content is app/user DATA and must stay byte-identical. Authored `value` or
             // inner text is UI copy, so it goes through the same DSXStrings choke point as iOS.
@@ -1698,16 +1948,33 @@ private fun Raw(
             }
             val lineLimit = a["lineLimit"]?.toIntOrNull()
             val authoredStyle = StackStyle.styleText(a, store, item, color)
-            val textStyle = when (systemListRole) {
-                SystemList.TextRole.HEADLINE -> MaterialTheme.typography.bodyLarge.merge(authoredStyle)
-                SystemList.TextRole.SUPPORTING -> MaterialTheme.typography.bodyMedium.merge(authoredStyle)
-                null -> authoredStyle
+            // `type=` names a rung of the ratified ramp (Conformance/defaults/type.json), and
+            // the Android column of that file is a Material ROLE, never a number - so the rung
+            // tracks the Material scale and the reader's font-size setting. It sits UNDER the
+            // authored style, exactly where the system-list role sits: naming a rung is picking
+            // a starting point, and an explicit fontSize= still wins.
+            val ramp = TypeRamp.material(interp(a["type"]))?.let { materialTypography(it) }
+            val textStyle = when {
+                systemListRole == SystemList.TextRole.HEADLINE -> MaterialTheme.typography.bodyLarge.merge(authoredStyle)
+                systemListRole == SystemList.TextRole.SUPPORTING -> MaterialTheme.typography.bodyMedium.merge(authoredStyle)
+                ramp != null -> ramp.merge(authoredStyle)
+                else -> authoredStyle
             }
-            BasicText(text = content,
-                      modifier = m,
-                      style = textStyle,
-                      maxLines = lineLimit ?: Int.MAX_VALUE,
-                      overflow = if (lineLimit != null) TextOverflow.Ellipsis else TextOverflow.Clip)
+            val markdownOn = interp(a["markdown"]) == "true" || interp(a["markdown"]) == "1"
+            if (markdownOn) {
+                val bodySize = textStyle.fontSize.value.takeIf { it > 0f } ?: 17f
+                BasicText(text = markdownInlineAnnotated(content, bodySize),
+                          modifier = m,
+                          style = textStyle,
+                          maxLines = lineLimit ?: Int.MAX_VALUE,
+                          overflow = if (lineLimit != null) TextOverflow.Ellipsis else TextOverflow.Clip)
+            } else {
+                BasicText(text = content,
+                          modifier = m,
+                          style = textStyle,
+                          maxLines = lineLimit ?: Int.MAX_VALUE,
+                          overflow = if (lineLimit != null) TextOverflow.Ellipsis else TextOverflow.Clip)
+            }
         }
         "image" -> {
             // The UNREGISTERED fallback only: the REAL `<image>` — src=/asset= through the
@@ -1774,7 +2041,7 @@ private fun Raw(
                     authorTint = interp(a["color"])?.let { StackStyle.color(it) },   // the compatible tint tweak
                     variantWord = interp(a["variant"]),
                     roleWord = interp(a["role"]),
-                    disabled = interp(a["disabled"]) == "true",
+                    disabled = JSE.truthy(interp(a["disabled"])) || JSE.truthy(interp(a["disabled-if"])),
                     onTap = onTap)
                 return
             }
@@ -1792,7 +2059,7 @@ private fun Raw(
                 (node.tag == "pressable" || node.tag == "row") &&
                 (a["on:longPress"] != null || a["on:longPressEnd"] != null)
             if (hasDouble || hasLong) {
-                val gestureDisabled = interp(a["disabled"]) == "true" || interp(a["disabled-if"]) == "true"
+                val gestureDisabled = JSE.truthy(interp(a["disabled"])) || JSE.truthy(interp(a["disabled-if"]))
                 val hasPrimary = tap != null || href != null
                 val primaryAction: (() -> Unit)? = if (hasPrimary) {
                     { if (tap != null) runTap(node, tap, a, store, env, item)
@@ -1922,6 +2189,13 @@ private fun Raw(
             Box(m.then(Modifier.fillMaxWidth().height(ElementDefaults.DIVIDER_THICKNESS.dp)
                 .background(StackStyle.color(interp(a["color"]) ?: ElementDefaults.DIVIDER_COLOR))))
         }
+        "markdown" -> {
+            // The BLOCK markdown vocabulary (A4b) in the prose plane's design language —
+            // MarkdownBlocksView.kt renders the neutral tree :core parses (corpus
+            // OpenSource/Conformance/markdown/blocks.json, the SAME file the web and
+            // Swift twins answer). `<text markdown>` uses the same inline parser.
+            MarkdownBlocksElement(node, a, m, store, env, item, rowWrite)
+        }
         "scroll" -> {
             // Both scrolling forms stamp the scroll-ancestor signal (the iOS
             // stackInScrollContainer twin — Scroll.swift stamps both its returns): a
@@ -1955,7 +2229,10 @@ private fun Raw(
 
         // ── data-bound containers + two-way inputs (the bind seam: StackInputViews.kt) ──
         "list" -> BoundList(node, a, m, store, env, item, rowWrite)
-        "grid" -> BoundGrid(node, a, m, store, env, item, rowWrite)
+        "grid" -> BoundGrid(
+            node, a, m, store, env, item, rowWrite,
+            surfaceSnapshot, globalSnapshot,
+        )
         "pager" -> Pager(
             node, a, m, store, env, item, rowWrite,
             surfaceSnapshot, globalSnapshot,
@@ -1976,7 +2253,7 @@ private fun Raw(
             if (node.children.isEmpty() && SystemControl.rendersSystem(a, SystemControl.TOGGLE))
                 M3ToggleView(a, m, BoundControl(node.tag, a, store, env, item, rowWrite))
             else ToggleView(a, m, BoundControl(node.tag, a, store, env, item, rowWrite))
-        // textfield/input: unstyled → the REAL M3 OutlinedTextField (SelectionControl.TEXTFIELD
+        // textfield/input: unstyled → the REAL M3 filled TextField (SelectionControl.TEXTFIELD
         // — the shared allowlist, NOT a fork); any authored look / children eject to the legacy
         // BasicTextField byte-identically. B2's focus/IME event contract rides BOTH paths (wired
         // on the field modifier — M3TextFieldView / TextFieldView, StackInputViews.kt).
@@ -2185,9 +2462,10 @@ internal fun bound(a: Map<String, String>, store: StackStore, item: Map<String, 
 /// template, rendered once per row in its own `item` scope with write-back. `spacing=`
 /// gaps rows; `align=` sets the row cross-axis alignment (leading default / center /
 /// trailing — the flat-list `hAlign` twin); `scroll="false"` renders eagerly (no own
-/// scroll — compose inside `<scroll>` / measured sheets) while otherwise-unstyled rows
-/// remain real Material 3 ListItems; `on:reachEnd` fires when the last row appears
-/// (pagination).
+/// scroll — compose inside `<scroll>` / measured sheets), as does a list under a scrolling
+/// ancestor (LazyScrollPolicy — a LazyColumn may not nest in a vertical scroll), while
+/// otherwise-unstyled rows remain real Material 3 ListItems; `on:reachEnd` fires when the
+/// last row appears (pagination).
 @Composable
 internal fun BoundList(node: StackNode, a: Map<String, String>, modifier: Modifier, store: StackStore,
                        env: JSERunner, item: Map<String, Any?>?, rowWrite: ((String, Any) -> Unit)?) {
@@ -2204,7 +2482,7 @@ internal fun BoundList(node: StackNode, a: Map<String, String>, modifier: Modifi
     // drops the system List when `align` is present.
     val align = hAlign(a["align"]?.let { JSE.interpolate(it, store, item) })
     val reachEnd = a["on:reachEnd"]
-    if (a["scroll"] == "false") {
+    if (LazyScrollPolicy.usesEagerRows(a["scroll"], LocalInScrollContainer.current)) {
         if (SystemList.rendersSystemRows(a, template.attrs)) {
             Column(m.then(Modifier.fillMaxWidth())) {
                 for (i in b.rows.indices) {
@@ -2226,13 +2504,11 @@ internal fun BoundList(node: StackNode, a: Map<String, String>, modifier: Modifi
     //    vertical scrolling list — the gate is the
     //    List.swift allowlist copied to the word, over the element's POST-cascade attrs
     //    AND the row template's RAW root attrs (StackSystemControls.kt SystemList) —
-    //    renders real M3 ListItem rows on this SAME keyed LazyColumn. Under a scrolling /
-    //    hugging ancestor (`<scroll>` / the sheet's fit-content slot — the
-    //    LocalInScrollContainer stamp, the iOS ScrollAwareSystemList read) the flat
-    //    pre-law path below stays: on iOS a greedy List collapses there; here a
-    //    LazyColumn may never nest in a vertical scroll at all. Any authored look on
+    //    renders real M3 ListItem rows on this SAME keyed LazyColumn. A scrolling /
+    //    hugging ancestor never reaches here: LazyScrollPolicy already took the eager arm
+    //    above, which keeps the M3 rows without the lazy container. Any authored look on
     //    either half keeps the pre-law path byte-for-byte — designed lists untouched. ──
-    if (SystemList.rendersSystem(a, template.attrs) && !LocalInScrollContainer.current) {
+    if (SystemList.rendersSystem(a, template.attrs)) {
         SystemMaterialList(b, m, reachEnd, template, store, env)
         return
     }
@@ -2259,14 +2535,22 @@ internal fun BoundList(node: StackNode, a: Map<String, String>, modifier: Modifi
 /// anyway (cells share a row). Ratified in android-status.md (the `:render` row) + grid.json notes.
 @Composable
 private fun BoundGrid(node: StackNode, a: Map<String, String>, modifier: Modifier, store: StackStore,
-                      env: JSERunner, item: Map<String, Any?>?, rowWrite: ((String, Any) -> Unit)?) {
+                      env: JSERunner, item: Map<String, Any?>?, rowWrite: ((String, Any) -> Unit)?,
+                      surfaceSnapshot: Map<String, Any?>, globalSnapshot: Map<String, Any?>) {
+    // The container resolves rows AND its bound `columns=` internally, so without the live
+    // snapshots Compose can skip this restart scope after a store publish — a reactive
+    // column count (`columns="{{ dsx.screen.width > 900 ? 3 : 1 }}"`) would freeze at its
+    // mount value. Thread both scopes exactly as Raw/Pager/Tabs do; values, not map size,
+    // participate in the parameter equality check that decides skipping.
+    surfaceSnapshot.size
+    globalSnapshot.size
     val m = modifier
     val template = node.children.firstOrNull() ?: return
     val b = bound(a, store, item, rowWrite)
     val cols = maxOf(1, a["columns"]?.let { JSE.number(JSE.interpolate(it, store, item))?.toInt() } ?: ElementDefaults.GRID_COLUMNS)
     val gap = (a["spacing"]?.let { JSE.number(JSE.interpolate(it, store, item)) } ?: ElementDefaults.GRID_SPACING).dp
     val reachEnd = a["on:reachEnd"]
-    if (GridScrollPolicy.usesEagerRows(a["scroll"], LocalInScrollContainer.current)) {
+    if (LazyScrollPolicy.usesEagerRows(a["scroll"], LocalInScrollContainer.current)) {
         Column(m, verticalArrangement = Arrangement.spacedBy(gap)) {
             for (base in b.rows.indices step cols) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
@@ -2369,12 +2653,21 @@ internal object PagerLayoutPolicy {
         }
 }
 
-/// `<tabs>` — a simple tab strip + indexed content switch. Each child pane carries its own
-/// `tabTitle`; `value=` is the two-way selected index, exactly iOS (Tabs.swift:30) — `bind=`
-/// is accepted as a documented Android-only ALIAS (the pre-convergence wave read it; value=
+/// `<tabs>` — the M3 ADAPTIVE navigation suite + indexed content switch (the desktop-class
+/// wave: Tabs.swift's `.sidebarAdaptable` twin). NavigationSuiteScaffold delegates the
+/// presentation to the platform's own WindowSizeClass — compact width renders the bottom
+/// NavigationBar, medium/expanded the NavigationRail — exactly system-defaults.md ("the
+/// unstyled baseline IS the platform"); web's `>= 69rem` sidebar rail is the same shape at
+/// its own breakpoint (a pinned divergence: native delegates to the OS, web to a width).
+/// Each child pane carries its side attrs `tabTitle` / `tabIcon` (sf-map ladder,
+/// StackIcons.kt) / `tabBadge` — all presentation-independent, fed to bar and rail alike.
+/// `value=` is the two-way selected index, exactly iOS (Tabs.swift:39) — `bind=` is
+/// accepted as a documented Android-only ALIAS (the pre-convergence wave read it; value=
 /// wins when both are set; the alias stays out of the ElementSpec — fixtures know value=
-/// only). No key → local selection; `color=` tints the selection (default `accent`).
-/// tabIcon glyphs ride the sf-map port.
+/// only). No key → local selection; `color=` tints the selection (default `accent`) via
+/// the suite's item colors, the iOS `.tint` twin. Item typography/spacing are M3-owned
+/// (iOS never styled its tabItems either); a title-less pane labels "Tab N", an icon-less
+/// pane renders label-only.
 @Composable
 private fun Tabs(node: StackNode, a: Map<String, String>, modifier: Modifier, store: StackStore,
                  env: JSERunner, item: Map<String, Any?>?, rowWrite: ((String, Any) -> Unit)?,
@@ -2382,38 +2675,63 @@ private fun Tabs(node: StackNode, a: Map<String, String>, modifier: Modifier, st
     surfaceSnapshot.size
     globalSnapshot.size
     val m = modifier
-    val panes = node.children
+    // Head/declaration children are never panes (LayoutSemantics.paneChildren, the
+    // flex-semantics corpus): counting `<head>` made pane 0 an empty declaration and
+    // collapsed the shell (W17 defect D6). Declarations still compose for lifecycle.
+    val panes = LayoutSemantics.paneChildren(node.children)
+    node.children.forEach { child ->
+        if (child.tag in LayoutSemantics.declarationTags) StackNodeView(child, store, env, item, rowWrite)
+    }
     if (panes.isEmpty()) return
     val ctl = BoundControl(node.tag, a, store, env, item, rowWrite)
-    val bindKey = a["value"] ?: a["bind"]   // value= (Tabs.swift:30) · bind= = the pinned legacy alias
+    val bindKey = a["value"] ?: a["bind"]   // value= (Tabs.swift:39) · bind= = the pinned legacy alias
     var local by remember { mutableIntStateOf(0) }
     val index = (bindKey?.let { JSE.number(ctl.boundValue(it))?.toInt() } ?: local)
         .coerceIn(0, panes.size - 1)
     val tint = StackStyle.color(JSE.interpolate(a["color"] ?: ElementDefaults.TABS_TINT, store, item))
-    Column(m) {
-        Row(
-            Modifier.fillMaxWidth().selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(ElementDefaults.TABS_STRIP_SPACING.dp),
-        ) {
+    // Selected icon/label carry the authored tint; every other role stays the M3 default
+    // (system space — unselected color, indicator, container are the platform's own).
+    val itemColors = NavigationSuiteDefaults.itemColors(
+        navigationBarItemColors = NavigationBarItemDefaults.colors(
+            selectedIconColor = tint, selectedTextColor = tint),
+        navigationRailItemColors = NavigationRailItemDefaults.colors(
+            selectedIconColor = tint, selectedTextColor = tint),
+        navigationDrawerItemColors = NavigationDrawerItemDefaults.colors(
+            selectedIconColor = tint, selectedTextColor = tint),
+    )
+    NavigationSuiteScaffold(
+        navigationSuiteItems = {
             for ((i, pane) in panes.withIndex()) {
                 val title = JSE.interpolate(pane.attrs["tabTitle"] ?: "Tab ${i + 1}", store, item)
-                val select = {
-                    if (bindKey != null) ctl.setBound(bindKey, i.toDouble())   // fires on:change via the seam
-                    else { local = i; ctl.fireChangeGuarded() }
-                }
-                BasicText(title,
-                          Modifier
-                              .dsxAccessibleSelectable(
-                                  selected = i == index,
-                                  role = Role.Tab,
-                                  onSelect = select,
-                              )
-                              .pointerInput(i, bindKey) { detectTapGestures { select() } },
-                          style = StackStyle.styleText(a, store, item,
-                                  if (i == index) tint else StackStyle.color(ElementDefaults.TABS_INACTIVE)))
+                val icon = pane.attrs["tabIcon"]?.let { JSE.interpolate(it, store, item) }
+                val badge = pane.attrs["tabBadge"]?.let { JSE.interpolate(it, store, item) } ?: ""
+                item(
+                    selected = i == index,
+                    onClick = {
+                        if (bindKey != null) ctl.setBound(bindKey, i.toDouble())   // fires on:change via the seam
+                        else { local = i; ctl.fireChangeGuarded() }
+                    },
+                    icon = {
+                        // The item owns its content color (selected = tint above); an
+                        // icon-less pane renders label-only, like a title-only TabView.
+                        if (!icon.isNullOrEmpty()) {
+                            StackIcon(icon, ElementDefaults.TABS_ITEM_ICON_SIZE, LocalContentColor.current)
+                        }
+                    },
+                    label = { Text(title) },
+                    badge = if (badge.isEmpty()) null else ({ Badge { Text(badge) } }),
+                    colors = itemColors,
+                )
             }
-        }
-        Box(Modifier.fillMaxWidth()) { StackNodeView(panes[index], store, env, item, rowWrite) }
+        },
+        modifier = m,
+        // Transparent, so authored/inherited screen backgrounds keep painting the content
+        // area exactly as the pre-suite strip did; the bar/rail draw their own system
+        // containers on top.
+        containerColor = Color.Transparent,
+        contentColor = LocalContentColor.current,
+    ) {
+        StackNodeView(panes[index], store, env, item, rowWrite)
     }
 }
 
@@ -2464,9 +2782,10 @@ private fun component(
 ): Boolean {
     val resolved = ComposeStackComponents.resolve(tag, env.scope)
     if (resolved != null) {
-        if (env.depth >= 32) return true                      // runaway self-reference guard
+        if (env.depth >= JSE.COMPONENT_DEPTH_CAP) return true  // corrupt-data floor, see the constant
         val (template, owningScope) = resolved
         val attributes = HashMap<String, Any?>()
+        val overrides = HashMap<String, Any?>()
         val onHandlers = HashMap<String, OnHandler>()
         for ((k, v) in a) {
             if (k == "tag" || k == "id") continue             // selector / identity
@@ -2476,22 +2795,59 @@ private fun component(
                 val ev = k.substring(3)
                 onHandlers[ev] = OnHandler(JSE.interpolate(v, store, item), env,
                                            a["from:$ev"]?.let { OnHandler.parseFrom(it) })
-            } else attributes[k] = JSE.interpolate(v, store, item)
+                continue
+            }
+            // The style-override split (corpus Conformance/overrides): `override:<name>`
+            // leaves the props plane and rides the item scope's __overrides dict — the same
+            // per-recomposition delivery attributes get, so a bound override is live.
+            val override = StyleOverrides.overrideAttrName(k)
+            if (override != null) { overrides[override] = JSE.bindAttribute(v, store, item); continue }
+            // A sole `{{ ... }}` hands the child the VALUE, so a component can be given
+            // structure - the whole reason a component may render itself. Mixed templates
+            // stay sentences. Corpus: Conformance/composition/attribute-binding.json.
+            attributes[k] = JSE.bindAttribute(v, store, item)
         }
+        // The VERB door (dsx.component.push/present/update { overrides } → the frame/modal
+        // store's reactive dsx.override dict): fold it under the tag spellings at the
+        // component boundary, so a pushed root delivers into the same item __overrides
+        // vehicle a hard-coded consumer's tag does — and a live re-seed recomposes this
+        // split via the store publish. Only verb-seeded surface stores carry the var, so
+        // ordinary nested components merge nothing. Tag spellings win (the read chain's
+        // item-beats-store law, corpus Conformance/overrides).
+        (store.vars["dsx.override"] as? Map<*, *>)?.forEach { (k, v) ->
+            val name = k as? String ?: return@forEach
+            if (!overrides.containsKey(name)) overrides[name] = v
+        }
+        if (overrides.isNotEmpty()) attributes["__overrides"] = overrides
         // A component body recomposes whenever its Store publishes. Recreating the runner on
         // every publication changes the identity observed by lifecycle effects inside the
         // component (notably <api>), disposing and remounting them into an endless loading /
         // refetch loop. Keep one runner per invocation and refresh its mutable capture fields
         // below so actions and slots still see the latest consumer context.
-        val childEnv = remember(env, node, owningScope) { copyEnv(env) }
+        //
+        // THE INSTANCE STORE (composition law; the web renderer is the reference): a
+        // component instance OWNS its state. Its head declarations - variables, computed,
+        // formulas, actions, <api> handles, attribute defaults, classes - register in a
+        // store born with the instance, so two instances hold independent state and a
+        // sibling's <api as=> cannot be swallowed by first-declaration-wins. Attributes
+        // ride the item scope as before (live per recomposition), on:<event> handlers keep
+        // the CONSUMER's env, slot content renders in the consumer's scope AND store
+        // (SlotContent captures env, whose store is the caller's), and cross-surface state
+        // stays global.* / route.*.
+        val instanceStore = remember(env, node, owningScope) { StackStore() }
+        val childEnv = remember(env, node, owningScope) {
+            JSERunner(store = instanceStore, webView = env.webView, scope = env.scope,
+                      onHandlers = env.onHandlers, slot = env.slot, dsx = env.dsx,
+                      measuring = env.measuring, depth = env.depth)
+        }
         childEnv.depth = env.depth + 1
         childEnv.scope = owningScope ?: env.scope             // packaged component runs under ITS scheme
         childEnv.onHandlers = HashMap(env.onHandlers).apply { putAll(onHandlers) }   // inherit; own wins
         childEnv.slot = if (node.children.isEmpty()) null else SlotContent(node.children, env, item, rowWrite)
-        StackNodeView(template, store, childEnv, attributes)
+        StackNodeView(template, instanceStore, childEnv, attributes)
         return true
     }
-    if (env.depth < 32) {
+    if (env.depth < JSE.COMPONENT_DEPTH_CAP) {
         val build = ComposeStackComponents.nativeGlobal(tag)
         if (build != null) {
             val onHandlers = HashMap<String, OnHandler>()

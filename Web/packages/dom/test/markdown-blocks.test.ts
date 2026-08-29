@@ -81,9 +81,20 @@ test("the SSR renderer never emits raw HTML from the source", () => {
 test("fenced code survives byte for byte through the SSR renderer", () => {
   const html = markdownBlocksHtml("```ts\nconst a = *not emphasis* && b < c;\n```");
   assert.match(html, /<pre class="dsx-md-code"><code class="language-ts">/);
-  assert.match(html, /const a = \*not emphasis\* &amp;&amp; b &lt; c;/);
+  // The prose plane's syntax tint (prose.ts) wraps runs in spans, but the TEXT is the
+  // sample byte for byte: strip the tint markup and the escaped source remains intact.
+  const text = html
+    .replace(/<pre class="dsx-md-code"><code class="language-ts">|<\/code><\/pre>/g, "")
+    .replace(/<span class="dsx-tok-[a-z]+">|<\/span>/g, "");
+  assert.equal(text, "const a = *not emphasis* &amp;&amp; b &lt; c;");
+  assert.match(html, /<span class="dsx-tok-kw">const<\/span>/, "a known language is tinted");
   // the inline parser must not have run over it
   assert.ok(!html.includes("<em>"), html);
+});
+
+test("an unknown fence language stays completely untinted", () => {
+  const html = markdownBlocksHtml("```brainfuck\n+ - < >\n```");
+  assert.equal(html, `<pre class="dsx-md-code"><code class="language-brainfuck">+ - &lt; &gt;</code></pre>`);
 });
 
 test("a refused image target is prose in both renderers, never a live element", () => {

@@ -1,0 +1,26 @@
+<!-- One trail as a plain list row. The LIST is the card (the consumer owns the grouped
+     surface); a row paints no background of its own, so the platform's row highlight and
+     separators read correctly. Composition is budgeted for a 390pt phone: a trailing
+     VALUE (the rating) instead of a chevron - the platform shows one or the other, not
+     both - and few enough facts that every line renders whole. lineLimit guards the
+     tail: in a list row text truncates, it never wraps. a11yGroup makes the row read as
+     one utterance. NO paddingH: the LIST owns the horizontal row inset (the platform's
+     own, and the same measure its separators use), so a row template that adds its own
+     doubles it - content lands at 32 while the hairline stays at 16, and the rule visibly
+     starts left of the tile. A row owns its VERTICAL rhythm only. -->
+<hstack spacing="12" paddingV="12" grow="width" a11yGroup="true">
+  <head>
+    <attribute as="trail"/>   <!-- { id, title, region, km, minutes, rating, pro } -->
+  </head>
+  <vstack width="36" height="36" background="fill" radius="10" align="center" alignY="center">
+    <image icon="{{ dsx.attribute.trail.pro ? 'lock.fill' : 'arrow.right' }}" iconSize="15" color="{{ dsx.attribute.trail.pro ? 'tertiary' : 'accent' }}"/>
+  </vstack>
+  <vstack spacing="2" grow="width">
+    <text value="{{ dsx.attribute.trail.title }}" fontSize="17" fontWeight="semibold" lineLimit="1"/>
+    <text value="{{ dsx.attribute.trail.region }} · {{ dsx.attribute.trail.km }} km" fontSize="13" color="secondary" lineLimit="1"/>
+  </vstack>
+  <hstack spacing="4">
+    <image icon="star.fill" iconSize="11" color="secondary"/>
+    <text value="{{ dsx.attribute.trail.rating }}" fontSize="13" color="secondary"/>
+  </hstack>
+</hstack>

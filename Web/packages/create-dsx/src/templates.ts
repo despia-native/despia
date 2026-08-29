@@ -30,6 +30,8 @@ export function renderTemplate(opts: TemplateOptions): { [relativePath: string]:
     "dsx.config.json": dsxConfig(opts),
     ".gitignore": "node_modules/\ndist/\n",
     "README.md": readme(opts),
+    "AGENTS.md": AGENTS_MD,
+    "CLAUDE.md": "@AGENTS.md\n",
     "Components/App.dsx": APP_DSX,
   };
   if (opts.template === "routed") {
@@ -50,9 +52,10 @@ function packageJson(opts: TemplateOptions): string {
     type: "module",
     engines: { node: ">=22.18" },
     scripts: {
-      build: "dsx build",
-      dev: "dsx dev",
-      lint: "dsx lint --strict",
+      build: "despia build",
+      dev: "despia dev",
+      lint: "despia lint --strict",
+      review: "despia review --strict",
     },
     dependencies: {
       "@despia/compiler": dependency(opts, "@despia/compiler"),
@@ -111,11 +114,110 @@ const APP_DSX = `<stack style="gap: 1rem; padding: 2rem">
 
 const ABOUT_DSX = `<stack style="gap: 1rem; padding: 2rem">
   <head>
-    <variable as="built">return 'compiled by dsx build'</variable>
+    <variable as="built">return 'compiled by despia build'</variable>
   </head>
   <text value="About" style="font-size: 1.5rem; font-weight: 600"/>
   <text value="{{ dsx.variable.built }}"/>
 </stack>
+`;
+
+// The agent brief every scaffolded project carries. DSX postdates every model's training
+// data, so the essentials ride in-project: the verify loop, the grammar in one screen, and
+// the design bar. CLAUDE.md is a one-line import of this file, so Claude Code, Cursor and
+// Codex all read the same brief. Kept deliberately stable: knowledge that changes lives in
+// the linked references, not here.
+const AGENTS_MD = `# Working in this DSX project (agent brief)
+
+DSX is a declarative app language that renders natively on iOS, Android, web and desktop
+from one set of \`.dsx\` sources. It is NOT React, React Native, HTML, Vue or Flutter, and
+it is newer than your training data: do not guess syntax from adjacent frameworks. When
+unsure, check the references at the bottom, and always close the verify loop; never invent
+tags or attributes.
+
+## The verify loop (run it, every time)
+
+After every meaningful edit:
+
+\`\`\`sh
+npm run lint     # despia lint --strict: markup + logic validation, zero warnings allowed
+\`\`\`
+
+Before claiming anything done:
+
+\`\`\`sh
+npm run review   # despia review --strict: the design bar (a11y, tap targets, type scale, contrast)
+npm run build    # compiles Components/**.dsx to dist/
+npm run dev      # serve + watch; open the FRAMED PREVIEW it prints (/__dsx/preview)
+                 # and LOOK: phone frame, size presets, light/dark toggle
+\`\`\`
+
+\`npx despia doctor\` diagnoses a project that will not build. If you can render the dev
+server in a browser and screenshot it, do that and actually look at the result: layout and
+hierarchy mistakes are visible, not inferable from source.
+
+## The language in one screen
+
+One \`.dsx\` file is one component; the file basename is the component name.
+
+\`\`\`xml
+<stack style="gap: 1rem; padding: 2rem">
+  <head>
+    <attribute as="title" default="'Hello'"/>  <!-- input; the default is an expression -->
+    <variable as="count">return 0</variable>   <!-- own state -->
+    <variable as="label" computed="true">'Tapped ' + dsx.variable.count</variable>
+    <action as="bump">dsx.variable.count = dsx.variable.count + 1</action>
+  </head>
+  <text value="{{ dsx.attribute.title }}" style="font-size: 1.5rem; font-weight: 600"/>
+  <text value="{{ dsx.variable.label }}" color="secondary"/>
+  <button label="Tap me" on:tap="dsx.action.bump()"/>
+</stack>
+\`\`\`
+
+Rules the linter enforces (violations fail \`npm run lint\`):
+
+- One root element per file. \`<head>\` is the root's first child and the only place
+  declarations live, in this order: attribute, expects, event, variable (plain then
+  computed), formula, action, script, watch, style, component.
+- The body is pure markup. An inline \`on:\` handler holds one call or one assignment;
+  anything bigger becomes a named \`<action>\` in the head.
+- Derive, do not watch: a value that follows from other state is a
+  \`computed="true"\` variable, never a \`<watch>\` that maintains it.
+- Props down, events up: \`<attribute>\` in, \`dsx.event('name')\` out, wired as
+  \`on:name\` at the call site. Never mutate an attribute.
+- Lowercase tags are built-in elements (stack, vstack, hstack, zstack, scroll, list,
+  grid, text, image, button, textfield, toggle, spacer, ...). Capitalized tags are
+  components: \`Components/Card.dsx\` mounts as \`<Card/>\`. There is no div, span, img
+  or a; navigation is the \`href\` attribute on any element, or
+  \`dsx.module.route.push({ path })\`.
+- Logic is JSE, a JavaScript subset: no classes, no imports, no DOM. State lives in
+  \`dsx.variable.*\`; row scope in a list is \`item\`; conditional display is
+  \`visible-if="expr"\`.
+
+## The design bar (not optional)
+
+- Colors are semantic tokens first: \`label\`, \`secondary\`, \`tertiary\`,
+  \`background\`, \`groupedBackground\`, \`secondaryGroupedBackground\`, \`fill\`,
+  \`separator\`, \`accent\`, \`destructive\`. They adapt to light and dark for free.
+  Raw hex is for deliberate brand moments only. One accent color, one job.
+- Type comes from a scale (12 / 13 / 15 / 17 / 20 / 24 / 34), weight before size for
+  emphasis. Body text stays at the default size.
+- Spacing in multiples of 4; screen padding 16 or 20; prefer container \`gap\` or
+  \`spacing\` over per-child margins.
+- Tap targets are at least 44 points. Every icon-only button carries \`a11yLabel\`
+  (or \`aria-label\`; both spellings work on every renderer).
+- Every list ships its empty, loading and error states, not just the happy path.
+- The unstyled baseline IS the platform look. Restyle with intent, never by habit,
+  and never rebuild a system control out of stacks when an element exists.
+
+## References
+
+- Element + attribute reference, tokens, navigation, state:
+  https://github.com/despia-native/despia/blob/main/OpenSource/Documentation/reference/StackReference.md
+- Document anatomy with a worked golden template:
+  https://github.com/despia-native/despia/blob/main/OpenSource/Documentation/reference/dsx-anatomy.md
+- App-authoring skills (fluency, design, React Native translation), installable into
+  this project for any agent host: \`npx skills add despia-native/skills\`
+  (sources: https://github.com/despia-native/despia/tree/main/OpenSource/Skills)
 `;
 
 function readme(opts: TemplateOptions): string {
@@ -129,18 +231,20 @@ npm install
 npm run dev      # build, serve, watch, reload
 npm run build    # compile to dist/
 npm run lint     # DSX markup + JSE validation (strict)
+npm run review   # the design bar: a11y names, tap targets, the type scale
 \`\`\`
 
 ## Layout
 
 | Path | What it is |
 |---|---|
-| \`dsx.json\` | package identity — the \`scheme\` that namespaces every component |
-| \`dsx.config.json\` | app configuration — entry component, output directory${opts.template === "routed" ? ", route table" : ""} |
+| \`AGENTS.md\` | the agent brief: the verify loop, the grammar, the design bar (CLAUDE.md imports it) |
+| \`dsx.json\` | package identity, the \`scheme\` that namespaces every component |
+| \`dsx.config.json\` | app configuration: entry component, output directory${opts.template === "routed" ? ", route table" : ""} |
 | \`Components/**/*.dsx\` | the components; the file basename IS the component name |
 | \`public/\` | optional static assets, copied verbatim into the build output |
 
-The same \`.dsx\` sources compile on the iOS and Android renderers of the DSX framework —
+The same \`.dsx\` sources compile on the iOS and Android renderers of the DSX framework;
 markup is never platform-forked.
 `;
 }

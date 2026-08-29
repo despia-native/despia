@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "_note": "The arithmetic behind `capture.element` and `capture.screen` (parity/F11-capture.md). Rasterising is platform work and is deliberately not pinned; what IS pinned is the part that silently disagrees between renderers if each writes its own: the format fold, how `scale` resolves, and exactly what pixel size a point size becomes. A share card asked for at 1200x630 must come out at 1200x630 everywhere, and a 20000x20000 request must be refused BEFORE anything tries to allocate it, which is the difference between an error and a crash.",
+
+  "budget": {
+    "maxPixels": 40000000,
+    "_note": "Roughly a 6300x6300 square, or 8000x5000. Larger than any share card, poster or receipt, and far below where a phone dies allocating the bitmap. The guard runs on the computed pixel size, so a modest point size at scale 8 trips it just as a huge point size at scale 1 does."
+  },
+
+  "formats": [
+    { "name": "the default is png, because transparency is the common case", "input": "", "expect": "png" },
+    { "name": "png", "input": "png", "expect": "png" },
+    { "name": "jpeg", "input": "jpeg", "expect": "jpeg" },
+    { "name": "jpg folds to jpeg", "input": "jpg", "expect": "jpeg" },
+    { "name": "case is not part of the vocabulary", "input": "PNG", "expect": "png" },
+    { "name": "a leading dot is tolerated", "input": ".webp", "expect": "webp" },
+    { "name": "webp", "input": "webp", "expect": "webp" },
+    { "name": "gif is not a screenshot format", "input": "gif", "expect": null },
+    { "name": "heic is not offered", "input": "heic", "expect": null },
+    { "name": "pdf is a different action", "input": "pdf", "expect": null }
+  ],
+
+  "quality": [
+    { "name": "the default", "input": null, "expect": 0.9 },
+    { "name": "a fraction passes through", "input": 0.5, "expect": 0.5 },
+    { "name": "a percent is read as a percent, because everyone gets this wrong once", "input": 80, "expect": 0.8 },
+    { "name": "one is one, not one percent", "input": 1, "expect": 1 },
+    { "name": "above a hundred clamps", "input": 400, "expect": 1 },
+    { "name": "negative clamps to zero", "input": -3, "expect": 0 },
+    { "name": "nonsense falls back", "input": "lots", "expect": 0.9 }
+  ],
+
+  "scale": [
+    { "name": "an omitted scale is the device scale", "input": null, "deviceScale": 3, "expect": 3 },
+    { "name": "the word device is the device scale", "input": "device", "deviceScale": 2, "expect": 2 },
+    { "name": "an empty string is the device scale", "input": "", "deviceScale": 2, "expect": 2 },
+    { "name": "an explicit one is one, whatever the screen is", "input": 1, "deviceScale": 3, "expect": 1 },
+    { "name": "a fractional scale is allowed", "input": 0.5, "deviceScale": 2, "expect": 0.5 },
+    { "name": "a numeric string is a number", "input": "2", "deviceScale": 3, "expect": 2 },
+    { "name": "a device scale of zero falls back to one", "input": null, "deviceScale": 0, "expect": 1 },
+    { "name": "zero is not a scale", "input": 0, "deviceScale": 2, "expect": { "error": "invalid_scale" } },
+    { "name": "negative is not a scale", "input": -2, "deviceScale": 2, "expect": { "error": "invalid_scale" } },
+    { "name": "an absurd scale is refused before the budget has to catch it", "input": 64, "deviceScale": 2, "expect": { "error": "invalid_scale" } },
+    { "name": "a word that is not `device` is refused", "input": "retina", "deviceScale": 2, "expect": { "error": "invalid_scale" } }
+  ],
+
+  "pixels": [
+    { "name": "an Open Graph card at scale one is exactly the requested size",
+      "pointWidth": 1200, "pointHeight": 630, "scale": 1, "expect": { "width": 1200, "height": 630 } },
+    { "name": "a phone-sized view at 3x", "pointWidth": 390, "pointHeight": 844, "scale": 3,
+      "expect": { "width": 1170, "height": 2532 } },
+    { "name": "a fractional point size rounds per axis, half away from zero",
+      "pointWidth": 100.5, "pointHeight": 200.4, "scale": 1, "expect": { "width": 101, "height": 200 } },
+    { "name": "a half scale halves both axes", "pointWidth": 1200, "pointHeight": 630, "scale": 0.5,
+      "expect": { "width": 600, "height": 315 } },
+    { "name": "a one-point view at 1x is still a pixel", "pointWidth": 1, "pointHeight": 1, "scale": 1,
+      "expect": { "width": 1, "height": 1 } },
+    { "name": "a view that has not been laid out yet has no size",
+      "pointWidth": 0, "pointHeight": 100, "scale": 2, "expect": { "error": "invalid_size" } },
+    { "name": "a sub-pixel result is not a capture",
+      "pointWidth": 2, "pointHeight": 2, "scale": 0.1, "expect": { "error": "invalid_size" } },
+    { "name": "the 20000 square that would OOM the device is refused",
+      "pointWidth": 20000, "pointHeight": 20000, "scale": 1, "expect": { "error": "too_large" } },
+    { "name": "a modest view at an extreme scale trips the same guard",
+      "pointWidth": 1200, "pointHeight": 630, "scale": 8, "expect": { "error": "too_large" } },
+    { "name": "right at the budget is allowed", "pointWidth": 8000, "pointHeight": 5000, "scale": 1,
+      "expect": { "width": 8000, "height": 5000 } },
+    { "name": "one pixel past the budget is not", "pointWidth": 8000, "pointHeight": 5001, "scale": 1,
+      "expect": { "error": "too_large" } }
+  ],
+
+  "invariants": {
+    "_note": "Properties an implementation must hold that arithmetic cannot express. Each facet asserts them in its own tests; they live here so the three renderers cannot drift on what the promise IS.",
+    "transparentByDefault": "with no `background`, a png capture keeps the subtree's own transparency; a jpeg, which has no alpha, composites onto white and says nothing, because a jpeg with a black background where the caller expected white is the bug this line exists to prevent",
+    "videoSurfaceIsNotBlack": "an Android subtree containing a SurfaceView or TextureView (a video, a map, a camera preview) is captured with PixelCopy rather than View.draw. View.draw produces a BLACK RECTANGLE for those, silently, and that is the defect in every Android screenshot library. iOS has no equivalent split and uses one path",
+    "refIsSurfaceScoped": "a `ref` names an element within one surface; the same name on two mounted surfaces resolves to the one the calling context belongs to, and a ref that names nothing is `unknown_ref` rather than a blank image",
+    "notRenderedIsDistinct": "a ref that EXISTS but is not currently laid out (a screen below the top of the stack, a collapsed branch) is `not_rendered`, not `unknown_ref`: the caller's mistake is different and so is the fix",
+    "screenIsOurWindow": "`capture.screen` captures the app's own window and nothing else. It cannot see another app, the status bar owned by the system, or content behind a system overlay"
+  }
+}

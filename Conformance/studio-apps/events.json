@@ -1,0 +1,28 @@
+{
+  "_note": "THE EDITOR-SESSION EVENT PLANE (studio-apps.md §7.1). Subscription is the MANIFEST (`events` on a UI contribution row) — no runtime subscribe verb exists, so an app's event reach is visible at install and can never widen. The HOST is the only publisher (the hub refuses an unknown kind loudly: the closed list is the contract), and delivery is one budgeted ENTRY into the app's own runner, dispatched to the app's declared handler action by the NAMING CONVENTION pinned here: `on` + the event id's dot-segments PascalCased (document.saved → onDocumentSaved). A subscribed event with no matching handler is delivered to nobody, silently — the manifest said the app cares; the linter's opinion belongs there, not in a runtime error. `payloads` pins each kind's REQUIRED payload fields (a publisher may add fields — additive law — and may never drop one within a studioApi major); selection.changed is page-local (the live selection rides the surface's own attr, so it never crosses the SSE lane). Single-runner (the web Studio host). Runner: packages/cli/test/studio-apps-events.test.ts.",
+  "handlerNames": {
+    "document.saved": "onDocumentSaved",
+    "document.opened": "onDocumentOpened",
+    "selection.changed": "onSelectionChanged",
+    "build.finished": "onBuildFinished",
+    "lint.finished": "onLintFinished",
+    "deploy.requested": "onDeployRequested",
+    "deploy.finished": "onDeployFinished",
+    "app.installed": "onAppInstalled",
+    "app.enabled": "onAppEnabled",
+    "app.disabled": "onAppDisabled"
+  },
+  "payloads": {
+    "document.saved": ["name", "rev", "by"],
+    "build.finished": ["result"],
+    "app.installed": ["ref"],
+    "app.enabled": ["app"],
+    "app.disabled": ["app"],
+    "selection.changed": ["selection"]
+  },
+  "cases": [
+    { "name": "a known kind delivers to every subscriber and counts", "emit": "app.enabled", "payload": { "app": "x" }, "expect": { "delivered": true } },
+    { "name": "an unknown kind is refused loudly — the closed list is the contract", "emit": "document.printed", "payload": {}, "expect": { "delivered": false } },
+    { "name": "document.saved carries name, rev and the by attribution", "emit": "document.saved", "payload": { "name": "Components/App.dsx", "rev": "abc", "by": "app:acmecopy" }, "expect": { "delivered": true } }
+  ]
+}

@@ -1,0 +1,5 @@
+[
+  { "line": 8, "level": "error", "rule": "tool-action" },
+  { "line": 9, "level": "error", "rule": "tool-description" },
+  { "line": 10, "level": "error", "rule": "tool-name" }
+]

@@ -62,7 +62,7 @@ today (iOS cites; the Android twins match):
 | Core/LocalAI CactusMic (`CactusMic.swift:144`) | `listenError` | `{ errorCode, errorMessage }` (no `id`) |
 | Core/RevenueCat (`RevenueCatBridge.swift:304`) | `restoreFailed` | `{ errorMessage, errorCode, errorDomain }` |
 | Core/Bluetooth (`BLEManager.swift:480,609`) | `ble_state`, `state:"failed"` | `{ state, deviceId, …, error }` — **HTTP-POSTed to a server URL, not even the bus** |
-| Mandatory/Dom (`Dom.swift:307`) | `fail` | `{ url[, error] }` |
+| Core/Dom (`Dom.swift:307`) | `fail` | `{ url[, error] }` |
 | VerticalPlayerStack (`Player.dsx:184`) | `playbackError` | `{ message }` |
 
 Nine-plus event names, five-plus payload shapes, and none of them matches the terminal

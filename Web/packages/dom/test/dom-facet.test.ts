@@ -1,7 +1,19 @@
-import { test } from "node:test";
+import { test as nodeTest } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-import dom from "../../../../../ClosedSource/DSX/Modules/Mandatory/Dom/web/index.js";
+// The facet under test ships in ClosedSource. An open drop skips LOUDLY - every test
+// below still appears, marked skipped with the reason - never silently (the
+// component-fold-conformance rule: the one legitimate skip is a genuine open drop
+// with no ClosedSource/ tree at all).
+const hasClosedSource = existsSync(fileURLToPath(new URL("../../../../../ClosedSource", import.meta.url)));
+const test: typeof nodeTest = hasClosedSource
+  ? nodeTest
+  : (((name: string) => nodeTest(name, (t) => t.skip("open drop without ClosedSource - Core/Dom's web facet ships closed"))) as typeof nodeTest);
+const dom = hasClosedSource
+  ? (await import("../../../../../ClosedSource/DSX/Modules/Core/Dom/web/index.js")).default
+  : (undefined as never);
 
 type Failure = { code: string; message: string; recoverable: boolean };
 

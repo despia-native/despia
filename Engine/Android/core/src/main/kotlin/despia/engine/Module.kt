@@ -399,6 +399,14 @@ class ModuleRegistry private constructor() {
     @Volatile
     var platformSupport: Map<String, List<String>> = emptyMap()
 
+    /// "<scheme>.<action>" → the platforms that ACTION supports. Sparse: only actions whose
+    /// manifest NARROWS their module's set (X2 §4 `platforms`) appear, and an action-level row
+    /// OUTRANKS its module's, because it is the more specific claim — a module implemented here
+    /// whose one action has no twin on this platform must answer `unsupported_platform` for that
+    /// action and nothing else. The Swift twin: ModuleRegistry.platformSupportByAction.
+    @Volatile
+    var platformSupportByAction: Map<String, List<String>> = emptyMap()
+
     private val kotlinDeployTargets = setOf("android", "macos", "windows", "linux")
 
     /// This kernel's id in `platformSupport` lists. Android keeps the default boot value;
@@ -415,6 +423,18 @@ class ModuleRegistry private constructor() {
     fun unsupportedPlatforms(scheme: String): List<String>? {
         val supported = platformSupport[scheme.lowercase()] ?: return null
         return if (currentPlatform in supported) null else supported
+    }
+
+    /// The ACTION-AWARE read. An action-level narrowing decides on its own — including when the
+    /// module IS implemented here, the case the scheme-only lookup structurally cannot see. With
+    /// no action row the answer is the module's, byte for byte.
+    fun unsupportedPlatforms(scheme: String, action: String?): List<String>? {
+        if (!action.isNullOrEmpty()) {
+            val key = "${scheme.lowercase()}.${action.lowercase().replace('/', '.')}"
+            val declared = platformSupportByAction[key]
+            if (declared != null) return if (currentPlatform in declared) null else declared
+        }
+        return unsupportedPlatforms(scheme)
     }
 
     /// The pinned `unsupported_platform` envelope message — "<Name> is not supported on
@@ -765,6 +785,7 @@ class ModuleRegistry private constructor() {
             discovered.clear(); bootSchemes.clear(); deferredPackageFactories.clear()
             didBoot = false; didBootstrap = false
             platformSupport = emptyMap()
+            platformSupportByAction = emptyMap()
             knownExcludedIdentities = emptyMap()
         }
     }

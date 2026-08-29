@@ -643,8 +643,11 @@ internal fun parseDesktopColor(raw: String): Color? {
             val b = (value and 0xF) * 17
             Color(r.toInt(), g.toInt(), b.toInt())
         }
-        7 -> Color((0xFF000000L or value).toULong())
-        9 -> Color(value.toULong())
+        // The Long overload packs 0xAARRGGBB into sRGB. The ULong overload is the PACKED
+        // representation (low 6 bits = colorspace id): feeding it raw ARGB made any hex
+        // whose blue byte touches 0x3F (e.g. #FF3B30, id 48) throw at first draw.
+        7 -> Color(0xFF000000L or value)
+        9 -> Color(value)
         else -> null
     }
 }

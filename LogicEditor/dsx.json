@@ -1,0 +1,14 @@
+{
+  "name": "LogicEditor",
+  "scheme": "logic",
+  "version": "0.1.0",
+  "web": {
+    "entry": "web/index.js",
+    "components": [{ "name": "LogicCanvas" }],
+    "expose": {
+      "LogicEditor": { "tag": "despia-logic", "budgetKB": 120 }
+    },
+    "embed": { "origins": ["*"] },
+    "_note": "The formula editor as a DSX package (/web/13 + /web/18), the logic twin of the CanvasEditor package: <LogicCanvas> is the module-provided web-facet component (web/index.js mounts the StackLogic SDK), LogicEditor.dsx is the portable component wrapping it, and web.expose compiles that component to the REAL custom element <despia-logic> served from /embed/logic/LogicEditor.js. budgetKB is the explicit tool-grade embed budget override (/web/13) — an editor surface, not a 40KB widget. origins ['*'] because the editor exists to be embedded anywhere. The headless bus actions (dsx.module.logic.compile/lift/evaluate) are the graph ⇄ JSE seam with device-exact JSE semantics; the standalone conversion library is the DSXLens package (OpenSource/DSXLens) — same fixture contract (OpenSource/Conformance/graph), two consumers, zero drift. No native facet on purpose: the editor is the design surface FOR formulas, not a deck capability — it badges web-only and degrades honestly on native (Article 7)."
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "@despia/logic-editor",
+  "version": "0.1.0",
+  "description": "Zero-dependency visual logic editor SDK for Despia DSX. Node-based formula graphs that compile to JSE text (the language all three Despia runtimes execute), with live per-node evaluation verified against the shared JSE conformance corpus.",
+  "license": "Apache-2.0",
+  "main": "src/logic-editor.js",
+  "types": "index.d.ts",
+  "files": [
+    "src/logic-editor.js",
+    "src/logic-editor-element.js",
+    "index.d.ts",
+    "dsx.json",
+    "Components/",
+    "web/",
+    "README.md",
+    "LICENSE",
+    "samples/",
+    "LogicEditor.html"
+  ],
+  "scripts": {
+    "test": "node test/run-jse-conformance.mjs && node test/run-graph-fixtures.mjs && node test/run-roundtrip.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/despia-native/despia.git",
+    "directory": "LogicEditor"
+  },
+  "homepage": "https://github.com/despia-native/despia/tree/main/LogicEditor",
+  "bugs": "https://github.com/despia-native/despia/issues",
+  "keywords": [
+    "despia",
+    "dsx",
+    "jse",
+    "formula",
+    "logic",
+    "visual-editor",
+    "node-editor",
+    "editor",
+    "headless"
+  ],
+  "sideEffects": [
+    "src/logic-editor-element.js"
+  ]
+}

@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "_note": "`<ink>` as data: the canvas's POINTER-CAPTURE primitive, the one thing a display list cannot express. A drawing surface has to paint the stroke under the finger at pointer rate; routing every sample through the store and rebuilding a display list per sample is the JS-thread shape the native renderers exist to avoid. So `<ink>` splits it: the COMMITTED drawing is ordinary tier 1 (`nodes` below turns it into the same stroked `path` nodes an author could have written, so the display list, its keyed diff and its SVG serialisation - and therefore SSR - need no special case), and only the IN-FLIGHT stroke is transient native paint. THE VALUE IS THE API: a drawing is `[{ points: [[x, y], …], width }]` with x/y NORMALIZED 0…1 against the surface box and rounded to 1/coordinateScale AT CAPTURE, so the number written to the store is the number every renderer draws, a phone capture replays on a desktop surface, and clearing is `drawing = []` rather than a control channel. THE CAPTURE FOLDS: `capture` clamps to the box and rounds; `coalesce` is the sampling floor, measured in SURFACE POINTS and not in normalized units, so the same wrist speed drops the same samples on a 320pt phone and a 1200pt tablet. THE INK LAW: a stroke is a quadratic Bézier through the MIDPOINTS of consecutive samples, round cap and round join; a one-point stroke is a dot the cap paints. The TS core is @despia/kernel ink-core.ts, the Kotlin twin :core InkCore.kt, the Swift twin Engine/iOS/InkCore.swift.",
+  "constants": {
+    "strokeWidth": 3,
+    "minPointDistance": 1.5,
+    "coordinateScale": 10000,
+    "linecap": "round",
+    "linejoin": "round"
+  },
+  "capture": [
+    { "name": "quarter-of-the-box", "point": [50, 25], "box": [200, 100], "out": [0.25, 0.25] },
+    { "name": "off-pad-travel-lands-on-the-edge", "point": [-40, 500], "box": [200, 100], "out": [0, 1] },
+    { "name": "a-third-keeps-four-decimals", "point": [100, 0], "box": [300, 100], "out": [0.3333, 0] },
+    { "name": "rounds-to-the-scale", "point": [66.666, 33.333], "box": [100, 100], "out": [0.6667, 0.3333] },
+    { "name": "just-inside-the-trailing-edge", "point": [199.98, 50], "box": [200, 100], "out": [0.9999, 0.5] },
+    { "name": "a-zero-box-reads-as-the-origin", "point": [10, 10], "box": [0, 0], "out": [0, 0] }
+  ],
+  "coalesce": [
+    { "name": "one-point-apart-is-dropped", "last": [0.5, 0.5], "next": [0.501, 0.5], "box": [1000, 1000], "keep": false },
+    { "name": "the-same-delta-on-a-wider-surface-is-kept", "last": [0.5, 0.5], "next": [0.501, 0.5], "box": [4000, 4000], "keep": true },
+    { "name": "exactly-at-the-floor-is-kept", "last": [0, 0], "next": [0.015, 0], "box": [100, 100], "keep": true },
+    { "name": "just-under-the-floor-is-dropped", "last": [0, 0], "next": [0, 0.0149], "box": [100, 100], "keep": false },
+    { "name": "the-floor-is-a-distance-not-an-axis", "last": [0, 0], "next": [0.011, 0.011], "box": [100, 100], "keep": true }
+  ],
+  "decode": [
+    { "name": "absent-is-empty", "value": null, "out": [] },
+    { "name": "a-string-is-not-a-drawing", "value": "[]", "out": [] },
+    { "name": "a-stroke-with-no-points-is-dropped", "value": [{ "points": [] }], "out": [] },
+    {
+      "name": "unusable-pairs-are-dropped-never-guessed",
+      "value": [{ "points": [[0.1, 0.2], ["x", 1], [3]] }],
+      "out": [{ "points": [[0.1, 0.2]], "width": 3 }]
+    },
+    {
+      "name": "a-width-that-is-not-a-number-falls-back",
+      "value": [{ "points": [[0, 0]], "width": "wide" }],
+      "out": [{ "points": [[0, 0]], "width": 3 }]
+    },
+    {
+      "name": "an-authored-width-is-kept-per-stroke",
+      "value": [{ "points": [[0, 0], [1, 1]], "width": 6 }],
+      "out": [{ "points": [[0, 0], [1, 1]], "width": 6 }]
+    }
+  ],
+  "ops": [
+    { "name": "nothing-drawn", "points": [], "box": [100, 100], "ops": [], "d": "" },
+    {
+      "name": "a-tap-is-a-dot",
+      "points": [[0.5, 0.5]],
+      "box": [100, 100],
+      "ops": [["M", 50, 50], ["L", 50, 50]],
+      "d": "M 50 50 L 50 50"
+    },
+    {
+      "name": "two-samples-are-a-line",
+      "points": [[0, 0], [1, 1]],
+      "box": [100, 100],
+      "ops": [["M", 0, 0], ["L", 100, 100]],
+      "d": "M 0 0 L 100 100"
+    },
+    {
+      "name": "three-samples-curve-through-the-midpoint",
+      "points": [[0, 0], [0.5, 0], [1, 1]],
+      "box": [100, 100],
+      "ops": [["M", 0, 0], ["Q", 50, 0, 75, 50], ["L", 100, 100]],
+      "d": "M 0 0 Q 50 0 75 50 L 100 100"
+    },
+    {
+      "name": "every-interior-sample-is-a-control-point",
+      "points": [[0, 0], [0.2, 0.4], [0.6, 0.2], [1, 1]],
+      "box": [100, 100],
+      "ops": [["M", 0, 0], ["Q", 20, 40, 40, 30], ["Q", 60, 20, 80, 60], ["L", 100, 100]],
+      "d": "M 0 0 Q 20 40 40 30 Q 60 20 80 60 L 100 100"
+    },
+    {
+      "name": "the-box-scales-the-curve-not-the-law",
+      "points": [[0, 0], [0.5, 0], [1, 1]],
+      "box": [200, 50],
+      "ops": [["M", 0, 0], ["Q", 100, 0, 150, 25], ["L", 200, 50]],
+      "d": "M 0 0 Q 100 0 150 25 L 200 50"
+    }
+  ],
+  "nodes": [
+    {
+      "name": "one-stroke-is-one-stroked-path",
+      "strokes": [{ "points": [[0, 0], [1, 1]], "width": 3 }],
+      "box": [100, 100],
+      "stroke": "label",
+      "nodes": [
+        {
+          "kind": "path",
+          "attrs": {
+            "d": "M 0 0 L 100 100",
+            "fill": "none",
+            "stroke": "label",
+            "strokeWidth": 3,
+            "strokeLinecap": "round",
+            "strokeLinejoin": "round"
+          }
+        }
+      ]
+    },
+    {
+      "name": "each-stroke-keeps-its-own-width",
+      "strokes": [
+        { "points": [[0, 0], [0.5, 0.5]], "width": 3 },
+        { "points": [[0.5, 0.5], [1, 1]], "width": 8 }
+      ],
+      "box": [100, 100],
+      "stroke": "accent",
+      "nodes": [
+        {
+          "kind": "path",
+          "attrs": {
+            "d": "M 0 0 L 50 50",
+            "fill": "none",
+            "stroke": "accent",
+            "strokeWidth": 3,
+            "strokeLinecap": "round",
+            "strokeLinejoin": "round"
+          }
+        },
+        {
+          "kind": "path",
+          "attrs": {
+            "d": "M 50 50 L 100 100",
+            "fill": "none",
+            "stroke": "accent",
+            "strokeWidth": 8,
+            "strokeLinecap": "round",
+            "strokeLinejoin": "round"
+          }
+        }
+      ]
+    },
+    {
+      "name": "an-empty-drawing-contributes-nothing",
+      "strokes": [],
+      "box": [100, 100],
+      "stroke": "label",
+      "nodes": []
+    }
+  ]
+}

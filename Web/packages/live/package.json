@@ -1,0 +1,45 @@
+{
+  "name": "@despia/live",
+  "version": "0.0.1",
+  "license": "MIT",
+  "type": "module",
+  "description": "The live-logs relay (proposals/live-logs.md 3.2): one Cloudflare Worker plus one Durable Object class a developer deploys to their own Cloudflare account. Devices batch-POST scrubbed log rows; viewers read them back over an SSE cursor feed; sealed .dsxreport uploads are stored and verified. Despia operates nothing - the relay runs on the developer's account and bills there.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": [
+    "src",
+    "wrangler.jsonc",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/despia-native/despia.git",
+    "directory": "Web/packages/live"
+  },
+  "homepage": "https://github.com/despia-native/despia/tree/main/Web/packages/live",
+  "bugs": {
+    "url": "https://github.com/despia-native/despia/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "test": "node --test test/live.test.ts",
+    "test:workers": "node --test test/workers/live.workers.test.ts"
+  },
+  "dependencies": {
+    "@despia/kernel": "0.0.1"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "_note": "Core/Device (parity/F06-device.md), BATTERY and THERMAL. Two things are pinned. First the folds: battery status to the four state words, and Android's seven thermal levels onto the four the contract uses (iOS reports exactly those four, so the fold is one-directional). Second, and more important, the DELIVERY RULE: every value here is event driven on all three renderers. A module that polls the battery is a module that drains it, so a runner must assert that no timer is registered by this module and that a value change arrives from the platform's own callback.",
+  "_runner": "No runner is wired yet (registration is in the F06 handoff).",
+
+  "state": [
+    { "name": "charging", "given": { "status": "charging", "level": 0.62 }, "expect": { "state": "charging" } },
+    { "name": "full", "given": { "status": "full", "level": 1.0 }, "expect": { "state": "full" } },
+    { "name": "discharging is unplugged", "given": { "status": "discharging", "level": 0.4 }, "expect": { "state": "unplugged" } },
+    { "name": "plugged in but not charging is still unplugged to a caller: it is not gaining charge",
+      "given": { "status": "not_charging", "level": 0.8 }, "expect": { "state": "unplugged" } },
+    { "name": "a platform that will not say reports unknown, never a guess",
+      "given": { "status": "unknown", "level": null }, "expect": { "state": "unknown" } },
+    { "name": "no battery at all: state unknown and the level field is ABSENT, not zero",
+      "given": { "status": null, "level": null }, "expect": { "state": "unknown", "levelPresent": false } }
+  ],
+
+  "level": [
+    { "name": "a percentage becomes a 0..1 fraction", "given": { "raw": 62, "scale": 100 }, "expect": { "level": 0.62 } },
+    { "name": "a non-percentage scale still folds", "given": { "raw": 50, "scale": 200 }, "expect": { "level": 0.25 } },
+    { "name": "full is exactly 1", "given": { "raw": 100, "scale": 100 }, "expect": { "level": 1.0 } },
+    { "name": "an unreadable level is absent, and -1 in the context var",
+      "given": { "raw": -1, "scale": 100 }, "expect": { "level": null, "contextBatteryLevel": -1 } }
+  ],
+
+  "thermal": [
+    { "name": "none is nominal", "given": { "android": 0, "ios": "nominal" }, "expect": "nominal" },
+    { "name": "light is still nominal", "given": { "android": 1 }, "expect": "nominal" },
+    { "name": "moderate is fair", "given": { "android": 2, "ios": "fair" }, "expect": "fair" },
+    { "name": "severe is serious", "given": { "android": 3, "ios": "serious" }, "expect": "serious" },
+    { "name": "critical is critical", "given": { "android": 4, "ios": "critical" }, "expect": "critical" },
+    { "name": "emergency folds up to critical", "given": { "android": 5 }, "expect": "critical" },
+    { "name": "shutdown folds up to critical", "given": { "android": 6 }, "expect": "critical" },
+    { "name": "a platform with no thermal API omits the field rather than reporting nominal",
+      "given": { "android": null, "ios": null }, "expect": null }
+  ],
+
+  "delivery": {
+    "_note": "The no-polling assertion. A runner drives the platform's own callback and asserts the context var moved, then asserts the module registered no timer or interval of its own.",
+    "cases": [
+      { "name": "a battery level change from the platform callback updates batteryLevel",
+        "emit": { "source": "platform", "kind": "batteryLevel", "value": 0.41 },
+        "expect": { "context": { "batteryLevel": 0.41 }, "timersRegistered": 0 } },
+      { "name": "entering low power mode updates lowPowerMode",
+        "emit": { "source": "platform", "kind": "lowPowerMode", "value": true },
+        "expect": { "context": { "lowPowerMode": true }, "timersRegistered": 0 } },
+      { "name": "a thermal escalation updates thermalState",
+        "emit": { "source": "platform", "kind": "thermalState", "value": "serious" },
+        "expect": { "context": { "thermalState": "serious" }, "timersRegistered": 0 } },
+      { "name": "no callback, no work: nothing is scheduled while the values are steady",
+        "emit": null,
+        "expect": { "timersRegistered": 0 } }
+    ]
+  }
+}

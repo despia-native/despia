@@ -4,7 +4,8 @@
   "statusDefinitions": {
     "supported": "The built-in Web renderer implements the fixture's primary rendering and interaction contract. Listed limits are platform adaptations or explicit safety ceilings, not silent no-ops.",
     "partial": "A functional Web renderer exists, but one or more fixture-backed behaviors or attributes remain unimplemented or intentionally narrower than the native reference.",
-    "unsupported": "No functional built-in Web renderer exists. The DOM runtime degrades to an explicit unsupported marker rather than pretending to implement the element."
+    "polyfilled": "The same observable behaviour as the native reference, built out of different parts - a module web facet with a pinned player, a canvas drawing, a composition over primitives. Under Article 10 a polyfill is a first-class implementation, not a consolation, and a row claiming it must name what implements it.",
+    "unsupported": "A DEFECT, not a resting place (constitution Article 10). No functional Web renderer exists and no polyfill has been shipped, so the DOM runtime renders the unsupported marker. Every such row must carry a matching entry in ClosedSource/release/platform-parity-register.json naming the degradation an author gets today and the polyfill that closes it; check_platform_parity.rb fails otherwise."
   },
   "universalAttributes": {
     "_note": "The PER-ATTRIBUTE support plane for the catalog universalAttributes (stack-elements.json). Added because the per-element rows above structurally could not record an attribute-level gap: enter/exit/keep/transition/anim/animDuration were silently inert on this renderer for months with no ledger row able to say so. packages/dom/test/attribute-support.test.ts enforces (a) COMPLETENESS — every catalog universal attribute has a row here, and every row names a catalog attribute — and (b) HONESTY for the motion family — a supported motion row must be implemented by element-motion.ts MOTION_HANDLED. A new universal attribute without a row here is a test failure, not a silent gap.",
@@ -28,6 +29,11 @@
       "reason": "Presence anchor + reactive effect; has:scheme answered by the availability seam at mount.",
       "runtime": "packages/dom/src/mount.ts (core mount path)"
     },
+    "passthrough": {
+      "status": "supported",
+      "reason": "Decorative and non-interactive: pointer-events: none on the element and its subtree, the twin of iOS .allowsHitTesting(false) and a Compose Box that does not consume. Implemented late - it shipped on both native renderers and on neither the web nor the census, so a scrim over a tappable video ate every touch here and the linter called the real word a typo.",
+      "runtime": "packages/dom/src/mount.ts (decorate)"
+    },
     "container": {
       "status": "supported",
       "reason": "ResizeObserver publishes live width/height as dsx.element.* to descendants.",
@@ -36,6 +42,11 @@
     "measure": {
       "status": "supported",
       "reason": "Writes the element live {width,height} to the named state key (wireMeasure).",
+      "runtime": "packages/dom/src/mount.ts (core mount path)"
+    },
+    "ref": {
+      "status": "supported",
+      "reason": "Publishes the element's live DOM node under ref.<name> in the mount-scoped RefRegistry and withdraws it on unmount (wireRef); consumers resolve it over the bus.",
       "runtime": "packages/dom/src/mount.ts (core mount path)"
     },
     "settle": {
@@ -138,32 +149,34 @@
       "reason": "Root-only dismiss animation is a FRAME concern: the router owns unmount and its config-plane motion lane (packages/dom/src/motion.ts) is the natural home. Deferred there rather than faked per-element; enter= covers appear."
     },
     "dynamicType": {
-      "status": "unsupported",
-      "reason": "Native Dynamic Type scales a FIXED point size with the OS text-size setting; on web, browser text scaling/zoom applies globally and rem-based sizing already follows it. A per-element opt-in of that OS ramp has no web equivalent — divergence by decision, not omission."
+      "status": "polyfilled",
+      "reason": "Polyfilled onto the ROOT RAMP. Native scales a fixed point size with the OS text-size setting (@ScaledMetric on iOS, scale-aware .sp on Compose); a browser exposes no per-element hook into that ramp, but `rem` IS the ramp, since the root font size is what browser text scaling moves. `fontSize` under `dynamicType=\"true\"` compiles to calc(<n> / 16 * 1rem), which turns a global mechanism into the per-element opt-in the attribute promises. At the default 16px root the computed value is the SAME pixel count, so nothing moves for a reader who never changed the setting; at a 24px root a 17pt label becomes 25.5px while an un-opted-in one stays 17px. Both directions are asserted by the type-attributes oracle probe.",
+      "runtime": "packages/compiler/src/cssmap.ts (legacyAttrToDecls, the fontSize case)"
     },
     "dynamicTypeMax": {
-      "status": "unsupported",
-      "reason": "Cap for the dynamicType ramp — inert on web for the same reason as dynamicType."
+      "status": "polyfilled",
+      "reason": "The cap on the dynamicType ramp, as min(calc(<n> / 16 * 1rem), <cap>px) - the same 'cap the SCALED size' semantic iOS applies and Compose converts back to sp. Falls out of the same fontSize case.",
+      "runtime": "packages/compiler/src/cssmap.ts (legacyAttrToDecls, the fontSize case)"
     }
   },
   "summary": {
     "canonical": {
-      "total": 76,
-      "supported": 52,
-      "partial": 11,
-      "unsupported": 13
+      "total": 79,
+      "supported": 61,
+      "partial": 7,
+      "unsupported": 11
     },
     "aliases": {
-      "total": 15,
-      "supported": 10,
-      "partial": 1,
-      "unsupported": 4
+      "total": 14,
+      "supported": 11,
+      "partial": 0,
+      "unsupported": 3
     },
     "allNames": {
-      "total": 91,
-      "supported": 62,
-      "partial": 12,
-      "unsupported": 17
+      "total": 93,
+      "supported": 72,
+      "partial": 7,
+      "unsupported": 14
     }
   },
   "elements": {
@@ -173,7 +186,7 @@
       "webClass": "dsx-accordion",
       "reason": "The global Web twin provides accessible disclosure semantics, reactive title/open state, toggle events, and the named header slot that REPLACES the default title + chevron.",
       "knownLimits": [
-        "Expand/collapse is an immediate hidden-state flip; the native withAnimation(.easeInOut) height animation is left to authored CSS rather than imposed by the renderer.",
+        "Expand/collapse animates grid-template-rows over --dsx-dur-base and collapses instantly under prefers-reduced-motion.",
         "A custom header slot owns its own content entirely — the renderer contributes no chevron, exactly as the native slot replaces the default header view."
       ],
       "runtime": "global"
@@ -200,49 +213,40 @@
     },
     "DSXView": {
       "fixture": "DSXView.json",
-      "status": "unsupported",
-      "webClass": "dsx-unsupported",
-      "reason": "The native remote/cached DSX surface has no isolated nested-runtime Web implementation.",
+      "status": "partial",
+      "webClass": "dsx-view",
+      "reason": "The rich Web twin mounts the screen component src names from this build's compiled registry (the web reading of the native rule that a shipped tag of the same name always wins), with reactive src re-resolution, the stable dsx-view lifecycle events, and a labelled unavailable state.",
       "knownLimits": [
-        "Remote package loading and the native DSXRemoteCache policy are not exposed through this element on Web."
+        "src resolves against the compiled component registry only: remote DSX fetching, screen-folder manifests, and the native DSXRemoteCache/offline generation policy are native-only, so origin is not consumed.",
+        "An unresolvable src renders the labelled dsx-view-unavailable status card instead of the native retryable DSXNativeUnavailable screen."
       ],
-      "runtime": "fallback",
-      "fallback": "Mounts the honest dsx-unsupported placeholder — a labelled marker carrying the <DSXView> name and the dsx-unsupported class; never blank, never a fake lookalike of the native surface."
+      "runtime": "rich",
+      "fallback": "Mounts the dsx-view host and resolves src from the compiled registry; a src this build does not ship renders a labelled role=status unavailable card, never blank and never a fake native surface."
     },
     "DSXWebView": {
       "fixture": "DSXWebView.json",
-      "status": "unsupported",
-      "webClass": "dsx-unsupported",
-      "reason": "DSXWebView is the native composed-app web surface; recursively embedding the Web renderer inside itself has no built-in Web contract.",
+      "status": "partial",
+      "webClass": "dsx-webview",
+      "reason": "The rich Web twin mounts the composed app web surface as the same policy-constrained iframe WebView rides, resolving path against this page's own origin (an explicit origin wins) with the shared lifecycle events and the named-surface controls the Dom facet targets.",
       "knownLimits": [
-        "Use a route/component directly on Web."
+        "No BridgeKit bridge is faked: the embedded page gets the plain window.app.send channel and the bridge-gate on:denied event never fires on Web.",
+        "The screen-readiness hostedSurface gate stays native-only: a web frame does not defer settled to the embedded page's first paint.",
+        "Browser sandbox and storage behavior cannot duplicate the native composed-surface WKWebView process/data-store guarantees."
       ],
-      "runtime": "fallback",
-      "fallback": "Mounts the honest dsx-unsupported placeholder — a labelled marker carrying the <DSXWebView> name and the dsx-unsupported class; never blank, never a fake lookalike of the native surface."
+      "runtime": "rich",
+      "fallback": "Mounts the functional policy-constrained iframe at origin+path (defaulting to this page's own origin); bridge-dependent behavior is absent rather than imitated."
     },
     "Drawer": {
       "fixture": "Drawer.json",
-      "status": "partial",
+      "status": "supported",
       "webClass": "dsx-application-control-host dsx-drawer-host",
-      "reason": "The application-control Web twin provides adaptive modal drawer geometry, focus containment and restoration, background inerting, Escape and scrim dismissal, bounded content, and a 120px drag dismissal.",
+      "reason": "The application-control Web twin implements BOTH declared presentations: the modal drawer (adaptive geometry, focus containment and restoration, background inerting, Escape and scrim dismissal, bounded content, 120px drag dismissal) and, at the shared desktop step, the standing drawer pinned in flow (collapse-to-rail control, keyboard- and pointer-resizable drag hairline within min/max, honest complementary semantics, no scrim or focus trap).",
       "knownLimits": [
-        "Drag dismissal begins from a 44 by 44 pixel handle instead of the native whole-panel gesture surface.",
+        "Modal drag dismissal begins from a 44 by 44 pixel handle instead of the native whole-panel gesture surface, a deliberate accessible-target adaptation.",
         "Web uses a neutral token-driven surface instead of cloning the native fixed dark treatment.",
-        "Drawer is full-application chrome and is deliberately rejected from self-contained custom-element embeds."
+        "Drawer is full-application chrome and is deliberately rejected from self-contained custom-element embeds (nothing renders there rather than broken chrome)."
       ],
-      "runtime": "application",
-      "fallback": "Mounts the functional modal drawer (focus containment, scrim/Escape dismissal, drag-to-dismiss from the handle); it is refused only from self-contained embeds, where nothing renders rather than broken chrome."
-    },
-    "Godot": {
-      "fixture": "Godot.json",
-      "status": "unsupported",
-      "webClass": "dsx-unsupported",
-      "reason": "The native embedded Godot runtime has no bundled WebAssembly/Web export integration.",
-      "knownLimits": [
-        "A generic iframe is not claimed as Godot parity."
-      ],
-      "runtime": "fallback",
-      "fallback": "Mounts the honest dsx-unsupported placeholder — a labelled marker carrying the <Godot> name and the dsx-unsupported class; never blank, never a fake lookalike of the native surface."
+      "runtime": "application"
     },
     "LevelMeter": {
       "fixture": "LevelMeter.json",
@@ -257,16 +261,15 @@
     },
     "MenuBar": {
       "fixture": "MenuBar.json",
-      "status": "partial",
+      "status": "supported",
       "webClass": "dsx-menu-bar",
-      "reason": "The application-control Web twin provides bounded keyed items, canonical selection state and write-back, selection events, radio-menu semantics, keyboard and RTL navigation, and adaptive mobile and desktop layout.",
+      "reason": "The application-control Web twin implements bounded keyed items, canonical selection state and write-back, selection events, radio-menu semantics, keyboard and RTL navigation, the compact pill dock, and, at the shared desktop step, the WAI-ARIA menubar presentation: roving roots, per-root shadow-3 flyouts from nested items, submenu keyboard walk with Escape walking up, and right-aligned shortcut hints from the shortcut token grammar.",
       "knownLimits": [
         "Icon names resolve through the shared cross-runtime table (OpenSource/Conformance/icons/sf-map.json), so every name that draws on iOS/Android also draws here; an SF name absent from that table still needs an icon-web= adapter.",
         "Web uses neutral adaptive chrome rather than native Liquid Glass or Material component skins.",
-        "MenuBar is full-application chrome and is deliberately rejected from self-contained custom-element embeds."
+        "MenuBar is full-application chrome and is deliberately rejected from self-contained custom-element embeds (nothing renders there rather than broken chrome)."
       ],
-      "runtime": "application",
-      "fallback": "Mounts the functional application menu bar (keyed items, selection state/events, keyboard and RTL navigation, adaptive layout); refused from self-contained embeds rather than half-drawn."
+      "runtime": "application"
     },
     "ProgressRing": {
       "fixture": "ProgressRing.json",
@@ -309,6 +312,17 @@
       ],
       "runtime": "fallback",
       "fallback": "Mounts the honest dsx-unsupported placeholder — a labelled marker carrying the <Scene3D> name and the dsx-unsupported class; never blank, never a fake lookalike of the native surface."
+    },
+    "Signature": {
+      "fixture": "Signature.json",
+      "status": "supported",
+      "reason": "The global Web twin is a real pointer-driven ink pad: a devicePixelRatio-scaled 2D canvas drawing the SHARED ink law (@despia/kernel signature-core: clamp, round-at-capture, midpoint quadratic curve), one bound write per stroke on pointer-up, and a server twin that renders the committed strokes as an inline SVG in the same normalized space, so a signed document has real first paint before the pad mounts.",
+      "webClass": "dsx-signature dsx-signature-ruled dsx-signature-empty",
+      "knownLimits": [
+        "A pointer-drawn pad has no keyboard or switch-control equivalent on any renderer; the element exposes role=img with an empty/signed label and the documented pattern pairs it with a typed-name field.",
+        "Stylus pressure and tilt are dropped: the wire shape carries one width per stroke, so the same value draws identically on the four renderers."
+      ],
+      "runtime": "global"
     },
     "Skeleton": {
       "fixture": "Skeleton.json",
@@ -421,16 +435,15 @@
     },
     "audio": {
       "fixture": "audio.json",
-      "status": "partial",
+      "status": "supported",
       "webClass": "dsx-audio",
-      "reason": "The media Web twin provides headless HTMLMediaElement playback, reactive transport/scrubbing bindings, bounded ready/time/buffering/error events, a 15-second load deadline, teardown, and feature-detected Media Session commands.",
+      "reason": "The media Web twin implements the fixture's full transport/readout contract: headless HTMLMediaElement playback, reactive transport/scrubbing bindings, bounded ready/time/buffering/error events, a 15-second load deadline, teardown, feature-detected Media Session commands, and the session= playback/ambient category applied through the page-scoped Audio Session API where the engine has one.",
       "knownLimits": [
-        "The session= playback/ambient attribute cannot reproduce native audio categories, mixing, or silent-switch behavior in a browser.",
+        "session= maps to the page-scoped Audio Session API where available (reflected as data-dsx-session and applied while the element plays); native audio categories, mixing, and silent-switch behavior otherwise remain OS policy a browser cannot reproduce.",
         "Media Session, codecs, autoplay, background playback, and remote controls remain browser/OS policy and are unavailable in some engines.",
-        "Audio is selectively available to self-contained embeds. The latest locked production-equivalent qualification measured 46729 bytes gzip for audio and 46771 bytes for combined audio/video, leaving 3405 bytes below its declared 50176-byte qualification budget; the default self-contained widget budget remains 40960 bytes, and a build-time test pins these figures."
+        "Audio is selectively available to self-contained embeds. The latest locked production-equivalent qualification measured 45105 bytes gzip for audio and 45149 bytes for combined audio/video, leaving 5027 bytes below its declared 50176-byte qualification budget; the default self-contained widget budget remains 40960 bytes, and a build-time test pins these figures. The last move: the gate now builds with the same fold map as the builder (embedDefines, packages/compiler/bin/embed-entry.ts) - two folds it had drifted behind, __DSX_OPTIONAL_DENSITY__ and __DSX_OPTIONAL_INPUT__, are 3940 bytes of that drop - and __DSX_OPTIONAL_CONTROL_METRICS__ folds the density plane's toggle, slider, field and textarea metrics out of a slice that imports no control sheet, 289 bytes."
       ],
-      "runtime": "media",
-      "fallback": "Mounts the functional headless media element (transport/scrubbing bindings, ready/time/error events, Media Session where available); an unsupported session category degrades to standard playback."
+      "runtime": "media"
     },
     "button": {
       "fixture": "button.json",
@@ -470,11 +483,23 @@
       "webClass": "dsx-chart",
       "reason": "The rich Web twin renders accessible SVG line, area, bar, and point charts from bound data.",
       "knownLimits": [
-        "Multi-series, stacking, legends, secondary axes, several grid/animation options, and the full native interpolation vocabulary are not implemented.",
+        "Multi-series, stacking, legends, secondary axes, and animation options are not implemented.",
+        "interpolation=linear|smooth|monotone|step, color=, xGrid= and yGrid= are implemented on the single-series SVG.",
         "More than 2,000 source points are deterministically downsampled."
       ],
       "runtime": "rich",
       "fallback": "Mounts the functional accessible SVG chart (line/area/bar/point from bound data); unimplemented series/axis options are omitted, never a blank canvas."
+    },
+    "canvas": {
+      "fixture": "canvas.json",
+      "status": "supported",
+      "reason": "The <canvas> surface renders the shared display list into an HTML canvas, with the SSR SVG path byte-identical to the native twins. Tier-1 children, the paint set, transforms, gradients and the fill-rule fold all come from the shared CanvasCore, so a shape cannot mean one thing here and another on a phone.",
+      "webClass": "dsx-canvas",
+      "knownLimits": [
+        "Tier 2 is a declarative command list replayed through the kernel recorder, not a live Canvas2D context handle: the payload seam carries data, never a mutable graphics object.",
+        "on:frame is display-linked and installed only while bound, mounted and on screen, so an off-screen canvas costs nothing."
+      ],
+      "runtime": "media"
     },
     "combobox": {
       "fixture": "combobox.json",
@@ -623,12 +648,27 @@
       "fixture": "lottie.json",
       "status": "unsupported",
       "webClass": "dsx-unsupported",
-      "reason": "No Lottie parser/player dependency or Web factory ships with the runtime.",
+      "reason": "No built-in Lottie player ships with the runtime; <lottie> is a MODULE element, and the Core/Lottie web facet (the vendored lottie-web light player, MIT, pinned) fills the tag through the module component loader whenever the module is registered.",
       "knownLimits": [
-        "src, loop, speed, and autoplay are not consumed on Web."
+        "With Core/Lottie registered the facet consumes src (a Lottie .json URL, absolute or site-relative), loop, speed, autoplay, a11yLabel and on:finish; loading and failure render labelled states inside the element's own box, and prefers-reduced-motion pins the static first frame.",
+        "The module facet renders via SVG only and plays plain Lottie JSON: dotLottie (.lottie) archives, bundled-name lookup, and expression-driven animations are not supported on this surface.",
+        "Without the module (excluded builds, sliced embeds), src, loop, speed, and autoplay are not consumed."
       ],
       "runtime": "fallback",
-      "fallback": "Mounts the honest dsx-unsupported placeholder — a labelled marker carrying the <lottie> name and the dsx-unsupported class; never blank, never a fake lookalike of the native surface."
+      "fallback": "Mounts the honest dsx-unsupported placeholder whenever the Core/Lottie module is absent — a labelled marker carrying the <lottie> name and the dsx-unsupported class; never blank, never a fake lookalike of the native surface."
+    },
+    "rive": {
+      "fixture": "rive.json",
+      "status": "unsupported",
+      "webClass": "dsx-unsupported",
+      "reason": "No Rive runtime ships with the web renderer; <rive> is a MODULE element, and the Core/Rive web facet fills the tag through the module component loader whenever the module is registered and its pinned @rive-app/canvas player was fetched by the build.",
+      "knownLimits": [
+        "With Core/Rive registered the facet consumes src, artboard, stateMachine, animation, inputs, autoplay, fit, alignment, speed, ref, a11yLabel and the on:load / on:stateChange / on:event / on:error handlers; the input fold, the selection refusals, fit and alignment and the playback schedule all come from the shared kernel core, so a state machine cannot mean one thing here and another on a phone.",
+        "The player is 2.2 MB of js and wasm and is fetched in CI from the coordinate pinned in the module's dsx.lock.json. A build without that fetch reports the typed absence (unsupported_platform) and renders the labelled unavailable card, never blank pixels.",
+        "Without the module (excluded builds, sliced embeds), no attribute is consumed."
+      ],
+      "runtime": "fallback",
+      "fallback": "Mounts the honest dsx-unsupported placeholder whenever the Core/Rive module is absent - a labelled marker carrying the <rive> name and the dsx-unsupported class; never blank, never a fake lookalike of the native surface."
     },
     "map": {
       "fixture": "map.json",
@@ -735,15 +775,14 @@
     },
     "refreshable": {
       "fixture": "refreshable.json",
-      "status": "partial",
+      "status": "supported",
       "webClass": "dsx-refreshable",
-      "reason": "The data-control twin provides scroll-contained content, touch pull detection, busy state, progress feedback, and refresh events.",
+      "reason": "The data-control twin implements the fixture's on:refresh/busy contract: scroll-contained content, rubber-band pull on touch and fine pointers with the shared overscroll curve, a built-in always-visible 44px refresh control for keyboard and mouse with hover and focus-visible states, a polite live status region, aria-busy reflection, spin progress with reduced-motion collapse, and busy-gated completion.",
       "knownLimits": [
-        "Pull gesture activation is touch-specific; keyboard/mouse users require an application-provided refresh control.",
-        "Completion is driven by the bound busy state or a safety timeout rather than a native refresh-control lifecycle."
+        "Completion is driven by the bound busy state (350ms grace without one) inside start/maximum safety windows rather than a native refresh-control lifecycle; a refresh that never settles is finished by the safety timeout and announced in the status region.",
+        "The pull gesture arms only while the viewport is scrolled to the top and contains its own overscroll; any browser or OS page-level pull-to-refresh chrome stays the platform's own."
       ],
-      "runtime": "data",
-      "fallback": "Mounts the functional scroll-contained content with touch pull-to-refresh, busy state and refresh events; keyboard/mouse users get the content without the pull gesture rather than a dead control."
+      "runtime": "data"
     },
     "scaffold": {
       "fixture": "scaffold.json",
@@ -836,6 +875,16 @@
       ],
       "runtime": "base"
     },
+    "split": {
+      "fixture": "split.json",
+      "status": "supported",
+      "webClass": "dsx-split",
+      "reason": "The structural twin provides the two/three-pane plan (paneRole resolution, collapseAt/expandAt width classes), the phone stack push with a back pop, the overlay sidebar, ARIA window-splitter dividers with drag and keyboard resize, and value/on:change detail routing.",
+      "knownLimits": [
+        "Presentation resolves from the split's own container width (ResizeObserver) rather than a native split host; the platform Back chrome is a kernel-rendered button."
+      ],
+      "runtime": "structural"
+    },
     "stack": {
       "fixture": "stack.json",
       "status": "supported",
@@ -869,16 +918,15 @@
     },
     "svg": {
       "fixture": "svg.json",
-      "status": "partial",
+      "status": "supported",
       "webClass": "dsx-svg",
-      "reason": "The media Web twin parses and canonicalizes a bounded, static, network-free SVG shape/path subset matching the native command grammar, with semantic paint tokens, accessibility, deterministic SSR, and no unsafe markup fallback.",
+      "reason": "The media Web twin implements the fixture's full asset/src/d/viewBox/fill/width/height contract over the same static shape/path subset the native renderer draws (rect/circle/ellipse/line/polygon/polyline/path with M L H V C S Q T Z absolute and relative), with semantic paint tokens, decorative-by-default accessibility, deterministic SSR, and fail-closed canonicalizing sanitization.",
       "knownLimits": [
-        "Named app-bundle asset keys are not resolved on Web; asset/src must contain inline safe SVG markup or authors can use d/viewBox/fill.",
+        "A NATIVE app-bundle resource name (asset=\"logo\", or src naming a bundled file) has no browser equivalent because a browser has no app bundle; the twin stays network-free by design, stamps data-dsx-unresolved=\"asset\"|\"src\" (the image precedent) and renders nothing, so the gap is inspectable rather than a silent blank.",
         "Scripts, styles, references, images, groups, animation, unknown attributes, and oversized documents fail closed. Inline SVG root width/height above 16384px are rejected, DSX host width/height are clamped to 16384px, and shape coordinates are independently bounded to an absolute value of 1000000000.",
         "SVG is full-application-only because its locked slice exceeds both the default 40960-byte widget budget and the 50176-byte media qualification ceiling."
       ],
-      "runtime": "media",
-      "fallback": "Mounts the functional static SVG subset (safe shape/path grammar, paint tokens, deterministic SSR); unsafe or app-bundle-asset markup fails closed to nothing rather than executing."
+      "runtime": "media"
     },
     "tabs": {
       "fixture": "tabs.json",
@@ -932,7 +980,7 @@
       "webClass": "dsx-toggle",
       "reason": "The base Web twin uses a real checkbox input with switch semantics, bound state, change write-back, and accessible focus handling.",
       "knownLimits": [
-        "Track/thumb chrome is neutral DSX CSS rather than a fake UISwitch or Material switch."
+        "Track/thumb chrome is a web-only iOS-26-ish capsule polyfill (63x28, pill thumb), glass-free and token-overridable (--dsx-toggle-*, color=). It is not a hosted UISwitch or Material switch; iOS and Android keep the platform control."
       ],
       "runtime": "base"
     },
@@ -948,16 +996,15 @@
     },
     "video": {
       "fixture": "video.json",
-      "status": "partial",
+      "status": "supported",
       "webClass": "dsx-video",
-      "reason": "The media Web twin provides native HTML video rendering, active-page ownership, reactive transport/scrubbing/readout bindings, subtitles, bounded load/error state, accurate isolated target-frame previews, best-effort Media Session commands, accessibility, and deterministic SSR.",
+      "reason": "The media Web twin implements the fixture's full contract: native HTML video rendering, active-page ownership, reactive transport/scrubbing/readout bindings, subtitles, bounded load/error state, accurate isolated target-frame previews, best-effort Media Session commands, the audio= playback/ambient category via the page-scoped Audio Session API where present, accessibility, and deterministic SSR.",
       "knownLimits": [
-        "audio= playback/ambient has no browser audio-session equivalent; automatic background Picture-in-Picture is not promised and pip only feature-gates browser PiP availability.",
+        "audio= maps to the page-scoped Audio Session API where available (reflected as data-dsx-session and applied while the element plays); automatic background Picture-in-Picture is not promised and pip only feature-gates browser PiP availability.",
         "Target-frame preview requires the media to be canvas-readable (same-origin, blob, or CORS-enabled) and fails closed otherwise; codec, autoplay, subtitles, background playback, and Media Session behavior vary by browser/OS.",
-        "Video is selectively available to self-contained embeds. The latest locked production-equivalent qualification measured 46730 bytes gzip for video and 46771 bytes for combined audio/video, leaving 3405 bytes below its declared 50176-byte qualification budget; the default self-contained widget budget remains 40960 bytes, and a build-time test pins these figures."
+        "Video is selectively available to self-contained embeds. The latest locked production-equivalent qualification measured 45107 bytes gzip for video and 45149 bytes for combined audio/video, leaving 5027 bytes below its declared 50176-byte qualification budget; the default self-contained widget budget remains 40960 bytes, and a build-time test pins these figures. The last move: the gate now builds with the same fold map as the builder (embedDefines, packages/compiler/bin/embed-entry.ts) - two folds it had drifted behind, __DSX_OPTIONAL_DENSITY__ and __DSX_OPTIONAL_INPUT__, are 3940 bytes of that drop - and __DSX_OPTIONAL_CONTROL_METRICS__ folds the density plane's toggle, slider, field and textarea metrics out of a slice that imports no control sheet, 289 bytes."
       ],
-      "runtime": "media",
-      "fallback": "Mounts the functional HTML video element (transport/scrubbing/readout bindings, subtitles, isolated target-frame preview, Media Session where available); audio-session categories degrade to standard playback."
+      "runtime": "media"
     },
     "vstack": {
       "fixture": "vstack.json",
@@ -992,17 +1039,6 @@
     }
   },
   "aliases": {
-    "GodotView": {
-      "canonical": "Godot",
-      "status": "unsupported",
-      "webClass": "dsx-unsupported",
-      "reason": "The alias has no Web factory because the canonical Godot surface is unsupported.",
-      "knownLimits": [
-        "Renders the explicit unsupported fallback."
-      ],
-      "runtime": "fallback",
-      "fallback": "Resolves to the honest dsx-unsupported placeholder because the canonical <Godot> surface is native-only on Web; the marker names the tag and is never blank."
-    },
     "Panorama": {
       "canonical": "Scene360",
       "status": "unsupported",
@@ -1088,14 +1124,13 @@
     },
     "refresh": {
       "canonical": "refreshable",
-      "status": "partial",
+      "status": "supported",
       "webClass": "dsx-refreshable",
-      "reason": "The alias resolves to the functional refreshable Web twin and inherits its input/lifecycle limits.",
+      "reason": "The alias resolves to the supported refreshable Web twin and inherits its contract and limits.",
       "knownLimits": [
-        "Pull activation is touch-specific."
+        "Inherits the refreshable twin's busy-gated completion and top-of-scroll pull arming."
       ],
-      "runtime": "data",
-      "fallback": "Resolves to the functional refreshable twin; pull activation is touch-specific, otherwise the content renders normally."
+      "runtime": "data"
     },
     "activity": {
       "canonical": "spinner",

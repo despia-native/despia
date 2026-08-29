@@ -1,0 +1,6 @@
+<!-- Toolbar — a strip of controls under a hairline, at control height. For the actions that
+     act on the whole pane rather than on one row. -->
+<hstack class="sk-toolbar" grow="width" style="align-items: center; gap: 0.375rem">
+  <head/>
+  <slot/>
+</hstack>

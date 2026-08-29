@@ -1,0 +1,279 @@
+{
+  "version": 1,
+  "_note": "The `media` module's PURE CORE, part one: EXIF orientation normalisation, the manipulate OP-CHAIN resolver, the decode hint, and the format/quality fold with its per-platform support table. Three runners execute this one file - TS packages/kernel/test/media-conformance.test.ts, Kotlin :core MediaConformanceTest, Swift Engine/iOS/MediaCore.swift (reference). Rasterising is platform work and is NOT pinned here; the arithmetic and the ORDER are, because a crop rect that lands two pixels differently on Android is a bug an author cannot fix from markup, and a photo that comes out sideways on one platform is the single most reported image bug there is. parity/F04-media.md §6.",
+
+  "_note_budget": "MEDIA_MAX_PIXELS bounds what a caller may ASK FOR, never what the camera produced. A 48 MP ProRAW frame (8064x6048) is already over the budget the moment it is opened, so a check on the absolute size would refuse to rotate the device's own output. The check is therefore on GROWTH: a step is `too_large` only when it crosses the budget AND makes the image larger than it already was. Shrinking a huge photo always works, and `decode` below is what keeps it from being resident whole while that happens.",
+  "budget": { "maxPixels": 40000000 },
+
+  "_note_formats": "The fold an author's `format` goes through. An EMPTY/absent format is null, which is not an error - it means `keep the source format`, and the facet answers that. `jpg` and `heif` are accepted spellings of the two that have them.",
+  "formats": [
+    { "name": "jpeg passes through", "input": "jpeg", "expect": "jpeg" },
+    { "name": "jpg is jpeg", "input": "jpg", "expect": "jpeg" },
+    { "name": "case and whitespace are folded", "input": "  PNG ", "expect": "png" },
+    { "name": "a leading dot is an extension, not a format", "input": ".webp", "expect": "webp" },
+    { "name": "heif is heic", "input": "heif", "expect": "heic" },
+    { "name": "an empty format means keep the source", "input": "", "expect": null },
+    { "name": "gif is not an output format here", "input": "gif", "expect": null },
+    { "name": "an unknown word is refused rather than defaulted", "input": "avif", "expect": null }
+  ],
+
+  "_note_quality": "Identical semantics to the capture fold, on purpose: a value above 1 is read as a percent, because everyone confuses the two exactly once, and anything unreadable falls back rather than producing a zero-quality file.",
+  "quality": [
+    { "name": "a unit fraction passes through", "input": 0.7, "expect": 0.7 },
+    { "name": "an omitted quality is the default", "input": null, "expect": 0.9 },
+    { "name": "a percent is read as a percent", "input": 80, "expect": 0.8 },
+    { "name": "100 is full quality", "input": 100, "expect": 1 },
+    { "name": "a negative clamps to zero", "input": -0.5, "expect": 0 },
+    { "name": "above a percent clamps to one", "input": 400, "expect": 1 },
+    { "name": "a numeric string is read", "input": "0.5", "expect": 0.5 },
+    { "name": "nonsense falls back", "input": "high", "expect": 0.9 }
+  ],
+
+  "_note_support": "What each renderer can actually ENCODE. `device` means the hardware decides at runtime - HEIC needs an A10 or newer on iOS and API 30 on Android - so the facet asks once and passes the answer in. A format that cannot be written FALLS BACK to jpeg and the resolve reports `format` as what was produced plus `requested` as what was asked for. Silently writing a png with a .heic name is the failure this row exists to prevent.",
+  "support": {
+    "ios":     { "jpeg": true, "png": true, "webp": false, "heic": "device" },
+    "android": { "jpeg": true, "png": true, "webp": true,  "heic": "device" },
+    "web":     { "jpeg": true, "png": true, "webp": true,  "heic": false }
+  },
+  "formatPlans": [
+    { "name": "jpeg is universal", "requested": "jpeg", "platform": "ios", "deviceCanEncode": false,
+      "expect": { "format": "jpeg", "requested": "jpeg", "fellBack": false, "lossless": false } },
+    { "name": "png is lossless everywhere, so quality is meaningless against it", "requested": "png", "platform": "android", "deviceCanEncode": false,
+      "expect": { "format": "png", "requested": "png", "fellBack": false, "lossless": true } },
+    { "name": "iOS cannot ENCODE webp and says so by falling back", "requested": "webp", "platform": "ios", "deviceCanEncode": true,
+      "expect": { "format": "jpeg", "requested": "webp", "fellBack": true, "lossless": false } },
+    { "name": "android writes webp natively", "requested": "webp", "platform": "android", "deviceCanEncode": false,
+      "expect": { "format": "webp", "requested": "webp", "fellBack": false, "lossless": false } },
+    { "name": "heic lands where the device encodes it", "requested": "heic", "platform": "ios", "deviceCanEncode": true,
+      "expect": { "format": "heic", "requested": "heic", "fellBack": false, "lossless": false } },
+    { "name": "heic falls back where it does not", "requested": "heic", "platform": "ios", "deviceCanEncode": false,
+      "expect": { "format": "jpeg", "requested": "heic", "fellBack": true, "lossless": false } },
+    { "name": "the web has no heic encoder at all", "requested": "heic", "platform": "web", "deviceCanEncode": true,
+      "expect": { "format": "jpeg", "requested": "heic", "fellBack": true, "lossless": false } },
+    { "name": "an unknown platform is treated as the conservative web row", "requested": "webp", "platform": "watch", "deviceCanEncode": false,
+      "expect": { "format": "webp", "requested": "webp", "fellBack": false, "lossless": false } },
+    { "name": "an unknown format is refused, never defaulted", "requested": "avif", "platform": "android", "deviceCanEncode": true,
+      "expect": { "error": "unsupported_format" } },
+    { "name": "an omitted format is refused by the PLAN - keeping the source is the facet's job", "requested": "", "platform": "ios", "deviceCanEncode": true,
+      "expect": { "error": "unsupported_format" } }
+  ],
+
+  "_note_exif": "THE SIDEWAYS-PHOTO LAW. A phone stores its sensor pixels and records the rotation in an EXIF tag; iOS decoders apply it, Android's BitmapFactory does not, and the browser applies it only for `image-orientation: from-image`. So the SAME crop rect selects a different region on each platform unless the tag is normalised FIRST. The fix pinned here is not `everyone applies the tag` - it is that the tag is applied BEFORE the op chain runs, on every renderer, and the op chain therefore always addresses upright pixels. `rotate` is clockwise degrees, `mirrored` is a horizontal flip applied BEFORE the rotation, and `swaps` says the two axes trade places (which is why a portrait phone photo reports 4032x3024). An absent, zero or out-of-range tag is orientation 1: a file with no EXIF block is ordinary, not broken.",
+  "exif": [
+    { "name": "1 - upright", "width": 4032, "height": 3024, "orientation": 1,
+      "expect": { "orientation": 1, "width": 4032, "height": 3024, "rotate": 0, "mirrored": false, "swaps": false } },
+    { "name": "2 - mirrored", "width": 4032, "height": 3024, "orientation": 2,
+      "expect": { "orientation": 2, "width": 4032, "height": 3024, "rotate": 0, "mirrored": true, "swaps": false } },
+    { "name": "3 - upside down", "width": 4032, "height": 3024, "orientation": 3,
+      "expect": { "orientation": 3, "width": 4032, "height": 3024, "rotate": 180, "mirrored": false, "swaps": false } },
+    { "name": "4 - mirrored upside down", "width": 4032, "height": 3024, "orientation": 4,
+      "expect": { "orientation": 4, "width": 4032, "height": 3024, "rotate": 180, "mirrored": true, "swaps": false } },
+    { "name": "5 - transposed", "width": 4032, "height": 3024, "orientation": 5,
+      "expect": { "orientation": 5, "width": 3024, "height": 4032, "rotate": 90, "mirrored": true, "swaps": true } },
+    { "name": "6 - the common portrait photo", "width": 4032, "height": 3024, "orientation": 6,
+      "expect": { "orientation": 6, "width": 3024, "height": 4032, "rotate": 90, "mirrored": false, "swaps": true } },
+    { "name": "7 - transversed", "width": 4032, "height": 3024, "orientation": 7,
+      "expect": { "orientation": 7, "width": 3024, "height": 4032, "rotate": 270, "mirrored": true, "swaps": true } },
+    { "name": "8 - the other portrait", "width": 4032, "height": 3024, "orientation": 8,
+      "expect": { "orientation": 8, "width": 3024, "height": 4032, "rotate": 270, "mirrored": false, "swaps": true } },
+    { "name": "a file with no EXIF block is upright, not broken", "width": 800, "height": 600, "orientation": null,
+      "expect": { "orientation": 1, "width": 800, "height": 600, "rotate": 0, "mirrored": false, "swaps": false } },
+    { "name": "zero is the same as absent", "width": 800, "height": 600, "orientation": 0,
+      "expect": { "orientation": 1, "width": 800, "height": 600, "rotate": 0, "mirrored": false, "swaps": false } },
+    { "name": "an out-of-range tag is upright rather than a refusal", "width": 800, "height": 600, "orientation": 9,
+      "expect": { "orientation": 1, "width": 800, "height": 600, "rotate": 0, "mirrored": false, "swaps": false } }
+  ],
+
+  "_note_chains": "THE ORDERING LAW. `ops` is an ORDERED list and the two orders are different pictures: the first two rows below take the same crop and the same resize and land on 512x512 and 12x134. Both must be exact on three renderers. `rect` is the region a step selected, in the coordinate space of the image AS IT WAS WHEN THAT STEP RAN - so a `crop` reports where it cut, and a `cover` resize reports the centre-crop it took after scaling. Every dimension is rounded half away from zero and floored at one pixel, which is what stops 400.5 becoming 400 on one runtime and 401 on another. Values were computed with an independent scratch implementation, not read off any of the three.",
+  "chains": [
+    { "name": "crop then resize - the avatar path",
+      "source": { "width": 4000, "height": 3000 },
+      "ops": [ { "crop": { "x": 500, "y": 250, "width": 2000, "height": 2000 } },
+               { "resize": { "width": 512, "height": 512 } } ],
+      "expect": { "width": 512, "height": 512, "steps": [
+        { "op": "crop", "width": 2000, "height": 2000, "rect": { "x": 500, "y": 250, "width": 2000, "height": 2000 } },
+        { "op": "resize", "width": 512, "height": 512 } ] } },
+
+    { "name": "resize then crop - the SAME two ops, a completely different picture",
+      "source": { "width": 4000, "height": 3000 },
+      "ops": [ { "resize": { "width": 512, "height": 512 } },
+               { "crop": { "x": 500, "y": 250, "width": 2000, "height": 2000 } } ],
+      "expect": { "width": 12, "height": 134, "steps": [
+        { "op": "resize", "width": 512, "height": 384 },
+        { "op": "crop", "width": 12, "height": 134, "rect": { "x": 500, "y": 250, "width": 12, "height": 134 } } ] } },
+
+    { "name": "a resize with only a width keeps the aspect ratio",
+      "source": { "width": 4000, "height": 3000 }, "ops": [ { "resize": { "width": 400 } } ],
+      "expect": { "width": 400, "height": 300, "steps": [ { "op": "resize", "width": 400, "height": 300 } ] } },
+
+    { "name": "a resize with only a height keeps it too, and rounds half away from zero",
+      "source": { "width": 4000, "height": 3000 }, "ops": [ { "resize": { "height": 400 } } ],
+      "expect": { "width": 533, "height": 400, "steps": [ { "op": "resize", "width": 533, "height": 400 } ] } },
+
+    { "name": "contain fits inside the box and may leave slack",
+      "source": { "width": 4000, "height": 3000 },
+      "ops": [ { "resize": { "width": 1000, "height": 1000, "fit": "contain" } } ],
+      "expect": { "width": 1000, "height": 750, "steps": [ { "op": "resize", "width": 1000, "height": 750 } ] } },
+
+    { "name": "contain is the default fit",
+      "source": { "width": 4000, "height": 3000 },
+      "ops": [ { "resize": { "width": 1000, "height": 1000 } } ],
+      "expect": { "width": 1000, "height": 750, "steps": [ { "op": "resize", "width": 1000, "height": 750 } ] } },
+
+    { "name": "cover fills the box and reports the centre crop it took",
+      "source": { "width": 4000, "height": 3000 },
+      "ops": [ { "resize": { "width": 1000, "height": 1000, "fit": "cover" } } ],
+      "expect": { "width": 1000, "height": 1000, "steps": [
+        { "op": "resize", "width": 1000, "height": 1000, "rect": { "x": 166, "y": 0, "width": 1000, "height": 1000 } } ] } },
+
+    { "name": "cover on a portrait source crops the top and bottom",
+      "source": { "width": 1200, "height": 1600 },
+      "ops": [ { "resize": { "width": 256, "height": 256, "fit": "cover" } } ],
+      "expect": { "width": 256, "height": 256, "steps": [
+        { "op": "resize", "width": 256, "height": 256, "rect": { "x": 0, "y": 42, "width": 256, "height": 256 } } ] } },
+
+    { "name": "cover upscales when the box is bigger than the source",
+      "source": { "width": 100, "height": 100 },
+      "ops": [ { "resize": { "width": 500, "height": 400, "fit": "cover" } } ],
+      "expect": { "width": 500, "height": 400, "steps": [
+        { "op": "resize", "width": 500, "height": 400, "rect": { "x": 0, "y": 50, "width": 500, "height": 400 } } ] } },
+
+    { "name": "fill ignores the aspect ratio and lands exactly on the box",
+      "source": { "width": 4000, "height": 3000 },
+      "ops": [ { "resize": { "width": 1000, "height": 1000, "fit": "fill" } } ],
+      "expect": { "width": 1000, "height": 1000, "steps": [ { "op": "resize", "width": 1000, "height": 1000 } ] } },
+
+    { "name": "a crop that hangs off the edge is intersected, not refused",
+      "source": { "width": 800, "height": 600 },
+      "ops": [ { "crop": { "x": 600, "y": 500, "width": 400, "height": 400 } } ],
+      "expect": { "width": 200, "height": 100, "steps": [
+        { "op": "crop", "width": 200, "height": 100, "rect": { "x": 600, "y": 500, "width": 200, "height": 100 } } ] } },
+
+    { "name": "a crop with a negative origin is clamped to the image",
+      "source": { "width": 800, "height": 600 },
+      "ops": [ { "crop": { "x": -100, "y": -50, "width": 300, "height": 300 } } ],
+      "expect": { "width": 200, "height": 250, "steps": [
+        { "op": "crop", "width": 200, "height": 250, "rect": { "x": 0, "y": 0, "width": 200, "height": 250 } } ] } },
+
+    { "name": "a crop with NO overlap selects nothing and is refused",
+      "source": { "width": 800, "height": 600 },
+      "ops": [ { "crop": { "x": 900, "y": 0, "width": 100, "height": 100 } } ],
+      "expect": { "error": "invalid_ops", "at": 0 } },
+
+    { "name": "rotate 90 swaps the axes",
+      "source": { "width": 4000, "height": 3000 }, "ops": [ { "rotate": 90 } ],
+      "expect": { "width": 3000, "height": 4000, "steps": [ { "op": "rotate", "width": 3000, "height": 4000 } ] } },
+
+    { "name": "a negative rotation normalises into the same quarter turn",
+      "source": { "width": 4000, "height": 3000 }, "ops": [ { "rotate": -90 } ],
+      "expect": { "width": 3000, "height": 4000, "steps": [ { "op": "rotate", "width": 3000, "height": 4000 } ] } },
+
+    { "name": "rotate 360 is the identity",
+      "source": { "width": 800, "height": 600 }, "ops": [ { "rotate": 360 } ],
+      "expect": { "width": 800, "height": 600, "steps": [ { "op": "rotate", "width": 800, "height": 600 } ] } },
+
+    { "name": "an arbitrary angle is refused - the canvas shape and the fill colour are not this action's business",
+      "source": { "width": 4000, "height": 3000 }, "ops": [ { "rotate": 45 } ],
+      "expect": { "error": "invalid_ops", "at": 0 } },
+
+    { "name": "flip and blur leave the geometry alone",
+      "source": { "width": 800, "height": 600 }, "ops": [ { "flip": "h" }, { "blur": 4 } ],
+      "expect": { "width": 800, "height": 600, "steps": [
+        { "op": "flip", "width": 800, "height": 600 }, { "op": "blur", "width": 800, "height": 600 } ] } },
+
+    { "name": "an unknown flip axis is refused rather than guessed",
+      "source": { "width": 800, "height": 600 }, "ops": [ { "flip": "diagonal" } ],
+      "expect": { "error": "invalid_ops", "at": 0 } },
+
+    { "name": "a blur radius outside 0..100 is refused",
+      "source": { "width": 800, "height": 600 }, "ops": [ { "blur": 400 } ],
+      "expect": { "error": "invalid_ops", "at": 0 } },
+
+    { "name": "an empty op list is a pass-through, not an error",
+      "source": { "width": 800, "height": 600 }, "ops": [],
+      "expect": { "width": 800, "height": 600, "steps": [] } },
+
+    { "name": "an unknown verb is refused, and the index says which one",
+      "source": { "width": 800, "height": 600 }, "ops": [ { "flip": "h" }, { "sharpen": 2 } ],
+      "expect": { "error": "invalid_ops", "at": 1 } },
+
+    { "name": "two verbs in one entry is an ambiguity about ORDER and is refused",
+      "source": { "width": 800, "height": 600 }, "ops": [ { "rotate": 90, "blur": 2 } ],
+      "expect": { "error": "invalid_ops", "at": 0 } },
+
+    { "name": "a resize naming neither dimension is refused",
+      "source": { "width": 800, "height": 600 }, "ops": [ { "resize": { "fit": "cover" } } ],
+      "expect": { "error": "invalid_ops", "at": 0 } },
+
+    { "name": "an unknown fit is refused rather than folded to contain",
+      "source": { "width": 800, "height": 600 }, "ops": [ { "resize": { "width": 100, "height": 100, "fit": "inside" } } ],
+      "expect": { "error": "invalid_ops", "at": 0 } },
+
+    { "name": "a step that GROWS past the budget is refused before anything is allocated",
+      "source": { "width": 100, "height": 100 },
+      "ops": [ { "resize": { "width": 7000, "height": 7000, "fit": "fill" } } ],
+      "expect": { "error": "too_large", "at": 0 } },
+
+    { "name": "a 48 MP camera frame is over the budget and still rotates - the guard is on growth",
+      "source": { "width": 8064, "height": 6048 }, "ops": [ { "rotate": 90 } ],
+      "expect": { "width": 6048, "height": 8064, "steps": [ { "op": "rotate", "width": 6048, "height": 8064 } ] } },
+
+    { "name": "the receipt path - straighten, trim the margins, fit a page, no blur",
+      "source": { "width": 3024, "height": 4032 },
+      "ops": [ { "rotate": 180 },
+               { "crop": { "x": 100, "y": 200, "width": 2800, "height": 3600 } },
+               { "resize": { "width": 1080, "height": 1080, "fit": "contain" } },
+               { "blur": 0 } ],
+      "expect": { "width": 840, "height": 1080, "steps": [
+        { "op": "rotate", "width": 3024, "height": 4032 },
+        { "op": "crop", "width": 2800, "height": 3600, "rect": { "x": 100, "y": 200, "width": 2800, "height": 3600 } },
+        { "op": "resize", "width": 840, "height": 1080 },
+        { "op": "blur", "width": 840, "height": 1080 } ] } },
+
+    { "name": "a portrait phone photo cropped square AFTER its EXIF rotation - the sideways bug, fixed",
+      "source": { "width": 3024, "height": 4032 },
+      "_note": "The source here is the ORIENTATION-NORMALISED box for a 4032x3024 sensor frame tagged orientation 6. Feeding the STORED 4032x3024 into the same op list produces a landscape crop of the wrong region, which is exactly the bug.",
+      "ops": [ { "crop": { "x": 0, "y": 504, "width": 3024, "height": 3024 } },
+               { "resize": { "width": 400 } } ],
+      "expect": { "width": 400, "height": 400, "steps": [
+        { "op": "crop", "width": 3024, "height": 3024, "rect": { "x": 0, "y": 504, "width": 3024, "height": 3024 } },
+        { "op": "resize", "width": 400, "height": 400 } ] } }
+  ],
+
+  "_note_decode": "MEMORY IS THE RECURRING FAILURE, and this is the arithmetic that stops it. A 12 MP photo resized to 400 px never needs 12 MP resident: subsampling by 8 gives 500x375, still more pixels than the output asks for, at 0.2 MB instead of 48. `sampleSize` is a power of two so it maps straight onto Android's BitmapFactory.Options.inSampleSize; iOS and the web use `width`/`height` as the downsample target (kCGImageSourceThumbnailMaxPixelSize, createImageBitmap resizeWidth). The factor is taken at the FIRST resize relative to the box that reaches it, so a crop before the resize makes the hint CONSERVATIVELY larger rather than smaller. A chain with no resize decodes whole - unless the source alone breaks the budget, in which case it subsamples until it fits, because refusing to open a photo the device's own camera produced is not an option.",
+  "decode": [
+    { "name": "a 12 MP photo resized to 400 px never allocates the full bitmap",
+      "source": { "width": 4000, "height": 3000 }, "ops": [ { "resize": { "width": 400 } } ],
+      "expect": { "sampleSize": 8, "width": 500, "height": 375 } },
+    { "name": "a cover resize is measured against the SCALED box, not the cropped output",
+      "source": { "width": 4000, "height": 3000 },
+      "ops": [ { "resize": { "width": 256, "height": 256, "fit": "cover" } } ],
+      "expect": { "sampleSize": 8, "width": 500, "height": 375 } },
+    { "name": "a crop before the resize needs MORE of the source, and the hint grows",
+      "source": { "width": 4000, "height": 3000 },
+      "ops": [ { "crop": { "x": 0, "y": 0, "width": 1000, "height": 1000 } }, { "resize": { "width": 400 } } ],
+      "expect": { "sampleSize": 2, "width": 2000, "height": 1500 } },
+    { "name": "a chain with no resize decodes whole",
+      "source": { "width": 4000, "height": 3000 }, "ops": [ { "rotate": 90 } ],
+      "expect": { "sampleSize": 1, "width": 4000, "height": 3000 } },
+    { "name": "a source that alone breaks the budget subsamples anyway",
+      "source": { "width": 12000, "height": 9000 }, "ops": [],
+      "expect": { "sampleSize": 2, "width": 6000, "height": 4500 } },
+    { "name": "a 48 MP frame downsampled for a 1024 px export",
+      "source": { "width": 8064, "height": 6048 }, "ops": [ { "resize": { "width": 1024 } } ],
+      "expect": { "sampleSize": 4, "width": 2016, "height": 1512 } },
+    { "name": "an upscale needs the source whole",
+      "source": { "width": 200, "height": 200 }, "ops": [ { "resize": { "width": 800 } } ],
+      "expect": { "sampleSize": 1, "width": 200, "height": 200 } }
+  ],
+
+  "_note_invariants": "The promises no arithmetic row can express. Each facet asserts them in its own tests; this file is where they cannot quietly disappear.",
+  "invariants": {
+    "orientationBeforeOps": "EXIF orientation is normalised BEFORE the first op runs, on every renderer, so an op chain always addresses upright pixels and the same crop rect selects the same region on iOS, Android and the web.",
+    "orientationStrippedOnWrite": "The output file carries orientation 1, because the pixels have already been rotated. Writing rotated pixels AND keeping the original tag rotates the photo twice, which is the same bug wearing a different hat.",
+    "decodeAtTargetSize": "No facet decodes a source at full resolution and then downscales. The decode hint is computed first and handed to the decoder, so peak allocation is bounded by the hint and not by the file.",
+    "streamToDisk": "manipulate and transcode write their result to a file and resolve a path. Bytes never cross the bus, so a 40 MB export costs the same as a 40 KB one.",
+    "chainIsOneRenderPass": "A five-op chain is resolved to its final geometry first and rendered once. Rendering five intermediates would allocate five bitmaps and round five times, and the rounding is what makes renderers disagree.",
+    "qualityIgnoredForLossless": "A quality argument against png is dropped rather than silently applied, and the resolve reports `lossless: true` so a caller can tell the difference between ignored and honoured."
+  }
+}

@@ -1,0 +1,30 @@
+// The PREVIEW worker manifest — Despia's own multi-tenant preview infrastructure
+// (preview-hosting.md), hand-maintained, deployed by the operator:
+//   npx wrangler deploy --config packages/server/deploy/preview/wrangler.jsonc
+// `--dry-run` validates it without an account (the CI gate). The admin key is NEVER
+// here — `wrangler secret put DSX_PREVIEW_ADMIN_KEY --config <this file>`.
+// The operator substitutes the real R2 bucket + KV namespace ids and adds the zone
+// route (`*.despia.app/*`) once the zone exists — see OPERATOR.md.
+{
+  "name": "dsx-preview",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-08-01",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "DSX_PREVIEW_APEX": "despia.app"
+  },
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "dsx-preview"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "POINTERS",
+      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "_note": "The font FACE-SELECTION law (parity/F01-fonts.md). Given a declared family's faces and a requested weight/italic, which face renders? This is the CSS Fonts 4 weight-matching algorithm, implemented once as a pure core and run by all three renderers, because a heading that is semibold on iOS and bold on Android is the exact drift this corpus exists to prevent. The algorithm is deliberately NOT 'nearest weight': in the 400-500 band CSS searches UP to 500 first, which is why a family shipping 400+700 renders 400 for a requested 500 and 700 for a requested 501. Italic: an exact italic face always wins; requesting italic with no italic face declared SYNTHESISES (and the build warns); requesting upright when only italic exists uses the italic face rather than refusing, because a rendered wrong slant beats no text. variation[] pins axis clamping — an axis outside its declared range clamps to the bound and reports, never silently renders an extreme. fallback[] pins the chain: an unknown family is a BUILD error, but at runtime a family whose face failed to load falls back through its declared chain to the system face rather than rendering nothing.",
+
+  "matching": [
+    { "name": "an exact weight wins",
+      "faces": [400, 700], "request": 400, "expect": 400 },
+    { "name": "an exact heavy weight wins",
+      "faces": [400, 700], "request": 700, "expect": 700 },
+
+    { "name": "400-500 band searches UP to 500 before going down",
+      "faces": [300, 500], "request": 400, "expect": 500 },
+    { "name": "a requested 500 with only 400 and 700 takes 400, not the nearer 700",
+      "faces": [400, 700], "request": 500, "expect": 400 },
+    { "name": "a requested 450 takes 500 over 400 (up within the band first)",
+      "faces": [400, 500, 700], "request": 450, "expect": 500 },
+    { "name": "in-band with nothing at or under 500 falls to the lighter face",
+      "faces": [200, 700], "request": 400, "expect": 200 },
+    { "name": "in-band with nothing lighter goes above 500",
+      "faces": [600, 900], "request": 400, "expect": 600 },
+
+    { "name": "below 400 searches DOWN first",
+      "faces": [100, 400, 700], "request": 300, "expect": 100 },
+    { "name": "below 400 with nothing lighter searches up",
+      "faces": [500, 900], "request": 300, "expect": 500 },
+    { "name": "a requested 350 takes 300 over 400",
+      "faces": [300, 400], "request": 350, "expect": 300 },
+
+    { "name": "above 500 searches UP first",
+      "faces": [400, 600, 900], "request": 700, "expect": 900 },
+    { "name": "a requested 501 crosses the band boundary and goes up",
+      "faces": [400, 700], "request": 501, "expect": 700 },
+    { "name": "above 500 with nothing heavier searches down",
+      "faces": [100, 400], "request": 700, "expect": 400 },
+    { "name": "a requested 800 takes 900 over 700",
+      "faces": [700, 900], "request": 800, "expect": 900 },
+
+    { "name": "a single face answers every request",
+      "faces": [400], "request": 900, "expect": 400 },
+    { "name": "a single heavy face answers a light request",
+      "faces": [800], "request": 100, "expect": 800 },
+
+    { "name": "no faces at all is unresolvable",
+      "faces": [], "request": 400, "expect": null }
+  ],
+
+  "italic": [
+    { "name": "an exact italic face wins",
+      "faces": [{ "w": 400, "i": false }, { "w": 400, "i": true }],
+      "request": { "w": 400, "i": true }, "expect": { "w": 400, "i": true, "synthesized": false } },
+
+    { "name": "upright is preferred when upright is asked for",
+      "faces": [{ "w": 400, "i": false }, { "w": 400, "i": true }],
+      "request": { "w": 400, "i": false }, "expect": { "w": 400, "i": false, "synthesized": false } },
+
+    { "name": "italic requested with no italic face SYNTHESISES from the matched upright",
+      "faces": [{ "w": 400, "i": false }, { "w": 700, "i": false }],
+      "request": { "w": 400, "i": true }, "expect": { "w": 400, "i": false, "synthesized": true } },
+
+    { "name": "synthesis still runs the weight algorithm first",
+      "faces": [{ "w": 400, "i": false }, { "w": 700, "i": false }],
+      "request": { "w": 600, "i": true }, "expect": { "w": 700, "i": false, "synthesized": true } },
+
+    { "name": "upright requested with only italic available uses italic rather than refusing",
+      "faces": [{ "w": 400, "i": true }],
+      "request": { "w": 400, "i": false }, "expect": { "w": 400, "i": true, "synthesized": false } },
+
+    { "name": "weight matching runs WITHIN the italic set, not across it",
+      "faces": [{ "w": 400, "i": true }, { "w": 900, "i": true }, { "w": 700, "i": false }],
+      "request": { "w": 700, "i": true }, "expect": { "w": 900, "i": true, "synthesized": false } }
+  ],
+
+  "variation": [
+    { "name": "an axis inside its range passes through",
+      "axes": { "wght": [100, 900] }, "request": { "wght": 480 },
+      "expect": { "applied": { "wght": 480 }, "clamped": [] } },
+
+    { "name": "an axis above its range clamps to the maximum and reports",
+      "axes": { "wght": [100, 900] }, "request": { "wght": 1200 },
+      "expect": { "applied": { "wght": 900 }, "clamped": ["wght"] } },
+
+    { "name": "an axis below its range clamps to the minimum and reports",
+      "axes": { "wght": [300, 900] }, "request": { "wght": 100 },
+      "expect": { "applied": { "wght": 300 }, "clamped": ["wght"] } },
+
+    { "name": "an axis the family does not declare is dropped and reported",
+      "axes": { "wght": [100, 900] }, "request": { "SOFT": 40 },
+      "expect": { "applied": {}, "dropped": ["SOFT"] } },
+
+    { "name": "multiple axes resolve independently",
+      "axes": { "wght": [100, 900], "SOFT": [0, 100] }, "request": { "wght": 480, "SOFT": 200 },
+      "expect": { "applied": { "SOFT": 100, "wght": 480 }, "clamped": ["SOFT"] } },
+
+    { "name": "the boundary values themselves are inside the range",
+      "axes": { "wght": [100, 900] }, "request": { "wght": 900 },
+      "expect": { "applied": { "wght": 900 }, "clamped": [] } },
+
+    { "name": "a static family ignores every axis",
+      "axes": null, "request": { "wght": 480 },
+      "expect": { "applied": {}, "dropped": ["wght"] } }
+  ],
+
+  "parse": [
+    { "name": "a single axis", "input": "wght 480", "expect": { "wght": 480 } },
+    { "name": "two axes, comma separated", "input": "wght 480, SOFT 40", "expect": { "wght": 480, "SOFT": 40 } },
+    { "name": "extra whitespace is tolerated", "input": "  wght   480 ,  SOFT 40  ", "expect": { "wght": 480, "SOFT": 40 } },
+    { "name": "axis tags are case sensitive, as OpenType defines them", "input": "WGHT 480", "expect": { "WGHT": 480 } },
+    { "name": "a fractional value survives", "input": "wght 480.5", "expect": { "wght": 480.5 } },
+    { "name": "a negative value survives (some axes allow it)", "input": "slnt -12", "expect": { "slnt": -12 } },
+    { "name": "a malformed pair is dropped, the rest survive", "input": "wght, SOFT 40", "expect": { "SOFT": 40 } },
+    { "name": "a non-numeric value is dropped", "input": "wght bold, SOFT 40", "expect": { "SOFT": 40 } },
+    { "name": "empty is no axes", "input": "", "expect": {} },
+    { "name": "whitespace only is no axes", "input": "   ", "expect": {} }
+  ],
+
+  "features": [
+    { "name": "a single feature", "input": "tnum", "expect": ["tnum"] },
+    { "name": "several features", "input": "tnum, ss01, liga", "expect": ["tnum", "ss01", "liga"] },
+    { "name": "whitespace is trimmed", "input": "  tnum ,  ss01  ", "expect": ["tnum", "ss01"] },
+    { "name": "duplicates collapse, first position wins", "input": "tnum, ss01, tnum", "expect": ["tnum", "ss01"] },
+    { "name": "an OpenType tag is exactly four characters", "input": "tnum, toolong, ss01", "expect": ["tnum", "ss01"] },
+    { "name": "a too-short tag is dropped", "input": "tn, tnum", "expect": ["tnum"] },
+    { "name": "empty is no features", "input": "", "expect": [] }
+  ]
+}

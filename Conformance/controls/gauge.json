@@ -1,0 +1,446 @@
+{
+  "version": 1,
+  "_schema": "despia-gauge-resolution-v1",
+  "_note": "The U07 <gauge> pure core: value-to-arc for each style, the value-following tint gradient, and the meter semantics. Angles use the same convention as gradients \u2014 0 is up, clockwise \u2014 so the circular arc starts at 225 and sweeps 270, leaving the 90-degree gap at the bottom that makes a gauge read as a gauge and not a progress ring. <gauge> is NOT a progress indicator; <progress> and ProgressRing are.",
+  "styles": {
+    "circular": {
+      "arcStart": 225.0,
+      "arcSweep": 270.0,
+      "thickness": 6.0,
+      "showsCurrentLabel": true,
+      "showsBoundLabels": true
+    },
+    "accessoryCircular": {
+      "arcStart": 225.0,
+      "arcSweep": 270.0,
+      "thickness": 4.0,
+      "showsCurrentLabel": true,
+      "showsBoundLabels": false
+    },
+    "linear": {
+      "arcStart": 0.0,
+      "arcSweep": 0.0,
+      "thickness": 6.0,
+      "showsCurrentLabel": true,
+      "showsBoundLabels": true
+    },
+    "accessoryLinear": {
+      "arcStart": 0.0,
+      "arcSweep": 0.0,
+      "thickness": 4.0,
+      "showsCurrentLabel": false,
+      "showsBoundLabels": false
+    }
+  },
+  "defaults": {
+    "style": "circular",
+    "min": 0,
+    "max": 1,
+    "value": 0
+  },
+  "cases": [
+    {
+      "name": "mid of the default range",
+      "value": 0.5,
+      "min": 0,
+      "max": 1,
+      "style": null,
+      "currentLabel": null,
+      "expect": {
+        "style": "circular",
+        "fraction": 0.5,
+        "clampedValue": 0.5,
+        "arcStart": 225.0,
+        "arcSweep": 270.0,
+        "valueAngle": 0.0,
+        "thickness": 6.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": true,
+        "a11y": {
+          "role": "meter",
+          "min": 0.0,
+          "max": 1.0,
+          "now": 0.5,
+          "percent": 50,
+          "valueText": "0.5"
+        }
+      }
+    },
+    {
+      "name": "circular at zero",
+      "value": 0,
+      "min": 0,
+      "max": 1,
+      "style": "circular",
+      "currentLabel": null,
+      "expect": {
+        "style": "circular",
+        "fraction": 0.0,
+        "clampedValue": 0.0,
+        "arcStart": 225.0,
+        "arcSweep": 270.0,
+        "valueAngle": 225.0,
+        "thickness": 6.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": true,
+        "a11y": {
+          "role": "meter",
+          "min": 0.0,
+          "max": 1.0,
+          "now": 0.0,
+          "percent": 0,
+          "valueText": "0"
+        }
+      }
+    },
+    {
+      "name": "circular at full",
+      "value": 1,
+      "min": 0,
+      "max": 1,
+      "style": "circular",
+      "currentLabel": null,
+      "expect": {
+        "style": "circular",
+        "fraction": 1.0,
+        "clampedValue": 1.0,
+        "arcStart": 225.0,
+        "arcSweep": 270.0,
+        "valueAngle": 135.0,
+        "thickness": 6.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": true,
+        "a11y": {
+          "role": "meter",
+          "min": 0.0,
+          "max": 1.0,
+          "now": 1.0,
+          "percent": 100,
+          "valueText": "1"
+        }
+      }
+    },
+    {
+      "name": "a value below min clamps",
+      "value": -3,
+      "min": 0,
+      "max": 100,
+      "style": "circular",
+      "currentLabel": null,
+      "expect": {
+        "style": "circular",
+        "fraction": 0.0,
+        "clampedValue": 0.0,
+        "arcStart": 225.0,
+        "arcSweep": 270.0,
+        "valueAngle": 225.0,
+        "thickness": 6.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": true,
+        "a11y": {
+          "role": "meter",
+          "min": 0.0,
+          "max": 100.0,
+          "now": 0.0,
+          "percent": 0,
+          "valueText": "-3"
+        }
+      }
+    },
+    {
+      "name": "a value above max clamps",
+      "value": 140,
+      "min": 0,
+      "max": 100,
+      "style": "circular",
+      "currentLabel": null,
+      "expect": {
+        "style": "circular",
+        "fraction": 1.0,
+        "clampedValue": 100.0,
+        "arcStart": 225.0,
+        "arcSweep": 270.0,
+        "valueAngle": 135.0,
+        "thickness": 6.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": true,
+        "a11y": {
+          "role": "meter",
+          "min": 0.0,
+          "max": 100.0,
+          "now": 100.0,
+          "percent": 100,
+          "valueText": "140"
+        }
+      }
+    },
+    {
+      "name": "linear style has no arc",
+      "value": 30,
+      "min": 0,
+      "max": 60,
+      "style": "linear",
+      "currentLabel": null,
+      "expect": {
+        "style": "linear",
+        "fraction": 0.5,
+        "clampedValue": 30.0,
+        "arcStart": 0.0,
+        "arcSweep": 0.0,
+        "valueAngle": 0.0,
+        "thickness": 6.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": true,
+        "a11y": {
+          "role": "meter",
+          "min": 0.0,
+          "max": 60.0,
+          "now": 30.0,
+          "percent": 50,
+          "valueText": "30"
+        }
+      }
+    },
+    {
+      "name": "accessoryCircular drops the bound labels",
+      "value": 0.75,
+      "min": 0,
+      "max": 1,
+      "style": "accessoryCircular",
+      "currentLabel": null,
+      "expect": {
+        "style": "accessoryCircular",
+        "fraction": 0.75,
+        "clampedValue": 0.75,
+        "arcStart": 225.0,
+        "arcSweep": 270.0,
+        "valueAngle": 67.5,
+        "thickness": 4.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": false,
+        "a11y": {
+          "role": "meter",
+          "min": 0.0,
+          "max": 1.0,
+          "now": 0.75,
+          "percent": 75,
+          "valueText": "0.75"
+        }
+      }
+    },
+    {
+      "name": "accessoryLinear drops every label",
+      "value": 0.25,
+      "min": 0,
+      "max": 1,
+      "style": "accessoryLinear",
+      "currentLabel": null,
+      "expect": {
+        "style": "accessoryLinear",
+        "fraction": 0.25,
+        "clampedValue": 0.25,
+        "arcStart": 0.0,
+        "arcSweep": 0.0,
+        "valueAngle": 0.0,
+        "thickness": 4.0,
+        "showsCurrentLabel": false,
+        "showsBoundLabels": false,
+        "a11y": {
+          "role": "meter",
+          "min": 0.0,
+          "max": 1.0,
+          "now": 0.25,
+          "percent": 25,
+          "valueText": "0.25"
+        }
+      }
+    },
+    {
+      "name": "an unknown style folds to circular",
+      "value": 0.5,
+      "min": 0,
+      "max": 1,
+      "style": "dial",
+      "currentLabel": null,
+      "expect": {
+        "style": "circular",
+        "fraction": 0.5,
+        "clampedValue": 0.5,
+        "arcStart": 225.0,
+        "arcSweep": 270.0,
+        "valueAngle": 0.0,
+        "thickness": 6.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": true,
+        "a11y": {
+          "role": "meter",
+          "min": 0.0,
+          "max": 1.0,
+          "now": 0.5,
+          "percent": 50,
+          "valueText": "0.5"
+        }
+      }
+    },
+    {
+      "name": "an inverted range is refused into an empty gauge",
+      "value": 5,
+      "min": 10,
+      "max": 10,
+      "style": "circular",
+      "currentLabel": null,
+      "expect": {
+        "style": "circular",
+        "fraction": 0.0,
+        "clampedValue": 10.0,
+        "arcStart": 225.0,
+        "arcSweep": 270.0,
+        "valueAngle": 225.0,
+        "thickness": 6.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": true,
+        "a11y": {
+          "role": "meter",
+          "min": 10.0,
+          "max": 10.0,
+          "now": 10.0,
+          "percent": 0,
+          "valueText": "5"
+        }
+      }
+    },
+    {
+      "name": "a non-zero min",
+      "value": 37,
+      "min": 20,
+      "max": 40,
+      "style": "linear",
+      "currentLabel": null,
+      "expect": {
+        "style": "linear",
+        "fraction": 0.85,
+        "clampedValue": 37.0,
+        "arcStart": 0.0,
+        "arcSweep": 0.0,
+        "valueAngle": 0.0,
+        "thickness": 6.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": true,
+        "a11y": {
+          "role": "meter",
+          "min": 20.0,
+          "max": 40.0,
+          "now": 37.0,
+          "percent": 85,
+          "valueText": "37"
+        }
+      }
+    },
+    {
+      "name": "currentLabel wins the announcement",
+      "value": 0.42,
+      "min": 0,
+      "max": 1,
+      "style": "circular",
+      "currentLabel": "42 percent",
+      "expect": {
+        "style": "circular",
+        "fraction": 0.42,
+        "clampedValue": 0.42,
+        "arcStart": 225.0,
+        "arcSweep": 270.0,
+        "valueAngle": 338.4,
+        "thickness": 6.0,
+        "showsCurrentLabel": true,
+        "showsBoundLabels": true,
+        "a11y": {
+          "role": "meter",
+          "min": 0.0,
+          "max": 1.0,
+          "now": 0.42,
+          "percent": 42,
+          "valueText": "42 percent"
+        }
+      }
+    }
+  ],
+  "tint": [
+    {
+      "name": "two-stop tint at the start",
+      "tint": "#22C55E|#EF4444",
+      "stops": null,
+      "fraction": 0.0,
+      "expect": {
+        "fromIndex": 0,
+        "toIndex": 1,
+        "t": 0.0
+      }
+    },
+    {
+      "name": "two-stop tint at the middle",
+      "tint": "#22C55E|#EF4444",
+      "stops": null,
+      "fraction": 0.5,
+      "expect": {
+        "fromIndex": 0,
+        "toIndex": 1,
+        "t": 0.5
+      }
+    },
+    {
+      "name": "two-stop tint at the end",
+      "tint": "#22C55E|#EF4444",
+      "stops": null,
+      "fraction": 1.0,
+      "expect": {
+        "fromIndex": 0,
+        "toIndex": 1,
+        "t": 1.0
+      }
+    },
+    {
+      "name": "three-stop tint in the first segment",
+      "tint": "#22C55E|#EAB308|#EF4444",
+      "stops": null,
+      "fraction": 0.25,
+      "expect": {
+        "fromIndex": 0,
+        "toIndex": 1,
+        "t": 0.5
+      }
+    },
+    {
+      "name": "three-stop tint in the second segment",
+      "tint": "#22C55E|#EAB308|#EF4444",
+      "stops": null,
+      "fraction": 0.75,
+      "expect": {
+        "fromIndex": 1,
+        "toIndex": 2,
+        "t": 0.5
+      }
+    },
+    {
+      "name": "declared stops move the segments",
+      "tint": "#22C55E|#EAB308|#EF4444",
+      "stops": "0,0.8,1",
+      "fraction": 0.5,
+      "expect": {
+        "fromIndex": 0,
+        "toIndex": 1,
+        "t": 0.625
+      }
+    },
+    {
+      "name": "a single colour has no segment",
+      "tint": "#22C55E",
+      "stops": null,
+      "fraction": 0.4,
+      "expect": {
+        "fromIndex": 0,
+        "toIndex": 0,
+        "t": 0.0
+      }
+    }
+  ]
+}

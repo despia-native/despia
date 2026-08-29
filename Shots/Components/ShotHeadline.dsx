@@ -1,0 +1,35 @@
+<stack style="width: 100%">
+  <head>
+    <!-- THE TWO-TONE HEADLINE, which is the single most consistent device across every
+         professional store slide reviewed: one or two words in an accent colour or a highlight
+         box, the rest in the ink colour. A flat one-colour headline cannot carry emphasis, and
+         emphasis is what makes copy scannable at gallery-thumbnail size.
+
+         `parts` is an array so the AGENT chooses the emphasis: [{t:"Crush Your"},
+         {t:"Workouts", accent:true}]. A `box:true` part gets a filled highlight instead of
+         coloured ink, which is the other form the references use. -->
+    <attribute as="parts" sample="[]"/>
+    <attribute as="ink" default="'#0d0f14'"/>
+    <attribute as="accent" default="'#22c55e'"/>
+    <attribute as="size" default="'42px'"/>
+    <attribute as="align" default="'left'"/>
+  </head>
+
+  <!-- A flex row that wraps: each part is its own inline box, so an accent word can carry a
+       background without breaking the line box the way a nested span would. -->
+  <hstack style="flex-wrap: wrap; align-items: baseline; gap: 0 0.28em;
+                 justify-content: {{ dsx.attribute.align == 'center' ? 'center' : 'flex-start' }}">
+    <ShotHeadlinePart visible-if="dsx.attribute.parts.length > 0" part="{{ dsx.attribute.parts[0] }}"
+                      ink="{{ dsx.attribute.ink }}" accent="{{ dsx.attribute.accent }}" size="{{ dsx.attribute.size }}"/>
+    <ShotHeadlinePart visible-if="dsx.attribute.parts.length > 1" part="{{ dsx.attribute.parts[1] }}"
+                      ink="{{ dsx.attribute.ink }}" accent="{{ dsx.attribute.accent }}" size="{{ dsx.attribute.size }}"/>
+    <ShotHeadlinePart visible-if="dsx.attribute.parts.length > 2" part="{{ dsx.attribute.parts[2] }}"
+                      ink="{{ dsx.attribute.ink }}" accent="{{ dsx.attribute.accent }}" size="{{ dsx.attribute.size }}"/>
+    <ShotHeadlinePart visible-if="dsx.attribute.parts.length > 3" part="{{ dsx.attribute.parts[3] }}"
+                      ink="{{ dsx.attribute.ink }}" accent="{{ dsx.attribute.accent }}" size="{{ dsx.attribute.size }}"/>
+    <ShotHeadlinePart visible-if="dsx.attribute.parts.length > 4" part="{{ dsx.attribute.parts[4] }}"
+                      ink="{{ dsx.attribute.ink }}" accent="{{ dsx.attribute.accent }}" size="{{ dsx.attribute.size }}"/>
+    <ShotHeadlinePart visible-if="dsx.attribute.parts.length > 5" part="{{ dsx.attribute.parts[5] }}"
+                      ink="{{ dsx.attribute.ink }}" accent="{{ dsx.attribute.accent }}" size="{{ dsx.attribute.size }}"/>
+  </hstack>
+</stack>

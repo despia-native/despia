@@ -1,4 +1,4 @@
-# Permissions — `Config/permissions.json`
+# Permissions: `Config/permissions.json`
 
 `DSX/Modules/Config/permissions.json` states **what the app asks the user for**.
 `DSX/Modules/Config/excluded.json` states **what it ships**. They are the same statement seen

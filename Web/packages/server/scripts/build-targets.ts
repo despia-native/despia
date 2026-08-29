@@ -33,6 +33,10 @@ const targets: { name: string; entry: string; platform: "node" | "neutral"; exte
   { name: "docker",   entry: join(pkg, "deploy", "serve.ts"),                              platform: "node",    external: providerDrivers },
   { name: "supabase", entry: join(pkg, "deploy", "supabase", "functions", "dsx", "index.ts"), platform: "neutral", external: providerDrivers },
   { name: "firebase", entry: join(pkg, "deploy", "firebase", "functions", "src-entry.ts"), platform: "node",    external: ["firebase-functions", ...providerDrivers] },
+  { name: "cloudflare", entry: join(pkg, "deploy", "cloudflare", "worker", "index.ts"),    platform: "neutral", external: providerDrivers },
+  // The multi-tenant preview face (preview-hosting.md) — hand-maintained platform infra,
+  // present regardless of the Server module, so this row never soft-skips in practice.
+  { name: "preview",    entry: join(pkg, "deploy", "preview", "worker", "index.ts"),       platform: "neutral", external: [] },
 ];
 
 let bundled = 0;

@@ -6,6 +6,7 @@
 //
 
 import { parseDsx, DsxParseError, type XmlNode } from "./xml.ts";
+import { projectTools } from "@despia/kernel/mcp";
 
 /** an IR node: the parsed markup node + the compiler's per-node reactivity stamp.
  *  `reactive` is the reactive-DESCENDANT bit — false means this whole subtree is
@@ -35,25 +36,54 @@ export function stampNodeIds(root: IRNode): void {
 }
 
 export type ComponentHead = {
-  attributes: Array<{ as: string; default?: string }>;
+  /** `sample=` on attribute/variable/event/api is the UNIT-TEST SAMPLE VALUE (master plan
+   *  P3, decisions 10/11): JSON text carried VERBATIM for the editor plane - isolated
+   *  renders, thumbnails, event inspection. It has NO production semantics: the runtime
+   *  never evaluates it, and a failed `<api>` never silently reads its sample. Seeding is
+   *  editor-injected through the state door or at SSR time, never a kernel branch. On an
+   *  `<api>` the attr is HOISTED out of the verbatim attrs so the data layer cannot see it. */
+  attributes: Array<{ as: string; default?: string; sample?: string }>;
+  /** the STYLE contract beside the attribute DATA contract — `<override as= type= default=
+   *  options= min= max=/>` (style-overrides law; corpus OpenSource/Conformance/overrides).
+   *  Everything rides verbatim: `default` is a LITERAL style value (never a JSE
+   *  expression), typing/coercion is the runtime core's business. */
+  overrides: Array<{ as: string; type?: string; default?: string; options?: string; min?: string; max?: string }>;
   /** declarative data blocks (/web/05) — attrs carried verbatim to the runtime */
-  apis: Array<{ as: string; attrs: { [k: string]: string } }>;
+  apis: Array<{ as: string; attrs: { [k: string]: string }; sample?: string }>;
   expects: string[];
-  events: Array<{ as: string; payload: string[] }>;
+  events: Array<{ as: string; payload: string[]; sample?: string }>;
   /** G4 unified input (dsx-game.md §2) — head `<input as=… keys= gamepad= touch= axis=/>`
    *  device bindings, attrs carried verbatim to the runtime resolver. The BODY `<input>`
    *  form element is untouched: head POSITION is the whole disambiguation. */
   inputs: Array<{ [k: string]: string }>;
-  variables: Array<{ as: string; body: string; computed: boolean }>;
+  /** `<tool action=… description=… mutates=…/>` — the AGENT interface (proposals/webmcp.md
+   *  §3). A row names one action this document declares and carries no schema of its own:
+   *  the descriptor an agent reads is DERIVED from that action's inputs (the `facets.mcp`
+   *  rule, applied to a document). Validated at the END of the head pass, because a row is
+   *  interface and reads BEFORE the action it names.
+   *
+   *  Spelled STRUCTURALLY rather than imported from `@despia/kernel/mcp`: a type import
+   *  here would pull the MCP subpath into the declaration closure of every entrypoint that
+   *  names ComponentHead, widening the frozen public API surface for a four-field record.
+   *  The projection fold is still the kernel's - only the shape is restated. */
+  tools: Array<{ as?: string; action: string; description: string; mutates?: string }>;
+  variables: Array<{ as: string; body: string; computed: boolean; sample?: string }>;
   formulas: Array<{ as: string; inputs: { [k: string]: string }; body: string }>;
   actions: Array<{ as: string; inputs: { [k: string]: string }; body: string }>;
-  watches: Array<{ value: string; handler: string; throttle?: number }>;
+  watches: Array<{ value: string; handler: string; throttle?: number; immediate?: boolean }>;
   scripts: string[];
   /** `<functions global="true">` bodies — the GLOBAL FUNCTION LIBRARY blocks (js-core.md
    *  "Shared logic", corpus Conformance/functions): registered app-wide via
    *  JSE.registerGlobalFunctions at mount, in document order, instead of the per-surface
    *  table `scripts` feeds. The `global` attribute's PRESENCE routes here. */
   globalScripts: string[];
+  /** `<style as="card" padding="12" radius="14"/>` — a REUSABLE LOOK under a name, applied
+   *  by `class="card"` (dsx-anatomy.md "style: repeated looks get a class"). The attrs are
+   *  the ordinary DSX style vocabulary, carried verbatim; css.ts folds them through the
+   *  SAME cssmap an element attribute uses and emits them as an owner-scoped class rule in
+   *  the `dsx-sheets` layer - so a named style sits exactly where a sidecar sheet's class
+   *  sits, and the element's OWN attributes (dsx-attrs, a later layer) still win. */
+  styles: Array<{ as: string; attrs: { [k: string]: string } }>;
 };
 
 export type ComponentIR = {
@@ -108,30 +138,43 @@ export function resolvePlatformAttrs(attrs: { [k: string]: string }, target: str
   return out;
 }
 
-/** Fold platform-suffixed attributes for TARGET=web: `:web` wins over bare; every
- *  other exact and both group suffixes are dead on this target and drop from the
- *  bundle entirely (compile-time folding — /web/14). */
-export function foldPlatformAttrs(attrs: { [k: string]: string }): { [k: string]: string } {
-  return resolvePlatformAttrs(attrs, "web");
+/** Fold platform-suffixed attributes for a compile TARGET, default `web`: the target's own
+ *  suffix wins over bare; every other exact and both group suffixes are dead on that target
+ *  and drop from the bundle entirely (compile-time folding — /web/14).
+ *
+ *  THE TARGET IS A PARAMETER because the web renderer has a second job besides running web
+ *  apps: it DEPICTS the native build for store screenshots (platform/10-screenshot-execution.md
+ *  W3). A shot compiled for `web` would fold away every `:ios` branch the depicted build
+ *  actually takes, so the image would be of an app that does not exist. Defaulted, so every
+ *  existing caller is byte-identical. */
+export function foldPlatformAttrs(
+  attrs: { [k: string]: string },
+  target: string = "web",
+): { [k: string]: string } {
+  return resolvePlatformAttrs(attrs, target);
 }
 
 /** Deep-copies while folding: compileComponent OWNS the returned tree exclusively,
  *  so its later mutations (head removal, css handle stamping) can never alias the
  *  parse tree — safe under caching or parallel compilation. */
-function foldTree(node: XmlNode): IRNode {
+function foldTree(node: XmlNode, target: string): IRNode {
   return {
     tag: node.tag,
-    attrs: foldPlatformAttrs(node.attrs),
-    children: node.children.map(foldTree),
+    attrs: foldPlatformAttrs(node.attrs, target),
+    children: node.children.map((child) => foldTree(child, target)),
     text: node.text,
   };
 }
 
 function emptyHead(): ComponentHead {
-  return { attributes: [], apis: [], expects: [], events: [], inputs: [], variables: [], formulas: [], actions: [], watches: [], scripts: [], globalScripts: [] };
+  return { attributes: [], overrides: [], apis: [], expects: [], events: [], inputs: [], tools: [], variables: [], formulas: [], actions: [], watches: [], scripts: [], globalScripts: [], styles: [] };
 }
 
-const HEAD_INPUT_SKIP = new Set(["as", "computed", "value"]);
+/** The attributes a head declaration does NOT bind as an input. Exported because the edit
+ *  server projects the same actions for the Studio: a second copy of this set is a second
+ *  opinion about what an author declared, and the agent-tools surface would show one shape
+ *  while the runtime registered another. */
+export const HEAD_INPUT_SKIP: ReadonlySet<string> = new Set(["as", "computed", "value"]);
 const STATE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 
 function parseHead(head: XmlNode): ComponentHead {
@@ -141,9 +184,21 @@ function parseHead(head: XmlNode): ComponentHead {
       case "attribute": {
         const as = child.attrs["as"];
         if (as !== undefined && as.length > 0) {
-          const entry: { as: string; default?: string } = { as };
+          const entry: { as: string; default?: string; sample?: string } = { as };
           if (child.attrs["default"] !== undefined) entry.default = child.attrs["default"];
+          if (child.attrs["sample"] !== undefined) entry.sample = child.attrs["sample"];
           out.attributes.push(entry);
+        }
+        break;
+      }
+      case "override": {
+        const as = child.attrs["as"];
+        if (as !== undefined && as.length > 0) {
+          const entry: { as: string; type?: string; default?: string; options?: string; min?: string; max?: string } = { as };
+          for (const key of ["type", "default", "options", "min", "max"] as const) {
+            if (child.attrs[key] !== undefined) entry[key] = child.attrs[key];
+          }
+          out.overrides.push(entry);
         }
         break;
       }
@@ -155,7 +210,11 @@ function parseHead(head: XmlNode): ComponentHead {
       case "event": {
         const as = child.attrs["as"];
         if (as !== undefined && as.length > 0) {
-          out.events.push({ as, payload: (child.attrs["payload"] ?? "").split(/\s+/).filter((x) => x.length > 0) });
+          const entry: { as: string; payload: string[]; sample?: string } = {
+            as, payload: (child.attrs["payload"] ?? "").split(/\s+/).filter((x) => x.length > 0),
+          };
+          if (child.attrs["sample"] !== undefined) entry.sample = child.attrs["sample"];
+          out.events.push(entry);
         }
         break;
       }
@@ -175,7 +234,11 @@ function parseHead(head: XmlNode): ComponentHead {
       case "variable": case "var": case "let": {
         const as = child.attrs["as"];
         if (as !== undefined && as.length > 0) {
-          out.variables.push({ as, body: child.text, computed: child.attrs["computed"] === "true" });
+          const entry: { as: string; body: string; computed: boolean; sample?: string } = {
+            as, body: child.text, computed: child.attrs["computed"] === "true",
+          };
+          if (child.attrs["sample"] !== undefined) entry.sample = child.attrs["sample"];
+          out.variables.push(entry);
         }
         break;
       }
@@ -200,10 +263,14 @@ function parseHead(head: XmlNode): ComponentHead {
       case "watch": {
         const value = child.attrs["value"];
         if (value !== undefined) {
-          const entry: { value: string; handler: string; throttle?: number } = {
+          const entry: { value: string; handler: string; throttle?: number; immediate?: boolean } = {
             value,
             handler: child.attrs["on:change"] ?? "",
           };
+          // `immediate` is part of the element's contract, so it has to survive compilation:
+          // a watch that seeds a local from a prop is useless if it only fires on the SECOND
+          // value. The native renderers read the node directly and always honoured it.
+          if (child.attrs["immediate"] === "true") entry.immediate = true;
           const throttle = child.attrs["on:change.throttle"];
           if (throttle !== undefined) entry.throttle = parseInt(throttle, 10) || 0;
           out.watches.push(entry);
@@ -220,10 +287,28 @@ function parseHead(head: XmlNode): ComponentHead {
           throw new DsxParseError("<api as> must be an ASCII identifier of at most 128 characters");
         }
         if (child.attrs["url"] !== undefined) {
+          // sample= is hoisted OUT of the verbatim attrs: the data layer must be unable
+          // to read it, so "a failed api silently serves its sample" cannot be written.
           const attrs: { [k: string]: string } = {};
-          for (const [k, v] of Object.entries(child.attrs)) attrs[k] = v;
-          out.apis.push({ as, attrs });
+          for (const [k, v] of Object.entries(child.attrs)) if (k !== "sample") attrs[k] = v;
+          const entry: { as: string; attrs: { [k: string]: string }; sample?: string } = { as, attrs };
+          if (child.attrs["sample"] !== undefined) entry.sample = child.attrs["sample"];
+          out.apis.push(entry);
         }
+        break;
+      }
+      case "tool": {
+        // The AGENT interface row (proposals/webmcp.md §3). `action` is required and
+        // `description` is required by the spec; `as` defaults to the action name. The
+        // row carries NO schema, by design — see projectTools.
+        const action = child.attrs["action"];
+        if (action === undefined || action.length === 0) {
+          throw new DsxParseError('<tool> missing action= — an agent tool names the declared action it exposes');
+        }
+        const row: ComponentHead["tools"][number] = { action, description: child.attrs["description"] ?? "" };
+        if (child.attrs["as"] !== undefined) row.as = child.attrs["as"];
+        if (child.attrs["mutates"] !== undefined) row.mutates = child.attrs["mutates"];
+        out.tools.push(row);
         break;
       }
       case "script": case "functions":
@@ -233,9 +318,29 @@ function parseHead(head: XmlNode): ComponentHead {
         if (child.attrs["global"] !== undefined) out.globalScripts.push(child.text);
         else out.scripts.push(child.text);
         break;
+      case "style": {
+        // A named look. Silently dropping this was the defect that made idiomatic DSX
+        // render unstyled: the class landed on the element and no rule ever backed it.
+        const as = child.attrs["as"];
+        if (as === undefined || as.length === 0) break;
+        const attrs: { [k: string]: string } = {};
+        for (const [k, v] of Object.entries(child.attrs)) if (k !== "as") attrs[k] = v;
+        out.styles.push({ as, attrs });
+        break;
+      }
       default:
-        break; // <style>/<component> head tags: valid-but-rare; sheets ride the sidecar path
+        break; // <component>/<slot> head tags: resolved by the registry, not the head IR
     }
+  }
+  // The stale-target gate, at the END of the pass: a `<tool>` row is INTERFACE and reads
+  // before the `<action>` it names, so the whole head must be known before the target can
+  // be checked. Failing here is the point — a typo becomes a build message carrying the
+  // name, rather than a tool that registers and answers "unknown" to every agent.
+  if (out.tools.length > 0) {
+    const declared = new Map<string, readonly string[]>();
+    for (const a of out.actions) declared.set(a.as, Object.keys(a.inputs));
+    const { errors } = projectTools(out.tools, declared);
+    if (errors.length > 0) throw new DsxParseError(errors[0]!.message);
   }
   return out;
 }
@@ -270,9 +375,14 @@ export function subtreeReactive(node: IRNode): boolean {
 }
 
 /** Compile one .dsx source into its component IR (web target). */
-export function compileComponent(name: string, scheme: string, source: string): ComponentIR {
+export function compileComponent(
+  name: string,
+  scheme: string,
+  source: string,
+  opts: { target?: string } = {},
+): ComponentIR {
   const parsed = parseDsx(source);
-  const root = foldTree(parsed);
+  const root = foldTree(parsed, opts.target ?? "web");
   let head = emptyHead();
   const headIdx = root.children.findIndex((c) => c.tag === "head");
   if (headIdx >= 0) {

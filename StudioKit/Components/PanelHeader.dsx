@@ -1,0 +1,14 @@
+<!-- PanelHeader — a title line with a trailing slot for the controls that belong to it.
+     One heading voice across every app, so a reader never learns a second hierarchy. -->
+<hstack class="sk-panel-header" grow="width" style="align-items: center; gap: 0.5rem">
+  <head>
+    <attribute as="title"/>
+    <attribute as="subtitle" default=""/>
+  </head>
+  <vstack grow="width" style="gap: 0.125rem; min-width: 0">
+    <text value="{{ dsx.attribute.title }}" class="sk-panel-title" lineLimit="1"/>
+    <text value="{{ dsx.attribute.subtitle }}" class="sk-panel-subtitle" lineLimit="1"
+          visible-if="dsx.attribute.subtitle != ''"/>
+  </vstack>
+  <slot/>
+</hstack>

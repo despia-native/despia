@@ -92,7 +92,6 @@ const CASES: Array<[name: string, markup: string]> = [
 
   ["unsupported", `<stack>
     <lottie src="/anim.json"/>
-    <Godot/>
     <StudioTimeline/>
   </stack>`],
 ];

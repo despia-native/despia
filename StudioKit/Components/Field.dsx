@@ -1,0 +1,15 @@
+<!-- Field — a labelled control in a well, with an optional hint under it. The WELL is the
+     rule that tells a reader where they may type: a control whose whole surface is text
+     wears a resting container, a readout wears none. Put the input in the slot with
+     `class="sk-input"` and it inherits the well's voice. -->
+<vstack class="sk-field" grow="width" style="gap: 0.25rem">
+  <head>
+    <attribute as="label" default=""/>
+    <attribute as="hint" default=""/>
+  </head>
+  <text value="{{ dsx.attribute.label }}" class="sk-field-label" visible-if="dsx.attribute.label != ''"/>
+  <hstack class="sk-well" grow="width" style="align-items: center; gap: 0.375rem; min-width: 0">
+    <slot/>
+  </hstack>
+  <text value="{{ dsx.attribute.hint }}" class="sk-field-hint" visible-if="dsx.attribute.hint != ''"/>
+</vstack>

@@ -1,0 +1,112 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "Signature",
+  "aliases": [],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift",
+  "attributes": {
+    "bind": {
+      "type": "expression",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:116 (the stroke list; the ONLY channel — clearing is writing [])"
+    },
+    "strokeWidth": {
+      "type": "number",
+      "default": 3,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:69"
+    },
+    "color": {
+      "type": "color",
+      "default": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:119"
+    },
+    "height": {
+      "type": "number",
+      "default": 180,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:120"
+    },
+    "radius": {
+      "type": "number",
+      "default": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:121"
+    },
+    "baseline": {
+      "type": "bool",
+      "default": true,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:130"
+    },
+    "placeholder": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:122"
+    },
+    "readOnly": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:123"
+    },
+    "on:begin": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:161 (payload { strokes })"
+    },
+    "on:end": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:175 (payload { strokes, points })"
+    },
+    "on:change": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:174 (raised by the bound-write seam, like every two-way element)"
+    }
+  },
+  "geometry": {
+    "height": {
+      "value": 180,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:120"
+    },
+    "radius": {
+      "value": 12,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:121"
+    },
+    "strokeWidth": {
+      "value": 3,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:69 (the ink primitive's default — the law itself is canvas/ink.json)"
+    },
+    "borderWidth": {
+      "value": 1,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:181"
+    },
+    "baselineInset": {
+      "value": 24,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:133"
+    },
+    "baselineBottom": {
+      "value": 36,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:132"
+    },
+    "placeholderFontSize": {
+      "value": 15,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:140"
+    }
+  },
+  "colors": {
+    "ink": {
+      "token": "label",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:119"
+    },
+    "border": {
+      "token": "separator",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:181"
+    },
+    "baseline": {
+      "token": "separator",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:126"
+    },
+    "placeholder": {
+      "token": "secondary",
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/swift/Signature.swift:141"
+    }
+  },
+  "notes": "THE PAD IS CHROME OVER THE INK PRIMITIVE. The box, the signing rule, the hint and the a11y wrapper are this element's; the ink is `<canvas>`'s `<ink>` child, whose law - the wire shape, the capture folds and the curve - lives once per language in the kernel (InkCore / @despia/kernel ink-core.ts) and is pinned by OpenSource/Conformance/canvas/ink.json. Anything this fixture used to say about capture now lives there. WHY THE ELEMENT EXISTS at all, when `<canvas><ink bind=\"sig\"/></canvas>` draws the same thing: a component boundary cannot forward a two-way binding (a component's state is its own), so a ready-made pad that writes back into the CONSUMER's `sig` has to be a real element. VALUE SHAPE: `bind` holds `[{ \"points\": [[x, y], …], \"width\": <pt> }]`, x/y normalized 0…1 and rounded at capture, so a signature captured on a phone replays on a desktop pad. COMMIT LAW: one store write per stroke, on pointer-up. There is no clear()/undo() control channel: clearing is `sig = []`, undo is `sig.slice(0, sig.length - 1)`, and export is `ref` + `dsx.module.capture.element({ ref: \"sig\" })`. ACCESSIBILITY: a pointer-drawn pad has no keyboard or switch-control equivalent on any platform; it exposes `a11yLabel` (default \"Signature\") and an empty/signed value, and the documented pattern is to pair it with a typed-name field rather than to pretend the canvas is operable."
+}

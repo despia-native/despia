@@ -1,0 +1,42 @@
+<zstack id="shot-card"
+        style="width: 100%; min-height: 100%; background: linear-gradient(160deg, #1d2b64 0%, #4a2fbd 55%, #7b2ff7 100%)">
+  <head>
+    <!-- A COMPOSITION TEMPLATE IS A .DSX DOCUMENT.
+         The screen PNG is a layer, not the deliverable. Rendering the marketing image through
+         the same renderer means templates are authorable in the Studio, the model can generate
+         them as markup rather than as an opaque bitmap, per-locale captions are ordinary bound
+         data, and we carry no second templating engine.
+
+         THE CANVAS IS LOGICAL POINTS, NOT RASTER PIXELS. This card renders at 440x956 and is
+         captured at scale 3 to make the 1320x2868 asset, so type is authored at the size it is
+         READ at, not the size it is stored at. Getting that backwards produces a poster whose
+         headline is four words tall, which is what the first draft of this file did.
+
+         The bezel is GENERIC on purpose (09 §6): no Apple industrial design cues, no logo, no
+         Dynamic Island geometry. Shipping a photoreal iPhone bezel to thousands of customers
+         is Despia's legal exposure, not the customer's. -->
+    <attribute as="caption" sample="&quot;Every order, one tap away&quot;"/>
+    <attribute as="subcaption" sample="&quot;Track every purchase in one place.&quot;"/>
+    <attribute as="screen" sample="&quot;01-orders.png&quot;"/>
+  </head>
+
+  <vstack alignItems="center" style="padding: 56px 40px 0 40px; gap: 0rem">
+    <text value="{{ dsx.attribute.caption }}"
+          style="color: #ffffff; text-align: center; font-size: 34px; font-weight: 700;
+                 letter-spacing: -0.03em; line-height: 1.08"/>
+    <text value="{{ dsx.attribute.subcaption }}"
+          style="margin-top: 12px; color: rgba(255,255,255,0.72); text-align: center;
+                 font-size: 15px; font-weight: 400; line-height: 1.35"/>
+
+    <!-- The frame DECLARES the device's aspect, so the screen inside it can never be cropped
+         by however the surrounding flex column resolves. A crop here is invisible in review
+         and obvious in the shipped asset - it ate the very headline the screenshot exists to
+         show, twice, before this line existed. -->
+    <vstack style="margin: 40px auto 0 auto; width: 66%; aspect-ratio: 440 / 956; border-radius: 30px;
+                   padding: 5px; background: #0b0b0f; box-shadow: 0 22px 50px rgba(0,0,0,0.5);
+                   flex: 0 0 auto">
+      <image src="{{ dsx.attribute.screen }}" contentFit="contain" a11yLabel="{{ dsx.attribute.caption }}"
+             style="width: 100%; height: 100%; border-radius: 25px"/>
+    </vstack>
+  </vstack>
+</zstack>

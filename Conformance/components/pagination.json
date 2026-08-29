@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "component": "Pagination",
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Pagination.dsx",
+  "_note": "<Pagination> — the numbered pager (U11). `total` is an ITEM count, not a page count, because that is what a query returns; the page count is derived and is never less than 1, so an empty result set still renders one honest page instead of zero. The window is first + last + current ± siblings, with every swallowed run collapsed to exactly ONE decorative ellipsis cell — 1 page and 500 pages fall out of the same fold. THE CELL LIST IS BUILT WITHOUT A LOOP AND WITHOUT Array.from(aSet): a computed value has no `for` grammar and Array.from does not take a Set, and the first shipped spelling used both and rendered ZERO page buttons on all three renderers. Props down, events up: `page` is read, never written, and `bind` survives only as its accepted alias. THE CELL FIELD IS `n`, NEVER `page`: inside a list row `dsx.attribute.x` resolves against the ROW first, so a cell carrying a `page` field shadowed the component attribute of the same name and every button read its own number as the current page - all of them rendered selected and all of them announced the current-page suffix. A row field must never be named after an attribute of its own component. Each number is labelled with its PAGE and the current one says so, because 'button, button, button' is what an unlabelled pager announces.",
+  "cases": [
+    {
+      "name": "482 items at 25 per page is 20 pages",
+      "attributes": { "total": "482", "perPage": "25", "page": "7" },
+      "expect": [
+        { "expr": "dsx.variable.paginationCount", "value": 20 },
+        { "expr": "dsx.variable.paginationPage", "value": 7 },
+        { "expr": "dsx.variable.paginationCells", "value": [
+          { "key": "p1", "n": 1, "gap": false },
+          { "key": "gap6", "n": 0, "gap": true },
+          { "key": "p6", "n": 6, "gap": false },
+          { "key": "p7", "n": 7, "gap": false },
+          { "key": "p8", "n": 8, "gap": false },
+          { "key": "gap20", "n": 0, "gap": true },
+          { "key": "p20", "n": 20, "gap": false }
+        ] }
+      ],
+      "root": [
+        { "attr": "role", "value": "navigation" },
+        { "attr": "a11yLabel", "value": "Pagination, page 7 of 20" }
+      ]
+    },
+    {
+      "name": "ONE PAGE: a single cell, no ellipsis, no duplicate first/last",
+      "attributes": { "total": "3", "perPage": "25" },
+      "expect": [
+        { "expr": "dsx.variable.paginationCount", "value": 1 },
+        { "expr": "dsx.variable.paginationCells", "value": [{ "key": "p1", "n": 1, "gap": false }] }
+      ],
+      "root": [{ "attr": "a11yLabel", "value": "Pagination, page 1 of 1" }]
+    },
+    {
+      "name": "EMPTY: zero items still reports one page rather than zero",
+      "attributes": { "total": "0", "perPage": "25" },
+      "expect": [
+        { "expr": "dsx.variable.paginationCount", "value": 1 },
+        { "expr": "dsx.variable.paginationCells.length", "value": 1 }
+      ]
+    },
+    {
+      "name": "500 PAGES: the window stays seven cells wide wherever the reader is",
+      "attributes": { "total": "500", "perPage": "1", "page": "250" },
+      "expect": [
+        { "expr": "dsx.variable.paginationCount", "value": 500 },
+        { "expr": "dsx.variable.paginationCells", "value": [
+          { "key": "p1", "n": 1, "gap": false },
+          { "key": "gap249", "n": 0, "gap": true },
+          { "key": "p249", "n": 249, "gap": false },
+          { "key": "p250", "n": 250, "gap": false },
+          { "key": "p251", "n": 251, "gap": false },
+          { "key": "gap500", "n": 0, "gap": true },
+          { "key": "p500", "n": 500, "gap": false }
+        ] }
+      ]
+    },
+    {
+      "name": "at the first page there is no leading ellipsis, only a trailing one",
+      "attributes": { "total": "500", "perPage": "1", "page": "1" },
+      "expect": [
+        { "expr": "dsx.variable.paginationCells", "value": [
+          { "key": "p1", "n": 1, "gap": false },
+          { "key": "p2", "n": 2, "gap": false },
+          { "key": "gap500", "n": 0, "gap": true },
+          { "key": "p500", "n": 500, "gap": false }
+        ] }
+      ]
+    },
+    {
+      "name": "at the last page the ellipsis moves to the front",
+      "attributes": { "total": "500", "perPage": "1", "page": "500" },
+      "expect": [
+        { "expr": "dsx.variable.paginationCells", "value": [
+          { "key": "p1", "n": 1, "gap": false },
+          { "key": "gap499", "n": 0, "gap": true },
+          { "key": "p499", "n": 499, "gap": false },
+          { "key": "p500", "n": 500, "gap": false }
+        ] }
+      ]
+    },
+    {
+      "name": "a run of exactly one swallowed page still collapses to an ellipsis, never a gap in the numbers",
+      "attributes": { "total": "5", "perPage": "1", "page": "4", "siblings": "0" },
+      "expect": [
+        { "expr": "dsx.variable.paginationCells", "value": [
+          { "key": "p1", "n": 1, "gap": false },
+          { "key": "gap4", "n": 0, "gap": true },
+          { "key": "p4", "n": 4, "gap": false },
+          { "key": "p5", "n": 5, "gap": false }
+        ] }
+      ]
+    },
+    {
+      "name": "siblings=2 widens the run on both sides",
+      "attributes": { "total": "20", "perPage": "1", "page": "10", "siblings": "2" },
+      "expect": [
+        { "expr": "dsx.variable.paginationCells.length", "value": 9 },
+        { "expr": "dsx.variable.paginationCells[2].n", "value": 8 },
+        { "expr": "dsx.variable.paginationCells[6].n", "value": 12 }
+      ]
+    },
+    {
+      "name": "a page past the end clamps into range rather than announcing a page that does not exist",
+      "attributes": { "total": "50", "perPage": "25", "page": "99" },
+      "expect": [{ "expr": "dsx.variable.paginationPage", "value": 2 }],
+      "root": [{ "attr": "a11yLabel", "value": "Pagination, page 2 of 2" }]
+    },
+    {
+      "name": "a zero or missing page is the first page",
+      "attributes": { "total": "50", "perPage": "25", "page": "0" },
+      "expect": [{ "expr": "dsx.variable.paginationPage", "value": 1 }]
+    },
+    {
+      "name": "`bind` is the accepted alias of `page`, so the plan's spelling still reads",
+      "attributes": { "total": "100", "perPage": "10", "bind": "4" },
+      "expect": [{ "expr": "dsx.variable.paginationPage", "value": 4 }]
+    },
+    {
+      "name": "`page` wins when both spellings are given",
+      "attributes": { "total": "100", "perPage": "10", "page": "2", "bind": "9" },
+      "expect": [{ "expr": "dsx.variable.paginationPage", "value": 2 }]
+    },
+    {
+      "name": "perPage clamps to at least one item, so a zero cannot divide the page count away",
+      "attributes": { "total": "7", "perPage": "0" },
+      "expect": [{ "expr": "dsx.variable.paginationCount", "value": 7 }]
+    },
+    {
+      "name": "a page button is labelled with its PAGE, and the current one says it is current",
+      "attributes": { "total": "100", "perPage": "10", "page": "3" },
+      "item": { "n": 3 },
+      "expect": [{ "expr": "dsx.formula.paginationCellLabel", "value": "Page 3, current page" }]
+    },
+    {
+      "name": "a non-current page button is labelled with its number alone",
+      "attributes": { "total": "100", "perPage": "10", "page": "3" },
+      "item": { "n": 5 },
+      "expect": [{ "expr": "dsx.formula.paginationCellLabel", "value": "Page 5" }]
+    }
+  ]
+}

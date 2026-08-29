@@ -52,7 +52,16 @@
 
 package despia.engine.render.elements
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -84,6 +93,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -94,9 +104,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import despia.engine.JSE
 import despia.engine.AdaptiveShell
+import despia.engine.SplitPlan
 import despia.engine.Platform
 import despia.engine.PlatformAttrs
 import despia.engine.StackNode
@@ -105,16 +117,23 @@ import despia.engine.render.ComposeStackComponentContext
 import despia.engine.render.ComposeStackComponents
 import despia.engine.render.ElementDefaults
 import despia.engine.render.LocalInScrollContainer
+import despia.engine.render.StackMotion
 import despia.engine.render.StackNodeView
+import despia.engine.render.bound
 import despia.engine.render.StackStyle
+import despia.engine.render.rememberAnimatorDurationScale
 import kotlin.math.max
 import kotlin.math.roundToInt
 
 internal fun registerContainerElements() {
     ComposeStackComponents.definePrivileged("scaffold") { ctx -> ScaffoldElement(ctx) }
+    ComposeStackComponents.definePrivileged("split") { ctx -> SplitElement(ctx) }
     ComposeStackComponents.definePrivileged("carousel") { ctx -> CarouselElement(ctx) }
     ComposeStackComponents.defineNative("toolbar") { ctx -> ToolbarElement(ctx) }
-    ComposeStackComponents.defineNative("flow") { ctx -> FlowElement(ctx) }
+    // PRIVILEGED since 2026-08-26 (runtime-pressure R29): `<flow bind>` repeats. The tier is
+    // what exposes `bound()` and the per-row `StackNodeView(item, rowWrite)`, and nothing else
+    // about the element changed - a flow with no `bind` still renders its authored children.
+    ComposeStackComponents.definePrivileged("flow") { ctx -> FlowElement(ctx) }
 }
 
 // MARK: - <scaffold> (privileged — reads each child's `pin` side attr)
@@ -262,6 +281,144 @@ private fun AdaptivePaneDivider() {
     Box(Modifier.fillMaxHeight().width(0.5.dp).background(Color(0.5f, 0.5f, 0.5f, 0.28f)))
 }
 
+// MARK: - <split> (privileged — reads each child's `paneRole` side attr)
+//
+//  The two/three-pane adaptive container (component-library.md W9). The DECISIONS are
+//  :core SplitPlan (corpus OpenSource/Conformance/split/split.json — the TS and Swift
+//  twins run the same file); this composable is the Material presentation of that plan,
+//  the list-detail canonical layout built from the same primitives as the adaptive
+//  scaffold: compact = the host pane with a selected detail COVERING it (the stack-push
+//  idiom), medium = the pinned pane pair with the sidebar as a scrimmed overlay,
+//  expanded = every pane pinned in a Row with hairline dividers and the M3 readable
+//  margin on the detail (SPLIT_CONTENT_INSET — the 24dp divergence pinned above).
+//  DIVERGENCES, header-pinned like the scaffold's: no draggable dividers (`resizable`
+//  is the fine-pointer semantic renderers' half; M3 panes are fixed-width) and the
+//  compact Back pop rides the app's own value= write this wave (no BackHandler
+//  dependency in :render) — iOS bridges the platform Back via preferredCompactColumn.
+
+@Composable
+private fun SplitElement(ctx: ComposeStackComponentContext) {
+    val kids = ctx.node?.children ?: return
+    if (kids.isEmpty()) return
+    val children = kids.take(3)
+    val resolvedChildren = children.map { PlatformAttrs.resolve(it.attrs, Platform.attributeTarget) }
+    val declaredRoles = resolvedChildren.map { it["paneRole"] }
+    val el = El(ctx)
+    val ctl = BoundControl(ctx.componentTag, ctx.attrs, ctx.store, ctx.env, ctx.item, ctx.rowWrite)
+    val splitAttrs = ctx.attrs.mapValues { (_, value) -> JSE.interpolate(value, ctx.store, ctx.item) }
+    val valueKey = ctx.attrs["value"] ?: ""
+    var sidebarOpen by remember { mutableStateOf(false) }
+
+    BoxWithConstraints(Modifier.elementStyle(el).then(Modifier.fillMaxSize()).testTag("dsx.split")) {
+        val plan = SplitPlan.resolve(splitAttrs, declaredRoles, maxWidth.value.toDouble())
+        val selected = plan.detail && valueKey.isNotEmpty() &&
+            SplitPlan.selectionActive(ctl.boundValue(valueKey))
+        val overlayOpen = plan.overlay && sidebarOpen
+
+        @Composable fun Pane(role: String, modifier: Modifier, inset: PaddingValues? = null) {
+            val index = plan.roles.indexOf(role)
+            if (index < 0) return
+            val tagged = modifier.testTag("dsx.split.$role")
+                .semantics { contentDescription = role.replaceFirstChar { it.uppercase() } }
+            Column(if (inset == null) tagged else tagged.padding(inset)) {
+                StackNodeView(children[index], ctx.store, ctx.env, ctx.item, ctx.rowWrite)
+            }
+        }
+
+        // Pane-presentation motion — the web dsx-split-push/overlay springs and the iOS
+        // NavigationSplitView animation twin: the detail pushes in from the trailing edge,
+        // the overlay sidebar slides from the leading edge under a fading scrim. The DSX
+        // spring default (kernel Motion vocabulary) drives both; reduced motion (animator
+        // duration scale 0) collapses every transition to an instant swap.
+        val reduceMotion = rememberAnimatorDurationScale() == 0f
+        val paneSpring = StackMotion.animation("spring", null)
+        if (plan.presentation == "stack") {
+            Pane(plan.host, Modifier.fillMaxSize())
+            if (plan.host != "detail") {
+                AnimatedVisibility(
+                    visible = selected,
+                    enter = if (reduceMotion) EnterTransition.None
+                            else slideInHorizontally(StackMotion.spec(paneSpring, IntOffset.VisibilityThreshold)) { it } +
+                                fadeIn(StackMotion.spec(paneSpring)),
+                    exit = if (reduceMotion) ExitTransition.None
+                           else slideOutHorizontally(StackMotion.spec(paneSpring, IntOffset.VisibilityThreshold)) { it } +
+                               fadeOut(StackMotion.spec(paneSpring)),
+                ) {
+                    Pane("detail", Modifier.fillMaxSize().background(StackStyle.color("background")))
+                }
+            }
+        } else {
+            Row(Modifier.fillMaxSize()) {
+                for ((position, role) in plan.columns.withIndex()) {
+                    if (position > 0) AdaptivePaneDivider()
+                    val last = position == plan.columns.size - 1
+                    when {
+                        last -> Pane(
+                            role, Modifier.weight(1f).fillMaxHeight(),
+                            if (plan.columns.size > 1) SPLIT_CONTENT_INSET else null,
+                        )
+                        role == "sidebar" -> Pane(
+                            role,
+                            Modifier.fillMaxHeight()
+                                .width(plan.sidebar.ideal.dp)
+                                .widthIn(min = plan.sidebar.min.dp, max = plan.sidebar.max.dp),
+                        )
+                        else -> Pane(
+                            role,
+                            Modifier.fillMaxHeight()
+                                .width(plan.content.ideal.dp)
+                                .widthIn(min = plan.content.min.dp, max = plan.content.max.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        if (plan.overlay) {
+            AnimatedVisibility(
+                visible = overlayOpen,
+                enter = if (reduceMotion) EnterTransition.None else fadeIn(StackMotion.spec(paneSpring)),
+                exit = if (reduceMotion) ExitTransition.None else fadeOut(StackMotion.spec(paneSpring)),
+            ) {
+                Box(Modifier.fillMaxSize().background(Color(0f, 0f, 0f, 0.32f))
+                        .testTag("dsx.split.scrim")
+                        .clickable { sidebarOpen = false })
+            }
+            AnimatedVisibility(
+                visible = overlayOpen,
+                enter = if (reduceMotion) EnterTransition.None
+                        else slideInHorizontally(StackMotion.spec(paneSpring, IntOffset.VisibilityThreshold)) { -it } +
+                            fadeIn(StackMotion.spec(paneSpring)),
+                exit = if (reduceMotion) ExitTransition.None
+                       else slideOutHorizontally(StackMotion.spec(paneSpring, IntOffset.VisibilityThreshold)) { -it } +
+                           fadeOut(StackMotion.spec(paneSpring)),
+            ) {
+                Pane(
+                    "sidebar",
+                    Modifier.fillMaxHeight()
+                        .width(plan.sidebar.ideal.dp)
+                        .widthIn(min = plan.sidebar.min.dp, max = plan.sidebar.max.dp)
+                        .background(StackStyle.color("secondaryBackground")),
+                )
+            }
+            // the sidebar toggle: three drawn bars, 40dp target, top-leading like the web twin
+            Column(
+                Modifier.padding(8.dp).size(40.dp)
+                    .testTag("dsx.split.toggle")
+                    .semantics { contentDescription = if (overlayOpen) "Hide sidebar" else "Show sidebar" }
+                    .clickable { sidebarOpen = !sidebarOpen }
+                    .padding(11.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                repeat(3) {
+                    Box(Modifier.fillMaxWidth().height(2.dp)
+                            .background(StackStyle.color("secondaryLabel")))
+                }
+            }
+        }
+    }
+}
+
 // MARK: - <toolbar>
 
 @Composable
@@ -289,8 +446,24 @@ private fun FlowElement(ctx: ComposeStackComponentContext) {
     val el = El(ctx)
     val h = el.dbl("spacing", ElementDefaults.FLOW_SPACING)
     val v = el.dbl("lineSpacing", ElementDefaults.FLOW_LINE_SPACING)
+    // A BOUND flow repeats its single child template per row; an unbound one lays out the
+    // children it was authored with. Same packer either way - the rows ARE the measurables, so
+    // the wrap math below never learns that a repeater exists.
+    val bindKey = ctx.attrs["bind"]
+    val template = if (bindKey != null) ctx.node?.children?.firstOrNull() else null
+    val content: @Composable () -> Unit = if (bindKey != null && template != null) {
+        {
+            val b = bound(ctx.attrs, ctx.store, ctx.item, ctx.rowWrite)
+            val count = b.rows.size
+            for (i in 0 until count) {
+                StackNodeView(template, ctx.store, ctx.env, b.item(i), b.writer(i))
+            }
+        }
+    } else {
+        { SlotNodes(ctx, defaultSlot(ctx)) }
+    }
     Layout(
-        content = { SlotNodes(ctx, defaultSlot(ctx)) },
+        content = content,
         modifier = Modifier.elementStyle(el),
     ) { measurables, constraints ->
         val hPx = h.dp.toPx(); val vPx = v.dp.toPx()

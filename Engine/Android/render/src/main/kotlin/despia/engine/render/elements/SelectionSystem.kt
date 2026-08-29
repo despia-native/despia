@@ -36,17 +36,22 @@
 //
 //  THE TEXT-INPUT FAMILY (M3-text — the M3 wave's CLOSE) reuses this SAME gate. Per element:
 //
-//    textfield/input → M3 OutlinedTextField (singleLine)   (iOS: SwiftUI TextField/SecureField)
-//    textarea        → M3 OutlinedTextField (min/maxLines)  (iOS: TextField(axis: .vertical))
+//    textfield/input → M3 filled TextField (singleLine)    (iOS: SwiftUI TextField/SecureField in the fill well)
+//    textarea        → M3 filled TextField (min/maxLines)  (iOS: TextField(axis: .vertical) in the fill well)
 //
+//  (Filled, not outlined, since the 2026-08-20 library-grade ruling — system-defaults.md
+//  amendment: the unstyled field is the platform's LIBRARY-GRADE field, and M3's is the
+//  container-fill + floating-label TextField. No `variant` word exists on these elements, so
+//  outlined is not reachable without new grammar — filled IS the default.)
 //  `color` rides BOTH as the field's text + cursor color — iOS keeps `.foregroundColor(color)`
 //  ON the native field (TextField.swift:41 / TextArea.swift:51), NOT an accent `.tint`, so it
 //  never ejects (the picker/combobox precedent). B2's focus/IME event contract (commit
 //  497aeb4d — on:focus/on:blur/on:submit + the keyboard→ImeAction map) is UNCHANGED: it stays
 //  wired on the field MODIFIER in the M3 path exactly as on the legacy one. DIVERGENCE (M3
-//  path, none silent): the M3 OutlinedTextField draws an OUTLINE BOX + M3 role colors where
-//  iOS's unstyled field is BORDERLESS (each platform's own real component — the system-defaults
-//  law), and the M3 metrics are the component's own (OUT of the parity spec — the fixture pins
+//  path, none silent): the M3 filled TextField draws a CONTAINER FILL + underline indicator +
+//  M3 role colors where iOS wraps its native field in the secondary-fill well (each platform's
+//  own library-grade field — the system-defaults law + amendment), and the M3 metrics are the
+//  component's own (OUT of the parity spec — the fixture pins
 //  the byte-identical LEGACY path, so no spec change; the combobox/checkbox precedent).
 //
 //  THE GATE is the pure, plain-JVM-tested allowlist (SelectionSystemTest) — the
@@ -76,13 +81,32 @@ internal object SelectionControl {
     // The always-safe base — identity, visibility/motion (they wrap OUTSIDE the element),
     // and accessibility. `class`/`css-owner` are safe BARE: their styling, if any, was
     // folded into plain keys by resolvedAttrs and ejects as those keys (the SystemButton
-    // rule). Mirrors SystemControl.SAFE_BASE exactly.
+    // rule). Mirrors SystemControl.SAFE_BASE exactly. `disabled`/`disabled-if` (the W9
+    // grammar wave) and `density` (the W9 subtree knob) are look-free SYSTEM words: they
+    // ride the M3 component (`enabled=` resp. the deferred density presentation), never
+    // eject — the SystemButton `disabled` precedent.
     private val SAFE_BASE = setOf(
-        "id", "key", "class", "css-owner",
+        "id", "key", "class", "css-owner", "disabled", "disabled-if", "density",
         "visible-if", "keep", "enter", "anim", "animDuration", "transition",
         "a11yGroup", "a11yLabel", "a11yHint", "a11yValue", "a11yTrait", "a11yHidden",
     )
     private val COMPAT_PREFIXES = listOf("on:", "arg:", "aria-")
+
+    /// disabled= / disabled-if= — the W9 pair. Callers pass the INTERPOLATED values (a
+    /// bound {{ locked }} arrives "1"/""). The DECLARED word reads through the strict
+    /// component-boolean predicate the iOS components already use (`dsx.bool`:
+    /// `s == "true" || Double(s) != 0`), mirrored on web as `declaredBool` — NOT
+    /// JSE.truthy, whose string law makes truthy("false") true and disabled a control the
+    /// author explicitly enabled. disabled-if stays the truthy CONDITION read.
+    fun declaredBool(value: String?): Boolean {
+        val v = value?.trim() ?: return false
+        if (v == "true") return true
+        val n = v.toDoubleOrNull() ?: return false
+        return n != 0.0
+    }
+
+    fun isDisabled(disabled: String?, disabledIf: String?): Boolean =
+        declaredBool(disabled) || despia.engine.JSE.truthy(disabledIf)
 
     // Each element's content words on top of the base — exactly the fixture's look-free
     // attribute set. `color` appears in all three: iOS keeps the authored tint ON the

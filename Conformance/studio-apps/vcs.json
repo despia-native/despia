@@ -1,0 +1,146 @@
+{
+  "_note": "THE APP CHANGE PLANE (studio-apps.md §14). An app write is never just a write: it joins a change set, the set is CLASSIFIED, and the classification decides where it lands — a scoped commit on the branch you are on (local), or a branch of its own plus a pull request while your working branch goes back to how it was (structural). This corpus pins the pure half: the CLASSIFIER (what makes a change structural — a document added, a document removed, a fan-out past the limit, a protected branch), the POLICY READER (a hand-edited vcs.json cannot widen the plane by writing nonsense: an unknown `push` value reads as the default, not as `always`), the CHANGE TITLE a person reads in the panel and in the commit subject, the COMMIT SENTENCE with its Despia-App / Despia-Change / Despia-Kind trailers (so `git log --grep` answers 'what has this app ever done to my project'), and the GitHub slug reader that turns a remote into the compare link. Single-runner (the toolchain's own plane — the spend-corpus standing: no kernel evaluates it, so there is no Kotlin or Swift twin to keep honest). Runner: packages/cli/test/studio-apps-vcs.test.ts.",
+
+  "classify": [
+    { "name": "an in-place edit of one document is local — a commit, not a proposal",
+      "writes": [{ "document": "Components/Card.dsx", "created": false, "deleted": false }],
+      "branch": "feature/tone", "expect": { "kind": "local", "reasons": 0 } },
+
+    { "name": "adding a document is STRUCTURAL: it changes what the router reaches",
+      "writes": [{ "document": "Screens/Pricing.dsx", "created": true, "deleted": false }],
+      "branch": "feature/tone",
+      "expect": { "kind": "structural", "reasons": 1, "reasonHas": "adds Screens/Pricing.dsx" } },
+
+    { "name": "removing a document is structural for the same reason, from the other side",
+      "writes": [{ "document": "Screens/Old.dsx", "created": false, "deleted": true }],
+      "branch": "feature/tone",
+      "expect": { "kind": "structural", "reasons": 1, "reasonHas": "removes Screens/Old.dsx" } },
+
+    { "name": "a fan-out past the limit is structural — a refactor nobody asked to have applied",
+      "writes": [
+        { "document": "a.dsx", "created": false, "deleted": false },
+        { "document": "b.dsx", "created": false, "deleted": false },
+        { "document": "c.dsx", "created": false, "deleted": false },
+        { "document": "d.dsx", "created": false, "deleted": false }
+      ],
+      "branch": "feature/tone",
+      "expect": { "kind": "structural", "reasons": 1, "reasonHas": "touches 4 documents" } },
+
+    { "name": "exactly at the fan-out limit is still local — the limit is a limit, not a hint",
+      "writes": [
+        { "document": "a.dsx", "created": false, "deleted": false },
+        { "document": "b.dsx", "created": false, "deleted": false },
+        { "document": "c.dsx", "created": false, "deleted": false }
+      ],
+      "branch": "feature/tone", "expect": { "kind": "local", "reasons": 0 } },
+
+    { "name": "an edit ON MAIN is structural by itself: an app proposes to a protected branch",
+      "writes": [{ "document": "Components/Card.dsx", "created": false, "deleted": false }],
+      "branch": "main",
+      "expect": { "kind": "structural", "reasons": 1, "reasonHas": "main is a protected branch" } },
+
+    { "name": "a project that unprotects its branch gets its branch back — the policy is the author's",
+      "writes": [{ "document": "Components/Card.dsx", "created": false, "deleted": false }],
+      "branch": "main", "policy": { "protected": [] },
+      "expect": { "kind": "local", "reasons": 0 } },
+
+    { "name": "no branch at all (a detached HEAD, or no repository) is not a protected branch",
+      "writes": [{ "document": "Components/Card.dsx", "created": false, "deleted": false }],
+      "branch": "",
+      "expect": { "kind": "local", "reasons": 0 } },
+
+    { "name": "every reason is reported, not just the first — the pull request body names them all",
+      "writes": [
+        { "document": "Screens/A.dsx", "created": true, "deleted": false },
+        { "document": "Screens/B.dsx", "created": true, "deleted": false },
+        { "document": "Screens/C.dsx", "created": true, "deleted": false },
+        { "document": "Screens/D.dsx", "created": true, "deleted": false }
+      ],
+      "branch": "main",
+      "expect": { "kind": "structural", "reasons": 3 } },
+
+    { "name": "one document written twice in a burst is one document, not a fan-out",
+      "writes": [
+        { "document": "a.dsx", "created": false, "deleted": false },
+        { "document": "a.dsx", "created": false, "deleted": false },
+        { "document": "a.dsx", "created": false, "deleted": false },
+        { "document": "a.dsx", "created": false, "deleted": false }
+      ],
+      "branch": "feature/tone", "expect": { "kind": "local", "reasons": 0 } }
+  ],
+
+  "policy": [
+    { "name": "an absent file is the default policy: commit on, push structural-only, pull requests on",
+      "raw": null,
+      "expect": { "commit": true, "push": "structural", "pullRequests": true, "fanOut": 3 } },
+    { "name": "a partial override keeps every default it did not name",
+      "raw": { "push": "always" },
+      "expect": { "commit": true, "push": "always", "pullRequests": true, "fanOut": 3 } },
+    { "name": "an unknown push value reads as the DEFAULT, never as the widest one",
+      "raw": { "push": "yes" },
+      "expect": { "push": "structural" } },
+    { "name": "a nonsense fan-out is ignored rather than obeyed",
+      "raw": { "fanOut": 0 },
+      "expect": { "fanOut": 3 } },
+    { "name": "turning commits off is a real choice a project may make",
+      "raw": { "commit": false },
+      "expect": { "commit": false } },
+    { "name": "a protected list of the wrong shape does not empty the protection",
+      "raw": { "protected": "main" },
+      "expect": { "protectedCount": 4 } }
+  ],
+
+  "title": [
+    { "name": "one edited document names itself",
+      "writes": [{ "document": "Components/Card.dsx", "created": false, "deleted": false }],
+      "expect": "edit Components/Card.dsx" },
+    { "name": "one created document reads as an add",
+      "writes": [{ "document": "Screens/New.dsx", "created": true, "deleted": false }],
+      "expect": "add Screens/New.dsx" },
+    { "name": "one removed document reads as a remove",
+      "writes": [{ "document": "Screens/Old.dsx", "created": false, "deleted": true }],
+      "expect": "remove Screens/Old.dsx" },
+    { "name": "several edits count themselves",
+      "writes": [
+        { "document": "a.dsx", "created": false, "deleted": false },
+        { "document": "b.dsx", "created": false, "deleted": false }
+      ],
+      "expect": "edit 2 documents" },
+    { "name": "several adds read as adds",
+      "writes": [
+        { "document": "a.dsx", "created": true, "deleted": false },
+        { "document": "b.dsx", "created": true, "deleted": false }
+      ],
+      "expect": "add 2 documents" }
+  ],
+
+  "commit": [
+    { "name": "the subject names the app and what it did; the trailers make the history machine-readable",
+      "record": { "id": "x1", "app": "palette", "kind": "local", "title": "edit Components/Card.dsx", "reasons": [] },
+      "version": "0.3.0",
+      "expect": {
+        "subject": "palette: edit Components/Card.dsx",
+        "trailers": ["Despia-App: palette@0.3.0", "Despia-Change: x1", "Despia-Kind: local"]
+      } },
+    { "name": "a structural change carries its reasons into the body a reviewer reads",
+      "record": { "id": "x2", "app": "palette", "kind": "structural", "title": "add Screens/New.dsx",
+                  "reasons": ["adds Screens/New.dsx to the project"] },
+      "version": "0.3.0",
+      "expect": {
+        "subject": "palette: add Screens/New.dsx",
+        "bodyHas": "- adds Screens/New.dsx to the project",
+        "trailers": ["Despia-Kind: structural"]
+      } }
+  ],
+
+  "slug": [
+    { "name": "an ssh remote reads as owner/repo", "url": "git@github.com:acme/storefront.git", "expect": "acme/storefront" },
+    { "name": "an https remote reads the same", "url": "https://github.com/acme/storefront.git", "expect": "acme/storefront" },
+    { "name": "a trailing slash and no .git still read", "url": "https://github.com/acme/storefront/", "expect": "acme/storefront" },
+    { "name": "a token-bearing https remote reads the slug, and the token never enters it",
+      "url": "https://x-access-token:SECRET@github.com/acme/storefront.git", "expect": "acme/storefront" },
+    { "name": "a non-GitHub remote has no slug, so the plane offers no compare link it cannot build",
+      "url": "git@gitlab.com:acme/storefront.git", "expect": "" },
+    { "name": "a local path remote is not a provider", "url": "/srv/git/storefront.git", "expect": "" }
+  ]
+}

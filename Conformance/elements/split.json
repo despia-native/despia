@@ -1,0 +1,91 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "split",
+  "aliases": [],
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Split/swift/Split.swift",
+  "attributes": {
+    "value": {
+      "type": "expr(string)",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Split/swift/Split.swift:50 (two-way selected DETAIL identity; \"\" = none — the platform Back pop clears it)"
+    },
+    "on:change": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Split/swift/Split.swift:115 (fires only when the split itself clears the selection — the compact Back pop; never for the selection it mounted with)"
+    },
+    "paneRole": {
+      "type": "enum(sidebar|content|detail)(per child)",
+      "default": null,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:62 (explicit roles win, first claimant keeps a duplicate; the rest fill positionally — 2 panes sidebar+detail, 3 sidebar+content+detail)"
+    },
+    "panes": {
+      "type": "number(2..3)",
+      "default": null,
+      "_src": "OpenSource/Conformance/split/split.json (advisory hint — the children are the truth; a mismatch never reshapes the split)"
+    },
+    "collapseAt": {
+      "type": "number",
+      "default": 760,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:52 (semantic renderers stack below this container width; Apple delegates the visual collapse to NavigationSplitView — clamp 320..4096)"
+    },
+    "expandAt": {
+      "type": "number",
+      "default": 1104,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:53 (a three-pane split pins its sidebar at/above this width, overlays it below; raised to collapseAt when authored lower — clamp 320..4096)"
+    },
+    "resizable": {
+      "type": "bool",
+      "default": true,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:99 (semantic renderers' desktop divider drag; the platform split host owns its own column resize on Apple)"
+    },
+    "sidebarMin": {
+      "type": "number",
+      "default": 220,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:54 (navigationSplitViewColumnWidth min — the adaptive-scaffold triplet grammar, clamp 120..1024)"
+    },
+    "sidebarIdeal": {
+      "type": "number",
+      "default": 280,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:54 (navigationSplitViewColumnWidth ideal; normalized so min <= ideal <= max)"
+    },
+    "sidebarMax": {
+      "type": "number",
+      "default": 360,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:54 (navigationSplitViewColumnWidth max)"
+    },
+    "contentMin": {
+      "type": "number",
+      "default": 280,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:55 (the three-pane content column's width triplet, same normalization)"
+    },
+    "contentIdeal": {
+      "type": "number",
+      "default": 340,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:55"
+    },
+    "contentMax": {
+      "type": "number",
+      "default": 480,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:55"
+    },
+    "detailMin": {
+      "type": "number",
+      "default": 360,
+      "_src": "OpenSource/Engine/iOS/SplitPlan.swift:56 (the flexible detail column's floor — the web grid's minmax clamp; clamp 120..1024)"
+    }
+  },
+  "geometry": {
+    "detailReadableInset": {
+      "value": 20,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Split/swift/Split.swift:37 (regular-width detail panes sit inset from the split divider — the Scaffold nativeSplit twin; Android renders M3's own 24dp expanded-pane margin instead, a chrome metric pinned in the Compose header)"
+    },
+    "detailReadableTopInset": {
+      "value": 8,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Structure/Split/swift/Split.swift:38"
+    }
+  },
+  "colors": {
+  },
+  "notes": "The two/three-pane adaptive container (component-library.md W9) — the shared planner is OpenSource/Engine/iOS/SplitPlan.swift with corpus OpenSource/Conformance/split/split.json (TS packages/dom/src/split.ts and Kotlin :core SplitPlan.kt run the same file). Apple renders a real NavigationSplitView (two panes = two columns, three = three; iOS 17+/macOS 14+ bridge value= to preferredCompactColumn so a non-empty selection pushes the detail on compact and the platform Back pop clears it + fires on:change). Android renders the plan's list-detail shape with Compose (:render SplitElement) — compact stack push, medium pinned pair + overlay sidebar, expanded all-pane row with the M3 readable margin. Web plans from the CONTAINER width via ResizeObserver (collapseAt/expandAt are live attributes) and adds draggable hairline dividers on fine pointers; native delegates the compact/regular switch to the platform split host, per system-defaults.md — the same division as <tabs>."
+}

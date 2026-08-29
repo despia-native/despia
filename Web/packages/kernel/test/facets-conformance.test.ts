@@ -45,6 +45,7 @@ const doc = JSON.parse(readFileSync(corpusFile(), "utf-8")) as {
     table: FacetTable;
     excluded: Record<string, { reason: string; from?: string }>;
     platforms: Record<string, string[]>;
+    platformActions: Record<string, string[]>;
   };
   cases: FacetCase[];
   codes: string[];
@@ -75,6 +76,9 @@ function factsFor(c: FacetCase): FacetFacts {
     linked: false,
     excluded: Object.prototype.hasOwnProperty.call(doc.world.excluded, chain),
     offPlatform: Object.prototype.hasOwnProperty.call(doc.world.platforms, chain),
+    // The ACTION-level narrowing (X2 §4). Read here for the same reason `offPlatform` is:
+    // both are PRE-FILTERED build data, so the ladder never asks what OS it is on.
+    offPlatformAction: Object.prototype.hasOwnProperty.call(doc.world.platformActions, `${chain}.${action}`),
   };
 }
 
@@ -111,11 +115,12 @@ test("facets: the ladder is TOTAL — no input hangs and none answers an untyped
   let seen = 0;
   for (const row of rows) {
     for (const facet of [null, "app", "watch", "widget", "activity", "unregistered"]) {
-      for (let bits = 0; bits < 64; bits += 1) {
+      for (let bits = 0; bits < 128; bits += 1) {
         const v = resolveFacetLadder({
           local: (bits & 1) !== 0, module: (bits & 2) !== 0, facet, row,
           transport: (bits & 4) !== 0, linked: (bits & 8) !== 0,
           excluded: (bits & 16) !== 0, offPlatform: (bits & 32) !== 0,
+          offPlatformAction: (bits & 64) !== 0,
         });
         seen += 1;
         assert.ok(["local", "reach", "unavailable"].includes(v.rung), `rung ${v.rung}`);
@@ -124,7 +129,7 @@ test("facets: the ladder is TOTAL — no input hangs and none answers an untyped
       }
     }
   }
-  assert.equal(seen, rows.length * 6 * 64);
+  assert.equal(seen, rows.length * 6 * 128);
 });
 
 // ── the LIVE funnel: the ladder where it actually decides ────────────────────────────

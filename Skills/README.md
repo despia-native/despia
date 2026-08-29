@@ -1,7 +1,38 @@
-# Despia Module Skills
+# Despia Skills
 
-Reference docs for **AI agents** (and humans) working on the Despia module
-system. Read these before adding, editing, or removing a module.
+Reference docs for **AI agents** (and humans) working with Despia. Two audiences,
+two shelves: **app authors** write `.dsx` markup; **framework contributors** write
+modules.
+
+## Building an app (start here if you write .dsx)
+
+The three app-authoring skills install into any project, for any agent host
+(Claude Code, Cursor, Codex and peers): `npx skills add despia-native/skills`.
+The pack is generated from the sources below
+(`ClosedSource/scripts/generate_agent_skills.rb`), staged at
+[`../AgentSkills/`](../AgentSkills/), and can never drift from them.
+
+1. **[writing-an-app.md](writing-an-app.md)** - the working knowledge: the mental
+   model, the element vocabulary map, state in order of preference, lists,
+   navigation, and the mistakes generated code actually makes. **Start here.**
+2. **[designing-an-app.md](designing-an-app.md)** - the design bar: structure
+   before pixels, the token and type laws, the four states every screen has, the
+   flows that decide whether an app sells, and verify-by-looking.
+3. **[thinking-in-dsx.md](thinking-in-dsx.md)** - fluent in React / React Native?
+   The translation table, the imperative-handle rule, habits to drop and keep.
+4. **[examples/](examples/)** - a complete worked app (feed, detail, settings,
+   onboarding, paywall) as a real project: lint it, build it, run it.
+5. **[dsx-best-practices.md](dsx-best-practices.md)** - markup hygiene, rule by
+   rule, each enforced by the linter.
+6. **[custom-ux.md](custom-ux.md)** - bespoke gesture-driven controls from
+   primitives. **[offline-best-practices.md](offline-best-practices.md)** -
+   caching and offline UI state. **[writing-a-backend.md](writing-a-backend.md)** -
+   the `<server>` document. **[writing-a-film.md](writing-a-film.md)** - the
+   `<film>` document: a commercial rendered from the app itself.
+
+## The module system (framework contributors)
+
+Read these before adding, editing, or removing a module.
 
 The authoring pattern is **DespiaScript** - the same `Module` + `dsx` + `JSON`
 shape written in Swift and Kotlin on one runtime API. Not a new language. **Start
@@ -153,6 +184,13 @@ Two kinds of module:
     guarantees, the `WidgetBundle`/`Widget.body` **Swift shape laws** (no
     builder branches; OS-conditional sets branch in `static main()`), and how
     snapshot data reaches the card.
+29. **[porting-a-react-native-library.md](porting-a-react-native-library.md)** — **"ship this
+    npm package for Despia"**: the triage (component · capability · non-port), the API
+    translation table (props → attributes, `ref.current.clear()` → a bound value, hooks →
+    modules, `Animated` → the motion kernel), the contract-first order across four renderers,
+    the complete ledger/census list a catalogued element touches, and the refusal list — the
+    packages that exist only because React Native lacks what the kernel already has. Worked
+    example: `<Signature>`, ported from the RN signature pads that wrap a `<WebView>`.
 
 ## Golden rules
 

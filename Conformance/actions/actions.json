@@ -1,1030 +1,1314 @@
 {
- "_note": "Action/workflow runner corpus — see README.md. Actions ARE workflows: they chain, call each other with args, sequence, branch, loop, and emit events; recursion is bounded at 32 frames. Synchronous grammar only (deterministic on every runtime).",
- "cases": [
-  {
-   "name": "action-calls-action-chain",
-   "actions": {
-    "start": {
-     "body": "dsx.variable.a = 1; dsx.action.next()"
+  "_note": "Action/workflow runner corpus — see README.md. Actions ARE workflows: they chain, call each other with args, sequence, branch, loop, and emit events; recursion is bounded at 32 frames. Synchronous grammar only (deterministic on every runtime).",
+  "cases": [
+    {
+      "name": "action-calls-action-chain",
+      "actions": {
+        "start": {
+          "body": "dsx.variable.a = 1; dsx.action.next()"
+        },
+        "next": {
+          "body": "dsx.variable.b = dsx.variable.a + 1; dsx.action.finish()"
+        },
+        "finish": {
+          "body": "dsx.variable.c = dsx.variable.b + 1"
+        }
+      },
+      "scope": {},
+      "run": "start",
+      "expectStore": {
+        "a": 1,
+        "b": 2,
+        "c": 3
+      },
+      "expectEvents": []
     },
-    "next": {
-     "body": "dsx.variable.b = dsx.variable.a + 1; dsx.action.finish()"
+    {
+      "name": "action-passes-args-to-action",
+      "actions": {
+        "outer": {
+          "body": "dsx.action.add({ x: 5, y: 7 })"
+        },
+        "add": {
+          "body": "dsx.variable.sum = x + y"
+        }
+      },
+      "scope": {},
+      "run": "outer",
+      "expectStore": {
+        "sum": 12
+      },
+      "expectEvents": []
     },
-    "finish": {
-     "body": "dsx.variable.c = dsx.variable.b + 1"
-    }
-   },
-   "scope": {},
-   "run": "start",
-   "expectStore": {
-    "a": 1,
-    "b": 2,
-    "c": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "action-passes-args-to-action",
-   "actions": {
-    "outer": {
-     "body": "dsx.action.add({ x: 5, y: 7 })"
+    {
+      "name": "declared-inputs-evaluate-in-caller-scope",
+      "actions": {
+        "toggle": {
+          "inputs": {
+            "id": "item.id"
+          },
+          "body": "dsx.variable.last = id"
+        }
+      },
+      "scope": {},
+      "run": "dsx.action.toggle()",
+      "runItem": {
+        "id": 42
+      },
+      "expectStore": {
+        "last": 42
+      },
+      "expectEvents": []
     },
-    "add": {
-     "body": "dsx.variable.sum = x + y"
-    }
-   },
-   "scope": {},
-   "run": "outer",
-   "expectStore": {
-    "sum": 12
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "declared-inputs-evaluate-in-caller-scope",
-   "actions": {
-    "toggle": {
-     "inputs": {
-      "id": "item.id"
-     },
-     "body": "dsx.variable.last = id"
-    }
-   },
-   "scope": {},
-   "run": "dsx.action.toggle()",
-   "runItem": {
-    "id": 42
-   },
-   "expectStore": {
-    "last": 42
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "conditional-workflow-branches-to-different-actions",
-   "actions": {
-    "route": {
-     "body": "if (dsx.variable.n > 0) { dsx.action.pos() } else { dsx.action.neg() }"
+    {
+      "name": "conditional-workflow-branches-to-different-actions",
+      "actions": {
+        "route": {
+          "body": "if (dsx.variable.n > 0) { dsx.action.pos() } else { dsx.action.neg() }"
+        },
+        "pos": {
+          "body": "dsx.variable.sign = 'positive'"
+        },
+        "neg": {
+          "body": "dsx.variable.sign = 'negative'"
+        }
+      },
+      "scope": {
+        "n": 3
+      },
+      "run": "route",
+      "expectStore": {
+        "sign": "positive"
+      },
+      "expectEvents": []
     },
-    "pos": {
-     "body": "dsx.variable.sign = 'positive'"
+    {
+      "name": "loop-invokes-an-action-per-iteration",
+      "_note_idiom": "for…of remains the first-choice loop idiom, and a classic `for (let i=0; i<n; i++)` is now PORTABLE TOO: `let`/`const` declarations (incl. the classic-for init) register as AUTHORED LOCALS, and an assignment to an authored local writes the LOCAL on every runtime - the store-always contract now applies only to names that are not authored locals (entry-payload keys, item fields). The old trap (native `x=e` always wrote the store, so the `let i` local shadowed the read and the loop spun to the budget) is retired; see classic-for-let-counter-is-local.",
+      "actions": {
+        "fill": {
+          "body": "for (const n of [0, 1, 2]) { dsx.action.pushOne({ v: n }) }"
+        },
+        "pushOne": {
+          "body": "dsx.variable.items.push(v)"
+        }
+      },
+      "scope": {
+        "items": []
+      },
+      "run": "fill",
+      "expectStore": {
+        "items": [
+          0,
+          1,
+          2
+        ]
+      },
+      "expectEvents": []
     },
-    "neg": {
-     "body": "dsx.variable.sign = 'negative'"
-    }
-   },
-   "scope": {
-    "n": 3
-   },
-   "run": "route",
-   "expectStore": {
-    "sign": "positive"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "loop-invokes-an-action-per-iteration",
-   "_note_idiom": "for…of is THE portable loop idiom (green on all three runtimes). A classic `for (let i=0; i<n; i++)` is NON-PORTABLE: in a native action `x=e` always writes the STORE, so the `let i` local shadows the read and the loop spins to the budget on iOS+Android (pinned bug-for-bug, JseRunner.kt NOTES). Authors use for…of or a store-var counter `for (i=0; …)`; a lint rule flags classic-for-with-let (W7).",
-   "actions": {
-    "fill": {
-     "body": "for (const n of [0, 1, 2]) { dsx.action.pushOne({ v: n }) }"
+    {
+      "name": "workflow-emits-events-in-order",
+      "actions": {
+        "publish": {
+          "body": "dsx.event('started', { at: 1 }); dsx.variable.step = 1; dsx.action.done()"
+        },
+        "done": {
+          "body": "dsx.event('finished', { at: 2 }); dsx.variable.step = 2"
+        }
+      },
+      "scope": {},
+      "run": "publish",
+      "expectStore": {
+        "step": 2
+      },
+      "expectEvents": [
+        "started",
+        "finished"
+      ]
     },
-    "pushOne": {
-     "body": "dsx.variable.items.push(v)"
-    }
-   },
-   "scope": {
-    "items": []
-   },
-   "run": "fill",
-   "expectStore": {
-    "items": [
-     0,
-     1,
-     2
-    ]
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "workflow-emits-events-in-order",
-   "actions": {
-    "publish": {
-     "body": "dsx.event('started', { at: 1 }); dsx.variable.step = 1; dsx.action.done()"
+    {
+      "name": "guarded-recursion-terminates-with-the-right-result",
+      "actions": {
+        "countdown": {
+          "body": "if (dsx.variable.n > 0) { dsx.variable.log.push(dsx.variable.n); dsx.variable.n = dsx.variable.n - 1; dsx.action.countdown() }"
+        }
+      },
+      "scope": {
+        "n": 4,
+        "log": []
+      },
+      "run": "countdown",
+      "expectStore": {
+        "n": 0,
+        "log": [
+          4,
+          3,
+          2,
+          1
+        ]
+      },
+      "expectEvents": []
     },
-    "done": {
-     "body": "dsx.event('finished', { at: 2 }); dsx.variable.step = 2"
-    }
-   },
-   "scope": {},
-   "run": "publish",
-   "expectStore": {
-    "step": 2
-   },
-   "expectEvents": [
-    "started",
-    "finished"
-   ]
-  },
-  {
-   "name": "guarded-recursion-terminates-with-the-right-result",
-   "actions": {
-    "countdown": {
-     "body": "if (dsx.variable.n > 0) { dsx.variable.log.push(dsx.variable.n); dsx.variable.n = dsx.variable.n - 1; dsx.action.countdown() }"
-    }
-   },
-   "scope": {
-    "n": 4,
-    "log": []
-   },
-   "run": "countdown",
-   "expectStore": {
-    "n": 0,
-    "log": [
-     4,
-     3,
-     2,
-     1
-    ]
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "unbounded-recursion-is-contained-never-hangs",
-   "actions": {
-    "spin": {
-     "body": "dsx.variable.calls = (dsx.variable.calls || 0) + 1; dsx.action.spin()"
-    }
-   },
-   "scope": {},
-   "run": "spin",
-   "expectStore": {},
-   "_note_calls": "the exact count is runtime-defined (the 32 cap); the test COMPLETING — no stack overflow, no hang — IS the assertion that an unbounded workflow is contained by the depth cap",
-   "expectEvents": []
-  },
-  {
-   "name": "nested-action-return-does-not-abort-the-caller",
-   "actions": {
-    "caller": {
-     "body": "dsx.variable.before = 1; dsx.action.early(); dsx.variable.after = 2"
+    {
+      "name": "unbounded-recursion-is-contained-never-hangs",
+      "actions": {
+        "spin": {
+          "body": "dsx.variable.calls = (dsx.variable.calls || 0) + 1; dsx.action.spin()"
+        }
+      },
+      "scope": {},
+      "run": "spin",
+      "expectStore": {},
+      "_note_calls": "the exact count is runtime-defined (the 32 cap); the test COMPLETING — no stack overflow, no hang — IS the assertion that an unbounded workflow is contained by the depth cap",
+      "expectEvents": []
     },
-    "early": {
-     "body": "if (true) { return }\ndsx.variable.unreached = 1"
-    }
-   },
-   "scope": {},
-   "run": "caller",
-   "expectStore": {
-    "before": 1,
-    "after": 2,
-    "unreached": null
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "try-catch-across-an-action-call",
-   "actions": {
-    "attempt": {
-     "body": "try { dsx.action.boom() } catch (e) { dsx.variable.caught = e }"
+    {
+      "name": "nested-action-return-does-not-abort-the-caller",
+      "actions": {
+        "caller": {
+          "body": "dsx.variable.before = 1; dsx.action.early(); dsx.variable.after = 2"
+        },
+        "early": {
+          "body": "if (true) { return }\ndsx.variable.unreached = 1"
+        }
+      },
+      "scope": {},
+      "run": "caller",
+      "expectStore": {
+        "before": 1,
+        "after": 2,
+        "unreached": null
+      },
+      "expectEvents": []
     },
-    "boom": {
-     "body": "throw 'kaboom'"
-    }
-   },
-   "scope": {},
-   "run": "attempt",
-   "expectStore": {
-    "caught": "kaboom"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "sequential-writes-and-compound-assignment-in-a-workflow",
-   "actions": {
-    "tally": {
-     "body": "dsx.variable.total = 0; for (const p of dsx.variable.prices) { dsx.variable.total += p }; dsx.action.tax()"
+    {
+      "name": "try-catch-across-an-action-call",
+      "actions": {
+        "attempt": {
+          "body": "try { dsx.action.boom() } catch (e) { dsx.variable.caught = e }"
+        },
+        "boom": {
+          "body": "throw 'kaboom'"
+        }
+      },
+      "scope": {},
+      "run": "attempt",
+      "expectStore": {
+        "caught": "kaboom"
+      },
+      "expectEvents": []
     },
-    "tax": {
-     "body": "dsx.variable.withTax = dsx.variable.total + round(dsx.variable.total * 0.1)"
+    {
+      "name": "sequential-writes-and-compound-assignment-in-a-workflow",
+      "actions": {
+        "tally": {
+          "body": "dsx.variable.total = 0; for (const p of dsx.variable.prices) { dsx.variable.total += p }; dsx.action.tax()"
+        },
+        "tax": {
+          "body": "dsx.variable.withTax = dsx.variable.total + round(dsx.variable.total * 0.1)"
+        }
+      },
+      "scope": {
+        "prices": [
+          10,
+          20,
+          30
+        ]
+      },
+      "run": "tally",
+      "expectStore": {
+        "total": 60,
+        "withTax": 66
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "bare-action-name-mid-body-invokes-it",
+      "actions": {
+        "bump": {
+          "body": "dsx.variable.n = (dsx.variable.n || 0) + 1"
+        }
+      },
+      "scope": {},
+      "run": "dsx.variable.a = 1; bump; dsx.variable.b = 2",
+      "expectStore": {
+        "a": 1,
+        "n": 1,
+        "b": 2
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "action-call-2nd-arg-callback-receives-the-event",
+      "actions": {
+        "notify": {
+          "body": "dsx.event('done', { n: 7 })"
+        }
+      },
+      "scope": {},
+      "run": "dsx.action.notify({}, { done: () => { dsx.variable.got = dsx.this.n } })",
+      "expectStore": {
+        "got": 7
+      },
+      "expectEvents": [
+        "done"
+      ]
+    },
+    {
+      "name": "payload-name-assignment-writes-the-store",
+      "actions": {},
+      "scope": {},
+      "run": "phase = dsx.this.phase",
+      "runItem": {
+        "phase": "end"
+      },
+      "expectStore": {
+        "phase": "end"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "payload-rides-dsx-this-into-a-called-action-and-writes-land-in-the-store",
+      "actions": {
+        "seek": {
+          "body": "pos = dsx.this.fraction; phase = dsx.this.phase"
+        }
+      },
+      "scope": {},
+      "run": "seek()",
+      "runItem": {
+        "fraction": 0.9,
+        "phase": "end"
+      },
+      "expectStore": {
+        "pos": 0.9,
+        "phase": "end"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "asi-newline-separated-statements",
+      "actions": {},
+      "scope": {},
+      "run": "a = 1\nb = 2",
+      "expectStore": {
+        "a": 1,
+        "b": 2
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "asi-operator-continuation-joins-lines",
+      "actions": {},
+      "scope": {},
+      "run": "s = 1 +\n2",
+      "expectStore": {
+        "s": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "asi-method-chain-continuation-joins-lines",
+      "actions": {},
+      "scope": {},
+      "run": "t = 'despia'\n.slice(0, 3)",
+      "expectStore": {
+        "t": "des"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "comment-line-strips-to-eol",
+      "actions": {},
+      "scope": {},
+      "run": "c = 1 // note\nd = 2",
+      "expectStore": {
+        "c": 1,
+        "d": 2
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "comment-block-spans-lines",
+      "actions": {},
+      "scope": {},
+      "run": "e = 1; /* x\ny */ f = 2",
+      "expectStore": {
+        "e": 1,
+        "f": 2
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "regex-literal-is-never-a-comment",
+      "actions": {},
+      "scope": {},
+      "run": "g = 'a/b'.replace(/\\//g, '-')",
+      "expectStore": {
+        "g": "a-b"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "sugar-modulo-compound-assign",
+      "actions": {},
+      "scope": {},
+      "run": "m = 7; m %= 4",
+      "expectStore": {
+        "m": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "sugar-pow-compound-assign",
+      "actions": {},
+      "scope": {},
+      "run": "p = 2; p **= 3",
+      "expectStore": {
+        "p": 8
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "template-literal-in-statement",
+      "actions": {},
+      "scope": {},
+      "run": "u = `id-${1 + 1}`",
+      "expectStore": {
+        "u": "id-2"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "template-multiline-keeps-inner-newline",
+      "actions": {},
+      "scope": {},
+      "run": "v = `a\nb`; w = 2",
+      "expectStore": {
+        "v": "a\nb",
+        "w": 2
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "increment-sugar-still-rewrites",
+      "actions": {},
+      "scope": {},
+      "run": "i = 1; i++",
+      "expectStore": {
+        "i": 2
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "classic-for-store-counter-with-compound-step",
+      "actions": {},
+      "scope": {},
+      "run": "total = 0; for (i = 0; i < 4; i++) { total += i }",
+      "expectStore": {
+        "total": 6,
+        "i": 4
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "classic-for-let-counter-is-local",
+      "actions": {},
+      "scope": {},
+      "run": "total9 = 0; for (let i = 0; i < 4; i++) { total9 += i }",
+      "expectStore": {
+        "total9": 6,
+        "i": null
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "let-declaration-assignment-stays-local",
+      "actions": {},
+      "scope": {},
+      "run": "let x9 = 5; x9 = x9 + 1; out9 = x9",
+      "expectStore": {
+        "out9": 6,
+        "x9": null
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "const-of-loop-var-never-lands-in-store",
+      "actions": {},
+      "scope": {},
+      "run": "acc9 = 0; for (const n9 of [1, 2, 3]) { acc9 += n9 }",
+      "expectStore": {
+        "acc9": 6,
+        "n9": null
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "decl-multi-declarator",
+      "actions": {},
+      "scope": {},
+      "run": "const a2 = 1, b2 = 2; r1 = a2 + b2",
+      "expectStore": {
+        "r1": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "decl-destructure-object",
+      "actions": {},
+      "scope": {},
+      "run": "const { x, y } = { x: 1, y: 2 }; r2 = x + y",
+      "expectStore": {
+        "r2": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "decl-destructure-object-rename",
+      "actions": {},
+      "scope": {},
+      "run": "const { x: vx } = { x: 9 }; r2b = vx",
+      "expectStore": {
+        "r2b": 9
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "decl-destructure-array",
+      "actions": {},
+      "scope": {},
+      "run": "const [p, q] = [3, 4]; r3 = p * 10 + q",
+      "expectStore": {
+        "r3": 34
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "do-while-loops",
+      "actions": {},
+      "scope": {},
+      "run": "n = 0; do { n = n + 1 } while (n < 3); r4 = n",
+      "expectStore": {
+        "r4": 3,
+        "n": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "do-while-runs-body-once",
+      "actions": {},
+      "scope": {},
+      "run": "m2 = 0; do { m2 = m2 + 1 } while (false); r5 = m2",
+      "expectStore": {
+        "r5": 1
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "for-of-string-graphemes",
+      "actions": {},
+      "scope": {},
+      "run": "s2 = ''; for (const ch of 'abc') { s2 = s2 + ch }",
+      "expectStore": {
+        "s2": "abc"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "for-of-destructured-pairs",
+      "actions": {},
+      "scope": {},
+      "run": "t2 = 0; for (const [k, v] of [[1, 2], [3, 4]]) { t2 = t2 + k * v }",
+      "expectStore": {
+        "t2": 14
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "for-of-set-values",
+      "actions": {},
+      "scope": {},
+      "run": "u2 = 0; for (const v of new Set([1, 1, 2])) { u2 = u2 + v }",
+      "expectStore": {
+        "u2": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "lambda-call-stored",
+      "actions": {},
+      "scope": {},
+      "run": "const f2 = (x) => x * 2; r6 = f2(21)",
+      "expectStore": {
+        "r6": 42
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "logical-assign-nullish",
+      "actions": {},
+      "scope": {},
+      "run": "v1 ??= 5; v2 = 0; v2 ??= 9; r7 = v1 + v2",
+      "expectStore": {
+        "v1": 5,
+        "v2": 0,
+        "r7": 5
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "logical-assign-and-or",
+      "actions": {},
+      "scope": {},
+      "run": "b3 = 1; b3 &&= 5; b4 = 0; b4 ||= 7",
+      "expectStore": {
+        "b3": 5,
+        "b4": 7
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "spread-in-statement",
+      "actions": {},
+      "scope": {},
+      "run": "arr2 = [...[1, 2], 3]; r8 = arr2.length",
+      "expectStore": {
+        "r8": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "date-set-time-statement-persists",
+      "actions": {},
+      "scope": {},
+      "run": "d1 = new Date(86400000); d1.setTime(172800000); r10 = d1.getTime()",
+      "expectStore": {
+        "r10": 172800000
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "date-set-hours-local-roundtrip",
+      "actions": {},
+      "scope": {},
+      "run": "d2 = new Date(43200000); d2.setHours(5); r11 = d2.getHours()",
+      "expectStore": {
+        "r11": 5
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "date-set-full-year",
+      "actions": {},
+      "scope": {},
+      "run": "d3 = new Date(43200000); d3.setFullYear(2030); r12 = d3.getFullYear()",
+      "expectStore": {
+        "r12": 2030
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "prefix-increment-statement",
+      "actions": {},
+      "scope": {},
+      "run": "i7 = 0; ++i7; ++i7; r30 = i7",
+      "expectStore": {
+        "i7": 2,
+        "r30": 2
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "prefix-decrement-statement",
+      "actions": {},
+      "scope": {},
+      "run": "j7 = 5; --j7; r31 = j7",
+      "expectStore": {
+        "j7": 4,
+        "r31": 4
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "prefix-step-classic-for",
+      "actions": {},
+      "scope": {},
+      "run": "s7 = 0; for (q7 = 0; q7 < 3; ++q7) { s7 = s7 + q7 }; r32 = s7",
+      "expectStore": {
+        "s7": 3,
+        "q7": 3,
+        "r32": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "for-in-dict-keys",
+      "actions": {},
+      "scope": {},
+      "run": "ks = ''; for (const k in { a: 1, b: 2 }) { ks = ks + k }",
+      "expectStore": {
+        "ks": "ab"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "for-in-array-indices",
+      "actions": {},
+      "scope": {},
+      "run": "si = 0; for (const ix in ['a', 'b', 'c']) { si = si + ix }",
+      "expectStore": {
+        "si": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "for-in-skips-internal-keys",
+      "actions": {},
+      "scope": {},
+      "run": "ki = ''; for (const k in { a: 1, __x: 2, b: 3 }) { ki = ki + k }",
+      "expectStore": {
+        "ki": "ab"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "for-in-non-collection-zero",
+      "actions": {},
+      "scope": {},
+      "run": "n7 = 0; for (const k in 42) { n7 = n7 + 1 }",
+      "expectStore": {
+        "n7": 0
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "classic-for-in-operator-condition",
+      "actions": {},
+      "scope": {},
+      "run": "c7 = 0; for (q8 = 0; 'a' in { a: 1 } && q8 < 2; ++q8) { c7 = c7 + 1 }",
+      "expectStore": {
+        "c7": 2,
+        "q8": 2
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "lambda-default-in-action",
+      "actions": {},
+      "scope": {},
+      "run": "const f7 = (a, b = 2) => a + b; r33 = f7(3)",
+      "expectStore": {
+        "r33": 5
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "lambda-rest-in-action",
+      "actions": {},
+      "scope": {},
+      "run": "const f8 = (...xs) => xs.length; r34 = f8(7, 8, 9)",
+      "expectStore": {
+        "r34": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "call-spread-in-action",
+      "actions": {},
+      "scope": {},
+      "run": "const f9 = (a, b) => a * 10 + b; xs9 = [4, 5]; r35 = f9(...xs9)",
+      "expectStore": {
+        "xs9": [
+          4,
+          5
+        ],
+        "r35": 45
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "iife-statement-assign",
+      "actions": {},
+      "scope": {},
+      "run": "r36 = ((x) => x * 3)(4)",
+      "expectStore": {
+        "r36": 12
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "asi-else-own-line",
+      "actions": {
+        "go": {
+          "body": "if (n > 2) { r40 = 'big' }\nelse { r40 = 'small' }"
+        }
+      },
+      "scope": {
+        "n": 1
+      },
+      "run": "go",
+      "expectStore": {
+        "r40": "small"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "asi-catch-finally-own-line",
+      "actions": {
+        "go": {
+          "body": "try { throw 'boom' }\ncatch (e) { r41 = 'caught:' + e }\nfinally { f41 = 1 }"
+        }
+      },
+      "scope": {},
+      "run": "go",
+      "expectStore": {
+        "r41": "caught:boom",
+        "f41": 1
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "asi-do-while-own-line-budget-survives",
+      "actions": {
+        "go": {
+          "body": "i42 = 0\ndo { i42 += 1 }\nwhile (i42 < 3)\ns42 = 0\nfor (const x of [1, 2, 3]) { s42 += x }"
+        }
+      },
+      "scope": {},
+      "run": "go",
+      "expectStore": {
+        "i42": 3,
+        "s42": 6
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "lambda-self-recursion",
+      "actions": {},
+      "scope": {},
+      "run": "const f43 = (n) => n <= 0 ? 0 : f43(n - 1); r43 = f43(5)",
+      "expectStore": {
+        "r43": 0
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "lambda-self-recursion-factorial",
+      "actions": {},
+      "scope": {},
+      "run": "const fac = (n) => n <= 1 ? 1 : n * fac(n - 1); r44 = fac(5)",
+      "expectStore": {
+        "r44": 120
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "lambda-runaway-recursion-contained",
+      "actions": {},
+      "scope": {},
+      "run": "const g45 = (n) => g45(n + 1); r45 = g45(0) ?? 'contained'",
+      "expectStore": {
+        "r45": "contained"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "indexed-assign-array",
+      "actions": {},
+      "scope": {},
+      "run": "arr46 = [1, 2, 3]; arr46[0] = 99; r46 = arr46[0]",
+      "expectStore": {
+        "arr46": [
+          99,
+          2,
+          3
+        ],
+        "r46": 99
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "indexed-assign-dict-key",
+      "actions": {},
+      "scope": {},
+      "run": "o47 = { a: 1 }; o47['b'] = 2; r47 = o47.b",
+      "expectStore": {
+        "r47": 2
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "date-setter-nan-total",
+      "actions": {},
+      "scope": {},
+      "run": "d48 = new Date(86400000); d48.setDate(Number('x')); r48 = typeof d48.getTime()",
+      "expectStore": {
+        "r48": "number"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "await-action-binds-the-return-envelope",
+      "_note_returning": "RETURNING ACTIONS: `const r = await dsx.action.name(args)` binds { ok: true, data: <the action's `return <expr>` value, null when it never returns> } — the dsx.module success-envelope shape. Deterministic on every runtime: actions stay synchronous (they only suspend at their OWN awaits), so the natives bind inline and the walk continues; un-awaited calls are byte-identical to before.",
+      "actions": {
+        "compute": {
+          "body": "return 21 * 2"
+        }
+      },
+      "scope": {},
+      "run": "const r = await dsx.action.compute(); out = r.ok ? r.data : 'no'",
+      "expectStore": {
+        "out": 42
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "await-action-returns-a-dict-field",
+      "actions": {
+        "info": {
+          "body": "return { tag: 'pro', level: 3 }"
+        }
+      },
+      "scope": {},
+      "run": "const r1 = await dsx.action.info(); tag1 = r1.data.tag; lvl1 = r1.data.level",
+      "expectStore": {
+        "tag1": "pro",
+        "lvl1": 3
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "await-action-without-return-yields-null-data",
+      "actions": {
+        "quiet": {
+          "body": "dsx.variable.side = 1"
+        }
+      },
+      "scope": {},
+      "run": "const r2 = await dsx.action.quiet(); out2 = r2.data ?? 'empty'; ok2 = r2.ok",
+      "expectStore": {
+        "side": 1,
+        "out2": "empty",
+        "ok2": true
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "await-action-args-flow-into-the-return",
+      "actions": {
+        "add": {
+          "body": "return x + y"
+        }
+      },
+      "scope": {},
+      "run": "const r3 = await dsx.action.add({ x: 5, y: 7 }); sum3 = r3.data",
+      "expectStore": {
+        "sum3": 12
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "await-action-assignment-form-writes-the-store",
+      "actions": {
+        "seven": {
+          "body": "return 3 + 4"
+        }
+      },
+      "scope": {},
+      "run": "r5 = await dsx.action.seven(); out5 = r5.data",
+      "expectStore": {
+        "r5.ok": true,
+        "out5": 7
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "await-action-throw-still-lands-in-catch",
+      "actions": {
+        "boom2": {
+          "body": "throw 'kaboom2'"
+        }
+      },
+      "scope": {},
+      "run": "try { const r4 = await dsx.action.boom2(); out4 = 'no' } catch (e) { caught4 = e }",
+      "expectStore": {
+        "caught4": "kaboom2",
+        "out4": null
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "url-searchparams-set-resyncs-href",
+      "_note": "A mutation through `.searchParams` must resync the OWNING url's `href` and `search`. Mutating the params dict alone leaves the url describing a query it no longer has, and `href` is what callers pass to fetch/navigate.",
+      "actions": {
+        "start": {
+          "body": "dsx.variable.u = new URL('https://example.com/checkout?plan=free'); dsx.variable.u.searchParams.set('plan', 'pro'); dsx.variable.href = dsx.variable.u.href; dsx.variable.search = dsx.variable.u.search; dsx.variable.read = dsx.variable.u.searchParams.get('plan')"
+        }
+      },
+      "scope": {},
+      "run": "start",
+      "expectStore": {
+        "href": "https://example.com/checkout?plan=pro",
+        "search": "?plan=pro",
+        "read": "pro"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "url-searchparams-append-resyncs-href",
+      "_note": "append keeps existing pairs and still resyncs the parent.",
+      "actions": {
+        "start": {
+          "body": "dsx.variable.u = new URL('https://example.com/s?a=1'); dsx.variable.u.searchParams.append('b', '2'); dsx.variable.href = dsx.variable.u.href; dsx.variable.search = dsx.variable.u.search"
+        }
+      },
+      "scope": {},
+      "run": "start",
+      "expectStore": {
+        "href": "https://example.com/s?a=1&b=2",
+        "search": "?a=1&b=2"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "url-searchparams-delete-resyncs-href",
+      "_note": "Deleting the LAST pair must leave `search` empty and drop the `?` from `href` — the case where a stale `href` is most visibly wrong.",
+      "actions": {
+        "start": {
+          "body": "dsx.variable.u = new URL('https://example.com/s?only=1'); dsx.variable.u.searchParams.delete('only'); dsx.variable.href = dsx.variable.u.href; dsx.variable.search = dsx.variable.u.search"
+        }
+      },
+      "scope": {},
+      "run": "start",
+      "expectStore": {
+        "href": "https://example.com/s",
+        "search": ""
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "destructuring-assignment-swaps-store-vars",
+      "_note": "syntax-005 at the RUNNER level: in a native action `x = e` writes the STORE, and the declaration-less pattern write routes each name exactly as that assignment would — so a swap swaps store vars. RHS evaluates ONCE before any binding.",
+      "actions": {
+        "swap": {
+          "body": "[a, b] = [b, a]"
+        }
+      },
+      "scope": {
+        "a": 1,
+        "b": 2
+      },
+      "run": "swap",
+      "expectStore": {
+        "a": 2,
+        "b": 1
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "destructuring-assignment-rest-in-an-action",
+      "actions": {
+        "split": {
+          "body": "[head, ...tail] = dsx.variable.xs"
+        }
+      },
+      "scope": {
+        "xs": [
+          7,
+          8,
+          9
+        ]
+      },
+      "run": "split",
+      "expectStore": {
+        "head": 7,
+        "tail": [
+          8,
+          9
+        ]
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "optional-call-short-circuits-in-an-action",
+      "_note": "syntax-005: a nullish callee answers null with the args unevaluated; `?? 'none'` reads that null.",
+      "actions": {
+        "probe": {
+          "body": "const o = { f: null }\ndsx.variable.r = o.f?.() ?? 'none'"
+        }
+      },
+      "scope": {},
+      "run": "probe",
+      "expectStore": {
+        "r": "none"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "optional-call-invokes-a-lambda-in-an-action",
+      "actions": {
+        "probe": {
+          "body": "const f = (x) => x * 2\ndsx.variable.r = f?.(21)"
+        }
+      },
+      "scope": {},
+      "run": "probe",
+      "expectStore": {
+        "r": 42
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "entry-declared-input-binds-the-host-payload",
+      "_note": "THE ENTRY CALL. A host (HTTP request, CLI command, queue message) invokes an action with a payload and has no caller scope. A declared input names a payload KEY here; evaluating it as an expression against nothing would bind the absent sentinel and silently discard what the host sent.",
+      "actions": {
+        "create": {
+          "inputs": {
+            "title": "title",
+            "total": "total"
+          },
+          "body": "dsx.variable.gotTitle = title; dsx.variable.gotTotal = total"
+        }
+      },
+      "scope": {},
+      "runAction": "create",
+      "runPayload": {
+        "title": "a hat",
+        "total": 42
+      },
+      "expectStore": {
+        "gotTitle": "a hat",
+        "gotTotal": 42
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "entry-undeclared-payload-key-still-binds",
+      "_note": "Declaring some inputs does not turn the payload into an allowlist — an action that declares one input still sees the rest of what the host sent.",
+      "actions": {
+        "create": {
+          "inputs": {
+            "title": "title"
+          },
+          "body": "dsx.variable.a = title; dsx.variable.b = extra"
+        }
+      },
+      "scope": {},
+      "runAction": "create",
+      "runPayload": {
+        "title": "hat",
+        "extra": 7
+      },
+      "expectStore": {
+        "a": "hat",
+        "b": 7
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "entry-declared-input-the-payload-omits-is-absent",
+      "_note": "A declared input is ALWAYS bound, so a body never reads an unbound name: the one the host omitted reads as absent rather than as a missing variable.",
+      "actions": {
+        "create": {
+          "inputs": {
+            "title": "title",
+            "total": "total"
+          },
+          "body": "dsx.variable.gotTitle = title; dsx.variable.gotTotal = total"
+        }
+      },
+      "scope": {},
+      "runAction": "create",
+      "runPayload": {
+        "title": "hat"
+      },
+      "expectStore": {
+        "gotTitle": "hat",
+        "gotTotal": null
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "entry-input-expression-fills-a-default-from-the-store",
+      "_note": "The expression is not ignored at an entry, it is the FALLBACK: a payload that is silent about an input lets its expression resolve against the store, which is how a declared default survives the entry path.",
+      "actions": {
+        "page": {
+          "inputs": {
+            "limit": "defaults.limit"
+          },
+          "body": "dsx.variable.used = limit"
+        }
+      },
+      "scope": {
+        "defaults": {
+          "limit": 50
+        }
+      },
+      "runAction": "page",
+      "runPayload": {},
+      "expectStore": {
+        "used": 50
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "entry-payload-beats-the-input-expression",
+      "_note": "And when the host DID send it, the payload wins over the fallback — otherwise a store variable that happens to share a name would silently override a request.",
+      "actions": {
+        "page": {
+          "inputs": {
+            "limit": "defaults.limit"
+          },
+          "body": "dsx.variable.used = limit"
+        }
+      },
+      "scope": {
+        "defaults": {
+          "limit": 50
+        }
+      },
+      "runAction": "page",
+      "runPayload": {
+        "limit": 5
+      },
+      "expectStore": {
+        "used": 5
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "entry-calls-a-sibling-which-is-a-surface-call-again",
+      "_note": "The entry reading applies to the ENTRY FRAME only. An action the entry calls is an ordinary surface call, so its declared inputs evaluate in the caller's scope as they always did — one hop in, the rule reverts.",
+      "actions": {
+        "handle": {
+          "inputs": {
+            "order": "order"
+          },
+          "body": "dsx.action.tag({ id: order.id })"
+        },
+        "tag": {
+          "inputs": {
+            "id": "id"
+          },
+          "body": "dsx.variable.tagged = id"
+        }
+      },
+      "scope": {},
+      "runAction": "handle",
+      "runPayload": {
+        "order": {
+          "id": "ord_7"
+        }
+      },
+      "expectStore": {
+        "tagged": "ord_7"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "a call-site argument WINS over the declared input's caller-scope reading",
+      "_why": "`inputs=` has two readings and both are correct: at a bare call the name is an expression evaluated in the CALLER's scope, and at a call that PASSES an object the name is the argument. When the caller has no such name, evaluating the expression yields the absent sentinel and, applied last, ERASES the argument the call site supplied - so `openDoc({ name: 'x' })` from a caller with no `name` in scope bound null. Swift and Kotlin already merged the argument OVER the input; the TS runner did not, which made this the one divergence in the workflow grammar.",
+      "actions": {
+        "caller": {
+          "body": "callee({ word: 'passed' })"
+        },
+        "callee": {
+          "inputs": {
+            "word": "word"
+          },
+          "body": "dsx.variable.seen = word"
+        }
+      },
+      "scope": {},
+      "run": "caller",
+      "expectStore": {
+        "seen": "passed"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "an unsupplied declared input still reads the caller's scope",
+      "_why": "the other reading, unchanged: a caller that HAS the name passes it implicitly, which is what makes `pick()` inside a list row work without an argument.",
+      "actions": {
+        "caller": {
+          "body": "const word = 'from the caller'; callee()"
+        },
+        "callee": {
+          "inputs": {
+            "word": "word"
+          },
+          "body": "dsx.variable.seen = word"
+        }
+      },
+      "scope": {},
+      "run": "caller",
+      "expectStore": {
+        "seen": "from the caller"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "dsx.action spelling binds the passed argument the same way the bare call does",
+      "actions": {
+        "caller": {
+          "body": "dsx.action.callee({ word: 'explicit' })"
+        },
+        "callee": {
+          "inputs": {
+            "word": "word"
+          },
+          "body": "dsx.variable.seen = word"
+        }
+      },
+      "scope": {},
+      "run": "caller",
+      "expectStore": {
+        "seen": "explicit"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "await on a bare action call runs it, with its argument",
+      "_why": "`await x({ … })` reached the SYNCHRONOUS expression evaluator, which knows nothing about declared actions: the action never ran and the argument vanished, silently. Both native runners dispatch the same call, so this was the one divergence in the workflow grammar - and the documented way to sequence one action after another.",
+      "actions": {
+        "caller": {
+          "body": "await callee({ word: 'awaited' }); dsx.variable.after = 'ran'"
+        },
+        "callee": {
+          "inputs": {
+            "word": "word"
+          },
+          "body": "dsx.variable.seen = word"
+        }
+      },
+      "scope": {},
+      "run": "caller",
+      "expectStore": {
+        "seen": "awaited",
+        "after": "ran"
+      },
+      "expectEvents": []
+    },
+    {
+      "name": "an awaited action's return value is the value of the expression",
+      "actions": {
+        "caller": {
+          "body": "const got = await callee({ word: 'x' }); dsx.variable.seen = got"
+        },
+        "callee": {
+          "inputs": {
+            "word": "word"
+          },
+          "body": "return word + '!'"
+        }
+      },
+      "scope": {},
+      "run": "caller",
+      "expectStore": {
+        "seen": "x!"
+      },
+      "expectEvents": []
     }
-   },
-   "scope": {
-    "prices": [
-     10,
-     20,
-     30
-    ]
-   },
-   "run": "tally",
-   "expectStore": {
-    "total": 60,
-    "withTax": 66
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "bare-action-name-mid-body-invokes-it",
-   "actions": {
-    "bump": {
-     "body": "dsx.variable.n = (dsx.variable.n || 0) + 1"
-    }
-   },
-   "scope": {},
-   "run": "dsx.variable.a = 1; bump; dsx.variable.b = 2",
-   "expectStore": {
-    "a": 1,
-    "n": 1,
-    "b": 2
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "action-call-2nd-arg-callback-receives-the-event",
-   "actions": {
-    "notify": {
-     "body": "dsx.event('done', { n: 7 })"
-    }
-   },
-   "scope": {},
-   "run": "dsx.action.notify({}, { done: () => { dsx.variable.got = dsx.this.n } })",
-   "expectStore": {
-    "got": 7
-   },
-   "expectEvents": [
-    "done"
-   ]
-  },
-  {
-   "name": "payload-name-assignment-writes-the-store",
-   "actions": {},
-   "scope": {},
-   "run": "phase = dsx.this.phase",
-   "runItem": {
-    "phase": "end"
-   },
-   "expectStore": {
-    "phase": "end"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "payload-rides-dsx-this-into-a-called-action-and-writes-land-in-the-store",
-   "actions": {
-    "seek": {
-     "body": "pos = dsx.this.fraction; phase = dsx.this.phase"
-    }
-   },
-   "scope": {},
-   "run": "seek()",
-   "runItem": {
-    "fraction": 0.9,
-    "phase": "end"
-   },
-   "expectStore": {
-    "pos": 0.9,
-    "phase": "end"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "asi-newline-separated-statements",
-   "actions": {},
-   "scope": {},
-   "run": "a = 1\nb = 2",
-   "expectStore": {
-    "a": 1,
-    "b": 2
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "asi-operator-continuation-joins-lines",
-   "actions": {},
-   "scope": {},
-   "run": "s = 1 +\n2",
-   "expectStore": {
-    "s": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "asi-method-chain-continuation-joins-lines",
-   "actions": {},
-   "scope": {},
-   "run": "t = 'despia'\n.slice(0, 3)",
-   "expectStore": {
-    "t": "des"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "comment-line-strips-to-eol",
-   "actions": {},
-   "scope": {},
-   "run": "c = 1 // note\nd = 2",
-   "expectStore": {
-    "c": 1,
-    "d": 2
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "comment-block-spans-lines",
-   "actions": {},
-   "scope": {},
-   "run": "e = 1; /* x\ny */ f = 2",
-   "expectStore": {
-    "e": 1,
-    "f": 2
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "regex-literal-is-never-a-comment",
-   "actions": {},
-   "scope": {},
-   "run": "g = 'a/b'.replace(/\\//g, '-')",
-   "expectStore": {
-    "g": "a-b"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "sugar-modulo-compound-assign",
-   "actions": {},
-   "scope": {},
-   "run": "m = 7; m %= 4",
-   "expectStore": {
-    "m": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "sugar-pow-compound-assign",
-   "actions": {},
-   "scope": {},
-   "run": "p = 2; p **= 3",
-   "expectStore": {
-    "p": 8
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "template-literal-in-statement",
-   "actions": {},
-   "scope": {},
-   "run": "u = `id-${1 + 1}`",
-   "expectStore": {
-    "u": "id-2"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "template-multiline-keeps-inner-newline",
-   "actions": {},
-   "scope": {},
-   "run": "v = `a\nb`; w = 2",
-   "expectStore": {
-    "v": "a\nb",
-    "w": 2
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "increment-sugar-still-rewrites",
-   "actions": {},
-   "scope": {},
-   "run": "i = 1; i++",
-   "expectStore": {
-    "i": 2
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "classic-for-store-counter-with-compound-step",
-   "actions": {},
-   "scope": {},
-   "run": "total = 0; for (i = 0; i < 4; i++) { total += i }",
-   "expectStore": {
-    "total": 6,
-    "i": 4
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "decl-multi-declarator",
-   "actions": {},
-   "scope": {},
-   "run": "const a2 = 1, b2 = 2; r1 = a2 + b2",
-   "expectStore": {
-    "r1": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "decl-destructure-object",
-   "actions": {},
-   "scope": {},
-   "run": "const { x, y } = { x: 1, y: 2 }; r2 = x + y",
-   "expectStore": {
-    "r2": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "decl-destructure-object-rename",
-   "actions": {},
-   "scope": {},
-   "run": "const { x: vx } = { x: 9 }; r2b = vx",
-   "expectStore": {
-    "r2b": 9
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "decl-destructure-array",
-   "actions": {},
-   "scope": {},
-   "run": "const [p, q] = [3, 4]; r3 = p * 10 + q",
-   "expectStore": {
-    "r3": 34
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "do-while-loops",
-   "actions": {},
-   "scope": {},
-   "run": "n = 0; do { n = n + 1 } while (n < 3); r4 = n",
-   "expectStore": {
-    "r4": 3,
-    "n": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "do-while-runs-body-once",
-   "actions": {},
-   "scope": {},
-   "run": "m2 = 0; do { m2 = m2 + 1 } while (false); r5 = m2",
-   "expectStore": {
-    "r5": 1
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "for-of-string-graphemes",
-   "actions": {},
-   "scope": {},
-   "run": "s2 = ''; for (const ch of 'abc') { s2 = s2 + ch }",
-   "expectStore": {
-    "s2": "abc"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "for-of-destructured-pairs",
-   "actions": {},
-   "scope": {},
-   "run": "t2 = 0; for (const [k, v] of [[1, 2], [3, 4]]) { t2 = t2 + k * v }",
-   "expectStore": {
-    "t2": 14
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "for-of-set-values",
-   "actions": {},
-   "scope": {},
-   "run": "u2 = 0; for (const v of new Set([1, 1, 2])) { u2 = u2 + v }",
-   "expectStore": {
-    "u2": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "lambda-call-stored",
-   "actions": {},
-   "scope": {},
-   "run": "const f2 = (x) => x * 2; r6 = f2(21)",
-   "expectStore": {
-    "r6": 42
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "logical-assign-nullish",
-   "actions": {},
-   "scope": {},
-   "run": "v1 ??= 5; v2 = 0; v2 ??= 9; r7 = v1 + v2",
-   "expectStore": {
-    "v1": 5,
-    "v2": 0,
-    "r7": 5
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "logical-assign-and-or",
-   "actions": {},
-   "scope": {},
-   "run": "b3 = 1; b3 &&= 5; b4 = 0; b4 ||= 7",
-   "expectStore": {
-    "b3": 5,
-    "b4": 7
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "spread-in-statement",
-   "actions": {},
-   "scope": {},
-   "run": "arr2 = [...[1, 2], 3]; r8 = arr2.length",
-   "expectStore": {
-    "r8": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "date-set-time-statement-persists",
-   "actions": {},
-   "scope": {},
-   "run": "d1 = new Date(86400000); d1.setTime(172800000); r10 = d1.getTime()",
-   "expectStore": {
-    "r10": 172800000
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "date-set-hours-local-roundtrip",
-   "actions": {},
-   "scope": {},
-   "run": "d2 = new Date(43200000); d2.setHours(5); r11 = d2.getHours()",
-   "expectStore": {
-    "r11": 5
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "date-set-full-year",
-   "actions": {},
-   "scope": {},
-   "run": "d3 = new Date(43200000); d3.setFullYear(2030); r12 = d3.getFullYear()",
-   "expectStore": {
-    "r12": 2030
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "prefix-increment-statement",
-   "actions": {},
-   "scope": {},
-   "run": "i7 = 0; ++i7; ++i7; r30 = i7",
-   "expectStore": {
-    "i7": 2,
-    "r30": 2
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "prefix-decrement-statement",
-   "actions": {},
-   "scope": {},
-   "run": "j7 = 5; --j7; r31 = j7",
-   "expectStore": {
-    "j7": 4,
-    "r31": 4
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "prefix-step-classic-for",
-   "actions": {},
-   "scope": {},
-   "run": "s7 = 0; for (q7 = 0; q7 < 3; ++q7) { s7 = s7 + q7 }; r32 = s7",
-   "expectStore": {
-    "s7": 3,
-    "q7": 3,
-    "r32": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "for-in-dict-keys",
-   "actions": {},
-   "scope": {},
-   "run": "ks = ''; for (const k in { a: 1, b: 2 }) { ks = ks + k }",
-   "expectStore": {
-    "ks": "ab"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "for-in-array-indices",
-   "actions": {},
-   "scope": {},
-   "run": "si = 0; for (const ix in ['a', 'b', 'c']) { si = si + ix }",
-   "expectStore": {
-    "si": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "for-in-skips-internal-keys",
-   "actions": {},
-   "scope": {},
-   "run": "ki = ''; for (const k in { a: 1, __x: 2, b: 3 }) { ki = ki + k }",
-   "expectStore": {
-    "ki": "ab"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "for-in-non-collection-zero",
-   "actions": {},
-   "scope": {},
-   "run": "n7 = 0; for (const k in 42) { n7 = n7 + 1 }",
-   "expectStore": {
-    "n7": 0
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "classic-for-in-operator-condition",
-   "actions": {},
-   "scope": {},
-   "run": "c7 = 0; for (q8 = 0; 'a' in { a: 1 } && q8 < 2; ++q8) { c7 = c7 + 1 }",
-   "expectStore": {
-    "c7": 2,
-    "q8": 2
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "lambda-default-in-action",
-   "actions": {},
-   "scope": {},
-   "run": "const f7 = (a, b = 2) => a + b; r33 = f7(3)",
-   "expectStore": {
-    "r33": 5
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "lambda-rest-in-action",
-   "actions": {},
-   "scope": {},
-   "run": "const f8 = (...xs) => xs.length; r34 = f8(7, 8, 9)",
-   "expectStore": {
-    "r34": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "call-spread-in-action",
-   "actions": {},
-   "scope": {},
-   "run": "const f9 = (a, b) => a * 10 + b; xs9 = [4, 5]; r35 = f9(...xs9)",
-   "expectStore": {
-    "xs9": [
-     4,
-     5
-    ],
-    "r35": 45
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "iife-statement-assign",
-   "actions": {},
-   "scope": {},
-   "run": "r36 = ((x) => x * 3)(4)",
-   "expectStore": {
-    "r36": 12
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "asi-else-own-line",
-   "actions": {
-    "go": {
-     "body": "if (n > 2) { r40 = 'big' }\nelse { r40 = 'small' }"
-    }
-   },
-   "scope": {
-    "n": 1
-   },
-   "run": "go",
-   "expectStore": {
-    "r40": "small"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "asi-catch-finally-own-line",
-   "actions": {
-    "go": {
-     "body": "try { throw 'boom' }\ncatch (e) { r41 = 'caught:' + e }\nfinally { f41 = 1 }"
-    }
-   },
-   "scope": {},
-   "run": "go",
-   "expectStore": {
-    "r41": "caught:boom",
-    "f41": 1
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "asi-do-while-own-line-budget-survives",
-   "actions": {
-    "go": {
-     "body": "i42 = 0\ndo { i42 += 1 }\nwhile (i42 < 3)\ns42 = 0\nfor (const x of [1, 2, 3]) { s42 += x }"
-    }
-   },
-   "scope": {},
-   "run": "go",
-   "expectStore": {
-    "i42": 3,
-    "s42": 6
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "lambda-self-recursion",
-   "actions": {},
-   "scope": {},
-   "run": "const f43 = (n) => n <= 0 ? 0 : f43(n - 1); r43 = f43(5)",
-   "expectStore": {
-    "r43": 0
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "lambda-self-recursion-factorial",
-   "actions": {},
-   "scope": {},
-   "run": "const fac = (n) => n <= 1 ? 1 : n * fac(n - 1); r44 = fac(5)",
-   "expectStore": {
-    "r44": 120
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "lambda-runaway-recursion-contained",
-   "actions": {},
-   "scope": {},
-   "run": "const g45 = (n) => g45(n + 1); r45 = g45(0) ?? 'contained'",
-   "expectStore": {
-    "r45": "contained"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "indexed-assign-array",
-   "actions": {},
-   "scope": {},
-   "run": "arr46 = [1, 2, 3]; arr46[0] = 99; r46 = arr46[0]",
-   "expectStore": {
-    "arr46": [
-     99,
-     2,
-     3
-    ],
-    "r46": 99
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "indexed-assign-dict-key",
-   "actions": {},
-   "scope": {},
-   "run": "o47 = { a: 1 }; o47['b'] = 2; r47 = o47.b",
-   "expectStore": {
-    "r47": 2
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "date-setter-nan-total",
-   "actions": {},
-   "scope": {},
-   "run": "d48 = new Date(86400000); d48.setDate(Number('x')); r48 = typeof d48.getTime()",
-   "expectStore": {
-    "r48": "number"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "await-action-binds-the-return-envelope",
-   "_note_returning": "RETURNING ACTIONS: `const r = await dsx.action.name(args)` binds { ok: true, data: <the action's `return <expr>` value, null when it never returns> } — the dsx.module success-envelope shape. Deterministic on every runtime: actions stay synchronous (they only suspend at their OWN awaits), so the natives bind inline and the walk continues; un-awaited calls are byte-identical to before.",
-   "actions": {
-    "compute": {
-     "body": "return 21 * 2"
-    }
-   },
-   "scope": {},
-   "run": "const r = await dsx.action.compute(); out = r.ok ? r.data : 'no'",
-   "expectStore": {
-    "out": 42
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "await-action-returns-a-dict-field",
-   "actions": {
-    "info": {
-     "body": "return { tag: 'pro', level: 3 }"
-    }
-   },
-   "scope": {},
-   "run": "const r1 = await dsx.action.info(); tag1 = r1.data.tag; lvl1 = r1.data.level",
-   "expectStore": {
-    "tag1": "pro",
-    "lvl1": 3
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "await-action-without-return-yields-null-data",
-   "actions": {
-    "quiet": {
-     "body": "dsx.variable.side = 1"
-    }
-   },
-   "scope": {},
-   "run": "const r2 = await dsx.action.quiet(); out2 = r2.data ?? 'empty'; ok2 = r2.ok",
-   "expectStore": {
-    "side": 1,
-    "out2": "empty",
-    "ok2": true
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "await-action-args-flow-into-the-return",
-   "actions": {
-    "add": {
-     "body": "return x + y"
-    }
-   },
-   "scope": {},
-   "run": "const r3 = await dsx.action.add({ x: 5, y: 7 }); sum3 = r3.data",
-   "expectStore": {
-    "sum3": 12
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "await-action-assignment-form-writes-the-store",
-   "actions": {
-    "seven": {
-     "body": "return 3 + 4"
-    }
-   },
-   "scope": {},
-   "run": "r5 = await dsx.action.seven(); out5 = r5.data",
-   "expectStore": {
-    "r5.ok": true,
-    "out5": 7
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "await-action-throw-still-lands-in-catch",
-   "actions": {
-    "boom2": {
-     "body": "throw 'kaboom2'"
-    }
-   },
-   "scope": {},
-   "run": "try { const r4 = await dsx.action.boom2(); out4 = 'no' } catch (e) { caught4 = e }",
-   "expectStore": {
-    "caught4": "kaboom2",
-    "out4": null
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "url-searchparams-set-resyncs-href",
-   "_note": "A mutation through `.searchParams` must resync the OWNING url's `href` and `search`. Mutating the params dict alone leaves the url describing a query it no longer has, and `href` is what callers pass to fetch/navigate.",
-   "actions": {
-    "start": {
-     "body": "dsx.variable.u = new URL('https://example.com/checkout?plan=free'); dsx.variable.u.searchParams.set('plan', 'pro'); dsx.variable.href = dsx.variable.u.href; dsx.variable.search = dsx.variable.u.search; dsx.variable.read = dsx.variable.u.searchParams.get('plan')"
-    }
-   },
-   "scope": {},
-   "run": "start",
-   "expectStore": {
-    "href": "https://example.com/checkout?plan=pro",
-    "search": "?plan=pro",
-    "read": "pro"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "url-searchparams-append-resyncs-href",
-   "_note": "append keeps existing pairs and still resyncs the parent.",
-   "actions": {
-    "start": {
-     "body": "dsx.variable.u = new URL('https://example.com/s?a=1'); dsx.variable.u.searchParams.append('b', '2'); dsx.variable.href = dsx.variable.u.href; dsx.variable.search = dsx.variable.u.search"
-    }
-   },
-   "scope": {},
-   "run": "start",
-   "expectStore": {
-    "href": "https://example.com/s?a=1&b=2",
-    "search": "?a=1&b=2"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "url-searchparams-delete-resyncs-href",
-   "_note": "Deleting the LAST pair must leave `search` empty and drop the `?` from `href` — the case where a stale `href` is most visibly wrong.",
-   "actions": {
-    "start": {
-     "body": "dsx.variable.u = new URL('https://example.com/s?only=1'); dsx.variable.u.searchParams.delete('only'); dsx.variable.href = dsx.variable.u.href; dsx.variable.search = dsx.variable.u.search"
-    }
-   },
-   "scope": {},
-   "run": "start",
-   "expectStore": {
-    "href": "https://example.com/s",
-    "search": ""
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "destructuring-assignment-swaps-store-vars",
-   "_note": "syntax-005 at the RUNNER level: in a native action `x = e` writes the STORE, and the declaration-less pattern write routes each name exactly as that assignment would — so a swap swaps store vars. RHS evaluates ONCE before any binding.",
-   "actions": {
-    "swap": {
-     "body": "[a, b] = [b, a]"
-    }
-   },
-   "scope": {
-    "a": 1,
-    "b": 2
-   },
-   "run": "swap",
-   "expectStore": {
-    "a": 2,
-    "b": 1
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "destructuring-assignment-rest-in-an-action",
-   "actions": {
-    "split": {
-     "body": "[head, ...tail] = dsx.variable.xs"
-    }
-   },
-   "scope": {
-    "xs": [
-     7,
-     8,
-     9
-    ]
-   },
-   "run": "split",
-   "expectStore": {
-    "head": 7,
-    "tail": [
-     8,
-     9
-    ]
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "optional-call-short-circuits-in-an-action",
-   "_note": "syntax-005: a nullish callee answers null with the args unevaluated; `?? 'none'` reads that null.",
-   "actions": {
-    "probe": {
-     "body": "const o = { f: null }\ndsx.variable.r = o.f?.() ?? 'none'"
-    }
-   },
-   "scope": {},
-   "run": "probe",
-   "expectStore": {
-    "r": "none"
-   },
-   "expectEvents": []
-  },
-  {
-   "name": "optional-call-invokes-a-lambda-in-an-action",
-   "actions": {
-    "probe": {
-     "body": "const f = (x) => x * 2\ndsx.variable.r = f?.(21)"
-    }
-   },
-   "scope": {},
-   "run": "probe",
-   "expectStore": {
-    "r": 42
-   },
-   "expectEvents": []
-  }
- ]
+  ]
 }

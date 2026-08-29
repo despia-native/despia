@@ -27,6 +27,12 @@
 //  semibold, boxSize * 0.42; box spacing 8. Active box = the next-to-fill one while focused
 //  (i == min(digits, length-1) && digits < length), exactly the Swift predicate.
 //
+//  ACTIVE-BOX MOTION (the 2026-08-20 library-grade ruling, animated-system-control rule):
+//  the active-box border promotion CROSSFADES (width + color, the shared
+//  CONTROL_SELECTION_MOTION_MS — ChoiceElements.kt) on BOTH paths; the iOS twin animates the
+//  same flips via MotionGate 0.15 on focused + digits.count (OTP.swift). The at-rest
+//  renderings are byte-identical to the pre-motion boxes, so the pinned fixture holds.
+//
 //  PINNED DEVIATION (both paths): iOS `.textContentType(.oneTimeCode)` (SMS autofill) has no
 //  direct BasicTextField twin — Android SMS autofill rides the platform SMS
 //  Retriever/autofill services, a :platform concern later. Keyboard is the number pad, like iOS.
@@ -34,6 +40,9 @@
 
 package despia.engine.render.elements
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -93,6 +102,8 @@ private fun M3OtpView(ctx: ComposeStackComponentContext) {
     val key = ctx.attrs["bind"] ?: ""
     val length = maxOf(1, ctx.num("length")?.toInt() ?: ElementDefaults.OTP_LENGTH)
     val boxSize = ctx.num("boxSize") ?: ElementDefaults.OTP_BOX
+    // disabled= / disabled-if= (W9): the hidden input's own enabled seam carries it
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     val cs = StackTheme.scheme ?: MaterialTheme.colorScheme
     val authored = ctl.interp("color")
     val active = if (authored.isNullOrEmpty()) cs.primary else StackStyle.color(authored)
@@ -123,21 +134,26 @@ private fun M3OtpView(ctx: ComposeStackComponentContext) {
             cursorBrush = SolidColor(Color.Transparent),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             singleLine = true,
+            enabled = !disabled,
         )
         Row(
             Modifier
                 .clearAndSetSemantics { }
-                .pointerInput(Unit) {
-                    detectTapGestures { focusRequester.requestFocus() }   // tapping the boxes raises the keyboard
+                .pointerInput(disabled) {
+                    detectTapGestures { if (!disabled) focusRequester.requestFocus() }   // tapping the boxes raises the keyboard
                 },
             horizontalArrangement = Arrangement.spacedBy(ElementDefaults.OTP_BOX_SPACING.dp),
         ) {
             for (i in 0 until length) {
                 val isActive = focused && i == minOf(digits.length, length - 1) && digits.length < length
+                // The active-box promotion crossfades (header ACTIVE-BOX MOTION).
+                val borderW by animateDpAsState(
+                    (if (isActive) ElementDefaults.OTP_ACTIVE_BORDER else ElementDefaults.OTP_IDLE_BORDER).dp,
+                    tween(CONTROL_SELECTION_MOTION_MS), label = "dsx-otp-border")
+                val borderC by animateColorAsState(if (isActive) active else idle,
+                    tween(CONTROL_SELECTION_MOTION_MS), label = "dsx-otp-border-color")
                 Box(
-                    Modifier.size(boxSize.dp)
-                        .border(if (isActive) ElementDefaults.OTP_ACTIVE_BORDER.dp else ElementDefaults.OTP_IDLE_BORDER.dp,
-                                if (isActive) active else idle, shape),
+                    Modifier.size(boxSize.dp).border(borderW, borderC, shape),
                     contentAlignment = Alignment.Center,
                 ) {
                     BasicText(
@@ -163,6 +179,8 @@ private fun LegacyOtpView(ctx: ComposeStackComponentContext) {
     val length = maxOf(1, ctx.num("length")?.toInt() ?: ElementDefaults.OTP_LENGTH)
     val boxSize = ctx.num("boxSize") ?: ElementDefaults.OTP_BOX
     val accent = StackStyle.color(ctx.str("color", ElementDefaults.OTP_TINT))
+    // disabled= / disabled-if= (W9): the hidden input's own enabled seam carries it
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
 
     val bound = JSE.string(ctl.boundValue(key))
     // Display sanitized: ignore non-digits / overflow from an external seed (iOS `digits`).
@@ -187,6 +205,7 @@ private fun LegacyOtpView(ctx: ComposeStackComponentContext) {
             cursorBrush = SolidColor(Color.Transparent),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             singleLine = true,
+            enabled = !disabled,
         )
         // The visible boxes: i-th char or empty, active box border-highlighted.
         Row(
@@ -195,18 +214,23 @@ private fun LegacyOtpView(ctx: ComposeStackComponentContext) {
                 // node. Suppress the painted digit copies so TalkBack never reads the
                 // same code twice; pointer taps still transfer focus to that real input.
                 .clearAndSetSemantics { }
-                .pointerInput(Unit) {
-                    detectTapGestures { focusRequester.requestFocus() }   // tapping the boxes raises the keyboard
+                .pointerInput(disabled) {
+                    detectTapGestures { if (!disabled) focusRequester.requestFocus() }   // tapping the boxes raises the keyboard
                 },
             horizontalArrangement = Arrangement.spacedBy(ElementDefaults.OTP_BOX_SPACING.dp),
         ) {
             for (i in 0 until length) {
                 val isActive = focused && i == minOf(digits.length, length - 1) && digits.length < length
+                // The active-box promotion crossfades (header ACTIVE-BOX MOTION).
+                val borderW by animateDpAsState(
+                    (if (isActive) ElementDefaults.OTP_ACTIVE_BORDER else ElementDefaults.OTP_IDLE_BORDER).dp,
+                    tween(CONTROL_SELECTION_MOTION_MS), label = "dsx-otp-border")
+                val borderC by animateColorAsState(
+                    if (isActive) accent else StackStyle.color(ElementDefaults.OTP_IDLE_BORDER_COLOR),
+                    tween(CONTROL_SELECTION_MOTION_MS), label = "dsx-otp-border-color")
                 Box(
                     Modifier.size(boxSize.dp)
-                        .border(if (isActive) ElementDefaults.OTP_ACTIVE_BORDER.dp else ElementDefaults.OTP_IDLE_BORDER.dp,
-                                if (isActive) accent else StackStyle.color(ElementDefaults.OTP_IDLE_BORDER_COLOR),
-                                RoundedCornerShape(ElementDefaults.OTP_RADIUS.dp)),
+                        .border(borderW, borderC, RoundedCornerShape(ElementDefaults.OTP_RADIUS.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     BasicText(

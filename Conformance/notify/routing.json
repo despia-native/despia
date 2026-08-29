@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "_note": "WHAT A TAP MEANS (parity/F02-notifications.md §3b `notify.opened`, and the handoff to Mandatory/PushRouting). A tap arrives in four different envelope shapes - a plain tap, an action button, a text-input action, and a COLD START where the app was not running - and every one of them has to end up as the same payload, or an app routes three of the four and loses the fourth. The second half of this fixture is the PushRouting record: the vendor modules (Firebase, OneSignal, Pushwoosh) already store a tapped payload as Noti_Event plus an optional Noti_Path, and notify.opened produces the byte-identical record so that routing is written ONCE and the first-party path is not a special case.",
+
+  "_note_default": "The default action id is the platform's own constant for \"the user tapped the notification body\" (UNNotificationDefaultActionIdentifier on iOS, the content intent on Android). It is normalised AWAY: a plain tap carries no actionId at all, so `if (payload.actionId)` means what it reads like.",
+  "defaultActionIds": ["com.apple.UNNotificationDefaultActionIdentifier", "android.intent.action.MAIN", "default"],
+  "dismissActionIds": ["com.apple.UNNotificationDismissActionIdentifier"],
+
+  "open": [
+    { "name": "a plain tap carries no actionId",
+      "raw": { "id": "ep-42", "actionId": "com.apple.UNNotificationDefaultActionIdentifier",
+               "data": { "path": "/episode/42" } },
+      "coldStart": false,
+      "expect": { "kind": "opened", "id": "ep-42", "data": { "path": "/episode/42" }, "coldStart": false } },
+
+    { "name": "an action button carries its own id",
+      "raw": { "id": "ep-42", "actionId": "approve", "data": { "path": "/episode/42" } },
+      "coldStart": false,
+      "expect": { "kind": "opened", "id": "ep-42", "actionId": "approve",
+                  "data": { "path": "/episode/42" }, "coldStart": false } },
+
+    { "name": "a text-input action carries the text the user typed",
+      "raw": { "id": "msg-7", "actionId": "reply", "userText": "on my way", "data": { "thread": "t1" } },
+      "coldStart": false,
+      "expect": { "kind": "opened", "id": "msg-7", "actionId": "reply", "userText": "on my way",
+                  "data": { "thread": "t1" }, "coldStart": false } },
+
+    { "name": "an empty text reply is preserved rather than folded away into no reply at all",
+      "raw": { "id": "msg-7", "actionId": "reply", "userText": "", "data": {} },
+      "coldStart": false,
+      "expect": { "kind": "opened", "id": "msg-7", "actionId": "reply", "userText": "",
+                  "data": {}, "coldStart": false } },
+
+    { "name": "A COLD START is the same payload with coldStart true, never a different event",
+      "raw": { "id": "ep-42", "data": { "path": "/episode/42" } },
+      "coldStart": true,
+      "expect": { "kind": "opened", "id": "ep-42", "data": { "path": "/episode/42" }, "coldStart": true } },
+
+    { "name": "A SWIPE-AWAY IS NOT AN OPEN: the dismiss action becomes notify.dismissed",
+      "raw": { "id": "ep-42", "actionId": "com.apple.UNNotificationDismissActionIdentifier", "data": {} },
+      "coldStart": false,
+      "expect": { "kind": "dismissed", "id": "ep-42" } },
+
+    { "name": "the android content-intent constant is a plain tap too",
+      "raw": { "id": "ep-9", "actionId": "android.intent.action.MAIN", "data": { "url": "https://acme.test/x" } },
+      "coldStart": false,
+      "expect": { "kind": "opened", "id": "ep-9", "data": { "url": "https://acme.test/x" }, "coldStart": false } },
+
+    { "name": "a notification with no data at all still opens, with an empty object rather than null",
+      "raw": { "id": "bare" }, "coldStart": false,
+      "expect": { "kind": "opened", "id": "bare", "data": {}, "coldStart": false } },
+
+    { "name": "a notification with no id gets none invented for it",
+      "raw": { "data": { "path": "/x" } }, "coldStart": false,
+      "expect": { "kind": "opened", "id": "", "data": { "path": "/x" }, "coldStart": false } }
+  ],
+
+  "_note_record": "THE PushRouting HANDOFF. `event` is the JSON the page receives through window.onNotificationEvent; `path` becomes a history.pushState and `url` a navigation, both taken from the payload's own data. The BOUNDS are the same ones PushRouting already enforces on a vendor payload, restated here because a first-party payload must not be the one that gets to skip them: HTTP(S) only, no embedded credentials, 8 KiB on a path or URL, 64 KiB on the event object. A payload that fails a bound loses THAT FIELD, never the whole open.",
+  "record": [
+    { "name": "a path becomes a history route",
+      "payload": { "id": "ep-42", "data": { "path": "/episode/42" } },
+      "expect": { "path": "/episode/42", "url": null } },
+
+    { "name": "an https url becomes a navigation",
+      "payload": { "id": "ep-42", "data": { "url": "https://acme.test/episode/42" } },
+      "expect": { "path": null, "url": "https://acme.test/episode/42" } },
+
+    { "name": "a payload with neither still delivers the event",
+      "payload": { "id": "ep-42", "data": { "kind": "refresh" } },
+      "expect": { "path": null, "url": null } },
+
+    { "name": "a path and a url together keep both, and PushRouting's own ordering decides",
+      "payload": { "id": "ep-42", "data": { "path": "/episode/42", "url": "https://acme.test/e/42" } },
+      "expect": { "path": "/episode/42", "url": "https://acme.test/e/42" } },
+
+    { "name": "a javascript: url is dropped, and the open still happens",
+      "payload": { "id": "x", "data": { "url": "javascript:alert(1)" } },
+      "expect": { "path": null, "url": null } },
+
+    { "name": "a file: url is dropped",
+      "payload": { "id": "x", "data": { "url": "file:///etc/passwd" } },
+      "expect": { "path": null, "url": null } },
+
+    { "name": "an android intent: url is dropped",
+      "payload": { "id": "x", "data": { "url": "intent://scan/#Intent;scheme=zxing;end" } },
+      "expect": { "path": null, "url": null } },
+
+    { "name": "a url carrying credentials is dropped",
+      "payload": { "id": "x", "data": { "url": "https://user:pass@acme.test/x" } },
+      "expect": { "path": null, "url": null } },
+
+    { "name": "a path that is not a path is dropped",
+      "payload": { "id": "x", "data": { "path": "https://acme.test/x" } },
+      "expect": { "path": null, "url": null } },
+
+    { "name": "a control character in a path is dropped rather than injected",
+      "payload": { "id": "x", "data": { "path": "/a\u0009b" } },
+      "expect": { "path": null, "url": null } },
+
+    { "name": "a path over the 8 KiB bound is dropped, and the event still delivers",
+      "payload": { "id": "x", "data": { "path": "/@@REPEAT@@" } },
+      "expect": { "path": null, "url": null } }
+  ],
+
+  "_note_bounds": "The caps, in bytes of UTF-8, identical to the ones Mandatory/PushRouting already applies to a vendor payload. @@REPEAT@@ in a fixture value is the runner's instruction to substitute 9000 'a' characters, so the oversize case does not put nine kilobytes of filler in a file a human reads.",
+  "bounds": { "path": 8192, "url": 8192, "event": 65536 },
+  "repeatToken": { "token": "@@REPEAT@@", "char": "a", "count": 9000 }
+}

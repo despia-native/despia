@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "_note": "The `media` module's PERMISSION POSTURE, pinned as law rather than left as documentation. This is the part of F04 that matters more than the API surface: getting it backwards is the most common App Store privacy rejection there is. The one sentence the whole file encodes - THE DEFAULT PATH ASKS FOR NOTHING. `pick` with source `library` runs on the permission-free system picker (PHPickerViewController, PickVisualMedia), where the USER chooses what the app sees and the app never gains library access at all. Full library access exists only behind `albums` and `assets`, is asked for LAZILY the first time one of them runs, and is a different, weaker grant again for `save` (add-only). Three runners execute this file and the TS runner additionally cross-checks the shipped manifest, so the posture cannot drift away from the declaration. parity/F04-media.md §3b.",
+
+  "grades": ["none", "add", "full", "camera"],
+  "_note_grades": "none = no dialog and no grant, ever. add = the write-only photo grant (NSPhotoLibraryAddUsageDescription; nothing at all on Android 29+ under scoped storage). full = read access to the whole library (NSPhotoLibraryUsageDescription / READ_MEDIA_IMAGES+READ_MEDIA_VIDEO). camera = the capture device.",
+
+  "matrix": [
+    { "action": "pick", "source": "library", "platform": "ios", "prompts": "none",
+      "api": "PHPickerViewController", "usageKey": null,
+      "why": "PHPicker runs OUT OF PROCESS. The app receives only what the user selected and holds no library authorization, so there is no dialog and nothing to declare." },
+    { "action": "pick", "source": "library", "platform": "android", "prompts": "none",
+      "api": "ActivityResultContracts.PickVisualMedia", "androidPermission": null,
+      "why": "The Android photo picker is a system UI on API 33+, and the Play Services backport (ACTION_PICK_IMAGES) covers API 19-32. Neither needs READ_MEDIA_IMAGES." },
+    { "action": "pick", "source": "library", "platform": "web", "prompts": "none",
+      "api": "input[type=file]", "usageKey": null,
+      "why": "A file input is a user gesture, not a capability grant." },
+
+    { "action": "pick", "source": "camera", "platform": "ios", "prompts": "camera",
+      "api": "UIImagePickerController", "usageKey": "NSCameraUsageDescription",
+      "why": "Presenting the capture device is the one pick that asks. The prompt is the system camera prompt, fired by presentation, not by the module." },
+    { "action": "pick", "source": "camera", "platform": "android", "prompts": "camera",
+      "api": "ActivityResultContracts.TakePicture", "androidPermission": null,
+      "why": "Handing the shot to the system camera app through a FileProvider URI needs NO CAMERA permission - the grant belongs to the camera app. The permission is only needed by an app that opens the hardware itself, which this module deliberately does not." },
+    { "action": "pick", "source": "camera", "platform": "web", "prompts": "camera",
+      "api": "input[type=file][capture]", "usageKey": null,
+      "why": "The browser mediates the prompt." },
+
+    { "action": "pickDocument", "platform": "ios", "prompts": "none",
+      "api": "UIDocumentPickerViewController", "usageKey": null,
+      "why": "Also out of process, also selection-scoped." },
+    { "action": "pickDocument", "platform": "android", "prompts": "none",
+      "api": "ActivityResultContracts.OpenDocument", "androidPermission": null,
+      "why": "The Storage Access Framework grants per-URI, never per-app." },
+    { "action": "pickDocument", "platform": "web", "prompts": "none",
+      "api": "input[type=file] / showOpenFilePicker", "usageKey": null },
+
+    { "action": "save", "platform": "ios", "prompts": "add",
+      "api": "PHPhotoLibrary.performChanges", "usageKey": "NSPhotoLibraryAddUsageDescription",
+      "why": "Add-only is a separate, weaker authorization than read. Asking for read in order to write is the escalation this row exists to forbid." },
+    { "action": "save", "platform": "android", "prompts": "add",
+      "api": "MediaStore.Images/Video insert", "androidPermission": "WRITE_EXTERNAL_STORAGE (maxSdkVersion 28)",
+      "why": "Under scoped storage a MediaStore insert of the app's own content needs no grant at all on API 29+. The legacy grant covers the 24-28 floor and is attribute-capped so it never reaches a modern device." },
+    { "action": "save", "platform": "web", "prompts": "none",
+      "api": null, "usageKey": null, "unsupported": true,
+      "why": "A browser has no camera roll. Typed absence, never a silent download." },
+
+    { "action": "albums", "platform": "ios", "prompts": "full",
+      "api": "PHAssetCollection.fetchAssetCollections", "usageKey": "NSPhotoLibraryUsageDescription",
+      "why": "Enumerating what the user did NOT choose is exactly what full access means. Asked lazily, on the first call, never at launch." },
+    { "action": "albums", "platform": "android", "prompts": "full",
+      "api": "MediaStore BUCKET_ID query", "androidPermission": "READ_MEDIA_IMAGES + READ_MEDIA_VIDEO (READ_EXTERNAL_STORAGE below 33)" },
+    { "action": "albums", "platform": "web", "prompts": "none",
+      "api": null, "usageKey": null, "unsupported": true },
+
+    { "action": "assets", "platform": "ios", "prompts": "full",
+      "api": "PHAsset.fetchAssets", "usageKey": "NSPhotoLibraryUsageDescription" },
+    { "action": "assets", "platform": "android", "prompts": "full",
+      "api": "MediaStore query", "androidPermission": "READ_MEDIA_IMAGES + READ_MEDIA_VIDEO (READ_EXTERNAL_STORAGE below 33)" },
+    { "action": "assets", "platform": "web", "prompts": "none",
+      "api": null, "usageKey": null, "unsupported": true },
+
+    { "action": "manipulate", "platform": "ios", "prompts": "none", "api": "Core Image", "usageKey": null },
+    { "action": "manipulate", "platform": "android", "prompts": "none", "api": "Bitmap", "androidPermission": null },
+    { "action": "manipulate", "platform": "web", "prompts": "none", "api": "OffscreenCanvas", "usageKey": null },
+
+    { "action": "thumbnail", "platform": "ios", "prompts": "none", "api": "AVAssetImageGenerator", "usageKey": null },
+    { "action": "thumbnail", "platform": "android", "prompts": "none", "api": "MediaMetadataRetriever", "androidPermission": null },
+    { "action": "thumbnail", "platform": "web", "prompts": "none", "api": "video seek + canvas", "usageKey": null },
+
+    { "action": "metadata", "platform": "ios", "prompts": "none", "api": "CGImageSource / AVAsset", "usageKey": null },
+    { "action": "metadata", "platform": "android", "prompts": "none", "api": "ExifInterface / MediaMetadataRetriever", "androidPermission": null },
+    { "action": "metadata", "platform": "web", "prompts": "none", "api": "createImageBitmap / HTMLVideoElement", "usageKey": null },
+
+    { "action": "transcode", "platform": "ios", "prompts": "none", "api": "AVAssetExportSession", "usageKey": null },
+    { "action": "transcode", "platform": "android", "prompts": "none", "api": "MediaCodec + MediaMuxer", "androidPermission": null },
+    { "action": "transcode", "platform": "web", "prompts": "none", "api": null, "usageKey": null, "unsupported": true }
+  ],
+
+  "_note_escalation": "ESCALATION IS EXPLICIT AND LAZY. These are the only two actions that may raise the grade, they raise it on their FIRST call rather than at launch, and no other action may ever ask for full access on their behalf. An app that only picks therefore runs its whole life without a photo dialog.",
+  "escalation": {
+    "escalates": ["albums", "assets"],
+    "neverEscalates": ["pick", "pickDocument", "save", "manipulate", "thumbnail", "metadata", "transcode"],
+    "timing": "first-call",
+    "refusalCode": "permission_denied"
+  },
+
+  "_note_manifest": "What the shipped manifest must and must not declare. The three usage keys DO ship unconditionally: iOS traps the moment PHPhotoLibrary.requestAuthorization runs without its purpose string, so a module that CAN escalate has to carry the string or the escalation is a crash instead of a dialog (the Core/Basics/Motion NSMotionUsageDescription precedent). Shipping the string is not the same as prompting - nothing here fires a dialog until the escalating action is called - and the README says so in the words a reviewer uses. What must NOT appear is any argument that turns a pick into a full-access read: the posture is not overridable from the call site.",
+  "manifest": {
+    "infoPlist": ["NSCameraUsageDescription", "NSPhotoLibraryAddUsageDescription", "NSPhotoLibraryUsageDescription"],
+    "androidPermissions": ["READ_MEDIA_IMAGES", "READ_MEDIA_VIDEO"],
+    "forbiddenArgs": ["fullAccess", "requestAuthorization", "allAssets", "libraryAccess", "escalate"],
+    "usageStringsAreConfigTokens": true
+  },
+
+  "_note_invariants": "The promises the matrix cannot state as a row.",
+  "invariants": {
+    "safeByDefault": "The default `pick` call - no source, no arguments - is the permission-free path on every platform. Making the safe path the DEFAULT is the framework's job; a documentation note telling authors to pass an extra flag is the same rejection with extra steps.",
+    "noPromptOnLaunch": "No action in this module asks for anything during setup, boot or first navigation. Every grant is requested at the call that needs it, so an app's first launch shows no photo dialog it did not cause.",
+    "limitedLibraryIsNotAFailure": "On iOS, a user who granted limited library access and then selected nothing is not permission_denied - `assets` resolves the empty page it can honestly see. Reporting a refusal for a legitimate limited grant sends the caller into a re-prompt loop the system will not honour.",
+    "denialIsRecoverable": "permission_denied from albums/assets is recoverable:true, because the user can change it in Settings; the message names Settings rather than telling the caller to retry the same call.",
+    "saveNeverReadsBack": "`save` writes and resolves the new identifier. It never reads the library to confirm, because reading is the grant it deliberately does not hold."
+  }
+}

@@ -298,6 +298,8 @@ internal object JSECoreGlobals {
                 return JSE.number(head.toString()) ?: Double.NaN   // Swift Double(String) grammar
             }
             "isNaN" -> return (JSE.number(arg(0)) ?: Double.NaN).isNaN()
+            // The twin of isNaN, which shipped without it (jse/stdlib-001).
+            "isFinite" -> return (JSE.number(arg(0)) ?: Double.NaN).isFinite()
             "Number" -> return JSE.number(arg(0)) ?: Double.NaN
             "String" -> return JSE.string(arg(0))
             "Boolean" -> return JSE.truthy(arg(0))

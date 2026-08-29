@@ -1,0 +1,5 @@
+{
+  "_note": "THE APPS SHELF'S TRUST ANCHOR (studio-apps.md §11): the Ed25519 public key every approval record verifies against. THIS IS THE DEV KEY - its private half sits in OpenSource/Conformance/studio-apps/approval.json as a test fixture, in the open, on purpose, so both signature runners can round-trip deterministically. It approves NOTHING real: the production key is minted OFFLINE at the owner ceremony (ClosedSource/Documentation/v4-launch/registry/01-apps-shelf.md, the PUBLISH.md entitlement-signer discipline - the key never enters CI or this repository), and a release replaces this file with the production public half. Verification fails closed either way: an approval signed by any other key is refused with the reason named.",
+  "keyId": "despia-apps-dev-2026",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAjYNETtAPLWdtkwgAtS7yZY2UL5ZezDEqzgmrUviCdpI=\n-----END PUBLIC KEY-----\n"
+}

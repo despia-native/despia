@@ -8,7 +8,7 @@
 import { number, string, truthy } from "@despia/kernel";
 import type { Dict } from "@despia/kernel";
 import type { XmlNode } from "@despia/compiler/xml";
-import { ELEMENTS, type ElementApi, type ElementFactory } from "./elements.ts";
+import { ELEMENTS, SEARCHBAR_GLYPHS, type ElementApi, type ElementFactory } from "./elements.ts";
 
 export type NativeControlOption = { value: string; label: string };
 
@@ -54,8 +54,31 @@ function colorValue(raw: string): string {
     fill: "var(--dsx-fill)",
     separator: "var(--dsx-separator)",
     destructive: "var(--dsx-destructive)",
+    success: "var(--dsx-success)",
+    warning: "var(--dsx-warning)",
+    danger: "var(--dsx-danger)",
+    info: "var(--dsx-info)",
   };
   return (tokens[value] ?? value) || "var(--dsx-accent)";
+}
+
+/** The searchbar's circled-x chrome glyph, drawn as a control PART (never an `icon=`
+ * token): a chrome affordance must not depend on the cross-runtime icon corpus. */
+function clearGlyph(): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "17");
+  svg.setAttribute("height", "17");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", SEARCHBAR_GLYPHS.clear);
+  svg.appendChild(path);
+  return svg;
 }
 
 function bindTint(root: HTMLElement, node: XmlNode, api: ElementApi): void {
@@ -284,7 +307,15 @@ export const combobox: ElementFactory = (node, _ctx, api) => {
   list.id = listId;
   list.setAttribute("role", "listbox");
   list.hidden = true;
-  wrap.append(input, list);
+  // The search-type clear affordance: present only while the field is filled;
+  // clearing routes through the same change contract as typing.
+  const clear = el("button", "dsx-combobox-clear");
+  clear.type = "button";
+  clear.setAttribute("data-dsx-part", "clear");
+  clear.setAttribute("aria-label", "Clear search");
+  clear.hidden = true;
+  clear.appendChild(clearGlyph());
+  wrap.append(input, clear, list);
   bindTint(wrap, node, api);
   bindDisabled(node, api, [input]);
   if (node.attrs["placeholder"] !== undefined) {
@@ -311,12 +342,25 @@ export const combobox: ElementFactory = (node, _ctx, api) => {
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
   };
+  const reflectClear = (): void => { clear.hidden = query.length === 0; };
+  const clearValue = (): void => {
+    if (query.length === 0) return;
+    const previous = query;
+    query = "";
+    input.value = "";
+    active = -1;
+    showResults = false;
+    emitChanged(api, node.attrs["bind"], previous, "");
+    reflectClear();
+    close();
+  };
   const choose = (index: number): void => {
     const option = matches[index];
     if (option === undefined) return;
     const previous = query;
     query = option.value;
     input.value = query;
+    reflectClear();
     emitChanged(api, node.attrs["bind"], previous, query);
     // Native on:select has no intrinsic payload; arg:* remains the portable payload
     // mechanism. The useful selection fields are nevertheless exposed to web JSE.
@@ -363,7 +407,15 @@ export const combobox: ElementFactory = (node, _ctx, api) => {
     query = boundedText(value);
     if (input.value !== query) input.value = query;
     if (focused && query.length > 0) showResults = true;
+    reflectClear();
     render();
+  });
+  // The pointerdown guard keeps the input focused through the click, like the
+  // option rows; clearing returns focus for keyboard activations too.
+  clear.addEventListener("pointerdown", (event) => event.preventDefault());
+  clear.addEventListener("click", () => {
+    clearValue();
+    input.focus();
   });
   input.addEventListener("focus", () => { focused = true; showResults = true; render(); });
   input.addEventListener("blur", () => { focused = false; showResults = false; close(); });
@@ -375,10 +427,19 @@ export const combobox: ElementFactory = (node, _ctx, api) => {
     showResults = true;
     emitChanged(api, node.attrs["bind"], previous, query);
     active = -1;
+    reflectClear();
     render();
   });
   input.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") { showResults = false; close(); return; }
+    // Escape follows the combobox convention: an open list closes first; a second
+    // press (or Escape with the list closed) clears the filled field.
+    if (event.key === "Escape") {
+      const wasOpen = !list.hidden;
+      showResults = false;
+      close();
+      if (!wasOpen) clearValue();
+      return;
+    }
     if (matches.length === 0 && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
       showResults = true;
       render();
@@ -423,7 +484,6 @@ export const otp: ElementFactory = (node, _ctx, api) => {
     api.bindText(node.attrs["boxSize"], (value) => {
       const boxSize = clamp(finite(value, 48), 24, 96);
       wrap.style.setProperty("--dsx-otp-box-size", `${boxSize}px`);
-      wrap.style.setProperty("--dsx-otp-font-size", `${boxSize * 0.42}px`);
     });
   }
   bindTint(wrap, node, api);
@@ -625,33 +685,54 @@ export const NATIVE_CONTROLS_CSS = `@layer dsx-elements {
     color: var(--dsx-label);
     font-family: var(--dsx-font);
   }
-  .dsx-picker-select, .dsx-datepicker-input, .dsx-combobox-input {
+  ` +
+// Native-control wells share the field-well surface: soft recessed fill seated by
+// the xs elevation whisper, the size-rhythm radius (--dsx-radius-lg: 14px mobile /
+// 12px fine-desktop; compact wells re-pin --dsx-field-well-radius to
+// var(--dsx-radius)), one-step hover deepening on the fast duration, and a focus
+// border that animates to label ink under the ring.
+`  .dsx-picker-select, .dsx-datepicker-input, .dsx-combobox-input {
     box-sizing: border-box;
     min-width: 0;
     min-height: 44px;
-    padding: .625rem .875rem;
+    padding: var(--dsx-space-2) var(--dsx-control-padding-inline);
     border: 1px solid var(--dsx-outline-soft);
-    border-radius: var(--dsx-radius);
+    border-radius: var(--dsx-field-well-radius, var(--dsx-radius-lg));
     color: var(--dsx-label);
     accent-color: var(--dsx-control-tint);
     background: var(--dsx-surface-recessed);
-    box-shadow: inset 0 1px 1px color-mix(in srgb, var(--dsx-label) 4%, transparent),
-                0 1px 2px color-mix(in srgb, var(--dsx-label) 5%, transparent);
+    box-shadow: var(--dsx-shadow-xs);
     font: inherit;
     transition:
-      border-color var(--dsx-motion-fast) ease,
-      box-shadow var(--dsx-motion-standard) var(--dsx-ease-out),
-      background-color var(--dsx-motion-fast) ease;
+      border-color var(--dsx-dur-base) var(--dsx-ease),
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      box-shadow var(--dsx-dur-base) var(--dsx-ease);
   }
-  .dsx-picker-select:focus-visible, .dsx-wheelpicker-select:focus-visible,
-  .dsx-datepicker-input:focus-visible, .dsx-combobox-input:focus-visible,
-  .dsx-otp-input:focus-visible, .dsx-rangeslider-input:focus-visible {
+  @media (hover: hover) and (pointer: fine) {
+    .dsx-picker-select:not(:disabled):hover,
+    .dsx-datepicker-input:not(:disabled):hover,
+    .dsx-combobox-input:not(:disabled):not(:read-only):hover {
+      border-color: var(--dsx-separator);
+      background: color-mix(in srgb, var(--dsx-surface-recessed) 95%, var(--dsx-label));
+    }
+  }
+  .dsx-picker-select:not(:disabled):active {
+    background: color-mix(in srgb, var(--dsx-surface-recessed) 91%, var(--dsx-label));
+  }
+  .dsx-picker-select:focus-visible,
+  .dsx-datepicker-input:focus-visible, .dsx-combobox-input:focus-visible {
     outline: none;
+    border-color: var(--dsx-label);
+    box-shadow: var(--dsx-focus-ring), var(--dsx-shadow-xs);
+  }
+  .dsx-wheelpicker-select:focus-visible {
+    outline: none;
+    border-color: var(--dsx-control-tint);
     box-shadow: var(--dsx-focus-ring);
   }
-  .dsx-picker-select:focus-visible, .dsx-datepicker-input:focus-visible,
-  .dsx-combobox-input:focus-visible {
-    border-color: var(--dsx-control-tint);
+  .dsx-otp-input:focus-visible, .dsx-rangeslider-input:focus-visible {
+    outline: none;
+    box-shadow: none;
   }
   .dsx-picker-select[aria-invalid="true"], .dsx-datepicker-input[aria-invalid="true"],
   .dsx-combobox-input[aria-invalid="true"] {
@@ -662,27 +743,45 @@ export const NATIVE_CONTROLS_CSS = `@layer dsx-elements {
   .dsx-picker::after {
     content: "";
     position: absolute;
-    inset: calc(50% - 5px) .9rem auto auto;
+    inset-block-start: calc(50% - 5px);
+    inset-inline-end: var(--dsx-control-padding-inline);
+    inset-block-end: auto;
+    inset-inline-start: auto;
     width: 7px;
     height: 7px;
-    border: 0 solid var(--dsx-control-tint);
+    border: 0 solid var(--dsx-secondary-label);
     border-width: 0 1.5px 1.5px 0;
     transform: rotate(45deg);
     pointer-events: none;
+    transition:
+      transform var(--dsx-dur-slow) var(--dsx-ease-spring),
+      border-color var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-picker:focus-within::after {
+    border-color: var(--dsx-accent);
+    transform: rotate(225deg);
   }
   .dsx-picker-select {
     appearance: none;
     width: 100%;
     height: 44px;
     padding-inline-end: 2.25rem;
-    color: var(--dsx-control-tint);
     cursor: pointer;
   }
   .dsx-picker-select:disabled, .dsx-wheelpicker-select:disabled,
   .dsx-datepicker-input:disabled, .dsx-combobox-input:disabled,
   .dsx-otp-input:disabled, .dsx-rangeslider-input:disabled {
     cursor: not-allowed;
+  }
+  .dsx-picker-select:disabled, .dsx-wheelpicker-select:disabled,
+  .dsx-datepicker-input:disabled, .dsx-combobox-input:disabled {
     opacity: .48;
+    filter: saturate(.5);
+  }
+  .dsx-otp:has(> .dsx-otp-input:disabled),
+  .dsx-rangeslider:has(> .dsx-rangeslider-input:disabled) {
+    opacity: .48;
+    filter: saturate(.5);
   }
   .dsx-combobox-input:read-only {
     color: var(--dsx-secondary-label);
@@ -694,60 +793,123 @@ export const NATIVE_CONTROLS_CSS = `@layer dsx-elements {
     box-sizing: border-box;
     width: 100%;
     height: 168px;
-    padding: 4px;
+    padding: var(--dsx-space-1);
     overflow-y: auto;
     border: 1px solid var(--dsx-outline-soft);
-    border-radius: var(--dsx-radius);
+    border-radius: var(--dsx-radius-card);
     color: var(--dsx-label);
     accent-color: var(--dsx-control-tint);
     background: var(--dsx-surface-recessed);
     font: inherit;
     line-height: 30px;
+    transition:
+      border-color var(--dsx-dur-base) var(--dsx-ease),
+      box-shadow var(--dsx-dur-base) var(--dsx-ease);
   }
-  .dsx-wheelpicker-select > option { min-height: 30px; padding: 5px 8px; }
+  .dsx-wheelpicker-select > option {
+    min-height: 30px;
+    padding: 5px var(--dsx-space-2);
+    border-radius: var(--dsx-radius-sm);
+  }
+  .dsx-wheelpicker-select > option:checked {
+    color: var(--dsx-label);
+    background: color-mix(in srgb, var(--dsx-control-tint) 14%, transparent);
+  }
 
-  .dsx-datepicker { display: flex; align-items: center; gap: .75rem; width: 100%; }
+  .dsx-datepicker { display: flex; align-items: center; gap: var(--dsx-space-3); width: 100%; }
   .dsx-datepicker-label { flex: 1 1 auto; min-width: 0; }
-  .dsx-datepicker-input { flex: 0 1 auto; color: var(--dsx-control-tint); }
+  .dsx-datepicker-input { flex: 0 1 auto; }
+  .dsx-datepicker-input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: .72;
+    transition: opacity var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-datepicker-input:hover::-webkit-calendar-picker-indicator,
+  .dsx-datepicker-input:focus-visible::-webkit-calendar-picker-indicator { opacity: 1; }
 
-  .dsx-combobox { position: relative; display: flex; flex-direction: column; gap: 6px; width: 100%; }
-  .dsx-combobox-input { width: 100%; color: var(--dsx-label); caret-color: var(--dsx-control-tint); }
+  .dsx-combobox { position: relative; display: flex; flex-direction: column; gap: var(--dsx-space-2); width: 100%; }
+  .dsx-combobox-input { width: 100%; padding-inline-end: 2.25rem; caret-color: var(--dsx-control-tint); }
   .dsx-combobox-input::placeholder { color: var(--dsx-secondary-label); opacity: 1; }
+  ` +
+// The clear affordance: absolute at the trailing edge, shown only while filled.
+// The 0.5rem padding expands the 17px glyph to a 33px hit box; the anchor offset
+// compensates so the glyph itself stays put (the flow-layout padding/negative-
+// margin idiom, expressed against the absolute anchor).
+`  .dsx-combobox-clear {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    inset-inline-end: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0.5rem;
+    border: 0;
+    border-radius: var(--dsx-radius-full);
+    color: var(--dsx-secondary-label);
+    background: none;
+    line-height: 0;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition:
+      color var(--dsx-dur-fast) var(--dsx-ease),
+      background-color var(--dsx-dur-fast) var(--dsx-ease);
+  }
+  .dsx-combobox-clear[hidden] { display: none; }
+  .dsx-combobox-input:disabled ~ .dsx-combobox-clear { display: none; }
+  .dsx-combobox-clear:focus-visible {
+    outline: var(--dsx-focus-ring-width) solid var(--dsx-accent);
+    outline-offset: var(--dsx-focus-ring-offset);
+    z-index: 1;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .dsx-combobox-clear:hover { color: var(--dsx-label); background: var(--dsx-fill); }
+  }
   .dsx-combobox-listbox {
     position: absolute;
     z-index: 30;
-    inset: calc(100% + 6px) 0 auto 0;
+    inset: calc(100% + var(--dsx-space-1)) 0 auto 0;
     max-height: 246px;
     overflow-y: auto;
-    padding: 4px;
+    padding: var(--dsx-space-1);
     border: 1px solid var(--dsx-outline-soft);
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--dsx-surface-raised) 96%, transparent);
-    box-shadow: 0 10px 30px color-mix(in srgb, var(--dsx-label) 18%, transparent);
-    backdrop-filter: blur(20px) saturate(140%);
+    border-radius: var(--dsx-radius-card);
+    background: var(--dsx-surface-raised);
+    box-shadow: var(--dsx-shadow-3);
   }
   .dsx-combobox-listbox[hidden] { display: none; }
   .dsx-combobox-option {
     display: block;
     width: 100%;
-    min-height: 41px;
-    padding: 10px 12px;
+    min-height: var(--dsx-control-height);
+    padding: var(--dsx-space-2) var(--dsx-space-3);
     border: 0;
-    border-radius: calc(var(--dsx-radius) - 4px);
+    border-radius: var(--dsx-radius-control);
     color: var(--dsx-label);
     background: transparent;
     font: inherit;
     text-align: start;
     cursor: pointer;
+    transition:
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      color var(--dsx-dur-fast) var(--dsx-ease);
   }
-  .dsx-combobox-option:hover, .dsx-combobox-option[aria-selected="true"] {
-    color: var(--dsx-label);
-    background: var(--dsx-fill);
+  @media (hover: hover) and (pointer: fine) {
+    .dsx-combobox-option:hover { background: var(--dsx-fill); }
+  }
+  .dsx-combobox-option[aria-selected="true"] {
+    color: var(--dsx-on-accent);
+    background: var(--dsx-control-tint);
+  }
+  .dsx-combobox-option:active {
+    color: var(--dsx-on-accent);
+    background: color-mix(in srgb, var(--dsx-control-tint) 88%, var(--dsx-label));
   }
 
   .dsx-otp {
     --dsx-otp-box-size: 48px;
-    --dsx-otp-font-size: 20.16px;
+    --dsx-otp-cap-ratio: 0.42;
     position: relative;
     display: inline-flex;
     max-width: 100%;
@@ -766,7 +928,13 @@ export const NATIVE_CONTROLS_CSS = `@layer dsx-elements {
     background: transparent;
     caret-color: transparent;
   }
-  .dsx-otp-boxes { display: inline-flex; gap: 8px; pointer-events: none; }
+  .dsx-otp-boxes {
+    display: inline-flex;
+    gap: var(--dsx-space-2);
+    border-radius: var(--dsx-radius-control);
+    pointer-events: none;
+  }
+  .dsx-otp:has(> .dsx-otp-input:focus-visible) .dsx-otp-boxes { box-shadow: var(--dsx-focus-ring); }
   .dsx-otp-box {
     box-sizing: border-box;
     display: inline-grid;
@@ -775,46 +943,53 @@ export const NATIVE_CONTROLS_CSS = `@layer dsx-elements {
     height: var(--dsx-otp-box-size);
     flex: 0 0 var(--dsx-otp-box-size);
     border: 1px solid var(--dsx-outline-soft);
-    border-radius: 10px;
+    border-radius: var(--dsx-radius-control);
     color: var(--dsx-label);
-    font-size: var(--dsx-otp-font-size);
-    font-weight: 600;
+    background: var(--dsx-surface-recessed);
+    font-size: calc(var(--dsx-otp-box-size) * var(--dsx-otp-cap-ratio));
+    font-weight: var(--dsx-type-headline-weight);
     font-variant-numeric: tabular-nums;
+    transition:
+      border-color var(--dsx-dur-base) var(--dsx-ease),
+      box-shadow var(--dsx-dur-base) var(--dsx-ease),
+      background-color var(--dsx-dur-fast) var(--dsx-ease),
+      transform var(--dsx-dur-base) var(--dsx-ease-spring);
   }
-  .dsx-otp-box[data-active="true"] { border: 2px solid var(--dsx-control-tint); }
+  .dsx-otp-box[data-active="true"] {
+    transform: scale(1.04);
+    border-color: var(--dsx-control-tint);
+    box-shadow: var(--dsx-focus-ring-inset);
+  }
 
+  /* metrics ride the DENSITY PLANE's slider tokens (theme.ts): the desktop default
+     and a density= pin resolve the same plane. min-width is the UA range intrinsic
+     (~129px = 8rem) so a non-stretch container cannot collapse the pair to 0 (W9). */
   .dsx-rangeslider {
-    --dsx-range-track-size: 4px;
-    --dsx-range-thumb-size: 22px;
+    --dsx-range-track-size: var(--dsx-slider-track-size);
+    --dsx-range-thumb-size: var(--dsx-slider-thumb-size);
     --dsx-range-track-color: color-mix(in srgb, var(--dsx-secondary-label) 24%, var(--dsx-surface-recessed));
     --dsx-range-fill-color: var(--dsx-control-tint);
     --dsx-range-thumb-color: var(--dsx-control-knob);
-    --dsx-range-thumb-shadow-color: var(--dsx-control-knob-shadow);
     position: relative;
     display: block;
     width: 100%;
-    height: 44px;
+    min-width: 8rem;
+    height: var(--dsx-slider-box-height);
     touch-action: none;
   }
   .dsx-rangeslider-track, .dsx-rangeslider-selected {
     position: absolute;
     inset: 50% calc(var(--dsx-range-thumb-size) / 2) auto;
     height: var(--dsx-range-track-size);
-    border-radius: 999px;
+    border-radius: var(--dsx-radius-full);
     transform: translateY(-50%);
     pointer-events: none;
   }
-  .dsx-rangeslider-track {
-    background: var(--dsx-range-track-color);
-    box-shadow:
-      inset 0 1px 1px color-mix(in srgb, var(--dsx-label) 11%, transparent),
-      0 1px 0 color-mix(in srgb, var(--dsx-control-knob) 38%, transparent);
-  }
+  .dsx-rangeslider-track { background: var(--dsx-range-track-color); }
   .dsx-rangeslider-selected {
     left: max(calc(var(--dsx-range-thumb-size) / 2), var(--dsx-range-low));
     right: max(calc(var(--dsx-range-thumb-size) / 2), calc(100% - var(--dsx-range-high)));
     background: var(--dsx-range-fill-color);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--dsx-control-knob) 26%, transparent);
   }
   [dir="rtl"] .dsx-rangeslider-selected {
     left: max(calc(var(--dsx-range-thumb-size) / 2), calc(100% - var(--dsx-range-high)));
@@ -825,7 +1000,7 @@ export const NATIVE_CONTROLS_CSS = `@layer dsx-elements {
     position: absolute;
     inset: 0;
     width: 100%;
-    height: 44px;
+    height: 100%;
     margin: 0;
     border: 0;
     pointer-events: none;
@@ -833,99 +1008,83 @@ export const NATIVE_CONTROLS_CSS = `@layer dsx-elements {
   }
   .dsx-rangeslider-input::-webkit-slider-runnable-track { height: var(--dsx-range-track-size); background: transparent; }
   .dsx-rangeslider-input::-moz-range-track { height: var(--dsx-range-track-size); background: transparent; }
+  /* 1.15x while grabbed (fast in), spring back on release. */
   .dsx-rangeslider-input::-webkit-slider-thumb {
     appearance: none;
     box-sizing: border-box;
     width: var(--dsx-range-thumb-size);
     height: var(--dsx-range-thumb-size);
     margin-top: calc((var(--dsx-range-track-size) - var(--dsx-range-thumb-size)) / 2);
-    border: var(--dsx-hairline) solid color-mix(in srgb, var(--dsx-control-tint) 48%, var(--dsx-outline-soft));
-    border-radius: 50%;
+    border: 0;
+    border-radius: var(--dsx-radius-full);
     pointer-events: auto;
-    background: linear-gradient(
-      165deg,
-      var(--dsx-range-thumb-color),
-      var(--dsx-range-thumb-shadow-color)
-    );
-    box-shadow:
-      inset 0 1px 0 var(--dsx-inner-highlight),
-      0 .5px 3px color-mix(in srgb, var(--dsx-label) 18%, transparent),
-      0 4px 10px color-mix(in srgb, var(--dsx-label) 13%, transparent);
+    background: var(--dsx-range-thumb-color);
+    box-shadow: var(--dsx-shadow-2);
     transition:
-      box-shadow var(--dsx-motion-standard) var(--dsx-ease-out),
-      transform var(--dsx-motion-fast) var(--dsx-ease-out);
+      transform var(--dsx-dur-base) var(--dsx-ease-spring),
+      box-shadow var(--dsx-dur-fast) var(--dsx-ease);
   }
   .dsx-rangeslider-input::-moz-range-thumb {
     box-sizing: border-box;
     width: var(--dsx-range-thumb-size);
     height: var(--dsx-range-thumb-size);
-    border: var(--dsx-hairline) solid color-mix(in srgb, var(--dsx-control-tint) 48%, var(--dsx-outline-soft));
-    border-radius: 50%;
+    border: 0;
+    border-radius: var(--dsx-radius-full);
     pointer-events: auto;
-    background: linear-gradient(
-      165deg,
-      var(--dsx-range-thumb-color),
-      var(--dsx-range-thumb-shadow-color)
-    );
-    box-shadow:
-      inset 0 1px 0 var(--dsx-inner-highlight),
-      0 .5px 3px color-mix(in srgb, var(--dsx-label) 18%, transparent),
-      0 4px 10px color-mix(in srgb, var(--dsx-label) 13%, transparent);
+    background: var(--dsx-range-thumb-color);
+    box-shadow: var(--dsx-shadow-2);
     transition:
-      box-shadow var(--dsx-motion-standard) var(--dsx-ease-out),
-      transform var(--dsx-motion-fast) var(--dsx-ease-out);
+      transform var(--dsx-dur-base) var(--dsx-ease-spring),
+      box-shadow var(--dsx-dur-fast) var(--dsx-ease);
   }
-  .dsx-rangeslider-input:focus-visible::-webkit-slider-thumb,
-  .dsx-rangeslider-input:focus-visible::-moz-range-thumb {
-    box-shadow:
-      inset 0 1px 0 var(--dsx-inner-highlight),
-      0 .5px 3px color-mix(in srgb, var(--dsx-label) 18%, transparent),
-      0 0 0 3px var(--dsx-control-tint);
+  /* pseudo-element thumbs keep the box-shadow ring at the shared width (the one
+     documented exception to the outline recipe) */
+  .dsx-rangeslider-input:focus-visible::-webkit-slider-thumb { box-shadow: var(--dsx-focus-ring), var(--dsx-shadow-2); }
+  .dsx-rangeslider-input:focus-visible::-moz-range-thumb { box-shadow: var(--dsx-focus-ring), var(--dsx-shadow-2); }
+  @media (hover: hover) and (pointer: fine) {
+    .dsx-rangeslider-input:not(:disabled):hover::-webkit-slider-thumb { transform: scale(1.05); }
+    .dsx-rangeslider-input:not(:disabled):hover::-moz-range-thumb { transform: scale(1.05); }
   }
-  .dsx-rangeslider-input:not(:disabled):active::-webkit-slider-thumb,
-  .dsx-rangeslider-input:not(:disabled):active::-moz-range-thumb { transform: scale(1.08); }
+  .dsx-rangeslider-input:not(:disabled):active::-webkit-slider-thumb {
+    transform: scale(1.15);
+    box-shadow: var(--dsx-shadow-3);
+    transition-duration: var(--dsx-dur-fast);
+    transition-timing-function: var(--dsx-ease);
+  }
+  .dsx-rangeslider-input:not(:disabled):active::-moz-range-thumb {
+    transform: scale(1.15);
+    box-shadow: var(--dsx-shadow-3);
+    transition-duration: var(--dsx-dur-fast);
+    transition-timing-function: var(--dsx-ease);
+  }
   .dsx-rangeslider-low { z-index: 2; }
   .dsx-rangeslider-high { z-index: 3; }
   .dsx-rangeslider-low:focus, .dsx-rangeslider-low:hover { z-index: 4; }
-  @media (min-width: 64rem) and (hover: hover) and (pointer: fine) {
-    .dsx-rangeslider {
-      --dsx-range-track-size: 3px;
-      --dsx-range-thumb-size: 18px;
-      height: 32px;
-    }
-    .dsx-rangeslider-input { height: 32px; }
-  }
   @media (pointer: coarse) {
-    .dsx-rangeslider {
-      --dsx-range-track-size: 4px;
-      --dsx-range-thumb-size: 22px;
-      height: 44px;
-    }
-    .dsx-rangeslider-input { height: 44px; }
+    .dsx-combobox-option { min-height: 44px; }
+    .dsx-wheelpicker-select { height: 230px; line-height: 34px; }
+    .dsx-wheelpicker-select > option { min-height: 44px; padding-block: var(--dsx-space-1); }
   }
 
   @media (max-width: 479px) {
-    .dsx-datepicker { align-items: stretch; flex-direction: column; gap: .375rem; }
+    .dsx-datepicker { align-items: stretch; flex-direction: column; gap: var(--dsx-space-2); }
     .dsx-datepicker-input { width: 100%; }
   }
   @media (min-width: 64rem) and (hover: hover) and (pointer: fine) {
     .dsx-picker-select, .dsx-datepicker-input, .dsx-combobox-input {
       min-height: 38px;
-      padding: .4375rem .75rem;
-      font-size: .9375rem;
-      line-height: 1.2;
+      padding: var(--dsx-space-1) var(--dsx-control-padding-inline);
+      font-size: var(--dsx-type-body-size);
+      line-height: var(--dsx-type-title2-leading);
     }
     .dsx-picker-select { height: 38px; }
-    .dsx-picker-select:not(:disabled):not(:focus-visible):hover,
-    .dsx-datepicker-input:not(:disabled):not(:focus-visible):hover,
-    .dsx-combobox-input:not(:disabled):not(:focus-visible):hover {
-      border-color: color-mix(in srgb, var(--dsx-label) 24%, var(--dsx-separator));
-      background: color-mix(in srgb, var(--dsx-surface-recessed) 94%, var(--dsx-label));
-    }
   }
   @media (prefers-reduced-motion: reduce) {
-    .dsx-picker-select, .dsx-datepicker-input, .dsx-combobox-input { transition: none; }
-    .dsx-rangeslider-input::-webkit-slider-thumb,
+    .dsx-picker-select, .dsx-datepicker-input, .dsx-combobox-input,
+    .dsx-wheelpicker-select, .dsx-combobox-option, .dsx-combobox-clear,
+    .dsx-otp-box, .dsx-picker::after,
+    .dsx-datepicker-input::-webkit-calendar-picker-indicator { transition: none; }
+    .dsx-rangeslider-input::-webkit-slider-thumb { transition: none; }
     .dsx-rangeslider-input::-moz-range-thumb { transition: none; }
     .dsx-wheelpicker-select { scroll-behavior: auto; }
   }
@@ -960,7 +1119,7 @@ export const NATIVE_CONTROLS_CSS = `@layer dsx-elements {
       forced-color-adjust: none;
       background: Highlight;
     }
-    .dsx-rangeslider-input::-webkit-slider-thumb { border-color: Highlight; background: Canvas; }
-    .dsx-rangeslider-input::-moz-range-thumb { border-color: Highlight; background: Canvas; }
+    .dsx-rangeslider-input::-webkit-slider-thumb { border: 1px solid Highlight; background: Canvas; }
+    .dsx-rangeslider-input::-moz-range-thumb { border: 1px solid Highlight; background: Canvas; }
   }
 }`;

@@ -1,0 +1,1049 @@
+{
+  "version": 1,
+  "_schema": "despia-style-overrides-v1",
+  "_note": [
+    "THE STYLE-OVERRIDE PLANE. A component's ATTRIBUTES are its data contract; its OVERRIDES",
+    "are its style contract - the typed knobs a consumer may turn on ONE INSTANCE without",
+    "forking the component or reaching global CSS. A component declares them in its head",
+    "(<override as=\"radius\" type=\"length\" default=\"12\"/>), a consumer sets them on the",
+    "usage tag (override:radius=\"6\", override:radius=\"{{ expr }}\"), and the component's own",
+    "markup spends them wherever it chooses (radius=\"{{ dsx.override.radius }}\"), at any",
+    "depth. Nothing auto-applies: declaring an override does nothing until the component's",
+    "markup reads it, which is what keeps the contract enumerable and the pixels owned by the",
+    "component author.",
+    "",
+    "Three pure laws live here, and every renderer implements all three identically:",
+    "",
+    "  split   - which usage-site attributes ARE overrides. `override:<name>` where <name> is",
+    "            an identifier (dsx.override.<name> must be a legal member read). The matched",
+    "            key leaves the props plane entirely. `on:` handlers are never overrides, a",
+    "            bare `override:` or a non-identifier tail is NOT an override (it stays an",
+    "            ordinary - and lint-flagged - attribute), and the platform-suffix fold runs",
+    "            FIRST, so override:radius:ios reaches the split as override:radius on iOS and",
+    "            not at all elsewhere. Names on the `reserved` list below can therefore never",
+    "            be override names: the fold consumes them as platform tags.",
+    "",
+    "  resolve - what a declared override is WORTH given a raw consumer value. Fail-open,",
+    "            never throwing: unset, empty and invalid all fall back to the declaration's",
+    "            default, itself coerced by the same rule; a default that fails its own type",
+    "            resolves null. Types are the style catalog's control vocabulary plus `css`:",
+    "            number (strict full-string numeric, clamped to min/max), length (numeric ->",
+    "            number + clamp, else a unit/keyword/functional string), color (#RGB/#RGBA/",
+    "            #RRGGBB/#AARRGGBB hex, rgb()/rgba()/hsl()/hsla(), or a bare token name),",
+    "            enum (exactly one of options), multiEnum (whitespace-separated members of",
+    "            options, normalized to single spaces), boolean ('true'/'false' or a real",
+    "            boolean), gradient/ratio/text (scalar string without ';', '{', '}'), css (a",
+    "            raw declaration list, verbatim after outer trim). Unknown declared types",
+    "            resolve as text - lint owns rejecting the declaration.",
+    "",
+    "  read    - what dsx.override.<name> RETURNS inside the instance. Resolution chain:",
+    "            the instance item scope's __overrides dict (the tag door), then the",
+    "            store's dsx.override var (the mount/update door), then the declaration",
+    "            default. Every read passes through resolve, so a live write of garbage",
+    "            degrades to the default instead of poisoning the pixels. An UNDECLARED name",
+    "            reads null (contract-first; lint errors at the usage site). The whole-plane",
+    "            read `dsx.override` returns the declared contract resolved - never raw,",
+    "            never undeclared keys.",
+    "",
+    "Runners - three implementations, all three execute this file:",
+    "  TS     - OpenSource/Web/packages/kernel/test/style-overrides-conformance.test.ts (per-PR)",
+    "  Kotlin - :core StyleOverridesConformanceTest (per-PR, gradle, SDK-free)",
+    "  Swift  - StyleOverridesConformance (per-PR via swift_conformance_run_test.rb on the",
+    "           linux lane, and RecordMain.swift on the record lane)"
+  ],
+  "identifier": "^[A-Za-z_][A-Za-z0-9_]*$",
+  "reserved": [
+    "ios",
+    "android",
+    "web",
+    "watch",
+    "wear",
+    "macos",
+    "windows",
+    "linux",
+    "native",
+    "desktop"
+  ],
+  "split": [
+    {
+      "name": "a plain attribute stays a prop",
+      "attrs": {
+        "label": "Hello"
+      },
+      "expect": {
+        "overrides": {},
+        "props": {
+          "label": "Hello"
+        }
+      }
+    },
+    {
+      "name": "override:<name> leaves the props plane",
+      "attrs": {
+        "label": "Hello",
+        "override:radius": "6"
+      },
+      "expect": {
+        "overrides": {
+          "radius": "6"
+        },
+        "props": {
+          "label": "Hello"
+        }
+      }
+    },
+    {
+      "name": "several overrides split independently",
+      "attrs": {
+        "override:radius": "6",
+        "override:tint": "accent",
+        "title": "x"
+      },
+      "expect": {
+        "overrides": {
+          "radius": "6",
+          "tint": "accent"
+        },
+        "props": {
+          "title": "x"
+        }
+      }
+    },
+    {
+      "name": "an on: handler is never an override",
+      "attrs": {
+        "on:tap": "dsx.event('tap')",
+        "override:radius": "6"
+      },
+      "expect": {
+        "overrides": {
+          "radius": "6"
+        },
+        "props": {}
+      }
+    },
+    {
+      "name": "a bound override value rides through untouched",
+      "attrs": {
+        "override:radius": "{{ dsx.variable.r }}"
+      },
+      "expect": {
+        "overrides": {
+          "radius": "{{ dsx.variable.r }}"
+        },
+        "props": {}
+      }
+    },
+    {
+      "name": "bare override: with no name is not an override",
+      "attrs": {
+        "override:": "6"
+      },
+      "expect": {
+        "overrides": {},
+        "props": {
+          "override:": "6"
+        }
+      }
+    },
+    {
+      "name": "a non-identifier tail is not an override",
+      "attrs": {
+        "override:a.b": "6",
+        "override:a:b": "7",
+        "override:9lives": "8"
+      },
+      "expect": {
+        "overrides": {},
+        "props": {
+          "override:a.b": "6",
+          "override:a:b": "7",
+          "override:9lives": "8"
+        }
+      }
+    },
+    {
+      "name": "underscore-led identifiers are legal override names",
+      "attrs": {
+        "override:_edge": "1"
+      },
+      "expect": {
+        "overrides": {
+          "_edge": "1"
+        },
+        "props": {}
+      }
+    },
+    {
+      "name": "the word override alone is an ordinary attribute",
+      "attrs": {
+        "override": "yes"
+      },
+      "expect": {
+        "overrides": {},
+        "props": {
+          "override": "yes"
+        }
+      }
+    },
+    {
+      "name": "empty attrs split to empty planes",
+      "attrs": {},
+      "expect": {
+        "overrides": {},
+        "props": {}
+      }
+    }
+  ],
+  "resolve": [
+    {
+      "name": "text: value passes through",
+      "decl": {
+        "type": "text"
+      },
+      "raw": "hello",
+      "expect": "hello"
+    },
+    {
+      "name": "text: unset falls to default",
+      "decl": {
+        "type": "text",
+        "default": "hi"
+      },
+      "expect": "hi"
+    },
+    {
+      "name": "text: empty string falls to default",
+      "decl": {
+        "type": "text",
+        "default": "hi"
+      },
+      "raw": "",
+      "expect": "hi"
+    },
+    {
+      "name": "text: whitespace-only raw is empty and falls to default",
+      "decl": {
+        "type": "text",
+        "default": "hi"
+      },
+      "raw": "   ",
+      "expect": "hi"
+    },
+    {
+      "name": "text: unset with no default is null",
+      "decl": {
+        "type": "text"
+      },
+      "expect": null
+    },
+    {
+      "name": "text: a number coerces to its string",
+      "decl": {
+        "type": "text"
+      },
+      "raw": 5,
+      "expect": "5"
+    },
+    {
+      "name": "text: outer whitespace trims",
+      "decl": {
+        "type": "text"
+      },
+      "raw": "  pad  ",
+      "expect": "pad"
+    },
+    {
+      "name": "missing type reads as text",
+      "decl": {},
+      "raw": "free",
+      "expect": "free"
+    },
+    {
+      "name": "unknown type reads as text (lint owns the declaration)",
+      "decl": {
+        "type": "mystery"
+      },
+      "raw": "v",
+      "expect": "v"
+    },
+    {
+      "name": "number: numeric string coerces to a number",
+      "decl": {
+        "type": "number"
+      },
+      "raw": "6",
+      "expect": 6
+    },
+    {
+      "name": "number: a real number passes",
+      "decl": {
+        "type": "number"
+      },
+      "raw": 6.5,
+      "expect": 6.5
+    },
+    {
+      "name": "number: decimals parse",
+      "decl": {
+        "type": "number"
+      },
+      "raw": "12.5",
+      "expect": 12.5
+    },
+    {
+      "name": "number: negatives parse",
+      "decl": {
+        "type": "number"
+      },
+      "raw": "-4",
+      "expect": -4
+    },
+    {
+      "name": "number: a leading dot parses",
+      "decl": {
+        "type": "number"
+      },
+      "raw": ".5",
+      "expect": 0.5
+    },
+    {
+      "name": "number: a unit suffix is NOT a number",
+      "decl": {
+        "type": "number",
+        "default": "3"
+      },
+      "raw": "6px",
+      "expect": 3
+    },
+    {
+      "name": "number: garbage falls to default",
+      "decl": {
+        "type": "number",
+        "default": "3"
+      },
+      "raw": "abc",
+      "expect": 3
+    },
+    {
+      "name": "number: a boolean is not a number",
+      "decl": {
+        "type": "number",
+        "default": "3"
+      },
+      "raw": true,
+      "expect": 3
+    },
+    {
+      "name": "number: min clamps",
+      "decl": {
+        "type": "number",
+        "min": 0
+      },
+      "raw": "-2",
+      "expect": 0
+    },
+    {
+      "name": "number: max clamps",
+      "decl": {
+        "type": "number",
+        "max": 48
+      },
+      "raw": "96",
+      "expect": 48
+    },
+    {
+      "name": "number: in-range value is untouched",
+      "decl": {
+        "type": "number",
+        "min": 0,
+        "max": 48
+      },
+      "raw": "12",
+      "expect": 12
+    },
+    {
+      "name": "number: the default itself coerces",
+      "decl": {
+        "type": "number",
+        "default": "12"
+      },
+      "expect": 12
+    },
+    {
+      "name": "number: an invalid default resolves null",
+      "decl": {
+        "type": "number",
+        "default": "abc"
+      },
+      "expect": null
+    },
+    {
+      "name": "number: the default clamps too",
+      "decl": {
+        "type": "number",
+        "default": "96",
+        "max": 48
+      },
+      "expect": 48
+    },
+    {
+      "name": "number: zero survives as zero, not as unset",
+      "decl": {
+        "type": "number",
+        "default": "3"
+      },
+      "raw": "0",
+      "expect": 0
+    },
+    {
+      "name": "length: numeric coerces to a number",
+      "decl": {
+        "type": "length"
+      },
+      "raw": "6",
+      "expect": 6
+    },
+    {
+      "name": "length: numeric clamps to min/max",
+      "decl": {
+        "type": "length",
+        "min": 4,
+        "max": 20
+      },
+      "raw": "48",
+      "expect": 20
+    },
+    {
+      "name": "length: a unit string passes through",
+      "decl": {
+        "type": "length"
+      },
+      "raw": "12px",
+      "expect": "12px"
+    },
+    {
+      "name": "length: a keyword passes through",
+      "decl": {
+        "type": "length"
+      },
+      "raw": "fit",
+      "expect": "fit"
+    },
+    {
+      "name": "length: a functional value passes through",
+      "decl": {
+        "type": "length"
+      },
+      "raw": "calc(100% - 8px)",
+      "expect": "calc(100% - 8px)"
+    },
+    {
+      "name": "length: a declaration list is not a length",
+      "decl": {
+        "type": "length",
+        "default": "8"
+      },
+      "raw": "radius: 6; padding: 2",
+      "expect": 8
+    },
+    {
+      "name": "length: empty falls to default and the default coerces",
+      "decl": {
+        "type": "length",
+        "default": "12"
+      },
+      "raw": "",
+      "expect": 12
+    },
+    {
+      "name": "color: six-digit hex passes",
+      "decl": {
+        "type": "color"
+      },
+      "raw": "#6C5CE7",
+      "expect": "#6C5CE7"
+    },
+    {
+      "name": "color: three-digit hex passes",
+      "decl": {
+        "type": "color"
+      },
+      "raw": "#FFF",
+      "expect": "#FFF"
+    },
+    {
+      "name": "color: eight-digit hex passes",
+      "decl": {
+        "type": "color"
+      },
+      "raw": "#806C5CE7",
+      "expect": "#806C5CE7"
+    },
+    {
+      "name": "color: four-digit hex passes",
+      "decl": {
+        "type": "color"
+      },
+      "raw": "#8FFF",
+      "expect": "#8FFF"
+    },
+    {
+      "name": "color: five-digit hex is invalid",
+      "decl": {
+        "type": "color",
+        "default": "accent"
+      },
+      "raw": "#12345",
+      "expect": "accent"
+    },
+    {
+      "name": "color: non-hex garbage after # is invalid",
+      "decl": {
+        "type": "color",
+        "default": "accent"
+      },
+      "raw": "#GGHHII",
+      "expect": "accent"
+    },
+    {
+      "name": "color: rgb() passes",
+      "decl": {
+        "type": "color"
+      },
+      "raw": "rgb(10, 20, 30)",
+      "expect": "rgb(10, 20, 30)"
+    },
+    {
+      "name": "color: functional value spanning a newline passes (prefix semantics, all three runners)",
+      "decl": {
+        "type": "color"
+      },
+      "raw": "rgb(10,\n 20, 30)",
+      "expect": "rgb(10,\n 20, 30)"
+    },
+    {
+      "name": "color: rgba() passes",
+      "decl": {
+        "type": "color"
+      },
+      "raw": "rgba(0,0,0,0.4)",
+      "expect": "rgba(0,0,0,0.4)"
+    },
+    {
+      "name": "color: hsl() passes",
+      "decl": {
+        "type": "color"
+      },
+      "raw": "hsl(200, 50%, 40%)",
+      "expect": "hsl(200, 50%, 40%)"
+    },
+    {
+      "name": "color: a bare token name passes (the semantic vocabulary)",
+      "decl": {
+        "type": "color"
+      },
+      "raw": "secondaryGroupedBackground",
+      "expect": "secondaryGroupedBackground"
+    },
+    {
+      "name": "color: a token name may not carry digits or spaces",
+      "decl": {
+        "type": "color",
+        "default": "accent"
+      },
+      "raw": "12px",
+      "expect": "accent"
+    },
+    {
+      "name": "color: an unbalanced functional form is invalid",
+      "decl": {
+        "type": "color",
+        "default": "accent"
+      },
+      "raw": "rgb(1, 2",
+      "expect": "accent"
+    },
+    {
+      "name": "enum: a member passes",
+      "decl": {
+        "type": "enum",
+        "options": "raised cut flat"
+      },
+      "raw": "cut",
+      "expect": "cut"
+    },
+    {
+      "name": "enum: a non-member falls to default",
+      "decl": {
+        "type": "enum",
+        "options": "raised cut flat",
+        "default": "raised"
+      },
+      "raw": "fancy",
+      "expect": "raised"
+    },
+    {
+      "name": "enum: matching is case-sensitive",
+      "decl": {
+        "type": "enum",
+        "options": "raised cut",
+        "default": "raised"
+      },
+      "raw": "CUT",
+      "expect": "raised"
+    },
+    {
+      "name": "enum: unset falls to default",
+      "decl": {
+        "type": "enum",
+        "options": "raised cut",
+        "default": "cut"
+      },
+      "expect": "cut"
+    },
+    {
+      "name": "enum: no options means nothing matches",
+      "decl": {
+        "type": "enum",
+        "default": "x"
+      },
+      "raw": "x",
+      "expect": null
+    },
+    {
+      "name": "multiEnum: members normalize to single spaces",
+      "decl": {
+        "type": "multiEnum",
+        "options": "bold italic underline"
+      },
+      "raw": "bold   underline",
+      "expect": "bold underline"
+    },
+    {
+      "name": "multiEnum: one bad token rejects the whole value",
+      "decl": {
+        "type": "multiEnum",
+        "options": "bold italic",
+        "default": "bold"
+      },
+      "raw": "bold shiny",
+      "expect": "bold"
+    },
+    {
+      "name": "multiEnum: a single member passes",
+      "decl": {
+        "type": "multiEnum",
+        "options": "bold italic"
+      },
+      "raw": "italic",
+      "expect": "italic"
+    },
+    {
+      "name": "boolean: the string true is true",
+      "decl": {
+        "type": "boolean"
+      },
+      "raw": "true",
+      "expect": true
+    },
+    {
+      "name": "boolean: the string false is false",
+      "decl": {
+        "type": "boolean"
+      },
+      "raw": "false",
+      "expect": false
+    },
+    {
+      "name": "boolean: a real boolean passes",
+      "decl": {
+        "type": "boolean"
+      },
+      "raw": true,
+      "expect": true
+    },
+    {
+      "name": "boolean: case matters - TRUE is invalid",
+      "decl": {
+        "type": "boolean",
+        "default": "false"
+      },
+      "raw": "TRUE",
+      "expect": false
+    },
+    {
+      "name": "boolean: a number is not a boolean",
+      "decl": {
+        "type": "boolean",
+        "default": "true"
+      },
+      "raw": 1,
+      "expect": true
+    },
+    {
+      "name": "boolean: unset falls to the coerced default",
+      "decl": {
+        "type": "boolean",
+        "default": "true"
+      },
+      "expect": true
+    },
+    {
+      "name": "ratio: a ratio string passes",
+      "decl": {
+        "type": "ratio"
+      },
+      "raw": "16:9",
+      "expect": "16:9"
+    },
+    {
+      "name": "gradient: a gradient string passes",
+      "decl": {
+        "type": "gradient"
+      },
+      "raw": "linear-gradient(180deg, #000, #fff)",
+      "expect": "linear-gradient(180deg, #000, #fff)"
+    },
+    {
+      "name": "css: a declaration list passes verbatim after outer trim",
+      "decl": {
+        "type": "css"
+      },
+      "raw": " border-radius: 6px; background: red ",
+      "expect": "border-radius: 6px; background: red"
+    },
+    {
+      "name": "css: braces are refused (a declaration list, never a rule)",
+      "decl": {
+        "type": "css",
+        "default": "opacity: 1"
+      },
+      "raw": ".x { color: red }",
+      "expect": "opacity: 1"
+    },
+    {
+      "name": "css: empty falls to default",
+      "decl": {
+        "type": "css",
+        "default": "opacity: 1"
+      },
+      "raw": "",
+      "expect": "opacity: 1"
+    },
+    {
+      "name": "css: unset with no default is null",
+      "decl": {
+        "type": "css"
+      },
+      "expect": null
+    }
+  ],
+  "read": [
+    {
+      "name": "an unset override reads its coerced default",
+      "declarations": [
+        {
+          "as": "radius",
+          "type": "length",
+          "default": "12"
+        }
+      ],
+      "overrides": {},
+      "expect": [
+        {
+          "expr": "dsx.override.radius",
+          "value": 12
+        }
+      ]
+    },
+    {
+      "name": "a consumer value beats the default and is coerced",
+      "declarations": [
+        {
+          "as": "radius",
+          "type": "length",
+          "default": "12"
+        }
+      ],
+      "overrides": {
+        "radius": "6"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.radius",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "name": "an invalid consumer value degrades to the default",
+      "declarations": [
+        {
+          "as": "radius",
+          "type": "number",
+          "default": "12",
+          "min": 0,
+          "max": 48
+        }
+      ],
+      "overrides": {
+        "radius": "huge"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.radius",
+          "value": 12
+        }
+      ]
+    },
+    {
+      "name": "an out-of-range consumer value clamps",
+      "declarations": [
+        {
+          "as": "radius",
+          "type": "number",
+          "default": "12",
+          "min": 0,
+          "max": 48
+        }
+      ],
+      "overrides": {
+        "radius": "96"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.radius",
+          "value": 48
+        }
+      ]
+    },
+    {
+      "name": "an undeclared name reads null",
+      "declarations": [
+        {
+          "as": "radius",
+          "type": "length",
+          "default": "12"
+        }
+      ],
+      "overrides": {
+        "ghost": "6"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.ghost",
+          "value": null
+        }
+      ]
+    },
+    {
+      "name": "overrides and attributes are separate planes",
+      "declarations": [
+        {
+          "as": "tint",
+          "type": "color",
+          "default": "accent"
+        }
+      ],
+      "overrides": {
+        "tint": "#FF0000"
+      },
+      "attributes": {
+        "tint": "data-plane"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.tint",
+          "value": "#FF0000"
+        },
+        {
+          "expr": "dsx.attribute.tint",
+          "value": "data-plane"
+        }
+      ]
+    },
+    {
+      "name": "the whole-plane read returns the resolved declared contract",
+      "declarations": [
+        {
+          "as": "radius",
+          "type": "length",
+          "default": "12"
+        },
+        {
+          "as": "tint",
+          "type": "color",
+          "default": "accent"
+        }
+      ],
+      "overrides": {
+        "radius": "6",
+        "ghost": "x"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.radius",
+          "value": 6
+        },
+        {
+          "expr": "dsx.override.tint",
+          "value": "accent"
+        }
+      ]
+    },
+    {
+      "name": "a boolean override is a real boolean in expressions",
+      "declarations": [
+        {
+          "as": "glass",
+          "type": "boolean",
+          "default": "true"
+        }
+      ],
+      "overrides": {
+        "glass": "false"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.glass",
+          "value": false
+        },
+        {
+          "expr": "dsx.override.glass ? 'on' : 'off'",
+          "value": "off"
+        }
+      ]
+    },
+    {
+      "name": "a number override does arithmetic",
+      "declarations": [
+        {
+          "as": "pad",
+          "type": "number",
+          "default": "8"
+        }
+      ],
+      "overrides": {
+        "pad": "10"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.pad + 2",
+          "value": 12
+        }
+      ]
+    },
+    {
+      "name": "an enum override honors its options",
+      "declarations": [
+        {
+          "as": "surface",
+          "type": "enum",
+          "options": "raised cut flat",
+          "default": "raised"
+        }
+      ],
+      "overrides": {
+        "surface": "velvet"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.surface",
+          "value": "raised"
+        }
+      ]
+    },
+    {
+      "name": "a css override arrives verbatim",
+      "declarations": [
+        {
+          "as": "extra",
+          "type": "css"
+        }
+      ],
+      "overrides": {
+        "extra": "border-radius: 6px; opacity: 0.9"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.extra",
+          "value": "border-radius: 6px; opacity: 0.9"
+        }
+      ]
+    },
+    {
+      "name": "an empty consumer value means unset, so the default answers",
+      "declarations": [
+        {
+          "as": "tint",
+          "type": "color",
+          "default": "accent"
+        }
+      ],
+      "overrides": {
+        "tint": ""
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.tint",
+          "value": "accent"
+        }
+      ]
+    },
+    {
+      "name": "the store var door answers when the item scope has no dict",
+      "declarations": [
+        {
+          "as": "radius",
+          "type": "length",
+          "default": "12"
+        }
+      ],
+      "storeOverrides": {
+        "radius": "20"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.radius",
+          "value": 20
+        }
+      ]
+    },
+    {
+      "name": "the item scope beats the store var (the tag door wins)",
+      "declarations": [
+        {
+          "as": "radius",
+          "type": "length",
+          "default": "12"
+        }
+      ],
+      "overrides": {
+        "radius": "6"
+      },
+      "storeOverrides": {
+        "radius": "20"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.radius",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "name": "no declarations means every read is null",
+      "declarations": [],
+      "overrides": {
+        "radius": "6"
+      },
+      "expect": [
+        {
+          "expr": "dsx.override.radius",
+          "value": null
+        }
+      ]
+    }
+  ]
+}

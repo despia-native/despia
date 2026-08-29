@@ -1,0 +1,73 @@
+{
+  "_format": "despia:conformance-spend@1",
+  "_note": "The spend plane's platform-neutral laws (architecture/proposals/cost-guardrails.md). Three sections: `windows` pins the window arithmetic (hour/day epoch-aligned, month = UTC calendar month — two isolates must agree which window a unit belongs to, and a monthly ceiling must reset when a human expects it to); `resolution` pins which budget meters which kind (exact match everywhere except egress, which uses the egress gate's own suffix rule so allowlist and meter can never disagree — and the lookalike-suffix attack the gate refuses, the meter must refuse too); `verdicts` pins the ceiling behaviour itself (counting under `unbounded`, the 80% warning fired once, the trip strictly past `max`, the roll re-opening the breaker). Executed by OpenSource/Web/packages/server/test/spend.test.ts; the plane runs on the one server runtime, so this corpus has a single runner by design (the same standing as ai/mcp/server-transport.json).",
+  "windows": [
+    { "name": "hour aligns to the epoch hour", "per": "hour", "nowMs": 3723000, "startMs": 3600000, "endMs": 7200000 },
+    { "name": "hour at an exact boundary starts its own window", "per": "hour", "nowMs": 7200000, "startMs": 7200000, "endMs": 10800000 },
+    { "name": "day aligns to the epoch day", "per": "day", "nowMs": 90000000, "startMs": 86400000, "endMs": 172800000 },
+    { "name": "day zero is the epoch itself", "per": "day", "nowMs": 1000, "startMs": 0, "endMs": 86400000 },
+    { "name": "month is the UTC calendar month", "per": "month", "nowMs": 1755513600000, "startMs": 1754006400000, "endMs": 1756684800000 },
+    { "name": "month across a year boundary rolls to January", "per": "month", "nowMs": 1735603200000, "startMs": 1733011200000, "endMs": 1735689600000 },
+    { "name": "february of a leap year ends on March 1", "per": "month", "nowMs": 1709200000000, "startMs": 1706745600000, "endMs": 1709251200000 }
+  ],
+  "resolution": [
+    { "name": "requests resolves exactly", "budgets": ["requests"], "kind": "requests", "match": "requests" },
+    { "name": "a data kind resolves exactly, never across planes", "budgets": ["data:writes"], "kind": "data:reads", "match": null },
+    { "name": "an egress budget meters its exact host", "budgets": ["egress:api.stripe.com"], "kind": "egress:api.stripe.com", "match": "egress:api.stripe.com" },
+    { "name": "an egress budget meters subdomains of its host", "budgets": ["egress:stripe.com"], "kind": "egress:api.stripe.com", "match": "egress:stripe.com" },
+    { "name": "a lookalike suffix does not match — the gate's own attack case", "budgets": ["egress:stripe.com"], "kind": "egress:stripe.com.attacker.test", "match": null },
+    { "name": "among nested egress declarations the MOST SPECIFIC host wins, whatever the order", "budgets": ["egress:example.com", "egress:z.example.com"], "kind": "egress:a.z.example.com", "match": "egress:z.example.com" },
+    { "name": "a host outside the specific declaration still falls to the broad one", "budgets": ["egress:example.com", "egress:z.example.com"], "kind": "egress:b.example.com", "match": "egress:example.com" },
+    { "name": "a queue budget resolves exactly", "budgets": ["queue:billing"], "kind": "queue:billing", "match": "queue:billing" },
+    { "name": "an unmetered kind answers OPEN", "budgets": ["requests"], "kind": "queue:billing", "match": null }
+  ],
+  "verdicts": [
+    {
+      "name": "under the ceiling every charge is allowed and nothing transitions",
+      "budget": { "of": "requests", "per": "day", "max": 10 },
+      "charges": 7,
+      "allowedCount": 7,
+      "transitions": []
+    },
+    {
+      "name": "crossing 80% warns exactly once",
+      "budget": { "of": "requests", "per": "day", "max": 10 },
+      "charges": 9,
+      "allowedCount": 9,
+      "transitions": ["spend.warning"]
+    },
+    {
+      "name": "the ceiling itself is still allowed; strictly past it is the trip",
+      "budget": { "of": "requests", "per": "day", "max": 10 },
+      "charges": 11,
+      "allowedCount": 10,
+      "transitions": ["spend.warning", "spend.tripped"]
+    },
+    {
+      "name": "a tripped budget refuses every further charge and keeps counting",
+      "budget": { "of": "requests", "per": "day", "max": 3 },
+      "charges": 8,
+      "allowedCount": 3,
+      "transitions": ["spend.warning", "spend.tripped"],
+      "finalCount": 8
+    },
+    {
+      "name": "unbounded counts and never refuses and never transitions",
+      "budget": { "of": "egress:api.openai.com", "per": "day", "max": "unbounded" },
+      "charges": 1000,
+      "allowedCount": 1000,
+      "transitions": [],
+      "finalCount": 1000
+    },
+    {
+      "name": "the window rolling re-opens a tripped budget and announces the recovery",
+      "budget": { "of": "requests", "per": "hour", "max": 2 },
+      "charges": 4,
+      "allowedCount": 2,
+      "advanceMs": 3600000,
+      "chargesAfter": 1,
+      "allowedAfter": 1,
+      "transitions": ["spend.warning", "spend.tripped", "spend.recovered"]
+    }
+  ]
+}

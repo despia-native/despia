@@ -35,6 +35,7 @@ import CryptoKit
 import CommonCrypto
 import Security
 import Network
+import CoreText
 
 // MARK: - dsx.stack — the native UI namespace
 
@@ -395,7 +396,7 @@ public enum StackComponents {
     static func nativeGlobal(_ tag: String) -> ((StackComponentContext) -> AnyView)? {
         if let dot = tag.firstIndex(of: ".") {
             let ns = String(tag[..<dot])
-            guard ns == "shared" || ns == "global" else { return nil }
+            guard ns == "shared" || ns == "global" else { return StackComponents.schemedNative(tag) }
             return nativeGlobals[String(tag[tag.index(after: dot)...])]
         }
         return nativeGlobals[tag]
@@ -790,17 +791,116 @@ public struct StackComponentContext {
     /// package action OVER THE BUS instead of reaching for UIKit / another module directly. This is
     /// the native-component → module bridge the safe context previously lacked (a component could
     /// only `event`/`broadcast`, never invoke a scheme). Accepts the dot-API form (`"haptic.medium"`,
-    /// `"studio.moveClip"`) or a full `scheme://method` URL. Returns false if the scheme is
-    /// unregistered. Args cross as the action's params (named).
+    /// `"studio.moveClip"`) or a full `scheme://method` URL. Args cross as the action's params (named).
+    ///
+    /// READ `.succeeded` TO GATE ANYTHING. This used to answer `Bool`, and that Bool was the
+    /// CLAIM, never the settle — see `DSXDispatchVerdict`.
     @discardableResult
-    public func dispatch(_ call: String, _ args: [String: Any] = [:]) -> Bool {
-        JSERunner.dispatchCarrier(JSERunner.normalizeCall(call),
-                                  params: Bridge.Params(dict: args, onTerminal: { _ in })).handled
+    public func dispatch(_ call: String, _ args: [String: Any] = [:]) -> DSXDispatchVerdict {
+        DSXBusDispatch.run(call, args)
+    }
+    /// The same call, with the ASYNCHRONOUS settle. `then` runs exactly once, with the final
+    /// verdict, whenever the action reaches its terminal answer — including a refusal that only
+    /// arrives after a round trip (a consent prompt, a network hop). Use this wherever a
+    /// synchronous `.succeeded` would read `false` merely because the answer is still in flight.
+    @discardableResult
+    public func dispatch(_ call: String, _ args: [String: Any] = [:],
+                         then: @escaping (DSXDispatchVerdict) -> Void) -> DSXDispatchVerdict {
+        DSXBusDispatch.run(call, args, then: then)
     }
     /// Fire a haptic through the `haptic` module — `light` | `medium` | `heavy` (impact) ·
     /// `success` | `warning` | `error` (notification). The DSX-native way for a component to give
     /// touch feedback (single owner: the Haptics module), not a private UIKit generator.
     public func haptic(_ style: String) { dispatch("haptic." + style) }
+}
+
+// MARK: - Bus dispatch verdict (X1 H5)
+
+/// What a native component learns when it calls a module action over the bus.
+///
+/// NOT a `Bool`, and that is the entire point of the type. `dispatch` used to answer `Bool`,
+/// and that Bool reported the CLAIM — "some module took this call" — never the SETTLE. So every
+/// component that gated a side effect on it failed OPEN, because a REFUSED call is still a
+/// claimed one. Measured, not hypothetical: AdMob's inline consent gate read
+/// `guard dsx.dispatch("admob.load", …)` correctly in source and requested the vendor banner
+/// anyway, because consent had refused the load and the refusal never reached the caller. That
+/// is a privacy defect produced entirely by a return value whose name outranked its meaning.
+///
+/// **Gate on `succeeded`.** It is false when the action refused, false when no module claimed
+/// the call, and false when the answer has not arrived yet — fail-closed in all three, which is
+/// the only safe default for something guarding a side effect. `claimed` remains available for
+/// the presence question it was always the honest answer to ("is this package in the build?"),
+/// and it can no longer be mistaken for the other one.
+public struct DSXDispatchVerdict {
+    /// A module took the call. Says nothing about whether it worked.
+    public let claimed: Bool
+    /// The action reached a terminal answer before this value was handed back. A handler that
+    /// settles asynchronously reports through the `then:` form instead.
+    public let settled: Bool
+    /// The action settled SUCCESSFULLY — the gate value, false unless proven otherwise.
+    public let succeeded: Bool
+    /// The declared error code when the action refused; `unavailable` when nothing claimed the
+    /// call (the same spelling the markup path raises for an unshipped package); else nil.
+    public let code: String?
+    /// The refusal's human message, when the handler authored one.
+    public let message: String?
+    /// The resolved value on success, or the error's `data` payload on a refusal.
+    public let value: Any?
+    /// Who was asked and for what, AS ROUTED — the carrier's own split, so a log line can name
+    /// them. Pre-fold: `normalizeCall` puts the HEAD segment here and leaves the rest in
+    /// `action`; the longest-known-prefix fold onto a nested chain (`watch.health`) happens
+    /// inside the registry's dispatch funnel, downstream of this value.
+    public let scheme: String?
+    public let action: String?
+}
+
+/// The ONE reading of a native component's bus call, shared by the safe and privileged
+/// contexts so the two can never drift.
+enum DSXBusDispatch {
+    static func run(_ call: String, _ args: [String: Any],
+                    then: ((DSXDispatchVerdict) -> Void)? = nil) -> DSXDispatchVerdict {
+        let carrier = JSERunner.normalizeCall(call)
+        // Split the same way `dispatchCarrier` does, and BEFORE the call: the terminal closure
+        // has to name who was asked, and it cannot capture the dispatch's own result.
+        let separator = carrier.range(of: "://")
+        let scheme = separator.map { String(carrier[..<$0.lowerBound]) }
+        let action = separator.map {
+            String(carrier[$0.upperBound...].split(separator: "?", maxSplits: 1,
+                                                   omittingEmptySubsequences: false).first ?? "")
+        }
+        var settle: Bridge.Outcome?
+        var handedBack = false
+        let handled = JSERunner.dispatchCarrier(carrier, params: Bridge.Params(dict: args, onTerminal: { outcome in
+            settle = outcome
+            // Before the return, the synchronous verdict below already carries this settle;
+            // delivering here as well would call `then` twice for the common case.
+            guard handedBack else { return }
+            then?(verdict(claimed: true, settle: outcome, scheme: scheme, action: action))
+        })).handled
+        handedBack = true
+        let answer = verdict(claimed: handled, settle: settle, scheme: scheme, action: action)
+        // Final right here: a settle that already arrived, or a call no module claimed (nothing
+        // will ever settle that one). Anything else is still in flight and `then` waits for it.
+        if settle != nil || !handled { then?(answer) }
+        return answer
+    }
+
+    private static func verdict(claimed: Bool, settle: Bridge.Outcome?,
+                                scheme: String?, action: String?) -> DSXDispatchVerdict {
+        guard let settle = settle else {
+            return DSXDispatchVerdict(claimed: claimed, settled: false, succeeded: false,
+                                      code: claimed ? nil : "unavailable", message: nil, value: nil,
+                                      scheme: scheme, action: action)
+        }
+        switch settle {
+        case .resolve(let value):
+            return DSXDispatchVerdict(claimed: claimed, settled: true, succeeded: true, code: nil,
+                                      message: nil, value: value, scheme: scheme, action: action)
+        case .error(let code, let data, let message, _):
+            return DSXDispatchVerdict(claimed: claimed, settled: true, succeeded: false, code: code,
+                                      message: message, value: data, scheme: scheme, action: action)
+        }
+    }
 }
 
 // MARK: - Privileged components (engine-powered: around children + data)
@@ -936,11 +1036,16 @@ public struct PrivilegedStackComponentContext {
 
     /// Invoke a module action over the bus — the same native-component → module bridge the safe
     /// context has (dot-API `"haptic.medium"` / `"studio.moveClip"` or a full `scheme://method`
-    /// URL; named args). Returns false when the scheme is unregistered.
+    /// URL; named args). Read `.succeeded` to gate anything (`DSXDispatchVerdict`).
     @discardableResult
-    public func dispatch(_ call: String, _ args: [String: Any] = [:]) -> Bool {
-        JSERunner.dispatchCarrier(JSERunner.normalizeCall(call),
-                                  params: Bridge.Params(dict: args, onTerminal: { _ in })).handled
+    public func dispatch(_ call: String, _ args: [String: Any] = [:]) -> DSXDispatchVerdict {
+        DSXBusDispatch.run(call, args)
+    }
+    /// The same call, with the asynchronous settle — the twin of the safe context's `then:` form.
+    @discardableResult
+    public func dispatch(_ call: String, _ args: [String: Any] = [:],
+                         then: @escaping (DSXDispatchVerdict) -> Void) -> DSXDispatchVerdict {
+        DSXBusDispatch.run(call, args, then: then)
     }
     private var eventPayload: [String: Any] {
         var out: [String: Any] = [:]
@@ -1115,11 +1220,13 @@ final class StackStore: ObservableObject {
     var anyHandlers: [(String, [String: Any]) -> Void] = []       // ui.onAny wildcard taps — see EVERY event the surface raises (analytics/relay/logging), alongside the named ui.on handlers
     var classes: [String: [String: String]] = [:]                // reusable style classes: <style as="card" …/> → merge via class="card"
     var attrDefaults: [String: String] = [:]                     // declared prop defaults: <attribute as="x" default="…"/> → dsx.attribute.x falls back here when the consumer omits it
+    var overrideDecls: [String: OverrideDecl] = [:]              // declared style knobs: <override as="x" type="…" default="…"/> → dsx.override.x resolves through StyleOverrides (Conformance/overrides)
     var expected: Set<String> = []                               // declared seed contract: <expects variable="x"/> in the root <head> — the mounting side must ui.variable/vars: these (missing-seed diagnostic in StackHead.hoist)
     var watchBudget = 0                                          // <watch> loop backstop — fires within one runloop; reset async after the cascade settles (see WatchView)
     var watchResetScheduled = false                             // ensures a single async reset of watchBudget per runloop tick
     var flowSignal: String? = nil                               // statement control flow in flight: "break" | "continue" | "return" | "throw" — consumed by its construct
     var thrownValue: Any? = nil                                 // the `throw expr` payload (becomes the `catch (e)` binding)
+    var pendingLocalWrites: [String: Any]? = nil                // non-nil while a leaf statement of a scope WITH authored locals runs: writes to declared local names stage here and the leaf merges them back (JSERunner locals law — the runner is a struct, so the channel rides the class-typed store like flowSignal)
     var returnValue: Any? = nil                                 // RETURNING ACTIONS: the callee's `return <expr>` value (the action-call branch scopes it per call; an AWAITING `dsx.action` caller binds { ok:true, data } from it)
     var entryBody: String = ""                                  // the entry/action body currently running — a throw keeps the THROWING body here (snippet in the uncaught report)
     var loopWork = 0                                            // for/while iteration ledger per user action — JSE stays BOUNDED (cap = JSERunner.loopCap; reset per entry event)
@@ -1439,6 +1546,16 @@ enum StackHead {
             if let name = a["as"], let def = a["default"], store.attrDefaults[name] == nil {
                 store.attrDefaults[name] = def
             }
+        case "override":
+            // <override as="radius" type="length" default="12"/> — DECLARES a style knob
+            // (the component STYLE contract beside the attribute DATA contract; corpus
+            // OpenSource/Conformance/overrides). Raw values arrive through the item
+            // scope's __overrides dict (the tag door) or the store's dsx.override var
+            // (the mount/update door); JSE.lookup resolves reads via StyleOverrides.
+            if let name = a["as"], !name.isEmpty, store.overrideDecls[name] == nil {
+                store.overrideDecls[name] = OverrideDecl(name: name, type: a["type"], default: a["default"],
+                                                         options: a["options"], min: a["min"], max: a["max"])
+            }
         case "style":
             if let name = a["as"] {
                 var def = a; def["as"] = nil; def["id"] = nil
@@ -1467,6 +1584,13 @@ enum StackHead {
             }
         case "expects":
             if let name = a["variable"], !name.isEmpty { store.expected.insert(name) }
+        case "tool":
+            // The AGENT interface row (proposals/webmcp.md): it names a declared action and
+            // carries no state. Inert on this renderer by NATURE rather than by omission —
+            // `document.modelContext` is a browser API and a native surface has none — so the
+            // row is validated by the shared WebMcp fold at build time and waits for its
+            // consumer (the in-app agent loop). Twins: :core StackNodeView, web head.tools.
+            break
         default:
             break   // <event> is purely declarative; <watch>/<attribute on:change> mount as views
         }
@@ -1942,6 +2066,15 @@ public final class StackSurface {
         store.set("dsx.attribute", attrs)
         return self
     }
+    /// Set a STYLE-OVERRIDE knob: markup reads it as `dsx.override.key`, resolved through the
+    /// component's `<override>` declarations (typed, default-backed — Conformance/overrides).
+    /// The mount-door twin of the tag's `override:key=` attribute; chainable like attribute().
+    @discardableResult public func `override`(_ key: String, _ value: Any) -> StackSurface {
+        var overrides = (store.vars["dsx.override"] as? [String: Any]) ?? [:]
+        overrides[key] = value
+        store.set("dsx.override", overrides)
+        return self
+    }
     @discardableResult public func state(_ key: String, _ value: Any) -> StackSurface { store.set(key, value); return self }   // alias of variable() (legacy call sites)
     public func set(_ key: String, _ value: Any) { store.set(key, value) }
     /// Read a surface variable back (the mirror of `set` — e.g. a package persisting
@@ -2108,6 +2241,29 @@ final class OnHandler {
 /// JSERunner — the LOGIC half: the action / statement runner (the expression half is `JSE`).
 /// Runs JSE statements (assignment · if · const/let · array methods · await fetch ·
 /// dsx.event / dsx.action / dsx.module calls) for on:* / <action> bodies. See OpenSource/Documentation/reference/jse.md.
+/// The per-instance mount of an XML component template (the instance-store law; the web
+/// renderer's `instantiate` is the reference). A component instance OWNS its state: its
+/// head declarations - variables, computed, formulas, actions, <api> handles, attribute
+/// defaults, classes - register in a store born with the instance (template heads register
+/// on the first render walk, as they always have), so two instances hold independent state
+/// and a sibling's <api as=> cannot be swallowed by first-declaration-wins. Attributes ride
+/// the item scope (live per render), on:<event> handlers keep the CONSUMER's env, slot
+/// content renders in the consumer's scope and store, and cross-surface state stays
+/// global.* / route.*.
+struct StackComponentInstanceHost: View {
+    let template: StackNode
+    let env: JSERunner              // consumer-prepared child env; its store is rebound below
+    let attributes: [String: Any]
+    @StateObject private var instanceStore = StackStore()
+    var body: some View {
+        var e = JSERunner(store: instanceStore, webView: env.webView, scope: env.scope,
+                          onHandlers: env.onHandlers, slot: env.slot, dsx: env.dsx)
+        e.measuring = env.measuring
+        e.depth = env.depth
+        return StackNodeView(node: template, store: instanceStore, env: e, item: attributes)
+    }
+}
+
 struct JSERunner {
     let store: StackStore
     weak var webView: UIView?
@@ -2329,7 +2485,7 @@ struct JSERunner {
                 let v = JSE.eval(rhs, store: store, item: item)
                 JSE.destructureBind(String(a.prefix(eq)).trimmingCharacters(in: .whitespaces), v,
                                     store: store, locals: item ?? [:]) { n, value in
-                    write(n, value ?? NSNull())
+                    write(n, value ?? NSNull(), item: item)
                 }
                 return
             }
@@ -2355,10 +2511,10 @@ struct JSERunner {
             let trimmedRHS = rhs.trimmingCharacters(in: .whitespaces)
             if trimmedRHS.hasPrefix("new WebSocket("), trimmedRHS.hasSuffix(")") {
                 let argStr = String(trimmedRHS.dropFirst("new WebSocket(".count).dropLast())
-                write(lhs, openWebSocket(argStr: argStr, locals: item ?? [:]))
+                write(lhs, openWebSocket(argStr: argStr, locals: item ?? [:]), item: item)
                 return
             }
-            write(lhs, JSE.eval(rhs, store: store, item: item) ?? "")
+            write(lhs, JSE.eval(rhs, store: store, item: item) ?? "", item: item)
             return
         }
         guard let lp = a.firstIndex(of: "("), a.hasSuffix(")") else { return }
@@ -2403,18 +2559,20 @@ struct JSERunner {
             let opts = (parts.count > 1 ? JSE.eval(parts[1], store: store, item: item) : nil) as? [String: Any] ?? [:]
             let vars = opts["vars"] as? [String: Any]
             let attrs = opts["attrs"] as? [String: Any]   // THE component input contract (markup twin)
+            let overrides = opts["overrides"] as? [String: Any]   // the STYLE contract's verb door (dsx.override)
             if verb == "update" {
-                Router.shared?.updateComponent(target: name.isEmpty ? nil : name, attrs: attrs ?? [:])
+                Router.shared?.updateComponent(target: name.isEmpty ? nil : name, attrs: attrs ?? [:],
+                                               overrides: overrides ?? [:])
                 return
             }
             guard !name.isEmpty else { return }
             if verb == "present" {
                 Router.shared?.presentComponent(name: name, scope: scope, mode: (opts["as"] as? String) ?? "sheet",
                                                 vars: vars, detents: opts["detents"] as? [String],
-                                                touch: opts["touch"] as? String, attrs: attrs)
+                                                touch: opts["touch"] as? String, attrs: attrs, overrides: overrides)
             } else {   // push
                 Router.shared?.pushComponent(name: name, scope: scope, path: (opts["path"] as? String) ?? "",
-                                             vars: vars, attrs: attrs)
+                                             vars: vars, attrs: attrs, overrides: overrides)
             }
             return
         }
@@ -2595,7 +2753,7 @@ struct JSERunner {
                             JSECore.mutate(method, &params, args: vals)
                             urlDict["searchParams"] = params
                             JSECore.resyncURL(&urlDict)
-                            write(parent, urlDict)
+                            write(parent, urlDict, item: item)
                             return
                         }
                     }
@@ -2658,6 +2816,60 @@ struct JSERunner {
             return
         }
         dispatch(a, item: item)                                    // package call: pkg.method(named args)
+    }
+
+    /// THE ENTRY CALL — a HOST invokes a declared action with a payload.
+    ///
+    /// There are exactly two kinds of call and only one of them has a caller. A SURFACE call
+    /// comes from another action or an `on:*` handler and has a scope, so a declared
+    /// `inputs="id: item.id"` means "compute this from what the caller can see". An ENTRY call
+    /// comes from outside the document — an HTTP request, a CLI invocation, a queue message, a
+    /// native host handing over a payload — and has no scope at all, so a declared
+    /// `inputs="message"` means "I accept a payload key by that name".
+    ///
+    /// Both readings are correct and they are not the same. Applying the surface rule to an
+    /// entry evaluates the input against nothing, binds the absent sentinel, and DISCARDS what
+    /// the host sent. That shipped on the TS side until the corpus's `entry-*` cases pinned it:
+    /// a `<server>` action declaring `inputs="title, total"` received null for both, so
+    /// declaring the contract was strictly worse than omitting it.
+    ///
+    /// The expression is not ignored here, it is the FALLBACK: a payload silent about an input
+    /// lets its expression resolve against the store, which is how a declared default survives
+    /// the entry path. Corpus: OpenSource/Conformance/actions/actions.json `entry-*`.
+    func runAction(_ name: String, payload: [String: Any], item: [String: Any]? = nil) {
+        guard let f = store.actions[name] else {
+            print("[dsx runner] unknown action: \(name)")
+            return
+        }
+        if store.actionDepth == 0 {
+            store.loopWork = 0; store.flowSignal = nil; store.thrownValue = nil
+            store.returnValue = nil; store.tryDepth = 0
+        }
+        var scope = item ?? [:]
+        scope.merge(payload) { _, new in new }
+        for (k, e) in f.inputs where payload[k] == nil {
+            scope[k] = JSE.eval(e, store: store, item: nil) ?? NSNull()
+        }
+        guard store.actionDepth < 32 else { return }
+        store.actionDepth += 1
+        let savedEvents = store.actionEvents
+        let savedFlow = store.flowSignal
+        let savedThrown = store.thrownValue
+        let savedBody = store.entryBody
+        store.actionEvents = [:]
+        store.actionNameStack.append(name)
+        store.flowSignal = nil
+        store.entryBody = f.body
+        runActionBody(f.body, item: scope, args: payload)
+        let returned = store.flowSignal == "return" ? store.returnValue : nil
+        if store.flowSignal != "throw" {
+            store.flowSignal = savedFlow; store.thrownValue = savedThrown; store.entryBody = savedBody
+        }
+        store.returnValue = returned
+        store.actionNameStack.removeLast()
+        store.actionEvents = savedEvents
+        store.actionDepth -= 1
+        reportEntryUncaught()
     }
 
     /// Bridge a DSX event onto the in-process native bus (`DSXEventBus`), so ANY package can
@@ -2894,7 +3106,13 @@ struct JSERunner {
                 i = aa.after
                 if let envelope = callActionForValue(name: aa.name, argStr: aa.args, locals: locals, args: args),
                    let bind = aa.bind {
-                    if aa.decl { locals[bind] = envelope } else { write(bind, envelope) }
+                    //  The MARKED spelling binds the { ok, data } envelope (the pinned
+                    //  dsx.module success shape); the BARE spelling is an ordinary call
+                    //  expression, so it binds the return value itself.
+                    let bound: Any = aa.marked ? envelope : (envelope["data"] ?? NSNull())
+                    if aa.decl { locals[bind] = bound; declareLocal(&locals, bind) }
+                    else if (locals[Self.localsMark] as? Set<String>)?.contains(bind) == true, locals[bind] != nil { locals[bind] = bound }
+                    else { write(bind, bound) }
                 }
                 continue
             }
@@ -2927,7 +3145,7 @@ struct JSERunner {
                     return
                 }
             }
-            runVerb(stmt, item: locals, args: args)
+            runLeafVerb(stmt, locals: &locals, args: args)
         }
     }
 
@@ -3432,7 +3650,7 @@ struct JSERunner {
             // Excluded-by-this-app / unknown schemes keep today's `unavailable`, and the whole
             // branch is inert while ModuleRegistry.platformSupport is empty (the bare kernel).
             if let scheme = dispatched.scheme,
-               let supported = ModuleRegistry.shared.unsupportedPlatforms(scheme) {
+               let supported = ModuleRegistry.shared.unsupportedPlatforms(scheme, action: dispatched.action) {
                 done(["ok": false, "error": "unsupported_platform",
                       "data": ModuleRegistry.shared.unsupportedPlatformData(scheme, supported)])
             } else {
@@ -3451,7 +3669,7 @@ struct JSERunner {
     /// call — and its bare-assignment form `path = await dsx.action.name( … )` (no decl
     /// keyword; that bind writes the STORE, the pinned `x = e` rule). Sibling of
     /// matchAwaitPackage; the "dsx.action." marker keeps `dsx.module.…` on its own path.
-    private func matchAwaitAction(_ c: [Character], _ start: Int) -> (bind: String?, decl: Bool, name: String, args: String, after: Int)? {
+    private func matchAwaitAction(_ c: [Character], _ start: Int) -> (bind: String?, decl: Bool, marked: Bool, name: String, args: String, after: Int)? {
         var p = start; var bind: String? = nil; var decl = false
         for kw in ["const", "let", "var"] where jsWord(c, p, kw) {
             p += kw.count; jsSkipWs(c, &p)
@@ -3475,16 +3693,24 @@ struct JSERunner {
         }
         guard jsWord(c, p, "await") else { return nil }
         p += 5; jsSkipWs(c, &p)
+        //  THE BARE SPELLING TOO. `await x({ … })` is the way the documentation tells an
+        //  author to sequence one action after another, and it was matched only with the
+        //  `dsx.action.` marker — so the bare form fell through to the expression evaluator,
+        //  which knows nothing about declared actions: the action never ran and its argument
+        //  vanished, silently (actions corpus, "await on a bare action call"). The bare form
+        //  is claimed ONLY when the store actually declares an action of that name, so
+        //  `await fetch(…)`, `await dsx.module.…` and every other awaitable keep their paths.
         let marker = Array("dsx.action.")
-        guard p + marker.count < c.count, Array(c[p..<p + marker.count]) == marker else { return nil }
-        p += marker.count
+        let marked = p + marker.count < c.count && Array(c[p..<p + marker.count]) == marker
+        if marked { p += marker.count }
         var name = ""
         while p < c.count, jsIsWord(c[p]) { name.append(c[p]); p += 1 }
         jsSkipWs(c, &p)
         guard !name.isEmpty, p < c.count, c[p] == "(" else { return nil }
+        guard marked || store.actions[name] != nil else { return nil }
         let args = jsParens(c, &p)
         var q = p; jsSkipWs(c, &q); if q < c.count, c[q] == ";" { q += 1 }
-        return (bind, decl, name, args, q)
+        return (bind, decl, marked, name, args, q)
     }
 
     /// Run `await dsx.action.<name>(argsObj)` SYNCHRONOUSLY (actions never suspend their
@@ -3628,7 +3854,7 @@ struct JSERunner {
             runActionDecl(c, &i, &locals, execute: execute)
         } else {
             let stmt = jsLeaf(c, &i).trimmingCharacters(in: .whitespaces)
-            if execute, !stmt.isEmpty, !flowLeaf(stmt, locals: locals) { runVerb(stmt, item: locals, args: args) }
+            if execute, !stmt.isEmpty, !flowLeaf(stmt, locals: locals) { runLeafVerb(stmt, locals: &locals, args: args) }
         }
     }
     private func runActionDecl(_ c: [Character], _ i: inout Int, _ locals: inout [String: Any], execute: Bool) {
@@ -3644,7 +3870,9 @@ struct JSERunner {
             let patternText = (eq >= 0 ? String(p.prefix(eq)) : p).trimmingCharacters(in: .whitespaces)
             let exprText = (eq >= 0 ? String(p.dropFirst(eq + 1)) : "").trimmingCharacters(in: .whitespaces)
             let v = exprText.isEmpty ? nil : JSE.eval(exprText, store: store, item: locals)
-            bindDestructure(patternText, v, locals) { n, value in locals[n] = value ?? NSNull() }
+            bindDestructure(patternText, v, locals) { n, value in
+                locals[n] = value ?? NSNull(); declareLocal(&locals, n)
+            }
         }
     }
 
@@ -3809,7 +4037,9 @@ struct JSERunner {
         if let fo = matchForOf(head) {
             for el in JSE.spreadValues(JSE.eval(fo.expr, store: store, item: locals)) {
                 guard loopStep() else { break }
-                bindDestructure(fo.name, el, locals) { n, value in locals[n] = value ?? NSNull() }
+                bindDestructure(fo.name, el, locals) { n, value in
+                    locals[n] = value ?? NSNull(); declareLocal(&locals, n)
+                }
                 runCaptured(body, &locals, args)
                 if !loopContinues() { break }
             }
@@ -3822,7 +4052,9 @@ struct JSERunner {
         if parts.count == 1, let fi = matchForIn(head) {
             for el in JSE.forInKeys(JSE.eval(fi.expr, store: store, item: locals)) {
                 guard loopStep() else { break }
-                Self.bindDestructure(fi.name, el) { n, value in locals[n] = value ?? NSNull() }
+                bindDestructure(fi.name, el, locals) { n, value in
+                    locals[n] = value ?? NSNull(); declareLocal(&locals, n)
+                }
                 runCaptured(body, &locals, args)
                 if !loopContinues() { break }
             }
@@ -3961,7 +4193,7 @@ struct JSERunner {
         store.tryDepth -= 1
         if store.flowSignal == "throw", hasCatch {
             store.flowSignal = nil
-            if !catchParam.isEmpty { locals[catchParam] = store.thrownValue ?? NSNull() }
+            if !catchParam.isEmpty { locals[catchParam] = store.thrownValue ?? NSNull(); declareLocal(&locals, catchParam) }
             store.thrownValue = nil
             runCaptured(catchBody, &locals, args)
         }
@@ -4047,7 +4279,7 @@ struct JSERunner {
     /// `key = expr` → evaluate the expression against the store and write it back.
     private func assign(_ s: String, item: [String: Any]?) {
         guard let (key, expr) = JSERunner.splitOnAssign(s), !key.isEmpty else { return }
-        write(key, JSE.eval(expr, store: store, item: item) ?? "")
+        write(key, JSE.eval(expr, store: store, item: item) ?? "", item: item)
     }
 
     /// Indexed assignment `name[expr] = rhs` (one index level; quote-aware bracket scan) —
@@ -4082,7 +4314,7 @@ struct JSERunner {
         } else {
             seg = JSE.string(idx)
         }
-        write("\(name).\(seg)", JSE.eval(String(chars[(k + 1)...]), store: store, item: item) ?? "")
+        write("\(name).\(seg)", JSE.eval(String(chars[(k + 1)...]), store: store, item: item) ?? "", item: item)
         return true
     }
 
@@ -4091,7 +4323,15 @@ struct JSERunner {
     /// `replace(/\//g, '-')` statement is never half-eaten as a comment. One
     /// implementation: JSE.stripComments (syntax wave 1); this forwarder keeps
     /// every existing call site source-compatible.
-    static func stripJSComments(_ s: String) -> String { JSE.stripComments(s) }
+    ///
+    /// Operator entities decode FIRST, exactly as the async body executor's twin does
+    /// (JSEActions.stripComments): a body reaches this runner RAW from the markup reader,
+    /// so an author's `&amp;&amp;` would otherwise lex as bitwise ops over an `amp`
+    /// identifier and quietly write 0 — the wave-7 F4 revert, pinned by
+    /// Conformance/actions/watch-dispatch.json and jse/syntax-006. The `;` inside `&amp;`
+    /// also splits a statement in half if it survives to the splitter. Both passes are
+    /// idempotent, so the pre-stripped direct callers below are unaffected.
+    static func stripJSComments(_ s: String) -> String { JSE.stripComments(JSE.decodeOperatorEntities(s)) }
 
     /// Statement sugar: `i++` / `i--` / `++i` / `--i` → `i = i ± 1`, and compound assignment
     /// `x += e` (also `-=` `*=` `/=` `%=` `**=`) → `x = x op (e)` — so the single assignment
@@ -4181,7 +4421,52 @@ struct JSERunner {
     /// Write a state path to the right store: `global.*` / `route.*` → the app-wide
     /// DSXState; anything else → the surface store. Both are path-aware (nested + array
     /// index), so `set: feed.data.5.name = …` edits an item in place.
-    private func write(_ rawKey: String, _ value: Any) {
+    /// AUTHORED LOCALS (the TS runner's LOCALS law, actions corpus): when the leaf
+    /// channel is open and the path's first segment is a name the author DECLARED in
+    /// `item` (const/let/var, a loop var, a catch var), the write stays in the scope —
+    /// the classic `for (let i = 0; i < n; i++)` counter increments its own local
+    /// instead of spinning against a store copy. Names that merely EXIST in scope (the
+    /// entry payload, row fields) still route to the store — the store-always contract,
+    /// unchanged. Swift scopes are value types, so the write is STAGED in
+    /// `pendingLocalWrites` and the leaf (runLeafVerb) merges it back on return.
+    private static let localsMark = "\u{0000}dsx.locals"
+
+    private func declareLocal(_ locals: inout [String: Any], _ name: String) {
+        var set = locals[Self.localsMark] as? Set<String> ?? []
+        set.insert(name)
+        locals[Self.localsMark] = set
+    }
+
+    /// Run one leaf statement with the locals write channel open, then merge the staged
+    /// writes back into the (value-typed) scope.
+    private func runLeafVerb(_ stmt: String, locals: inout [String: Any], args: [String: Any]) {
+        guard let declared = locals[Self.localsMark] as? Set<String>, !declared.isEmpty else {
+            runVerb(stmt, item: locals, args: args); return
+        }
+        let saved = store.pendingLocalWrites
+        store.pendingLocalWrites = [:]
+        runVerb(stmt, item: locals, args: args)
+        if let staged = store.pendingLocalWrites { for (k, v) in staged { locals[k] = v } }
+        store.pendingLocalWrites = saved
+    }
+
+    private func write(_ rawKey: String, _ value: Any, item: [String: Any]? = nil) {
+        let raw = rawKey.trimmingCharacters(in: .whitespaces)
+        if store.pendingLocalWrites != nil, let scope = item, !raw.hasPrefix("dsx."),
+           let declared = scope[Self.localsMark] as? Set<String> {
+            let first = raw.contains(".") ? String(raw.prefix(while: { $0 != "." })) : raw
+            if declared.contains(first), scope[first] != nil {
+                if !raw.contains(".") {
+                    store.pendingLocalWrites?[raw] = value
+                } else if let parts = DsxStatePathPolicy.segments(raw), parts.count > 1 {
+                    let base = store.pendingLocalWrites?[first] ?? scope[first]
+                    if let rebuilt = DsxStatePathPolicy.rebuild(base, parts.dropFirst(), value) {
+                        store.pendingLocalWrites?[first] = rebuilt
+                    }
+                }
+                return
+            }
+        }
         let key = JSE.normalizeScope(rawKey)                          // `dsx.variable`/`dsx.global`/`dsx.route`/`dsx.cookie`/… → canonical
         if key.hasPrefix("global.") { DSX.state.setPath(String(key.dropFirst(7)), value) }
         else if key.hasPrefix("route.") { DSX.state.setPath(key, value) }   // route.* ⇄ global.route.*
@@ -4195,14 +4480,14 @@ struct JSERunner {
     private func mutateArray(_ path: String, item: [String: Any]?, _ mutate: (inout [Any]) -> Void) {
         var arr = JSE.asArray(JSE.eval(path, store: store, item: item))
         mutate(&arr)
-        if let rows = arr as? [[String: Any]] { write(path, rows) } else { write(path, arr) }
+        if let rows = arr as? [[String: Any]] { write(path, rows, item: item) } else { write(path, arr, item: item) }
     }
     /// Read-modify-write for a non-array value at `path` (the JS-core object mutations:
     /// URLSearchParams/FormData/Headers set·append·delete, AbortController.abort).
     private func mutateValue(_ path: String, item: [String: Any]?, _ mutate: (inout Any) -> Void) {
         var v: Any = JSE.eval(path, store: store, item: item) ?? NSNull()
         mutate(&v)
-        write(path, v)
+        write(path, v, item: item)
     }
 
     /// `remove: arr where <pred>` — drop rows where the per-row predicate is truthy (`{{ }}`
@@ -4401,7 +4686,7 @@ struct JSERunner {
                 if let fid = store.frameId { obj["__frame"] = fid }   // frame identity framing key — see StackStore.frameId
                 let d = Self.dispatchCarrier(Self.normalizeCall(head),
                                              params: Bridge.Params(dict: obj, onTerminal: { _ in }))
-                if !d.handled { unhandled(head, scheme: d.scheme) }
+                if !d.handled { unhandled(head, scheme: d.scheme, action: d.action) }
                 return
             }
         }
@@ -4412,7 +4697,7 @@ struct JSERunner {
         }
         if let fid = store.frameId { args["__frame"] = fid }       // frame identity framing key — see StackStore.frameId
         let d = Self.dispatchCarrier(resolved, params: Bridge.Params(dict: args, onTerminal: { _ in }))
-        if !d.handled { unhandled(target, scheme: d.scheme) }
+        if !d.handled { unhandled(target, scheme: d.scheme, action: d.action) }
     }
 
     /// A fire-and-forget dispatch fell through: a catalog scheme with NO implementation on this
@@ -4422,8 +4707,8 @@ struct JSERunner {
     /// OpenSource/Skills/android/api-mapping.md "Unsupported platform"). Everything else keeps
     /// today's `unavailable` path — and the whole branch is inert while
     /// `ModuleRegistry.platformSupport` is empty (the bare kernel).
-    private func unhandled(_ call: String, scheme: String?) {
-        if let scheme, ModuleRegistry.shared.unsupportedPlatforms(scheme) != nil { return }
+    private func unhandled(_ call: String, scheme: String?, action: String? = nil) {
+        if let scheme, ModuleRegistry.shared.unsupportedPlatforms(scheme, action: action) != nil { return }
         unavailable(call)
     }
 
@@ -4436,15 +4721,18 @@ struct JSERunner {
     /// (Messenger.kt DSXModuleCallMount; review: the phone demo's nested watch calls).
     /// The query slot is dropped here — callers that carry `(a=b)` args parse it with
     /// `carrierQuery` first.
-    static func dispatchCarrier(_ carrier: String, params: Bridge.Params) -> (handled: Bool, scheme: String?) {
+    static func dispatchCarrier(_ carrier: String, params: Bridge.Params) -> (handled: Bool, scheme: String?, action: String?) {
         guard let sep = carrier.range(of: "://"), sep.lowerBound != carrier.startIndex else {
-            return (false, nil)
+            return (false, nil, nil)
         }
         let scheme = String(carrier[..<sep.lowerBound])
         let rest = String(carrier[sep.upperBound...])
         let actionPath = String(rest.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first ?? "")
+        // The action rides out with the verdict because the platform catalog is ACTION-AWARE:
+        // a scheme-only answer cannot see a narrowing declared on one action of a module that
+        // is otherwise implemented here (X2 §4).
         return (ModuleRegistry.shared.handle(scheme: scheme, actionPath: actionPath,
-                                             params: params, includeInternal: true), scheme)
+                                             params: params, includeInternal: true), scheme, actionPath)
     }
 
     /// The carrier's query pairs ("a=1&b=x"), percent-decoded with '+' kept literal —
@@ -4750,6 +5038,33 @@ private struct StackHover: ViewModifier {
     }
 }
 
+/// The system tooltip surface for `tooltip=` (decorate's arm): a clear background view
+/// carrying `UIToolTipInteraction`, sized by SwiftUI to the element's FULL styled box (the
+/// arm wraps outside StackStyle.apply) so the hover region IS the element. A background
+/// platform view sits under the drawn content while SwiftUI's own gesture recognizers ride
+/// the hosting view, so on:tap / drag / hover wiring above is unaffected; it exposes no
+/// accessibility element of its own — the `described` duty rides the element's
+/// accessibilityHint in the arm. Text updates in place (a bound tooltip re-renders through
+/// updateUIView, never re-attaching the interaction).
+@available(iOS 15.0, *)
+private struct StackTooltipHost: UIViewRepresentable {
+    let text: String
+    // Spell out SwiftUI's context type — the bare `Context` resolves to the engine's own
+    // `Context` (the DSX bus handle) and breaks the protocol conformance (the
+    // NativeViewHost pattern).
+    func makeUIView(context: UIViewRepresentableContext<StackTooltipHost>) -> UIView {
+        let v = UIView()
+        v.backgroundColor = .clear
+        v.addInteraction(UIToolTipInteraction(defaultToolTip: text))
+        return v
+    }
+    func updateUIView(_ v: UIView, context: UIViewRepresentableContext<StackTooltipHost>) {
+        for case let interaction as UIToolTipInteraction in v.interactions {
+            interaction.defaultToolTip = text
+        }
+    }
+}
+
 /// `on:drag` / `on:dragEnd` — a raw drag on any element, so DSX can compose its OWN sliders /
 /// seek bars / knobs (no system `Slider`). The handler runs with `dsx.this` = the drag payload:
 /// `fraction` (location.x / width, clamped 0–1) · `fractionY` · `x` `y` (local point) · `width`
@@ -4833,6 +5148,185 @@ private struct DSXScaledFont: ViewModifier {
     }
     func body(content: Content) -> some View {
         content.font(.system(size: cap.map { Swift.min(size, $0) } ?? size, weight: weight, design: design))
+    }
+}
+
+/// `fontFamily=` — the build's FONT REGISTRY (Registry/DSXFontRegistry.json, generated by
+/// prepare_modules from every enabled module's `fonts` block) plus the one resolution it exists
+/// to perform: family + weight + slant → a concrete `UIFont`.
+///
+/// The value this file is built around is each face's POSTSCRIPT NAME. `UIFont(name:size:)` wants
+/// that name, it is rarely the family name and never the filename, and guessing it returns nil —
+/// which is precisely how a third-party font library ships an app that silently renders the
+/// system face. The build reads it out of the font's own `name` table so nobody types it.
+///
+/// The SELECTION law (which face answers a requested weight, when italic synthesises, how a
+/// variable axis clamps) is the shared pure core `StackFonts`, pinned by
+/// OpenSource/Conformance/fonts/matching.json and run identically by Kotlin and TS. Nothing here
+/// reimplements it.
+///
+/// Fail-open (Article 7): no registry in the bundle ⇒ no families ⇒ every `fontFamily` resolves
+/// nil and the caller keeps the system font, exactly the pre-facet behavior.
+enum DSXFontBook {
+
+    struct Family {
+        let faces: [StackFonts.Face]
+        let variable: Bool
+        let axes: [String: (Double, Double)]
+        let defaults: [String: Double]
+        /// Declared, never accidental: an emoji or CJK glyph missing from a brand face falls
+        /// through this chain to the platform stack rather than rendering nothing.
+        let fallback: [String]
+    }
+
+    private static let families: [String: Family] = loadRegistry()
+
+    static var declaredNames: [String] { families.keys.sorted() }
+    static func family(_ name: String?) -> Family? { name.flatMap { families[$0] } }
+
+    /// True when the family declares a REAL italic face — the signal `styleText` uses to skip its
+    /// synthetic slant, so a declared italic is not obliqued on top of being italic.
+    static func hasItalicFace(_ name: String?) -> Bool {
+        family(name)?.faces.contains(where: { $0.italic }) ?? false
+    }
+
+    /// The CSS numeric weight behind a `fontWeight=` word. A bare number passes through, because
+    /// a designer handed a 350 does not want it rounded to a word first.
+    static func cssWeight(_ s: String?) -> Int {
+        if let raw = s, let n = Int(raw), (1...1000).contains(n) { return n }
+        switch s {
+        case "bold":     return 700
+        case "semibold": return 600
+        case "medium":   return 500
+        case "heavy":    return 800
+        default:         return 400
+        }
+    }
+
+    /// Resolve a declared family to a concrete font. nil ⇒ the caller keeps the system font.
+    static func font(family name: String, size: CGFloat, weight: Int, italic: Bool,
+                     variation: String?, feature: String?) -> UIFont? {
+        guard let fam = families[name],
+              let selection = StackFonts.selectFace(fam.faces, weight: weight, italic: italic),
+              let postscript = selection.face.postscriptName,
+              let base = UIFont(name: postscript, size: size) else { return nil }
+
+        var descriptor = base.fontDescriptor
+        var attributes: [UIFontDescriptor.AttributeName: Any] = [:]
+
+        // Variable axes: the family's declared defaults first, then the author's request clamped
+        // against the declared ranges. A static family declares no axes, so every request drops
+        // and the face renders unchanged — never an error (matching.json "a static family
+        // ignores every axis").
+        var axes: [UInt32: Double] = [:]
+        for (tag, value) in fam.defaults { axes[axisIdentifier(tag)] = value }
+        let requested = StackFonts.parseVariation(variation)
+        if !requested.isEmpty {
+            let resolved = StackFonts.resolveVariation(declared: fam.axes, requested: requested)
+            for (tag, value) in resolved.applied { axes[axisIdentifier(tag)] = value }
+        }
+        if !axes.isEmpty {
+            attributes[UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String)] = axes
+        }
+
+        // OpenType features by TAG (`tnum`, `ss01`), not by the AAT type/selector pair: the tag
+        // is what the author writes and what every other renderer takes.
+        let features = StackFonts.parseFeatures(feature)
+        if !features.isEmpty {
+            let tagKey = UIFontDescriptor.FeatureKey(rawValue: kCTFontOpenTypeFeatureTag as String)
+            let valueKey = UIFontDescriptor.FeatureKey(rawValue: kCTFontOpenTypeFeatureValue as String)
+            attributes[.featureSettings] = features.map { [tagKey: $0, valueKey: 1] as [UIFontDescriptor.FeatureKey: Any] }
+        }
+
+        if !attributes.isEmpty { descriptor = descriptor.addingAttributes(attributes) }
+        // Italic was asked for and the family ships none: oblique it, the way the platform does.
+        // The BUILD warned; refusing here would render upright text with no explanation. (Weight
+        // never synthesises — faux-bold is how a brand looks cheap.)
+        if selection.synthesized,
+           let slanted = descriptor.withSymbolicTraits(descriptor.symbolicTraits.union(.traitItalic)) {
+            descriptor = slanted
+        }
+        return UIFont(descriptor: descriptor, size: size)
+    }
+
+    /// An OpenType axis tag as the four-char code Core Text keys variations by.
+    private static func axisIdentifier(_ tag: String) -> UInt32 {
+        tag.utf8.prefix(4).reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
+    }
+
+    private static func loadRegistry() -> [String: Family] {
+        guard let url = Bundle.main.url(forResource: "DSXFontRegistry", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let raw = root["families"] as? [String: Any] else { return [:] }
+
+        var out: [String: Family] = [:]
+        for (name, value) in raw {
+            guard let row = value as? [String: Any] else { continue }
+            let faces = (row["faces"] as? [[String: Any]] ?? []).compactMap { face -> StackFonts.Face? in
+                guard let weight = face["weight"] as? Int else { return nil }
+                return StackFonts.Face(weight: weight,
+                                       italic: (face["italic"] as? Bool) ?? false,
+                                       file: face["file"] as? String,
+                                       postscriptName: face["postscriptName"] as? String)
+            }
+            guard !faces.isEmpty else { continue }
+            var axes: [String: (Double, Double)] = [:]
+            for (tag, range) in (row["axes"] as? [String: [Double]] ?? [:]) where range.count == 2 {
+                axes[tag] = (range[0], range[1])
+            }
+            out[name] = Family(faces: faces,
+                               variable: (row["variable"] as? Bool) ?? false,
+                               axes: axes,
+                               defaults: row["defaults"] as? [String: Double] ?? [:],
+                               fallback: row["fallback"] as? [String] ?? ["system"])
+        }
+        return out
+    }
+}
+
+/// `fontFamily=` on a view: a registry face at a size that still answers to the accessibility
+/// text setting. The scaling is `@ScaledMetric` (which IS `UIFontMetrics` relative to `.body`,
+/// and unlike a one-shot `scaledFont(for:)` it re-renders when the category changes live) —
+/// keeping Dynamic Type working with a custom family is the whole correctness story here, and
+/// it is exactly what the third-party font libraries drop.
+///
+/// It scales when the author declared NO `fontSize` (the text is sized by the body metric, so it
+/// must track it) or opted in with `dynamicType="true"` — the same rule the system-font path
+/// above follows, so a family is never a hidden change in scaling behavior.
+private struct DSXCustomFont: ViewModifier {
+    @ScaledMetric private var scaled: CGFloat
+    let fixed: CGFloat
+    let scales: Bool
+    let family: String
+    let weight: Int
+    let italic: Bool
+    let variation: String?
+    let feature: String?
+    let cap: CGFloat?
+
+    init(family: String, size: CGFloat, scales: Bool, weight: Int, italic: Bool,
+         variation: String?, feature: String?, cap: CGFloat?) {
+        self._scaled = ScaledMetric(wrappedValue: size, relativeTo: .body)
+        self.fixed = size
+        self.scales = scales
+        self.family = family
+        self.weight = weight
+        self.italic = italic
+        self.variation = variation
+        self.feature = feature
+        self.cap = cap
+    }
+
+    func body(content: Content) -> some View {
+        let points = cap.map { Swift.min(scales ? scaled : fixed, $0) } ?? (scales ? scaled : fixed)
+        if let font = DSXFontBook.font(family: family, size: points, weight: weight, italic: italic,
+                                       variation: variation, feature: feature) {
+            return AnyView(content.font(Font(font as CTFont)))
+        }
+        // The family did not resolve (excluded owner, missing face): the declared fallback chain
+        // ends at the system stack, so keep the size and the weight and let the platform paint.
+        return AnyView(content.font(.system(size: points, weight: StackStyle.systemWeight(weight))))
     }
 }
 
@@ -4929,6 +5423,25 @@ struct SymbolReplace: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 17, *) { content.contentTransition(.symbolEffect(.replace)) }
         else { content }
+    }
+}
+
+/// Value-driven animation that collapses under Reduce Motion — the Skeleton
+/// `@Environment(\.accessibilityReduceMotion)` gate packaged as a modifier (the
+/// SymbolReplace precedent), so a component's state swap animates normally and snaps
+/// instantly for users who ask for reduced motion. `.modifier(MotionGate(of: value))`.
+struct MotionGate<V: Equatable>: ViewModifier {
+    let value: V
+    var animation: Animation = .easeInOut(duration: 0.18)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(of value: V, _ animation: Animation = .easeInOut(duration: 0.18)) {
+        self.value = value
+        self.animation = animation
+    }
+
+    func body(content: Content) -> some View {
+        content.animation(reduceMotion ? nil : animation, value: value)
     }
 }
 
@@ -5161,6 +5674,11 @@ struct StackNodeView: View {
     // read imperatively, would never invalidate anything.)
     @Environment(\.colorScheme) private var colorScheme
 
+    // This frame's `@keyframes` values, written by the display-link driver (StackKeyframes.swift,
+    // runtime-pressure R28) and merged over the resolved attributes below. Empty on every element
+    // that declares no `animation`, which is nearly all of them.
+    @State private var motionFrame: [String: String] = [:]
+
     // `item` is now a COMPUTED scope (rawItem ⊕ the container metrics), so an explicit init is
     // required; it is memberwise-equivalent (same `item:` label) — only the stored name changed.
     init(node: StackNode, store: StackStore, env: JSERunner,
@@ -5209,6 +5727,10 @@ struct StackNodeView: View {
         // the element renders at its FINAL layout immediately (safe areas + full-bleed
         // children resolved on frame one) and animates in via offset/opacity/scale —
         // same slide/fade/scale + anim vocabulary, reused for "pages".
+        keyframed(entryBody)
+    }
+
+    @ViewBuilder private var entryBody: some View {
         if let e = attrs["enter"] {
             visibilityBody.modifier(StackEntry(token: e,
                                                anim: StackStyle.animation(attrs["anim"], duration: attrs["animDuration"]),
@@ -5216,6 +5738,14 @@ struct StackNodeView: View {
         } else {
             visibilityBody
         }
+    }
+
+    /// The `@keyframes` driver (StackKeyframes.swift). Handing it `attrs` is not circular: the
+    /// frame it writes back carries only opacity/scale/rotation/offset, never an `animation*`
+    /// key, so the spec it reads is the cascade's, not its own output.
+    private func keyframed<V: View>(_ v: V) -> some View {
+        v.modifier(StackKeyframes(node: node, declaration: attrs, isDark: colorScheme == .dark,
+                                  viewport: cssViewport, frame: $motionFrame))
     }
 
     private var visibilityBody: some View {
@@ -5230,7 +5760,14 @@ struct StackNodeView: View {
     }
 
     private var content: AnyView {
-        decorate(StackStyle.apply(raw(attrs), attrs: attrs, store: store, item: item, tag: node.tag))
+        let styled = decorate(StackStyle.apply(raw(attrs), attrs: attrs, store: store, item: item, tag: node.tag))
+        // The parity-capture seam (ParityCapture.swift): armed only by the record
+        // harness, one static optional read per element otherwise. Attached OUTSIDE
+        // the styled view, so the reported bounds are the element's full styled box.
+        guard let session = ParityCapture.session,
+              let parityPath = node.attrs[ParityCapture.pathKey] else { return styled }
+        return AnyView(styled.background(
+            ParityCapture.Probe(session: session, path: parityPath, tag: node.tag, attrs: attrs)))
     }
     private var keepAlive: Bool { attrs["keep"] == "true" }
 
@@ -5279,6 +5816,30 @@ struct StackNodeView: View {
                                                   onStart: attrs["on:hoverStart"],
                                                   onEnd: attrs["on:hoverEnd"])))
         }
+        // tooltip= / tooltipSide= — the universal element hint (design-system.md Wave 3 (c)1;
+        // the shared law: OpenSource/Conformance/input/tooltip.json; twins: web mount.ts
+        // wireTooltip, StackNodeView.kt StackTooltipHost). The RENDER adapter maps the
+        // resolved text onto the SYSTEM hint surface — UIToolTipInteraction (iOS 15+ /
+        // Catalyst): the platform owns hover intent, placement and dismissal, so the
+        // corpus machine (StackTooltipLifecycle) stays the conformance reference here and
+        // `tooltipSide` is a preference the system solver is free to ignore. A touch
+        // surface never reveals it (the pointer hover pass exists only under a real
+        // pointer — Article 7, like `.onHover` above) and loses nothing: the resolved
+        // text ALWAYS doubles as the element's accessibility description (`described` in
+        // the corpus) via the a11y HINT slot — first-present-wins under an authored
+        // a11yHint/aria-description in any cascade layer (`attrs` arrives fully folded).
+        // Text and side interpolate per render, so a bound tooltip stays live and one
+        // resolving empty simply detaches. Attaches ONLY when the attribute is present.
+        if let rawTip = attrs["tooltip"],
+           let tip = StackTooltip.resolve(JSE.interpolate(rawTip, store: store, item: item),
+                                          side: attrs["tooltipSide"].map { JSE.interpolate($0, store: store, item: item) }) {
+            if #available(iOS 15.0, *) {
+                out = AnyView(out.background(StackTooltipHost(text: tip.text)))
+            }
+            if attrs["a11yHint"] == nil, attrs["aria-description"] == nil {
+                out = AnyView(out.accessibilityHint(Text(tip.text)))
+            }
+        }
         // The pointer lifecycle on ANY element (your "div") — `on:dragStart` (press / grab),
         // `on:drag` (move, continuous), `on:dragEnd` (release). The handler gets `dsx.this` = {
         // fraction (x/width, 0–1), fractionY, x, y, width, height, dx, dy, phase }. minimumDistance
@@ -5315,6 +5876,14 @@ struct StackNodeView: View {
         if attrs["on:swipeTrailing"] != nil { out = swipeDecorated(out, edge: .trailing, side: "Trailing") }
         if attrs["on:swipeLeading"]  != nil { out = swipeDecorated(out, edge: .leading,  side: "Leading") }
         if let m = attrs["measure"] { out = AnyView(out.modifier(StackMeasure(env: env, item: item, key: m))) }
+        // `ref="name"` — publish this element's backing view for a MODULE to reach
+        // (capture.element, scroll.toElement, Spotlight). The kernel names no consumer:
+        // it publishes under StackRef.key and the module resolves over the bus.
+        if let r = attrs["ref"], StackRef.key(r) != nil { out = AnyView(out.modifier(StackRefModifier(name: r))) }
+        // U03 `shared=` — measure into the flight registry and pose while the pair flies.
+        // The DESTINATION declares mode/anim/order, the source is the fallback, the frame's
+        // own `anim` is the floor (Conformance/router/shared.json).
+        if attrs["shared"] != nil { out = AnyView(out.modifier(SharedElementProbe(attrs: attrs, frameId: store.frameId))) }
         // `container` → measure + publish this element's size to descendants as `dsx.element.*`.
         if attrs["container"] != nil { out = AnyView(out.modifier(StackContainer())) }
         // `passthrough="true"` → decorative, non-interactive: touches fall through
@@ -5451,7 +6020,13 @@ struct StackNodeView: View {
             base.merge(a) { _, new in new }
             a = base
         }
-        return Self.resolvePlatform(a)
+        var resolved = Self.resolvePlatform(a)
+        // 5 — this frame's running `@keyframes` values. LAST, and overriding: a running CSS
+        // animation replaces the base value it interpolates from (R28). The driver only ever
+        // writes opacity/scale/rotation/offset, never an `animation*` key, so this cannot feed
+        // back into the spec the driver itself reads.
+        if !motionFrame.isEmpty { resolved.merge(motionFrame) { _, new in new } }
+        return resolved
     }
 
     /// Per-attribute platform override — the FULL LADDER (desktop-platforms.md; the
@@ -5563,6 +6138,11 @@ struct StackNodeView: View {
             // StackHead.hoist for surface roots (with a deferred missing-seed diagnostic);
             // inside a component template it is purely declarative.
             return AnyView(EmptyView())
+        case "tool":
+            // <tool action="…" description="…"/> — the AGENT interface row. Declarative
+            // everywhere; the projection into `document.modelContext` is the web renderer's,
+            // because that is where a user agent exists (proposals/webmcp.md §3).
+            return AnyView(EmptyView())
         case "action":
             // A named, reusable action — optionally PARAMETERIZED like <formula>: the identifier
             // is `as`, and every OTHER attr is an input (an expression bound, in the caller's
@@ -5657,6 +6237,14 @@ struct StackNodeView: View {
                                          immediate: a["immediate"] == "true"))
             }
             return AnyView(EmptyView())
+        case "override":
+            // <override as=/> — the style contract's declaration (the render-time twin of
+            // StackHead.hoist's branch; a component template's head registers per instance).
+            if let name = a["as"], !name.isEmpty, store.overrideDecls[name] == nil {
+                store.overrideDecls[name] = OverrideDecl(name: name, type: a["type"], default: a["default"],
+                                                         options: a["options"], min: a["min"], max: a["max"])
+            }
+            return AnyView(EmptyView())
         case "style":
             // A reusable style class — `<style as="card" padding="16" background="#111" radius="12"/>`.
             // Apply to any element with `class="card"` (multiple: `class="card wide"`); the element's
@@ -5674,7 +6262,9 @@ struct StackNodeView: View {
                 let name = a["name"]
                 let kids = slot.children.filter { $0.attrs["slot"] == name }
                 return AnyView(ForEach(kids.indices, id: \.self) { i in
-                    StackNodeView(node: kids[i], store: store, env: slot.env, item: slot.item, rowWrite: slot.rowWrite)
+                    // The consumer's env carries the consumer's STORE too - the
+                    // instance-store law: slotted content binds where it was written.
+                    StackNodeView(node: kids[i], store: slot.env.store, env: slot.env, item: slot.item, rowWrite: slot.rowWrite)
                 })
             }
             return AnyView(EmptyView())
@@ -5736,10 +6326,12 @@ struct StackNodeView: View {
     /// to rendering children; `<node>` falls back to EmptyView.)
     private func component(_ tag: String, _ a: [String: String]) -> AnyView? {
         if let (template, owningScope) = StackComponents.resolve(tag, pkg: env.scope) {
-            // Guard runaway recursion: a component whose template references itself would
-            // expand forever. 32 is far beyond any legitimate nesting depth.
-            if env.depth >= 32 { return AnyView(EmptyView()) }
+            // The corrupt-data floor. A component whose template references itself expands
+            // until the DATA runs out, which is the point; this catches the case where it
+            // never does. See JSE.componentDepthCap for why the number is what it is.
+            if env.depth >= JSE.componentDepthCap { return AnyView(EmptyView()) }
             var attributes: [String: Any] = [:]
+            var overrides: [String: Any] = [:]
             var onHandlers: [String: OnHandler] = [:]
             for (k, v) in a {
                 if k == "tag" || k == "id" { continue }        // selector / identity, not attributes
@@ -5751,10 +6343,30 @@ struct StackNodeView: View {
                     let ev = String(k.dropFirst(3))
                     onHandlers[ev] = OnHandler(action: JSE.interpolate(v, store: store, item: item), env: env,
                                                from: a["from:" + ev].flatMap { OnHandler.parseFrom($0) })
+                } else if let override = StyleOverrides.overrideAttrName(k) {
+                    // The style-override split (corpus Conformance/overrides): `override:<name>`
+                    // leaves the props plane and rides the item scope's __overrides dict — the
+                    // same per-render delivery attributes get, so a bound override is live.
+                    overrides[override] = JSE.bindAttribute(v, store: store, item: item)
                 } else {
-                    attributes[k] = JSE.interpolate(v, store: store, item: item)
+                    // A sole `{{ … }}` hands the child the VALUE, so a component can be
+                    // given structure — the whole reason a component may render itself.
+                    // Mixed templates stay sentences. Corpus:
+                    // Conformance/composition/attribute-binding.json.
+                    attributes[k] = JSE.bindAttribute(v, store: store, item: item)
                 }
             }
+            // The VERB door (dsx.component.push/present/update { overrides } → surface.override
+            // seeds the OUTER store's reactive dsx.override dict): fold it under the tag
+            // spellings at the component boundary, so a pushed root delivers into the same
+            // item __overrides vehicle a hard-coded consumer's tag does — and a live re-seed
+            // re-runs this split via the store publish. Only verb-seeded surface stores carry
+            // the var, so ordinary nested components merge nothing. Tag spellings win (the
+            // read chain's item-beats-store law, corpus Conformance/overrides).
+            if let doorRaw = store.vars["dsx.override"] as? [String: Any] {
+                for (k, v) in doorRaw where overrides[k] == nil { overrides[k] = v }
+            }
+            if !overrides.isEmpty { attributes["__overrides"] = overrides }
             var childEnv = env
             childEnv.depth = env.depth + 1
             childEnv.scope = owningScope ?? env.scope   // a packaged component runs under ITS OWN scheme — so `dsx.module.self` + nested <Name/> resolve to its package; a global one inherits the consumer's
@@ -5763,11 +6375,15 @@ struct StackNodeView: View {
             // the CONSUMER's env + data scope.
             childEnv.slot = node.children.isEmpty
                 ? nil : SlotContent(children: node.children, env: env, item: item, rowWrite: rowWrite)
-            return AnyView(StackNodeView(node: template, store: store, env: childEnv, item: attributes))
+            // THE INSTANCE STORE (composition law; the web renderer is the reference): the
+            // template mounts against a store born with the instance, so head declarations
+            // register per instance and two instances hold independent state. The host owns
+            // the store's lifetime (@StateObject), the env is rebound around it per render.
+            return AnyView(StackComponentInstanceHost(template: template, env: childEnv, attributes: attributes))
         }
         // A NATIVE global component (Swift-backed). Resolved AFTER XML, so an XML
         // component of the same name wins. Pass RAW attrs so prop reads stay reactive.
-        if env.depth < 32, let build = StackComponents.nativeGlobal(tag) {
+        if env.depth < JSE.componentDepthCap, let build = StackComponents.nativeGlobal(tag) {
             var onHandlers: [String: OnHandler] = [:]
             for (k, v) in a where k.hasPrefix("on:") {
                 // Same capture as the XML site: the handler runs in the CONSUMER's env, so a native
@@ -5910,14 +6526,33 @@ enum StackStyle {
         // taps" bug this split exists to fix. Every other tag keeps the exact pipeline below.
         let geometryInside = tag.map { StackNodeView.tapControls.contains($0) } ?? false
         if !geometryInside { v = boxGeometry(v, val: val, num: num) }
-        if let fs = num(val("fontSize")) ?? fontSizeFromStyle(style) {
+        let declaredSize = num(val("fontSize")) ?? fontSizeFromStyle(style)
+        let dynamicCap = num(val("dynamicTypeMax")) ?? style["dynamicTypeMax"].flatMap { Double($0) }.map { CGFloat($0) }
+        let optedIntoDynamicType = (val("dynamicType") ?? style["dynamicType"]) == "true"
+        if let familyName = val("fontFamily") ?? style["fontFamily"] {
+            // A DECLARED family (a `fonts` block on some enabled module) beats the system design
+            // axis; `fontDesign` keeps meaning what it always meant on the system fallback, which
+            // is what DSXCustomFont paints when the family does not resolve.
+            //
+            // With no `fontSize` the text is sized by the body metric, so it MUST track the
+            // accessibility setting — the case a custom font most often breaks.
+            v = AnyView(v.modifier(DSXCustomFont(
+                family: familyName,
+                size: declaredSize ?? StackStyle.bodyPointSize,
+                scales: declaredSize == nil || optedIntoDynamicType,
+                weight: DSXFontBook.cssWeight(val("fontWeight") ?? style["fontWeight"]),
+                italic: (val("italic") ?? style["italic"]) == "true",
+                variation: val("fontVariation"),
+                feature: val("fontFeature"),
+                cap: dynamicCap
+            )))
+        } else if let fs = declaredSize {
             let fw = weight(val("fontWeight") ?? style["fontWeight"])
             let fd = design(val("fontDesign"))
-            if (val("dynamicType") ?? style["dynamicType"]) == "true" {
+            if optedIntoDynamicType {
                 // a11y opt-in: scale the fixed size with the user's Dynamic Type setting (capped by
                 // `dynamicTypeMax` if given). Default path below is byte-for-byte the original fixed font.
-                let cap = num(val("dynamicTypeMax")) ?? style["dynamicTypeMax"].flatMap { Double($0) }.map { CGFloat($0) }
-                v = AnyView(v.modifier(DSXScaledFont(size: fs, weight: fw, design: fd, cap: cap)))
+                v = AnyView(v.modifier(DSXScaledFont(size: fs, weight: fw, design: fd, cap: dynamicCap)))
             } else {
                 v = AnyView(v.font(.system(size: fs, weight: fw, design: fd)))
             }
@@ -5932,15 +6567,10 @@ enum StackStyle {
             let r = num(val("radius")) ?? 0
             v = AnyView(v.background(RoundedRectangle(cornerRadius: r, style: .continuous).fill(color(bg))))
         }
-        // `gradient="c1|c2|…"` — a linear gradient layer (2+ colors). `gradientDir`
-        // = vertical (default) / horizontal / diagonal.
-        if let grad = val("gradient") {
-            let cols = grad.components(separatedBy: "|").map { color($0) }
-            if cols.count >= 2 {
-                let (s, e) = gradientPoints(val("gradientDir"))
-                v = AnyView(v.background(LinearGradient(colors: cols, startPoint: s, endPoint: e)))
-            }
-        }
+        // The gradient layer — linear · radial · angular · mesh, with stops, angle, center and
+        // radius (StackGradients.swift). The DECISION is ControlsCore, pinned by
+        // OpenSource/Conformance/controls/gradients.json; `gradientDir` stays an exact alias.
+        if let layer = StackGradients.background(val) { v = AnyView(v.background(layer)) }
         if let surface = val("surface") {
             let r = num(val("radius")) ?? (surface == "sheet" ? 24 : 16)
             let shape = RoundedRectangle(cornerRadius: r, style: .continuous)
@@ -6019,7 +6649,18 @@ enum StackStyle {
             // the window stays the Appearance module's alone.
             v = AnyView(v.environment(\.colorScheme, s)
                          .toolbarColorScheme(s, for: .navigationBar))
-        } else if val("theme") == nil, let bg = val("background"), let s = derivedScheme(bg) {
+        }
+        // DENSITY pin (`density="comfortable|compact"` — the W9 subtree knob; the shared
+        // law: OpenSource/Conformance/input/density.json, StackDensity). The platform's
+        // OWN size system carries the presentation: compact maps this subtree onto the
+        // small control size, comfortable onto the regular one — system controls
+        // (buttons, pickers, toggles) re-derive their metrics from it, exactly the
+        // macOS density idiom. Nearest pin wins by environment nesting; the web twin is
+        // the data-dsx-density token tables (theme.ts).
+        if let d = StackDensity.resolve(val("density")) {
+            v = AnyView(v.environment(\.controlSize, d == StackDensity.compact ? .small : .regular))
+        }
+        if val("theme") == nil, let bg = val("background"), let s = derivedScheme(bg) {
             // An authored LITERAL canvas derives its subtree scheme — the explicit form is
             // theme=. A background that parses to a literal color (hex / rgb()/rgba() /
             // the white/black words — NEVER the semantic words, which already follow the
@@ -6282,13 +6923,6 @@ enum StackStyle {
         default: return .all
         }
     }
-    private static func gradientPoints(_ dir: String?) -> (UnitPoint, UnitPoint) {
-        switch dir {
-        case "horizontal": return (.leading, .trailing)
-        case "diagonal":   return (.topLeading, .bottomTrailing)
-        default:           return (.top, .bottom)
-        }
-    }
     /// `fontDesign` = default / rounded / serif / monospaced.
     private static func design(_ s: String?) -> Font.Design {
         switch s { case "rounded": return .rounded; case "serif": return .serif
@@ -6299,7 +6933,9 @@ enum StackStyle {
     /// tracking (iOS 16+), lineLimit / lineSpacing / textAlign / textCase.
     static func styleText(_ text: Text, _ a: [String: String], color: Color) -> AnyView {
         var t = text.foregroundColor(color)
-        if a["italic"] == "true" { t = t.italic() }
+        // A declared family that ships a real italic face already selected it in `apply` —
+        // slanting again would oblique an italic. Without a family this is the original path.
+        if a["italic"] == "true" && !DSXFontBook.hasItalicFace(a["fontFamily"]) { t = t.italic() }
         if #available(iOS 16, *) {
             if a["underline"] == "true" { t = t.underline() }
             if a["strikethrough"] == "true" { t = t.strikethrough() }
@@ -6375,6 +7011,26 @@ enum StackStyle {
         switch s { case "bold": return .bold; case "semibold": return .semibold
         case "medium": return .medium; case "heavy": return .heavy; default: return .regular }
     }
+
+    /// The SwiftUI weight nearest a CSS numeric weight — the system-font fallback when a declared
+    /// family does not resolve, so the type ramp keeps its shape instead of flattening to regular.
+    static func systemWeight(_ css: Int) -> Font.Weight {
+        switch css {
+        case ..<200:   return .ultraLight
+        case ..<300:   return .thin
+        case ..<400:   return .light
+        case ..<500:   return .regular
+        case ..<600:   return .medium
+        case ..<700:   return .semibold
+        case ..<800:   return .bold
+        case ..<900:   return .heavy
+        default:       return .black
+        }
+    }
+
+    /// The unstyled text size: SwiftUI `.body` at the default content-size category. The base
+    /// `DSXCustomFont` scales from when the author declared no `fontSize`.
+    static let bodyPointSize: CGFloat = 17
 
     private static let styles: [String: [String: String]] = [
         "sheet":      ["padding": "20", "background": "#121212", "radius": "24", "surface": "sheet"],

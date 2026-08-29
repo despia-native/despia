@@ -145,7 +145,7 @@
         </hstack>
       </vstack>
 
-      <button label="Place order" disabled="{{ dsx.variable.emailValid == false }}" on:tap="place()"/>
+      <button label="Place order" disabled-if="dsx.variable.emailValid == false" on:tap="place()"/>
     </vstack>
   </scroll>
 </vstack>

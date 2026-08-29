@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "_note": "RFC 5545 RECURRENCE (parity F12). `recurrence` is an RRULE string and nothing else, because inventing a shape for recurrence is how you ship a calendar integration that cannot express \"the last Friday of every month\". Android stores the string verbatim (CalendarContract.Events.RRULE is the same grammar), iOS translates to EKRecurrenceRule and back, and the web writes it into a VEVENT: three different mechanisms that must agree on the same strings. `parsed` is the field-level assertion for the translating renderer; `canonical` is what a round-trip must produce, which is NOT always the input (an omitted INTERVAL=1 is dropped, keys emit in a fixed order). A string that does not parse is `invalid_recurrence`, NEVER an event that quietly does not repeat. Runners: TS (@despia/kernel calendar-core.ts parseRecurrence/formatRecurrence, calendar-conformance.test.ts), Kotlin (:core CalendarCore, CalendarConformanceTest), Swift (Engine/iOS/CalendarCore.swift, CalendarConformance in the record lane; the module's CalendarRecurrence is only the EKRecurrenceRule adapter over it).",
+
+  "roundTrip": [
+    {
+      "name": "the last Friday of every month, the case a hand-rolled shape cannot express",
+      "rrule": "FREQ=MONTHLY;BYDAY=-1FR",
+      "parsed": { "freq": "MONTHLY", "interval": 1, "byDay": [{ "day": "FR", "ordinal": -1 }] },
+      "canonical": "FREQ=MONTHLY;BYDAY=-1FR"
+    },
+    {
+      "name": "every other week",
+      "rrule": "FREQ=WEEKLY;INTERVAL=2",
+      "parsed": { "freq": "WEEKLY", "interval": 2 },
+      "canonical": "FREQ=WEEKLY;INTERVAL=2"
+    },
+    {
+      "name": "count-limited: ten days then stop",
+      "rrule": "FREQ=DAILY;COUNT=10",
+      "parsed": { "freq": "DAILY", "interval": 1, "count": 10 },
+      "canonical": "FREQ=DAILY;COUNT=10"
+    },
+    {
+      "name": "until-dated: an ABSOLUTE instant, so the series ends when it was told to",
+      "rrule": "FREQ=WEEKLY;UNTIL=20261231T235959Z",
+      "parsed": { "freq": "WEEKLY", "interval": 1, "until": "2026-12-31T23:59:59Z" },
+      "canonical": "FREQ=WEEKLY;UNTIL=20261231T235959Z"
+    },
+    {
+      "name": "a DST boundary: the daily series crossing the November fall-back keeps its UTC end",
+      "_note": "US DST ended 2026-11-01. A renderer that stored UNTIL as a wall-clock day would end this series an hour early or late; parsing it as an instant is what makes all three agree.",
+      "rrule": "FREQ=DAILY;INTERVAL=1;UNTIL=20261101T090000Z",
+      "parsed": { "freq": "DAILY", "interval": 1, "until": "2026-11-01T09:00:00Z" },
+      "canonical": "FREQ=DAILY;UNTIL=20261101T090000Z"
+    },
+    {
+      "name": "weekdays only",
+      "rrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+      "parsed": { "freq": "WEEKLY", "interval": 1,
+                  "byDay": [{ "day": "MO", "ordinal": 0 }, { "day": "TU", "ordinal": 0 },
+                            { "day": "WE", "ordinal": 0 }, { "day": "TH", "ordinal": 0 },
+                            { "day": "FR", "ordinal": 0 }] },
+      "canonical": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+    },
+    {
+      "name": "the 15th of every third month",
+      "rrule": "FREQ=MONTHLY;INTERVAL=3;BYMONTHDAY=15",
+      "parsed": { "freq": "MONTHLY", "interval": 3, "byMonthDay": [15] },
+      "canonical": "FREQ=MONTHLY;INTERVAL=3;BYMONTHDAY=15"
+    },
+    {
+      "name": "an annual date",
+      "rrule": "FREQ=YEARLY;BYMONTH=4;BYMONTHDAY=2",
+      "parsed": { "freq": "YEARLY", "interval": 1, "byMonth": [4], "byMonthDay": [2] },
+      "canonical": "FREQ=YEARLY;BYMONTHDAY=2;BYMONTH=4"
+    },
+    {
+      "name": "the RRULE: prefix is accepted and dropped from the canonical form",
+      "rrule": "RRULE:FREQ=DAILY;COUNT=3",
+      "parsed": { "freq": "DAILY", "interval": 1, "count": 3 },
+      "canonical": "FREQ=DAILY;COUNT=3"
+    },
+    {
+      "name": "an explicit INTERVAL=1 is dropped, since it is the default",
+      "rrule": "FREQ=DAILY;INTERVAL=1",
+      "parsed": { "freq": "DAILY", "interval": 1 },
+      "canonical": "FREQ=DAILY"
+    }
+  ],
+
+  "rejected": [
+    { "name": "prose is not an RRULE", "rrule": "EVERY LAST FRIDAY", "error": "invalid_recurrence" },
+    { "name": "a missing FREQ", "rrule": "INTERVAL=2", "error": "invalid_recurrence" },
+    { "name": "an unknown FREQ", "rrule": "FREQ=FORTNIGHTLY", "error": "invalid_recurrence" },
+    { "name": "a zero interval", "rrule": "FREQ=DAILY;INTERVAL=0", "error": "invalid_recurrence" },
+    { "name": "a zero count", "rrule": "FREQ=DAILY;COUNT=0", "error": "invalid_recurrence" },
+    { "name": "an unparseable UNTIL", "rrule": "FREQ=DAILY;UNTIL=2026-12-31", "error": "invalid_recurrence" },
+    { "name": "a two-letter day that is not a day", "rrule": "FREQ=WEEKLY;BYDAY=XX", "error": "invalid_recurrence" },
+    { "name": "a zero ordinal on a day", "rrule": "FREQ=MONTHLY;BYDAY=0FR", "error": "invalid_recurrence" },
+    { "name": "a key with no value", "rrule": "FREQ=DAILY;COUNT=", "error": "invalid_recurrence" },
+    { "name": "an empty string", "rrule": "", "error": "invalid_recurrence" }
+  ]
+}

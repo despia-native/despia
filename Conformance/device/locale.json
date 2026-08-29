@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "_note": "Core/Device (parity/F06-device.md), the LOCALE derivations. Runtime localization is a gap this closes: an app could not previously ask what region, calendar or measurement system the user actually has. What is pinned here is the part that is a FOLD rather than a platform read: region separated from language, the measurement system, the temperature unit that follows it, and text direction. `locales` ordering is pinned as a rule (the platform's own preference order, not sorted, not deduplicated to one) because a language picker needs the list, and the top entry alone is the thing every framework gets wrong.",
+  "_runner": "No runner is wired yet (registration is in the F06 handoff).",
+
+  "measurementSystem": [
+    { "name": "the United States", "given": { "region": "US" }, "expect": { "measurementSystem": "us", "temperatureUnit": "fahrenheit" } },
+    { "name": "Liberia", "given": { "region": "LR" }, "expect": { "measurementSystem": "us", "temperatureUnit": "fahrenheit" } },
+    { "name": "Myanmar", "given": { "region": "MM" }, "expect": { "measurementSystem": "us", "temperatureUnit": "fahrenheit" } },
+    { "name": "the United Kingdom is its own hybrid, and is not metric",
+      "given": { "region": "GB" }, "expect": { "measurementSystem": "uk", "temperatureUnit": "celsius" } },
+    { "name": "Germany", "given": { "region": "DE" }, "expect": { "measurementSystem": "metric", "temperatureUnit": "celsius" } },
+    { "name": "an unknown region is metric, because most of the world is",
+      "given": { "region": "" }, "expect": { "measurementSystem": "metric", "temperatureUnit": "celsius" } }
+  ],
+
+  "direction": [
+    { "name": "English is left to right", "given": { "locale": "en-US" }, "expect": { "isRTL": false } },
+    { "name": "Arabic is right to left", "given": { "locale": "ar-EG" }, "expect": { "isRTL": true } },
+    { "name": "Hebrew is right to left", "given": { "locale": "he-IL" }, "expect": { "isRTL": true } },
+    { "name": "Persian is right to left", "given": { "locale": "fa-IR" }, "expect": { "isRTL": true } },
+    { "name": "Urdu is right to left", "given": { "locale": "ur-PK" }, "expect": { "isRTL": true } },
+    { "name": "direction follows the LANGUAGE, not the region: Arabic in France is still RTL",
+      "given": { "locale": "ar-FR" }, "expect": { "isRTL": true } },
+    { "name": "a bare language tag still resolves", "given": { "locale": "ar" }, "expect": { "isRTL": true } }
+  ],
+
+  "region": [
+    { "name": "language and region are separate fields, not one string",
+      "given": { "locale": "de-CH" }, "expect": { "language": "de", "region": "CH" } },
+    { "name": "a script subtag does not become the region",
+      "given": { "locale": "zh-Hant-TW" }, "expect": { "language": "zh", "region": "TW" } },
+    { "name": "a bare language has no region", "given": { "locale": "fr" }, "expect": { "language": "fr", "region": null } }
+  ],
+
+  "locales": [
+    { "name": "the preference ORDER is preserved, because that is what a language picker needs",
+      "given": { "preferred": ["de-DE", "en-US", "fr-FR"] },
+      "expect": { "locales": ["de-DE", "en-US", "fr-FR"], "primary": "de-DE" } },
+    { "name": "one preferred language is a one-element list, never a bare string",
+      "given": { "preferred": ["ja-JP"] },
+      "expect": { "locales": ["ja-JP"], "primary": "ja-JP" } }
+  ]
+}

@@ -1,0 +1,983 @@
+{
+  "version": 1,
+  "_note": "V05 - Core/RevenueCat inline paywall (architecture/proposals/inline-native-surfaces.md). The same law: the module owns the purchase, and the overlay face (dsx.module.revenuecat.paywall, the vendor's presented paywall) and the component face (<revenuecat.Paywall/>) are two views onto ONE state machine. Two purchase models that disagree is a double charge, exactly as in stripe.json, so a second purchase while one is in flight is refused `busy` and a user-cancelled purchase returns the offering to purchasable rather than settling it. paywall[] is the package ORDER, the default selection and the savings badge - and the badge is computed only where the comparison is honest, because 'save 40%' against a price the store does not offer is a dark pattern.",
+  "sessionRef": {
+    "_note": "The security boundary for <revenuecat.Paywall/> session=. RevenueCat's SDK keys (appl_..., goog_...) are not in the shared detector's family list, so a literal one is refused as `unknown_reference` rather than named. It is refused just as hard, which is the argument for an allowlist: the rule did not have to learn this vendor's key format to keep it out of markup.",
+    "kinds": [
+      "implicit",
+      "module-context",
+      "store-var",
+      "global",
+      "config",
+      "attribute",
+      "scope"
+    ],
+    "refusals": [
+      "missing_reference",
+      "literal_secret",
+      "literal_value",
+      "compound_template",
+      "unknown_reference"
+    ],
+    "families": [],
+    "cases": [
+      {
+        "name": "omitted binds the module's current offering",
+        "value": null,
+        "expect": {
+          "kind": "implicit",
+          "path": ""
+        }
+      },
+      {
+        "name": "the canonical module-context reference",
+        "value": "dsx.module.revenuecat.context.session",
+        "expect": {
+          "kind": "module-context",
+          "path": "dsx.module.revenuecat.context.session"
+        }
+      },
+      {
+        "name": "a store variable holding the offering handle",
+        "value": "{{ dsx.variable.offering }}",
+        "expect": {
+          "kind": "store-var",
+          "path": "dsx.variable.offering"
+        }
+      },
+      {
+        "name": "a global, for an app-wide paywall binding",
+        "value": "dsx.global.paywall",
+        "expect": {
+          "kind": "global",
+          "path": "dsx.global.paywall"
+        }
+      },
+      {
+        "name": "an empty attribute is an author mistake",
+        "value": "",
+        "expect": {
+          "error": "missing_reference"
+        }
+      },
+      {
+        "name": "an Apple SDK key is refused, unnamed but just as hard",
+        "value": "appl_ZKPFtSDGdcARLQfBcJXPtEqXaBb",
+        "expect": {
+          "error": "unknown_reference"
+        }
+      },
+      {
+        "name": "a Google SDK key is refused the same way",
+        "value": "goog_pLmQrStUvWxYzAbCdEfGhIjKlMn",
+        "expect": {
+          "error": "unknown_reference"
+        }
+      },
+      {
+        "name": "an offering identifier is refused: it is a literal",
+        "value": "premium-offering",
+        "expect": {
+          "error": "literal_value"
+        }
+      },
+      {
+        "name": "a compound template is refused",
+        "value": "{{ dsx.variable.a }} {{ dsx.variable.b }}",
+        "expect": {
+          "error": "compound_template"
+        }
+      }
+    ]
+  },
+  "machine": {
+    "_note": "One purchase, two views. `start` is the PURCHASE, `fail` is a declined or errored purchase and is NOT terminal (the offering stays purchasable, which is what the vendor SDK actually does), `cancel` while purchasing is the store sheet being dismissed and returns the offering to purchasable, and `cancel` with nothing in flight dismisses the PAYWALL, which is terminal.",
+    "views": [
+      "overlay",
+      "inline"
+    ],
+    "states": [
+      "idle",
+      "ready",
+      "confirming",
+      "succeeded",
+      "failed",
+      "canceled"
+    ],
+    "refusals": [
+      "already_open",
+      "not_ready",
+      "busy",
+      "settled",
+      "not_confirming",
+      "detached_view"
+    ],
+    "cases": [
+      {
+        "name": "the inline paywall alone: open, attach, purchase, entitled",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "presented paywall and inline paywall are ONE purchase",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "start",
+            "view": "overlay"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "overlay"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "overlay"
+          }
+        ]
+      },
+      {
+        "name": "THE DOUBLE-CHARGE GUARD: a second purchase while one is in flight is refused",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "attach",
+            "view": "overlay"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "overlay"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "error": "busy",
+            "state": "confirming"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "overlay",
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "the store sheet is dismissed: the offering stays purchasable",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "cancel"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "ready",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "canceled",
+            "by": "inline"
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "a declined purchase is retryable",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "fail",
+            "code": "purchase_failed"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "failed",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "failed",
+            "by": "inline",
+            "code": "purchase_failed"
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "by": "inline"
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 2,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "the paywall unmounts mid-purchase and is STILL told",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          },
+          {
+            "op": "detach",
+            "view": "inline"
+          },
+          {
+            "op": "complete"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "confirming",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "by": "inline"
+          },
+          {
+            "state": "confirming",
+            "notify": [],
+            "attempts": 1
+          },
+          {
+            "state": "succeeded",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 1,
+            "outcome": "succeeded",
+            "by": "inline"
+          }
+        ]
+      },
+      {
+        "name": "dismissing the paywall is terminal, and buying afterwards is refused",
+        "steps": [
+          {
+            "op": "open"
+          },
+          {
+            "op": "attach",
+            "view": "inline"
+          },
+          {
+            "op": "cancel"
+          },
+          {
+            "op": "start",
+            "view": "inline"
+          }
+        ],
+        "expect": [
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "ready",
+            "notify": [],
+            "attempts": 0
+          },
+          {
+            "state": "canceled",
+            "notify": [
+              "inline"
+            ],
+            "attempts": 0,
+            "outcome": "canceled"
+          },
+          {
+            "error": "settled",
+            "state": "canceled"
+          }
+        ]
+      },
+      {
+        "name": "purchasing before offerings loaded is not_ready",
+        "steps": [
+          {
+            "op": "start",
+            "view": "inline"
+          }
+        ],
+        "expect": [
+          {
+            "error": "not_ready",
+            "state": "idle"
+          }
+        ]
+      }
+    ]
+  },
+  "paywall": {
+    "_note": "The offering's packages, in one order, with one default and at most one badge. The order is the vendor's own package-type vocabulary. The default is the author's selection when it names a real package, else annual, else the first row. The saving is computed per MONTH against the monthly package because that is the comparison a buyer makes, and only for terms that are a whole number of months: lifetime has no term and weekly is not a whole number of months, so neither is compared rather than being compared wrongly.",
+    "packageOrder": [
+      "lifetime",
+      "annual",
+      "six_month",
+      "three_month",
+      "two_month",
+      "monthly",
+      "weekly",
+      "custom",
+      "unknown"
+    ],
+    "comparableMonths": {
+      "annual": 12,
+      "six_month": 6,
+      "three_month": 3,
+      "two_month": 2,
+      "monthly": 1
+    },
+    "cases": [
+      {
+        "name": "the vendor's package order, not the array's",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 9.99
+            },
+            {
+              "id": "a",
+              "type": "annual",
+              "price": 59.99
+            },
+            {
+              "id": "l",
+              "type": "lifetime",
+              "price": 199.0
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "l",
+            "a",
+            "m"
+          ],
+          "defaultId": "a",
+          "badgeId": "a",
+          "savings": 50
+        }
+      },
+      {
+        "name": "annual is the default when the author names nothing",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 9.99
+            },
+            {
+              "id": "a",
+              "type": "annual",
+              "price": 59.99
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "a",
+            "m"
+          ],
+          "defaultId": "a",
+          "badgeId": "a",
+          "savings": 50
+        }
+      },
+      {
+        "name": "the author's selection wins when it names a real package",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 9.99
+            },
+            {
+              "id": "a",
+              "type": "annual",
+              "price": 59.99
+            }
+          ],
+          "selected": "m"
+        },
+        "expect": {
+          "order": [
+            "a",
+            "m"
+          ],
+          "defaultId": "m",
+          "badgeId": "a",
+          "savings": 50
+        }
+      },
+      {
+        "name": "a selection that names nothing falls back to annual",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 9.99
+            },
+            {
+              "id": "a",
+              "type": "annual",
+              "price": 59.99
+            }
+          ],
+          "selected": "ghost"
+        },
+        "expect": {
+          "order": [
+            "a",
+            "m"
+          ],
+          "defaultId": "a",
+          "badgeId": "a",
+          "savings": 50
+        }
+      },
+      {
+        "name": "with no annual the first package in vendor order is the default",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 9.99
+            },
+            {
+              "id": "w",
+              "type": "weekly",
+              "price": 3.99
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "m",
+            "w"
+          ],
+          "defaultId": "m",
+          "badgeId": "",
+          "savings": 0
+        }
+      },
+      {
+        "name": "the badge goes to the biggest honest saving",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 10.0
+            },
+            {
+              "id": "a",
+              "type": "annual",
+              "price": 60.0
+            },
+            {
+              "id": "s",
+              "type": "six_month",
+              "price": 42.0
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "a",
+            "s",
+            "m"
+          ],
+          "defaultId": "a",
+          "badgeId": "a",
+          "savings": 50
+        }
+      },
+      {
+        "name": "no monthly package means no comparison and therefore no badge",
+        "input": {
+          "packages": [
+            {
+              "id": "a",
+              "type": "annual",
+              "price": 59.99
+            },
+            {
+              "id": "l",
+              "type": "lifetime",
+              "price": 199.0
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "l",
+            "a"
+          ],
+          "defaultId": "a",
+          "badgeId": "",
+          "savings": 0
+        }
+      },
+      {
+        "name": "lifetime is never compared: it has no term",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 10.0
+            },
+            {
+              "id": "l",
+              "type": "lifetime",
+              "price": 50.0
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "l",
+            "m"
+          ],
+          "defaultId": "l",
+          "badgeId": "",
+          "savings": 0
+        }
+      },
+      {
+        "name": "weekly is never compared: it is not a whole number of months",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 10.0
+            },
+            {
+              "id": "w",
+              "type": "weekly",
+              "price": 1.0
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "m",
+            "w"
+          ],
+          "defaultId": "m",
+          "badgeId": "",
+          "savings": 0
+        }
+      },
+      {
+        "name": "an annual that is not cheaper per month gets no badge",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 5.0
+            },
+            {
+              "id": "a",
+              "type": "annual",
+              "price": 90.0
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "a",
+            "m"
+          ],
+          "defaultId": "a",
+          "badgeId": "",
+          "savings": 0
+        }
+      },
+      {
+        "name": "a package with no price is skipped by the comparison, not by the list",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 10.0
+            },
+            {
+              "id": "a",
+              "type": "annual"
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "a",
+            "m"
+          ],
+          "defaultId": "a",
+          "badgeId": "",
+          "savings": 0
+        }
+      },
+      {
+        "name": "ties in type break on id, so the list never reorders itself",
+        "input": {
+          "packages": [
+            {
+              "id": "b",
+              "type": "custom",
+              "price": 1.0
+            },
+            {
+              "id": "a",
+              "type": "custom",
+              "price": 2.0
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "a",
+            "b"
+          ],
+          "defaultId": "a",
+          "badgeId": "",
+          "savings": 0
+        }
+      },
+      {
+        "name": "a type the vendor added is kept, and sorted last",
+        "input": {
+          "packages": [
+            {
+              "id": "m",
+              "type": "monthly",
+              "price": 10.0
+            },
+            {
+              "id": "x",
+              "type": "quarterly_plus",
+              "price": 20.0
+            }
+          ],
+          "selected": null
+        },
+        "expect": {
+          "order": [
+            "m",
+            "x"
+          ],
+          "defaultId": "m",
+          "badgeId": "",
+          "savings": 0
+        }
+      },
+      {
+        "name": "an empty offering is an empty paywall, not a crash",
+        "input": {
+          "packages": [],
+          "selected": null
+        },
+        "expect": {
+          "order": [],
+          "defaultId": "",
+          "badgeId": "",
+          "savings": 0
+        }
+      }
+    ]
+  },
+  "retain": {
+    "_note": "Keyed identity. A paywall holds the vendor's loaded offering and the user's current selection; rebuilding it on an unrelated re-render resets the selection under the buyer's finger.",
+    "keys": [
+      {
+        "name": "an explicit key wins outright",
+        "input": {
+          "tag": "revenuecat.Paywall",
+          "key": "onboarding",
+          "session": "dsx.module.revenuecat.context.session",
+          "index": 0
+        },
+        "expect": "revenuecat.Paywall#onboarding"
+      },
+      {
+        "name": "no key derives from tag, session reference and position",
+        "input": {
+          "tag": "revenuecat.Paywall",
+          "session": "dsx.variable.offering",
+          "index": 1
+        },
+        "expect": "revenuecat.Paywall@dsx.variable.offering[1]"
+      },
+      {
+        "name": "the implicit offering still derives a stable key",
+        "input": {
+          "tag": "revenuecat.PaywallFooter",
+          "index": 0
+        },
+        "expect": "revenuecat.PaywallFooter@[0]"
+      }
+    ]
+  }
+}

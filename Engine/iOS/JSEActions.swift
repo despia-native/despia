@@ -266,7 +266,7 @@ final class JSEActionRunner {
                 return .ret(nil)
             }
             if let bind = api.bind {
-                if api.decl { locals[bind] = result ?? NSNull() }
+                if api.decl { locals[bind] = result ?? NSNull(); declareLocal(&locals, bind) }
                 else { writePath(bind, result ?? NSNull()) }
             }
             return .normal
@@ -290,19 +290,22 @@ final class JSEActionRunner {
             if case .ret(let r) = flow { value = r }
             let envelope: [String: Any] = ["ok": true, "data": value ?? NSNull()]
             if let bind = aa.bind {
-                if aa.decl { locals[bind] = envelope } else { writePath(bind, envelope) }
+                if aa.decl { locals[bind] = envelope; declareLocal(&locals, bind) }
+                else if isLocal(locals, bind), locals[bind] != nil { locals[bind] = envelope }
+                else { writePath(bind, envelope) }
             }
             return .normal
         }
 
-        // ── declarations: const/let create BLOCK LOCALS (reads shadow the store; a later
-        //    bare assignment still writes the store — the pinned portable rule) ──
+        // ── declarations: const/let create AUTHORED block locals — reads shadow the
+        //    store AND a later bare assignment writes the local (the shared runner law) ──
         if s.hasPrefix("const ") || s.hasPrefix("let ") || s.hasPrefix("var ") {
             let rest = s.drop { $0 != " " }.trimmingCharacters(in: .whitespaces)
             if let eq = Self.topLevelIndex(of: "=", in: rest) {
                 let name = String(rest[..<eq]).trimmingCharacters(in: .whitespaces)
                 let rhs = String(rest[rest.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
                 locals[name] = await evalAsync(rhs, &locals) ?? NSNull()
+                declareLocal(&locals, name)
             }
             return .normal
         }
@@ -427,7 +430,8 @@ final class JSEActionRunner {
             return .normal
         }
 
-        // ── assignment: ALWAYS the store (dotted paths create nests); += / -= sugar ──
+        // ── assignment: a DECLARED local writes the local (the shared runner law);
+        //    everything else the store (dotted paths create nests); += / -= sugar ──
         if let a = Self.parseAssignment(s) {
             let rhs: String
             switch a.op {
@@ -436,7 +440,20 @@ final class JSEActionRunner {
             case "-=": rhs = "(\(a.path)) - (\(a.rhs))"
             default:   rhs = a.rhs
             }
-            writePath(a.path, await evalAsync(rhs, &locals) ?? NSNull())
+            let value = await evalAsync(rhs, &locals) ?? NSNull()
+            let first = a.path.contains(".") ? String(a.path.prefix(while: { $0 != "." })) : a.path
+            if !a.path.hasPrefix("dsx."), isLocal(locals, first), locals[first] != nil {
+                if !a.path.contains(".") {
+                    locals[a.path] = value
+                } else {
+                    var root = locals[first] as? [String: Any] ?? [:]
+                    let parts = a.path.split(separator: ".").map(String.init)
+                    Self.set(&root, Array(parts.dropFirst()), value)
+                    locals[first] = root
+                }
+                return .normal
+            }
+            writePath(a.path, value)
             return .normal
         }
 
@@ -500,7 +517,7 @@ final class JSEActionRunner {
             let items: [Any] = (seq as? [Any]) ?? ((seq as? [String: Any]).map { Array($0.values) } ?? [])
             for item in items {
                 if budgetExceeded() { return .normal }
-                var inner = locals; inner[name] = item
+                var inner = locals; inner[name] = item; declareLocal(&inner, name)
                 let f = await exec(block: body, locals: &inner)
                 merge(&locals, from: inner, dropping: name)
                 switch f {
@@ -511,26 +528,28 @@ final class JSEActionRunner {
             }
             return .normal
         }
-        // classic for (init; cond; step) — the STORE-COUNTER portable idiom (`for (i = 0; …)`)
+        // classic for (init; cond; step) — the init's declarations (a `let i = 0` counter)
+        // live in a loop scope carried through cond/body/step (the shared runner law), and
+        // the store-counter spelling (`for (i = 0; …)`) still writes the store as always.
         let parts = Self.splitTop(head, on: ";")
         guard parts.count == 3 else { return .normal }
-        var seedLocals = locals
-        _ = await exec(statement: parts[0], locals: &seedLocals)
-        merge(&locals, from: seedLocals)
-        while JSE.truthy(eval(parts[1], locals)) {
-            if budgetExceeded() { return .normal }
-            var inner = locals
+        var locals2 = locals
+        _ = await exec(statement: parts[0], locals: &locals2)
+        while JSE.truthy(eval(parts[1], locals2)) {
+            if budgetExceeded() { break }
+            var inner = locals2
             let f = await exec(block: body, locals: &inner)
-            merge(&locals, from: inner)
+            merge(&locals2, from: inner)
             switch f {
-            case .brk: return .normal
-            case .ret, .thrown: return f
+            case .brk: merge(&locals, from: locals2); return .normal
+            case .ret, .thrown: merge(&locals, from: locals2); return f
             default: break
             }
-            var stepLocals = locals
+            var stepLocals = locals2
             _ = await exec(statement: parts[2], locals: &stepLocals)
-            merge(&locals, from: stepLocals)
+            merge(&locals2, from: stepLocals)
         }
+        merge(&locals, from: locals2)
         return .normal
     }
 
@@ -550,7 +569,7 @@ final class JSEActionRunner {
             guard let catchBody = Self.braceGroup(&tail) else { return flow }
             if case .thrown(let v) = flow {
                 var cLocals = locals
-                if let errName, !errName.isEmpty { cLocals[errName] = v ?? NSNull() }
+                if let errName, !errName.isEmpty { cLocals[errName] = v ?? NSNull(); declareLocal(&cLocals, errName) }
                 flow = await exec(block: catchBody, locals: &cLocals)
                 merge(&locals, from: cLocals, dropping: errName)
             }
@@ -690,6 +709,22 @@ final class JSEActionRunner {
         for (k, v) in inner where outer[k] != nil && k != dropping { outer[k] = v }
     }
 
+    /// AUTHORED LOCALS (the shared runner law, actions corpus): the declared-names set
+    /// rides IN the scope under a key no author can spell, so scope copies carry it. An
+    /// assignment whose first segment is a declared local writes the LOCAL; everything
+    /// else keeps the store-always contract.
+    private static let localsMark = "\u{0000}dsx.locals"
+
+    private func declareLocal(_ locals: inout [String: Any], _ name: String) {
+        var set = locals[Self.localsMark] as? Set<String> ?? []
+        set.insert(name)
+        locals[Self.localsMark] = set
+    }
+
+    private func isLocal(_ locals: [String: Any], _ name: String) -> Bool {
+        (locals[Self.localsMark] as? Set<String>)?.contains(name) == true
+    }
+
     private func budgetExceeded() -> Bool {
         loopWork += 1
         if loopWork > 10_000 {
@@ -703,7 +738,9 @@ final class JSEActionRunner {
 
     /// The shared JSE preprocessor pass (quote-, template- AND regex-literal-aware,
     /// `://` URL guard — syntax wave 1); this forwarder keeps call sites source-compatible.
-    static func stripComments(_ s: String) -> String { JSE.stripComments(s) }
+    /// Operator entities decode FIRST (syntax-006): the `;` inside `&amp;` would otherwise
+    /// split a statement in half at the string level. Both passes are idempotent.
+    static func stripComments(_ s: String) -> String { JSE.stripComments(JSE.decodeOperatorEntities(s)) }
 
     /// Split a block into top-level statements at `;` and newlines (a newline splits only
     /// when nesting depth is 0 — brace blocks ride whole).

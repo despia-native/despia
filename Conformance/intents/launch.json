@@ -1,0 +1,165 @@
+{
+  "_note": "Core/Intents (F17.6) — the platform-neutral corpus for the Android intent launcher. Two things are pinned here even though the capability is Android-only. (1) VALIDATION, so a caller writing one code path gets the same refusal on every renderer instead of a silent empty chooser on one. (2) The <queries> GENERATOR: Android 11 package visibility means an intent for a component the manifest never declared resolves to nothing and throws ActivityNotFound, which looks exactly like 'no app can handle this' — deriving the manifest rows from the module's own declarations is what stops the manifest and the code disagreeing. The flag NUMBERS are ABI-frozen Android constants, hardcoded here so a runtime with no Android SDK can still assert them. Read by kernel/test/intents-conformance.test.ts (TS, reference), :core IntentsConformanceTest (Kotlin) and Engine/iOS/Intents.swift.",
+
+  "flagValues": {
+    "newTask": 268435456,
+    "singleTop": 536870912,
+    "clearTop": 67108864,
+    "clearTask": 32768,
+    "newDocument": 524288,
+    "noHistory": 1073741824,
+    "excludeFromRecents": 8388608,
+    "grantReadUri": 1,
+    "grantWriteUri": 2
+  },
+
+  "flagOrder": ["newTask", "singleTop", "clearTop", "clearTask", "newDocument", "noHistory", "excludeFromRecents", "grantReadUri", "grantWriteUri"],
+
+  "action": [
+    { "name": "a platform action", "raw": "android.intent.action.VIEW", "ok": true, "expect": "android.intent.action.VIEW" },
+    { "name": "a settings action", "raw": "android.settings.WIFI_SETTINGS", "ok": true, "expect": "android.settings.WIFI_SETTINGS" },
+    { "name": "a vendor action", "raw": "com.example.DO_THING", "ok": true, "expect": "com.example.DO_THING" },
+    { "name": "whitespace is trimmed", "raw": "  android.intent.action.SEND  ", "ok": true, "expect": "android.intent.action.SEND" },
+    { "name": "a bare word compiles on Android and resolves to nothing, so it is refused here", "raw": "VIEW", "ok": false, "error": "invalid_action" },
+    { "name": "empty", "raw": "", "ok": false, "error": "invalid_action" },
+    { "name": "a slash is not part of an action name", "raw": "android/intent/VIEW", "ok": false, "error": "invalid_action" },
+    { "name": "a space inside", "raw": "android.intent.action. VIEW", "ok": false, "error": "invalid_action" },
+    { "name": "a leading dot", "raw": ".VIEW", "ok": false, "error": "invalid_action" },
+    { "name": "a trailing dot", "raw": "android.intent.action.", "ok": false, "error": "invalid_action" }
+  ],
+
+  "package": [
+    { "name": "absent is legal — an untargeted intent goes to the chooser", "raw": "", "ok": true, "expect": "" },
+    { "name": "a package name", "raw": "com.google.android.gm", "ok": true, "expect": "com.google.android.gm" },
+    { "name": "a bare word is not a package", "raw": "gmail", "ok": false, "error": "invalid_package" },
+    { "name": "a slash is not part of a package name", "raw": "com.example/App", "ok": false, "error": "invalid_package" }
+  ],
+
+  "data": [
+    { "name": "absent is legal", "raw": "", "ok": true, "expect": "" },
+    { "name": "an https URL", "raw": "https://example.com/a", "ok": true, "expect": "https://example.com/a" },
+    { "name": "package: is how a settings screen names an app", "raw": "package:com.example.app", "ok": true, "expect": "package:com.example.app" },
+    { "name": "a content URI", "raw": "content://media/external/images/media/42", "ok": true, "expect": "content://media/external/images/media/42" },
+    { "name": "tel: is a URI too — a stricter rule would refuse working intents", "raw": "tel:+15551234", "ok": true, "expect": "tel:+15551234" },
+    { "name": "a bare path is not a URI", "raw": "/sdcard/file.txt", "ok": false, "error": "invalid_data" },
+    { "name": "a scheme cannot start with a digit", "raw": "1http://x", "ok": false, "error": "invalid_data" },
+    { "name": "a space inside", "raw": "https://example.com/a b", "ok": false, "error": "invalid_data" }
+  ],
+
+  "type": [
+    { "name": "absent is legal", "raw": "", "ok": true, "expect": "" },
+    { "name": "a plain type", "raw": "text/plain", "ok": true, "expect": "text/plain" },
+    { "name": "case folds", "raw": "Image/JPEG", "ok": true, "expect": "image/jpeg" },
+    { "name": "a wildcard subtype", "raw": "image/*", "ok": true, "expect": "image/*" },
+    { "name": "a vendor subtype", "raw": "application/vnd.android.package-archive", "ok": true, "expect": "application/vnd.android.package-archive" },
+    { "name": "no subtype", "raw": "text", "ok": false, "error": "invalid_type" },
+    { "name": "an empty subtype", "raw": "text/", "ok": false, "error": "invalid_type" },
+    { "name": "two slashes", "raw": "text/plain/x", "ok": false, "error": "invalid_type" }
+  ],
+
+  "extras": [
+    { "name": "absent is an empty bundle", "raw": null, "ok": true, "expect": {} },
+    { "name": "scalars of every kind", "raw": { "s": "text", "n": 42, "b": true }, "ok": true, "expect": { "s": "text", "n": 42, "b": true } },
+    { "name": "an array of scalars", "raw": { "ids": [1, 2, 3] }, "ok": true, "expect": { "ids": [1, 2, 3] } },
+    { "name": "a null value is dropped rather than sent as a null extra", "raw": { "a": "x", "b": null }, "ok": true, "expect": { "a": "x" } },
+    { "name": "a nested object is refused — encode your own structure and know what crossed", "raw": { "o": { "deep": 1 } }, "ok": false, "error": "invalid_extras" },
+    { "name": "an array of objects", "raw": { "list": [{ "a": 1 }] }, "ok": false, "error": "invalid_extras" },
+    { "name": "an unnamed extra", "raw": { "   ": "x" }, "ok": false, "error": "invalid_extras" }
+  ],
+
+  "flags": [
+    { "name": "no flags", "raw": [], "ok": true, "mask": 0, "words": [] },
+    { "name": "one flag", "raw": ["newTask"], "ok": true, "mask": 268435456, "words": ["newTask"] },
+    { "name": "separators and case are ignored", "raw": ["new_task", "CLEAR-TOP"], "ok": true, "mask": 335544320, "words": ["newTask", "clearTop"] },
+    { "name": "the canonical order is imposed, not the caller's", "raw": ["clearTop", "newTask", "singleTop"], "ok": true, "mask": 872415232, "words": ["newTask", "singleTop", "clearTop"] },
+    { "name": "duplicates collapse", "raw": ["newTask", "newTask"], "ok": true, "mask": 268435456, "words": ["newTask"] },
+    { "name": "a comma string is a list", "raw": "grantReadUri,grantWriteUri", "ok": true, "mask": 3, "words": ["grantReadUri", "grantWriteUri"] },
+    { "name": "an unknown flag is refused — a dropped newTask fails only when launched from a service", "raw": ["teleport"], "ok": false, "error": "unknown_flag" }
+  ],
+
+  "intent": [
+    {
+      "name": "the smallest useful intent",
+      "raw": { "action": "android.intent.action.VIEW", "data": "https://example.com" },
+      "ok": true,
+      "expect": {
+        "action": "android.intent.action.VIEW", "package": "", "data": "https://example.com",
+        "type": "", "categories": [], "extras": {}, "flags": { "mask": 0, "words": [] }
+      }
+    },
+    {
+      "name": "a settings screen that has no URL scheme, which is the whole point of this module",
+      "raw": { "action": "android.settings.APPLICATION_DETAILS_SETTINGS", "data": "package:com.example.app", "flags": ["newTask"] },
+      "ok": true,
+      "expect": {
+        "action": "android.settings.APPLICATION_DETAILS_SETTINGS", "package": "",
+        "data": "package:com.example.app", "type": "", "categories": [], "extras": {},
+        "flags": { "mask": 268435456, "words": ["newTask"] }
+      }
+    },
+    {
+      "name": "handing a file to one named app",
+      "raw": {
+        "action": "android.intent.action.SEND",
+        "package": "com.google.android.gm",
+        "type": "Image/PNG",
+        "extras": { "android.intent.extra.SUBJECT": "Hello" },
+        "flags": ["grant_read_uri", "new_task"],
+        "categories": ["android.intent.category.DEFAULT"]
+      },
+      "ok": true,
+      "expect": {
+        "action": "android.intent.action.SEND", "package": "com.google.android.gm",
+        "data": "", "type": "image/png",
+        "categories": ["android.intent.category.DEFAULT"],
+        "extras": { "android.intent.extra.SUBJECT": "Hello" },
+        "flags": { "mask": 268435457, "words": ["newTask", "grantReadUri"] }
+      }
+    },
+    { "name": "a bare action refuses the whole intent", "raw": { "action": "VIEW" }, "ok": false, "error": "invalid_action" },
+    { "name": "a bad MIME type refuses the whole intent", "raw": { "action": "android.intent.action.SEND", "type": "text" }, "ok": false, "error": "invalid_type" },
+    { "name": "a nested extra refuses the whole intent", "raw": { "action": "android.intent.action.SEND", "extras": { "o": { "a": 1 } } }, "ok": false, "error": "invalid_extras" },
+    { "name": "an unknown flag refuses the whole intent", "raw": { "action": "android.intent.action.VIEW", "flags": ["teleport"] }, "ok": false, "error": "unknown_flag" },
+    { "name": "a bad category is an action-grammar failure", "raw": { "action": "android.intent.action.VIEW", "categories": ["DEFAULT"] }, "ok": false, "error": "invalid_action" }
+  ],
+
+  "queries": [
+    {
+      "name": "an untargeted intent becomes an intent row carrying whatever it constrains",
+      "specs": [{ "action": "android.intent.action.VIEW", "data": "https://example.com", "type": "", "package": "" }],
+      "expect": [{ "kind": "intent", "action": "android.intent.action.VIEW", "scheme": "https", "mimeType": "", "name": "" }]
+    },
+    {
+      "name": "a targeted intent becomes a package row instead — that is all Android needs to see it",
+      "specs": [{ "action": "android.intent.action.SEND", "data": "", "type": "text/plain", "package": "com.google.android.gm" }],
+      "expect": [{ "kind": "package", "action": "", "scheme": "", "mimeType": "", "name": "com.google.android.gm" }]
+    },
+    {
+      "name": "the MIME half is carried when the intent constrains it",
+      "specs": [{ "action": "android.intent.action.SEND", "data": "", "type": "image/*", "package": "" }],
+      "expect": [{ "kind": "intent", "action": "android.intent.action.SEND", "scheme": "", "mimeType": "image/*", "name": "" }]
+    },
+    {
+      "name": "identical rows collapse",
+      "specs": [
+        { "action": "android.intent.action.VIEW", "data": "https://a.example", "type": "", "package": "" },
+        { "action": "android.intent.action.VIEW", "data": "https://b.example", "type": "", "package": "" }
+      ],
+      "expect": [{ "kind": "intent", "action": "android.intent.action.VIEW", "scheme": "https", "mimeType": "", "name": "" }]
+    },
+    {
+      "name": "output is sorted, so an unrelated declaration order change makes no diff",
+      "specs": [
+        { "action": "android.intent.action.SEND", "data": "", "type": "text/plain", "package": "" },
+        { "action": "android.intent.action.VIEW", "data": "tel:+1", "type": "", "package": "" },
+        { "action": "android.intent.action.DIAL", "data": "", "type": "", "package": "com.android.dialer" }
+      ],
+      "expect": [
+        { "kind": "intent", "action": "android.intent.action.SEND", "scheme": "", "mimeType": "text/plain", "name": "" },
+        { "kind": "intent", "action": "android.intent.action.VIEW", "scheme": "tel", "mimeType": "", "name": "" },
+        { "kind": "package", "action": "", "scheme": "", "mimeType": "", "name": "com.android.dialer" }
+      ]
+    },
+    { "name": "no declarations, no rows", "specs": [], "expect": [] }
+  ]
+}

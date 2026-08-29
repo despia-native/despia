@@ -1,0 +1,86 @@
+{
+  "_schema": "despia-element-parity-v1",
+  "tag": "rive",
+  "aliases": [],
+  "source": "ClosedSource/DSX/Modules/Core/Rive/swift/RiveElement.swift",
+  "attributes": {
+    "src": {
+      "type": "url",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Rive/swift/RiveElement.swift (a .riv file: an http(s) url or a bundled name; the extension is optional)"
+    },
+    "artboard": {
+      "type": "string",
+      "default": null,
+      "_src": "OpenSource/Conformance/rive/selection.json (absent takes the file's default artboard, else the first; an unknown name is not_found)"
+    },
+    "stateMachine": {
+      "type": "string",
+      "default": null,
+      "_src": "OpenSource/Conformance/rive/selection.json (absent takes the artboard's first machine; naming this AND animation is refused as conflict)"
+    },
+    "animation": {
+      "type": "string",
+      "default": null,
+      "_src": "OpenSource/Conformance/rive/selection.json (plays a linear animation instead of a machine)"
+    },
+    "inputs": {
+      "type": "expression",
+      "default": null,
+      "_src": "OpenSource/Conformance/rive/inputs.json (the bound object driving the machine's inputs: levels diffed, triggers fired on a value transition, an undeclared name refused)"
+    },
+    "autoplay": {
+      "type": "boolean",
+      "default": "true",
+      "_src": "OpenSource/Conformance/rive/playback.json (autoplay=false mounts paused; a remount returns to this value)"
+    },
+    "fit": {
+      "type": "string",
+      "default": "contain",
+      "_src": "OpenSource/Conformance/rive/fit.json (cover | contain | fill | fitWidth | fitHeight | none; case and separators folded, an unknown word folds to contain and is diagnosed)"
+    },
+    "alignment": {
+      "type": "string",
+      "default": "center",
+      "_src": "OpenSource/Conformance/rive/fit.json (nine positions plus the top/bottom/left/right edge-centre aliases)"
+    },
+    "speed": {
+      "type": "number",
+      "default": 1,
+      "_src": "ClosedSource/DSX/Modules/Core/Rive/swift/RiveElement.swift (playback rate multiplier)"
+    },
+    "ref": {
+      "type": "string",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Core/Rive/dsx.json (the imperative address for dsx.module.rive.*; defaults to src, and may be omitted in a call when exactly one <rive> is mounted)"
+    },
+    "a11yLabel": {
+      "type": "string",
+      "default": null,
+      "_src": "OpenSource/Conformance/rive/a11y.json (REQUIRED by lint_dsx when a gesture handler is bound: rive-a11y-label)"
+    },
+    "on:load": {
+      "type": "action",
+      "default": null,
+      "_src": "OpenSource/Conformance/rive/events.json ({artboard, stateMachine, animation, width, height} once the file has landed)"
+    },
+    "on:stateChange": {
+      "type": "action",
+      "default": null,
+      "_src": "OpenSource/Conformance/rive/events.json ({machine, state} on a real transition, never on an advance)"
+    },
+    "on:event": {
+      "type": "action",
+      "default": null,
+      "_src": "OpenSource/Conformance/rive/events.json ({name, properties} for a Rive event fired inside the animation; an openUrl event is data, never a navigation)"
+    },
+    "on:error": {
+      "type": "action",
+      "default": null,
+      "_src": "OpenSource/Conformance/rive/events.json ({code, message} over a closed code set)"
+    }
+  },
+  "geometry": {},
+  "colors": {},
+  "notes": "STATE-MACHINE animation, rendered by Rive's own runtime on every target (rive-ios, rive-android, @rive-app/canvas) - so pixels are the vendor's and are pinned nowhere. Everything AROUND the vendor is the shared kernel core (RiveCore.swift / RiveCore.kt / rive-core.ts, corpus OpenSource/Conformance/rive/) and IS pinned: the input fold and its trigger edges, the artboard/machine/animation selection and its refusals, fit and alignment, the playback and residency lifecycle, the payload shapes and the accessibility verdict. A timeline is <lottie>; a state machine is <rive>. Provided by the excludable Core/Rive module: with the module dropped the tag is unresolved, and on the NATIVE renderers its children render instead (the author's own fallback). The web renderer mounts its dsx-unsupported box for any unresolved tag and ignores the children today - the same behaviour <lottie> has there, and a cross-cutting mount.ts decision rather than this element's."
+}

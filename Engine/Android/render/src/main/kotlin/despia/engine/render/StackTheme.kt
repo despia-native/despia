@@ -65,6 +65,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import despia.engine.JSE
 
 object StackTheme {
@@ -373,4 +374,31 @@ fun ForcedSchemeSubtree(dark: Boolean, content: @Composable () -> Unit) {
             MaterialTheme(colorScheme = scheme, content = content)
         }
     }
+}
+
+/**
+ * A Material typography role BY NAME, because `Conformance/defaults/type.json`'s Android
+ * column is a name. Resolving through the composition-local theme rather than a captured
+ * `Typography` instance is the point: an app that supplies its own typography restyles every
+ * `<text type=...>` in one move, which is the same customization ladder the token sheet gives
+ * the web. Nothing here decides a size; it only reads the one Material already decided.
+ */
+@Composable
+internal fun materialTypography(role: String): TextStyle? = when (role) {
+    "displayLarge" -> MaterialTheme.typography.displayLarge
+    "displayMedium" -> MaterialTheme.typography.displayMedium
+    "displaySmall" -> MaterialTheme.typography.displaySmall
+    "headlineLarge" -> MaterialTheme.typography.headlineLarge
+    "headlineMedium" -> MaterialTheme.typography.headlineMedium
+    "headlineSmall" -> MaterialTheme.typography.headlineSmall
+    "titleLarge" -> MaterialTheme.typography.titleLarge
+    "titleMedium" -> MaterialTheme.typography.titleMedium
+    "titleSmall" -> MaterialTheme.typography.titleSmall
+    "bodyLarge" -> MaterialTheme.typography.bodyLarge
+    "bodyMedium" -> MaterialTheme.typography.bodyMedium
+    "bodySmall" -> MaterialTheme.typography.bodySmall
+    "labelLarge" -> MaterialTheme.typography.labelLarge
+    "labelMedium" -> MaterialTheme.typography.labelMedium
+    "labelSmall" -> MaterialTheme.typography.labelSmall
+    else -> null
 }

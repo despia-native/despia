@@ -30,6 +30,8 @@
 package despia.engine.render
 
 import despia.engine.AdaptiveShell
+import despia.engine.InkCore
+import despia.engine.SplitPlan
 
 /// One element's declared parity constants. `attributes` maps attribute name -> default
 /// (canonical string form: numbers unpadded, booleans "true"/"false", null = no default);
@@ -70,9 +72,8 @@ internal object ElementDefaults {
     const val LIST_SPACING = 0.0                      // List.swift:43
     const val GRID_COLUMNS = 3                        // Grid.swift:14
     const val GRID_SPACING = 10.0                     // Grid.swift:15
-    const val TABS_TINT = "accent"                    // Tabs.swift:26
-    const val TABS_INACTIVE = "secondary"             // Android strip chrome (iOS: native TabView)
-    const val TABS_STRIP_SPACING = 16.0               // Android strip chrome
+    const val TABS_TINT = "accent"                    // Tabs.swift:35
+    const val TABS_ITEM_ICON_SIZE = 24.0              // M3 navigation bar/rail item icon (dp)
     const val TOGGLE_WIDTH = 51.0                     // UISwitch metric (Toggle.swift:16 renders the native control)
     const val TOGGLE_HEIGHT = 31.0
     const val TOGGLE_THUMB = 27.0
@@ -109,20 +110,20 @@ internal object ElementDefaults {
     const val CHAT_MAX_WIDTH = 280.0                  // ChatBubble.swift:34
     const val CHAT_PADDING_H = 14.0                   // ChatBubble.swift:58
     const val CHAT_PADDING_V = 10.0                   // ChatBubble.swift:59
-    const val CHAT_RADIUS = 18.0                      // ChatBubble.swift:70-74
+    const val CHAT_RADIUS = 20.0                      // ChatBubble.swift:70-74 (shape rung `sheet`)
     const val CHAT_TAIL_RADIUS = 4.0                  // ChatBubble.swift:71-72
     const val CHAT_LEFT = "#2C2C2E"                   // ChatBubble.swift:33
     const val CHAT_RIGHT = "accent"                   // ChatBubble.swift:33
     const val DRAWER_HANDLE_W = 36.0                  // Drawer.swift:34
     const val DRAWER_HANDLE_H = 5.0                   // Drawer.swift:34
     const val DRAWER_HANDLE_PAD_V = 8.0               // Drawer.swift:35
-    const val DRAWER_HANDLE_ALPHA = 0.25              // Drawer.swift:33
     const val DRAWER_CONTENT_SPACING = 12.0           // Drawer.swift:36
     const val DRAWER_CONTENT_PAD_H = 20.0             // Drawer.swift:37
     const val DRAWER_CONTENT_PAD_B = 12.0             // Drawer.swift:38
-    const val DRAWER_RADIUS = 24.0                    // Drawer.swift:42
+    const val DRAWER_RADIUS = 20.0                    // Drawer.swift:42 (shape rung `sheet`)
     const val DRAWER_DISMISS = 120.0                  // Drawer.swift:48
-    const val DRAWER_PANEL = "#1C1C1C"                // Drawer.swift:41 (Color(white: 0.11))
+    const val DRAWER_HANDLE = "fill"                  // Drawer.swift (the semantic grabber slot — was white 25%; W12 red sweep)
+    const val DRAWER_PANEL = "secondaryBackground"    // Drawer.swift (the elevated-surface slot — was Color(white: 0.11); W12 red sweep)
     const val FIELD_STACK_SPACING = 4.0               // Field.swift:55
     const val FIELD_ERROR = "destructive"             // Field.swift:153 — system-defaults base pass phase 3: rides the semantic token (theme-less resolves the same #FF453A — byte-identical)
     const val FIELD_LABEL = "secondary"               // Field.swift:60 (.footnote)
@@ -146,6 +147,20 @@ internal object ElementDefaults {
     const val SEARCHBAR_TINT = "accent"               // SearchBar.swift:36
     const val SHEET_CARD_INSET = 14.0                 // Sheet.swift:79
     const val SHEET_DETENTS = "half,full"             // Sheet.swift:43-44
+    // <Signature> — the PAD's own chrome. The ink law it draws with is not here: it lives
+    // ONCE, in :core InkCore (the `<ink>` primitive both Compose renderers, the TS kernel and
+    // the Swift twin share), and the two ink numbers below are aliases of it so the spec and
+    // the element cannot drift from the primitive.
+    const val SIGNATURE_HEIGHT = 180.0                                // Signature.swift:120
+    const val SIGNATURE_RADIUS = 12.0                                 // Signature.swift:121
+    const val SIGNATURE_BORDER = 1.0                                  // Signature.swift:181
+    const val SIGNATURE_BASELINE_INSET = 24.0                         // Signature.swift:133
+    const val SIGNATURE_BASELINE_BOTTOM = 36.0                        // Signature.swift:132
+    const val SIGNATURE_PLACEHOLDER_FONT = 15.0                       // Signature.swift:140
+    const val SIGNATURE_INK = "label"                                 // Signature.swift:119
+    const val SIGNATURE_RULE = "separator"                            // Signature.swift:126
+    const val SIGNATURE_PLACEHOLDER = "secondary"                     // Signature.swift:141
+    const val SIGNATURE_STROKE = InkCore.STROKE_WIDTH                 // the ink primitive's default
     const val SKELETON_HEIGHT = 14.0                  // Skeleton.swift:22
     const val SKELETON_RADIUS = 8.0                   // Skeleton.swift:23
     const val SKELETON_FILL_OPACITY = 0.08            // Skeleton.swift:35
@@ -208,7 +223,7 @@ internal object ElementDefaults {
     const val RADIO_UNSELECTED = "secondary"          // RadioGroup.swift:58
     const val WHEEL_TINT = "accent"                   // WheelPicker.swift:28
     const val COMBO_MAX_ROWS = 6                      // Combobox.swift:31
-    const val COMBO_ROW_HEIGHT = 41.0                 // Combobox.swift:81 (card maxHeight = min(rows,6) * 41)
+    const val COMBO_ROW_HEIGHT = 44.0                 // Combobox.swift (44 min row + card maxHeight = min(rows,6) * 44 — the W12 coarse-pointer floor)
     const val COMBO_ROW_PAD_H = 12.0                  // Combobox.swift:71
     const val COMBO_ROW_PAD_V = 10.0                  // Combobox.swift:72
     const val COMBO_RADIUS = 12.0                     // Combobox.swift:82
@@ -240,7 +255,8 @@ object ElementSpecs {
             attributes = mapOf("label" to null, "icon" to null,
                                "iconSize" to canon(d.BUTTON_ICON_SIZE), "color" to d.BUTTON_COLOR,
                                "variant" to null, "role" to null,   // the system-space words (system-defaults.md; StackButtons.kt)
-                               "on:tap" to null),
+                               "on:tap" to null,
+                               "disabled" to "false"),
             geometry = mapOf("iconSize" to d.BUTTON_ICON_SIZE,
                              "pressScale" to d.BUTTON_PRESS_SCALE),
             colors = mapOf("content" to d.BUTTON_COLOR)))
@@ -291,7 +307,8 @@ object ElementSpecs {
         register(ElementSpec("pressable", aliases = listOf("row"),
             attributes = mapOf("on:tap" to null, "on:doubleTap" to null,
                                "on:longPress" to null, "on:longPressEnd" to null,
-                               "href" to null),
+                               "href" to null,
+                               "disabled" to "false"),
             geometry = mapOf("longPressMinDuration" to d.PRESSABLE_LONG_PRESS_SECONDS)))
         register(ElementSpec("progress", aliases = listOf("capsuleProgress"),
             attributes = mapOf("bind" to null, "value" to "0",
@@ -302,13 +319,30 @@ object ElementSpecs {
             attributes = mapOf("axis" to "vertical")))
         register(ElementSpec("slider",
             attributes = mapOf("bind" to null, "min" to canon(d.SLIDER_MIN),
-                               "max" to canon(d.SLIDER_MAX), "color" to d.SLIDER_TINT),
+                               "max" to canon(d.SLIDER_MAX), "color" to d.SLIDER_TINT,
+                               "disabled" to "false"),
             colors = mapOf("tint" to d.SLIDER_TINT)))
         register(ElementSpec("spacer"))
         register(ElementSpec("spinner", aliases = listOf("activity"),
             attributes = mapOf("color" to d.SPINNER_TINT),
             geometry = mapOf("size" to d.SPINNER_SIZE),
             colors = mapOf("tint" to d.SPINNER_TINT)))
+        register(ElementSpec("split",
+            // the shared planner's defaults (:core SplitPlan — corpus Conformance/split/split.json);
+            // the readable-inset geometry stays out of the spec (chrome metric, header rule 4:
+            // iOS pins 20pt, the Compose pane rides M3's own 24dp expanded margin)
+            attributes = mapOf("value" to null, "on:change" to null, "paneRole" to null,
+                               "panes" to null,
+                               "collapseAt" to canon(SplitPlan.DEFAULT_COLLAPSE_AT),
+                               "expandAt" to canon(SplitPlan.DEFAULT_EXPAND_AT),
+                               "resizable" to "true",
+                               "sidebarMin" to canon(SplitPlan.DEFAULT_SIDEBAR.min),
+                               "sidebarIdeal" to canon(SplitPlan.DEFAULT_SIDEBAR.ideal),
+                               "sidebarMax" to canon(SplitPlan.DEFAULT_SIDEBAR.max),
+                               "contentMin" to canon(SplitPlan.DEFAULT_CONTENT.min),
+                               "contentIdeal" to canon(SplitPlan.DEFAULT_CONTENT.ideal),
+                               "contentMax" to canon(SplitPlan.DEFAULT_CONTENT.max),
+                               "detailMin" to canon(SplitPlan.DEFAULT_DETAIL_MIN))))
         register(ElementSpec("stack",
             attributes = mapOf("spacing" to canon(d.GENERIC_STACK_GAP),
                                "flexDirection" to "column", "align" to null),
@@ -319,16 +353,19 @@ object ElementSpecs {
             colors = mapOf("tint" to d.TABS_TINT)))
         register(ElementSpec("text", aliases = listOf("label"),
             attributes = mapOf("bind" to null, "value" to null,
+                               "markdown" to "false",
                                "color" to d.TEXT_COLOR, "lineLimit" to null),
             colors = mapOf("content" to d.TEXT_COLOR)))
         register(ElementSpec("textfield", aliases = listOf("input"),
             attributes = mapOf("bind" to null, "secure" to "false", "placeholder" to null,
                                "color" to d.TEXTFIELD_COLOR, "keyboard" to null,
                                "on:change" to null, "on:submit" to null,
-                               "on:focus" to null, "on:blur" to null),
+                               "on:focus" to null, "on:blur" to null,
+                               "disabled" to "false"),
             colors = mapOf("text" to d.TEXTFIELD_COLOR)))
         register(ElementSpec("toggle", aliases = listOf("switch"),
-            attributes = mapOf("bind" to null, "color" to d.TOGGLE_TINT),
+            attributes = mapOf("bind" to null, "color" to d.TOGGLE_TINT,
+                               "disabled" to "false"),
             geometry = mapOf("width" to d.TOGGLE_WIDTH, "height" to d.TOGGLE_HEIGHT,
                              "thumb" to d.TOGGLE_THUMB, "thumbInset" to d.TOGGLE_THUMB_INSET),
             colors = mapOf("tint" to d.TOGGLE_TINT)))
@@ -349,13 +386,15 @@ object ElementSpecs {
     private fun registerInputWave() {
         val d = ElementDefaults
         register(ElementSpec("Checkbox",   // Capitalized ONLY — the Android-only lowercase alias was dropped to match Checkbox.swift exactly
-            attributes = mapOf("bind" to null, "label" to null, "color" to d.CHECKBOX_CHECKED),
+            attributes = mapOf("bind" to null, "label" to null, "color" to d.CHECKBOX_CHECKED,
+                               "disabled" to "false"),
             geometry = mapOf("labelSpacing" to d.CHECKBOX_SPACING),
             colors = mapOf("checked" to d.CHECKBOX_CHECKED, "unchecked" to d.CHECKBOX_UNCHECKED)))
         register(ElementSpec("RadioGroup",
             attributes = mapOf("bind" to null, "options" to null, "optionsKey" to null,
                                "valueField" to "id", "labelField" to "label",
-                               "color" to d.RADIO_SELECTED),
+                               "color" to d.RADIO_SELECTED,
+                               "disabled" to "false"),
             geometry = mapOf("rowSpacing" to d.RADIO_ROW_SPACING,
                              "markSpacing" to d.RADIO_MARK_SPACING),
             colors = mapOf("selectedMark" to d.RADIO_SELECTED, "unselectedMark" to d.RADIO_UNSELECTED)))
@@ -363,13 +402,15 @@ object ElementSpecs {
             attributes = mapOf("bind" to null, "min" to null, "max" to null,
                                "color" to d.CALENDAR_TINT, "marks" to null,
                                "markDateField" to "date", "markColorField" to "color",
-                               "on:month" to null),
+                               "on:month" to null,
+                               "disabled" to "false"),
             colors = mapOf("tint" to d.CALENDAR_TINT)))
         register(ElementSpec("combobox",
             attributes = mapOf("bind" to null, "options" to null, "optionsKey" to null,
                                "valueField" to "id", "labelField" to "label",
                                "placeholder" to null, "color" to d.COMBO_TINT,
-                               "on:select" to null),
+                               "on:select" to null,
+                               "disabled" to "false"),
             geometry = mapOf("maxVisibleRows" to d.COMBO_MAX_ROWS.toDouble(),
                              "rowHeight" to d.COMBO_ROW_HEIGHT,
                              "rowPaddingH" to d.COMBO_ROW_PAD_H,
@@ -378,12 +419,14 @@ object ElementSpecs {
             colors = mapOf("tint" to d.COMBO_TINT)))
         register(ElementSpec("datepicker", aliases = listOf("date"),
             attributes = mapOf("bind" to null, "mode" to "date",
-                               "label" to null, "color" to d.DATE_TINT),
+                               "label" to null, "color" to d.DATE_TINT,
+                               "disabled" to "false"),
             colors = mapOf("tint" to d.DATE_TINT)))
         register(ElementSpec("otp",
             attributes = mapOf("bind" to null, "length" to canon(d.OTP_LENGTH.toDouble()),
                                "boxSize" to canon(d.OTP_BOX), "color" to d.OTP_TINT,
-                               "on:complete" to null),
+                               "on:complete" to null,
+                               "disabled" to "false"),
             geometry = mapOf("length" to d.OTP_LENGTH.toDouble(), "boxSize" to d.OTP_BOX,
                              "boxSpacing" to d.OTP_BOX_SPACING, "cornerRadius" to d.OTP_RADIUS,
                              "digitFontFraction" to d.OTP_FONT_FRACTION,
@@ -400,14 +443,16 @@ object ElementSpecs {
         register(ElementSpec("rangeslider",
             attributes = mapOf("bindLow" to null, "bindHigh" to null,
                                "min" to canon(0.0), "max" to canon(1.0),
-                               "step" to null, "color" to d.RANGE_TINT),
+                               "step" to null, "color" to d.RANGE_TINT,
+                               "disabled" to "false"),
             geometry = mapOf("thumb" to d.RANGE_THUMB, "track" to d.RANGE_TRACK,
                              "controlHeight" to d.RANGE_HEIGHT,
                              "trackOpacity" to d.RANGE_TRACK_OPACITY),
             colors = mapOf("tint" to d.RANGE_TINT)))
         register(ElementSpec("segmentedButton",
             attributes = mapOf("bind" to null, "options" to null, "icons" to null,
-                               "multiple" to "true", "color" to d.SEG_TINT),
+                               "multiple" to "true", "color" to d.SEG_TINT,
+                               "disabled" to "false"),
             geometry = mapOf("fontSize" to d.SEG_FONT, "iconSpacing" to d.SEG_ICON_SPACING,
                              "paddingV" to d.SEG_PAD_V, "cornerRadius" to d.SEG_RADIUS,
                              "borderWidth" to d.SEG_BORDER),
@@ -416,7 +461,8 @@ object ElementSpecs {
         register(ElementSpec("stars",
             attributes = mapOf("bind" to null, "count" to canon(d.STARS_COUNT.toDouble()),
                                "size" to canon(d.STARS_SIZE), "color" to d.STARS_TINT,
-                               "readonly" to "false"),
+                               "readonly" to "false",
+                               "disabled" to "false"),
             geometry = mapOf("count" to d.STARS_COUNT.toDouble(), "size" to d.STARS_SIZE,
                              "spacingFraction" to d.STARS_SPACING_FRACTION,
                              "emptyOpacity" to d.STARS_EMPTY_OPACITY),
@@ -424,7 +470,8 @@ object ElementSpecs {
         register(ElementSpec("stepper",
             attributes = mapOf("bind" to null, "min" to canon(d.STEPPER_MIN),
                                "max" to canon(d.STEPPER_MAX), "step" to canon(d.STEPPER_STEP),
-                               "label" to null, "color" to d.STEPPER_TINT),
+                               "label" to null, "color" to d.STEPPER_TINT,
+                               "disabled" to "false"),
             colors = mapOf("tint" to d.STEPPER_TINT)))
         register(ElementSpec("svg",
             attributes = mapOf("asset" to null, "src" to null, "d" to null,
@@ -433,7 +480,8 @@ object ElementSpecs {
         register(ElementSpec("wheelpicker",
             attributes = mapOf("bind" to null, "options" to null, "optionsKey" to null,
                                "valueField" to "id", "labelField" to "label",
-                               "label" to null, "color" to d.WHEEL_TINT),
+                               "label" to null, "color" to d.WHEEL_TINT,
+                               "disabled" to "false"),
             colors = mapOf("tint" to d.WHEEL_TINT)))
     }
 
@@ -459,17 +507,30 @@ object ElementSpecs {
         register(ElementSpec("Drawer",
             attributes = mapOf("on:close" to null),
             geometry = mapOf("handleWidth" to d.DRAWER_HANDLE_W, "handleHeight" to d.DRAWER_HANDLE_H,
-                             "handlePaddingV" to d.DRAWER_HANDLE_PAD_V, "handleOpacity" to d.DRAWER_HANDLE_ALPHA,
+                             "handlePaddingV" to d.DRAWER_HANDLE_PAD_V,
                              "contentSpacing" to d.DRAWER_CONTENT_SPACING, "contentPaddingH" to d.DRAWER_CONTENT_PAD_H,
                              "contentPaddingB" to d.DRAWER_CONTENT_PAD_B, "cornerRadius" to d.DRAWER_RADIUS,
                              "dismissThreshold" to d.DRAWER_DISMISS),
-            colors = mapOf("panel" to d.DRAWER_PANEL)))
+            colors = mapOf("panel" to d.DRAWER_PANEL, "handle" to d.DRAWER_HANDLE)))
         register(ElementSpec("ProgressRing",
             attributes = mapOf("value" to "0", "max" to "1", "lineWidth" to canon(d.RING_LINE),
                                "color" to d.RING_TINT, "trackColor" to d.RING_TRACK,
                                "size" to canon(d.RING_SIZE), "label" to null),
             geometry = mapOf("size" to d.RING_SIZE, "lineWidth" to d.RING_LINE),
             colors = mapOf("arc" to d.RING_TINT, "track" to d.RING_TRACK)))
+        register(ElementSpec("Signature",
+            attributes = mapOf("bind" to null, "strokeWidth" to canon(d.SIGNATURE_STROKE),
+                               "color" to d.SIGNATURE_INK, "height" to canon(d.SIGNATURE_HEIGHT),
+                               "radius" to canon(d.SIGNATURE_RADIUS), "baseline" to "true",
+                               "placeholder" to null, "readOnly" to "false",
+                               "on:begin" to null, "on:end" to null, "on:change" to null),
+            geometry = mapOf("height" to d.SIGNATURE_HEIGHT, "radius" to d.SIGNATURE_RADIUS,
+                             "strokeWidth" to d.SIGNATURE_STROKE, "borderWidth" to d.SIGNATURE_BORDER,
+                             "baselineInset" to d.SIGNATURE_BASELINE_INSET,
+                             "baselineBottom" to d.SIGNATURE_BASELINE_BOTTOM,
+                             "placeholderFontSize" to d.SIGNATURE_PLACEHOLDER_FONT),
+            colors = mapOf("ink" to d.SIGNATURE_INK, "border" to d.SIGNATURE_RULE,
+                           "baseline" to d.SIGNATURE_RULE, "placeholder" to d.SIGNATURE_PLACEHOLDER)))
         register(ElementSpec("Skeleton",
             attributes = mapOf("height" to canon(d.SKELETON_HEIGHT), "radius" to canon(d.SKELETON_RADIUS)),
             geometry = mapOf("height" to d.SKELETON_HEIGHT, "radius" to d.SKELETON_RADIUS,
@@ -487,6 +548,11 @@ object ElementSpecs {
         register(ElementSpec("alert",
             attributes = mapOf("present" to null, "title" to null, "message" to null,
                                "buttons" to null, "on:dismiss" to null)))
+        register(ElementSpec("canvas",
+            attributes = mapOf("opaque" to "false", "scale" to "device", "commands" to null,
+                               "a11yLabel" to null, "a11yChildren" to null,
+                               "on:draw" to null, "on:frame" to null, "on:layout" to null,
+                               "on:strokeStart" to null, "on:strokeEnd" to null)))
         register(ElementSpec("carousel",
             attributes = mapOf("value" to null, "dots" to "true", "peek" to canon(d.CAROUSEL_PEEK),
                                "spacing" to canon(d.CAROUSEL_SPACING), "color" to d.CAROUSEL_TINT,
@@ -502,11 +568,13 @@ object ElementSpecs {
             attributes = mapOf("name" to null, "form" to "form (inherited from enclosing <form as=>)",
                                "type" to "text", "label" to null, "placeholder" to null,
                                "validate" to null, "pattern" to null, "message" to null,
-                               "secure" to "false", "color" to d.FIELD_COLOR),
+                               "secure" to "false", "color" to d.FIELD_COLOR,
+                               "disabled" to "false"),
             geometry = mapOf("stackSpacing" to d.FIELD_STACK_SPACING),
             colors = mapOf("error" to d.FIELD_ERROR, "label" to d.FIELD_LABEL)))
         register(ElementSpec("flow",
-            attributes = mapOf("spacing" to canon(d.FLOW_SPACING), "lineSpacing" to canon(d.FLOW_LINE_SPACING)),
+            attributes = mapOf("spacing" to canon(d.FLOW_SPACING), "lineSpacing" to canon(d.FLOW_LINE_SPACING),
+                               "bind" to null, "key" to "id"),
             geometry = mapOf("spacing" to d.FLOW_SPACING, "lineSpacing" to d.FLOW_LINE_SPACING)))
         register(ElementSpec("form",
             attributes = mapOf("as" to "form", "spacing" to canon(d.FORM_SPACING), "submit" to null,
@@ -538,7 +606,8 @@ object ElementSpecs {
             )))
         register(ElementSpec("searchbar",
             attributes = mapOf("bind" to null, "placeholder" to "Search", "color" to d.SEARCHBAR_TINT,
-                               "on:submit" to null, "on:clear" to null),
+                               "on:submit" to null, "on:clear" to null,
+                               "disabled" to "false"),
             geometry = mapOf("contentSpacing" to d.SEARCHBAR_SPACING, "paddingH" to d.SEARCHBAR_PAD_H,
                              "paddingV" to d.SEARCHBAR_PAD_V),
             colors = mapOf("tint" to d.SEARCHBAR_TINT,

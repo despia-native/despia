@@ -94,3 +94,50 @@ each consuming the SAME fixtures. Not started in this change; this ADR is the de
   (top app bar). Key verified figures are inlined in the Part A table.
 - Framework laws: `constitution.md` Articles 1, 6, 7, 8; the unified-codebase law (monorepo working rules);
   `screen-presentation.md` (the presentation tiers this motion renders).
+
+## Part C — shared element transitions (LANDED core, U03)
+
+Tap a thumbnail, watch it grow into the photo. One attribute on both ends and nothing else:
+
+```xml
+<image src="{{ item.cover }}" shared="cover-{{ item.id }}"/>
+```
+
+`shared` is the match id (unique within a frame; a duplicate is a lint error, and at runtime the
+FIRST occurrence in document order wins so the ambiguity cannot resolve differently per platform).
+`sharedMode` is `move` (default) · `crossfade` · `clip`; `sharedAnim` inherits the frame's `anim`;
+`sharedOrder` is the z-order among several pairs. One rule resolves all three: **the destination
+declares, the source is the fallback, the frame is the floor.**
+
+**The decision is one platform-neutral core, run by three renderers** — `OpenSource/Conformance/router/shared.json`
+against `@despia/kernel` shared-transition.ts (per-PR), `:core` StackSharedTransition.kt (gradle)
+and `Engine/iOS/StackSharedTransition.swift` (record lane). It owns three things and nothing else:
+
+| | |
+|---|---|
+| **Matching** | which ids pair across the two frames, ordered by `sharedOrder` then destination document order; everything outside the intersection takes the ordinary frame transition, silently |
+| **Schedule** | given a progress 0..1, the frame, corner radius, opacity, content mode and the two snapshots' cross-fade weights at that instant. `move` keeps the source for the whole flight and hands off over the final third; `clip` moves the frame without scaling the content |
+| **Interruption** | the reversal state machine: an interruption ADOPTS the transition at its current progress, and the settle travels only what is left |
+
+**Two failure modes are designed, not accidental.** An unmatched id is never an error. An
+unrealised destination (a virtualised row, an image still loading) animates from the source
+geometry TO the source geometry and cross-fades, because animating to the zero rect a
+not-yet-laid-out node reports is what makes the naive implementation look like the image
+collapsing into nothing.
+
+**Reduced motion downgrades `move` to `crossfade`, with no author opt-out**, and accessibility
+focus moves to the destination frame at transition START, so a screen-reader user is never
+narrating a moving snapshot.
+
+**Per renderer, and why each picked what it did:**
+
+| | mechanism | why not the obvious one |
+|---|---|---|
+| web | a WAAPI FLIP over a `dsx-shared-plane` layer, driven by rAF or by the finger | `document.startViewTransition` hands the browser the whole animation and returns only `skipTransition()`; an interruptible lane driven by it SNAPS on a back-swipe |
+| iOS | snapshot layers in a container over the router host, driven by a `CADisplayLink` and by the hosting controller's `UIViewControllerTransitionCoordinator` | `matchedGeometryEffect` gives SwiftUI the animation and no addressable progress; `UIView.animate` cannot be reversed mid-flight |
+| Android | the REAL nodes posed with a `graphicsLayer` against their own measured rect, driven by the router's existing `coverage` Animatable and the predictive-back progress callbacks | Compose's shared-element API is not in this dependency set, and the manual lookahead placement keeps the behaviour pinned by the corpus rather than by whatever Compose does |
+
+The acceptance test on all three is the same sentence: **an interactive back-swipe that starts at
+40% of an in-flight push must reverse from 40%.** The corpus states it as a number — `maxStep`, the
+largest single-step progress delta allowed inside the gesture window — because a snapping
+implementation jumps the whole remaining distance the instant the finger lands.

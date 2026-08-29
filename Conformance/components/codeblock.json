@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "component": "CodeBlock",
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/CodeBlock.dsx",
+  "_note": "<CodeBlock> — the monospaced source listing (U11). THE HIGHLIGHTER IS A SMALL LINE-LOCAL TOKENIZER carried in the component, never a highlighting library: chunk the line, then fold the chunks through a state machine where block comments carry across lines, line comments and quoted strings run to their end, and identifiers match the language's keyword set. Adjacent same-kind chunks MERGE, so a line costs a handful of text nodes rather than one per character - that merge is the difference between a listing and a render stall, so the token runs are pinned exactly, not just their kinds. An UNLISTED LANGUAGE GETS AN EMPTY KEYWORD SET and degrades to strings + numbers + comments; it never produces a wrong highlight. Colour is never the only signal: the source text is the content, an emphasised line also carries a gutter marker, and the whole listing reads to assistive tech as ONE utterance with the copy button labelled separately. The fold is written without loops because a computed value has no loop grammar - the first spelling used two nested `while`s over a pushed accumulator and rendered an EMPTY BLOCK on all three renderers.",
+  "cases": [
+    {
+      "name": "js: a keyword, a string, a number and a line comment, with same-kind runs merged",
+      "attributes": { "language": "js", "value": "const s = 'hi' // note" },
+      "expect": [{ "expr": "dsx.variable.codeLines", "value": [
+        { "id": "l0", "no": 1, "text": "const s = 'hi' // note", "tokens": [
+          { "id": "k0", "k": "kw", "t": "const" },
+          { "id": "k1", "k": "plain", "t": " s = " },
+          { "id": "k2", "k": "str", "t": "'hi'" },
+          { "id": "k3", "k": "plain", "t": " " },
+          { "id": "k4", "k": "comment", "t": "// note" }
+        ] }
+      ] }]
+    },
+    {
+      "name": "a block comment CARRIES ACROSS LINES and ends mid-line",
+      "attributes": { "language": "js", "value": "/* one\ntwo */ let x" },
+      "expect": [{ "expr": "dsx.variable.codeLines", "value": [
+        { "id": "l0", "no": 1, "text": "/* one", "tokens": [{ "id": "k0", "k": "comment", "t": "/* one" }] },
+        { "id": "l1", "no": 2, "text": "two */ let x", "tokens": [
+          { "id": "k0", "k": "comment", "t": "two */" },
+          { "id": "k1", "k": "plain", "t": " " },
+          { "id": "k2", "k": "kw", "t": "let" },
+          { "id": "k3", "k": "plain", "t": " x" }
+        ] }
+      ] }]
+    },
+    {
+      "name": "an UNLISTED language keeps numbers but claims no keywords and no comments it cannot know",
+      "attributes": { "language": "brainfuck", "value": "const x = 1 // no" },
+      "expect": [{ "expr": "dsx.variable.codeLines[0].tokens", "value": [
+        { "id": "k0", "k": "plain", "t": "const x = " },
+        { "id": "k1", "k": "num", "t": "1" },
+        { "id": "k2", "k": "plain", "t": " // no" }
+      ] }]
+    },
+    {
+      "name": "no language at all behaves exactly like an unlisted one",
+      "attributes": { "value": "const x = 1" },
+      "expect": [{ "expr": "dsx.variable.codeLines[0].tokens", "value": [
+        { "id": "k0", "k": "plain", "t": "const x = " },
+        { "id": "k1", "k": "num", "t": "1" }
+      ] }]
+    },
+    {
+      "name": "shell comments start at # and js comments do not",
+      "attributes": { "language": "shell", "value": "echo hi # note" },
+      "expect": [{ "expr": "dsx.variable.codeLines[0].tokens", "value": [
+        { "id": "k0", "k": "kw", "t": "echo" },
+        { "id": "k1", "k": "plain", "t": " hi " },
+        { "id": "k2", "k": "comment", "t": "# note" }
+      ] }]
+    },
+    {
+      "name": "EMPTY: no source is still one row, so the block has a height",
+      "attributes": { "value": "" },
+      "expect": [{ "expr": "dsx.variable.codeLines", "value": [
+        { "id": "l0", "no": 1, "text": " ", "tokens": [{ "id": "k0", "k": "plain", "t": " " }] }
+      ] }]
+    },
+    {
+      "name": "a blank line between two statements keeps its row and its number",
+      "attributes": { "language": "js", "value": "let a\n\nlet b" },
+      "expect": [
+        { "expr": "dsx.variable.codeLines.length", "value": 3 },
+        { "expr": "dsx.variable.codeLines[1].no", "value": 2 },
+        { "expr": "dsx.variable.codeLines[1].text", "value": " " },
+        { "expr": "dsx.variable.codeLines[2].no", "value": 3 }
+      ]
+    },
+    {
+      "name": "an escaped quote does not close the string",
+      "attributes": { "language": "js", "value": "const s = 'a\\'b'" },
+      "expect": [{ "expr": "dsx.variable.codeLines[0].tokens[2]", "value": { "id": "k2", "k": "str", "t": "'a\\'b'" } }]
+    },
+    {
+      "name": "an unterminated string runs to the end of its line and no further",
+      "attributes": { "language": "js", "value": "const s = 'oops\nlet x" },
+      "expect": [
+        { "expr": "dsx.variable.codeLines[0].tokens[2].t", "value": "'oops" },
+        { "expr": "dsx.variable.codeLines[1].tokens[0]", "value": { "id": "k0", "k": "kw", "t": "let" } }
+      ]
+    },
+    {
+      "name": "the emphasised lines are a set of ONE-BASED numbers, trimmed",
+      "attributes": { "value": "a\nb\nc", "highlight": " 2 , 3 " },
+      "expect": [
+        { "expr": "dsx.variable.codeMarked.has(1)", "value": false },
+        { "expr": "dsx.variable.codeMarked.has(2)", "value": true },
+        { "expr": "dsx.variable.codeMarked.has(3)", "value": true }
+      ]
+    },
+    {
+      "name": "no highlight attribute marks nothing rather than marking line zero",
+      "attributes": { "value": "a" },
+      "expect": [{ "expr": "dsx.variable.codeMarked.has(1)", "value": false }]
+    },
+    {
+      "name": "the listing is ONE utterance: the language, then the source verbatim",
+      "attributes": { "language": "swift", "value": "let x = 1" },
+      "expect": [{ "expr": "dsx.variable.codeUtterance", "value": "swift code: let x = 1" }]
+    },
+    {
+      "name": "with no language the utterance still names itself as code",
+      "attributes": { "value": "x" },
+      "expect": [{ "expr": "dsx.variable.codeUtterance", "value": "Code: x" }]
+    },
+    {
+      "name": "the three display switches default off and are the string plane's true/1",
+      "attributes": {},
+      "expect": [
+        { "expr": "dsx.variable.codeWrap", "value": false },
+        { "expr": "dsx.variable.codeGutter", "value": false },
+        { "expr": "dsx.variable.codeCopyable", "value": false }
+      ]
+    },
+    {
+      "name": "wrap, gutter and copy switch on with \"true\"",
+      "attributes": { "wrap": "true", "lineNumbers": "true", "copy": "true" },
+      "expect": [
+        { "expr": "dsx.variable.codeWrap", "value": true },
+        { "expr": "dsx.variable.codeGutter", "value": true },
+        { "expr": "dsx.variable.codeCopyable", "value": true }
+      ]
+    },
+    {
+      "name": "the token tints are the four kinds plus a plain fallback",
+      "attributes": {},
+      "item": { "k": "kw" },
+      "expect": [{ "expr": "dsx.formula.codeTint", "value": "accent" }]
+    },
+    {
+      "name": "a comment is the quietest tint, a string the loudest",
+      "attributes": {},
+      "item": { "k": "comment" },
+      "expect": [{ "expr": "dsx.formula.codeTint", "value": "tertiary" }]
+    },
+    {
+      "name": "plain source text takes the label colour, never a highlight colour",
+      "attributes": {},
+      "item": { "k": "plain" },
+      "expect": [{ "expr": "dsx.formula.codeTint", "value": "label" }]
+    }
+  ]
+}

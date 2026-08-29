@@ -1,0 +1,183 @@
+{
+  "version": 1,
+  "_note": "tooltip= / tooltipSide= — the universal element hint attribute (design-system.md Wave 3 (c)1), joining the input grammar beside on:hoverStart / shortcut. resolve[] pins the attribute fold: whitespace-only text drops the tooltip; the side vocabulary is the floating-preference set (top | bottom | leading | trailing), exact lowercase after trim, with top the default AND the fallback; a resolved tooltip ALWAYS doubles as the element's accessibility description (described — aria-describedby on web, the platform hint slots native), so the content is never gated behind hover. lifecycle[] pins the show/dismiss machine over intent-qualified events (each adapter owns its own hover-intent delay and pointer identity): hover intent and keyboard focus show ONLY when the source is hover-capable — a fine real pointer ((hover: hover) on web); hoverCapable false (every touch surface) is never even tracked (Article 7 degradation); pointer-out, blur, and Escape dismiss; Escape suppresses re-show until hover and focus have BOTH cleared; unmount balances an active show; no authored events exist.",
+  "resolve": [
+    { "name": "text alone defaults to top", "tooltip": "Save", "expect": { "text": "Save", "side": "top", "described": true } },
+    { "name": "explicit bottom", "tooltip": "More options", "tooltipSide": "bottom", "expect": { "text": "More options", "side": "bottom", "described": true } },
+    { "name": "explicit leading", "tooltip": "Back", "tooltipSide": "leading", "expect": { "text": "Back", "side": "leading", "described": true } },
+    { "name": "explicit trailing", "tooltip": "Next", "tooltipSide": "trailing", "expect": { "text": "Next", "side": "trailing", "described": true } },
+    { "name": "explicit top stays top", "tooltip": "Info", "tooltipSide": "top", "expect": { "text": "Info", "side": "top", "described": true } },
+    { "name": "unknown side falls back to top", "tooltip": "Info", "tooltipSide": "underneath", "expect": { "text": "Info", "side": "top", "described": true } },
+    { "name": "side vocabulary is exact lowercase", "tooltip": "Info", "tooltipSide": "Bottom", "expect": { "text": "Info", "side": "top", "described": true } },
+    { "name": "side whitespace is trimmed", "tooltip": "Info", "tooltipSide": "  bottom  ", "expect": { "text": "Info", "side": "bottom", "described": true } },
+    { "name": "text whitespace is trimmed", "tooltip": "  Save draft  ", "expect": { "text": "Save draft", "side": "top", "described": true } },
+    { "name": "empty text is no tooltip", "tooltip": "", "expect": null },
+    { "name": "whitespace-only text is no tooltip", "tooltip": "   ", "expect": null },
+    { "name": "a side alone is no tooltip", "tooltipSide": "bottom", "expect": null },
+    { "name": "absent attributes are no tooltip", "expect": null }
+  ],
+  "lifecycle": [
+    {
+      "name": "hover intent shows and pointer-out hides",
+      "events": [
+        { "type": "hoverStart", "hoverCapable": true },
+        { "type": "hoverEnd" }
+      ],
+      "expect": ["show", "hide"],
+      "expectVisible": false
+    },
+    {
+      "name": "keyboard focus shows and blur hides",
+      "events": [
+        { "type": "focus", "hoverCapable": true },
+        { "type": "blur" }
+      ],
+      "expect": ["show", "hide"],
+      "expectVisible": false
+    },
+    {
+      "name": "touch hover never shows",
+      "events": [
+        { "type": "hoverStart", "hoverCapable": false },
+        { "type": "hoverEnd" }
+      ],
+      "expect": [],
+      "expectVisible": false
+    },
+    {
+      "name": "touch focus never shows",
+      "events": [
+        { "type": "focus", "hoverCapable": false },
+        { "type": "blur" }
+      ],
+      "expect": [],
+      "expectVisible": false
+    },
+    {
+      "name": "hover then focus is one show",
+      "events": [
+        { "type": "hoverStart", "hoverCapable": true },
+        { "type": "focus", "hoverCapable": true },
+        { "type": "hoverEnd" }
+      ],
+      "expect": ["show"],
+      "expectVisible": true
+    },
+    {
+      "name": "focus then hover survives blur",
+      "events": [
+        { "type": "focus", "hoverCapable": true },
+        { "type": "hoverStart", "hoverCapable": true },
+        { "type": "blur" }
+      ],
+      "expect": ["show"],
+      "expectVisible": true
+    },
+    {
+      "name": "duplicate hover intent is deduplicated",
+      "events": [
+        { "type": "hoverStart", "hoverCapable": true },
+        { "type": "hoverStart", "hoverCapable": true },
+        { "type": "hoverEnd" }
+      ],
+      "expect": ["show", "hide"],
+      "expectVisible": false
+    },
+    {
+      "name": "blur alone cannot end a hover show",
+      "events": [
+        { "type": "hoverStart", "hoverCapable": true },
+        { "type": "blur" }
+      ],
+      "expect": ["show"],
+      "expectVisible": true
+    },
+    {
+      "name": "pointer-out alone cannot end a focus show",
+      "events": [
+        { "type": "focus", "hoverCapable": true },
+        { "type": "hoverEnd" }
+      ],
+      "expect": ["show"],
+      "expectVisible": true
+    },
+    {
+      "name": "escape dismisses a hover show",
+      "events": [
+        { "type": "hoverStart", "hoverCapable": true },
+        { "type": "escape" }
+      ],
+      "expect": ["show", "hide"],
+      "expectVisible": false
+    },
+    {
+      "name": "escape dismisses a focus show",
+      "events": [
+        { "type": "focus", "hoverCapable": true },
+        { "type": "escape" }
+      ],
+      "expect": ["show", "hide"],
+      "expectVisible": false
+    },
+    {
+      "name": "escape suppresses re-show until hover and focus both clear",
+      "events": [
+        { "type": "hoverStart", "hoverCapable": true },
+        { "type": "escape" },
+        { "type": "focus", "hoverCapable": true },
+        { "type": "hoverEnd" },
+        { "type": "blur" },
+        { "type": "hoverStart", "hoverCapable": true }
+      ],
+      "expect": ["show", "hide", "show"],
+      "expectVisible": true
+    },
+    {
+      "name": "escape while hidden is inert",
+      "events": [
+        { "type": "escape" },
+        { "type": "hoverStart", "hoverCapable": true }
+      ],
+      "expect": ["show"],
+      "expectVisible": true
+    },
+    {
+      "name": "a fresh hover after dismissal shows again",
+      "events": [
+        { "type": "hoverStart", "hoverCapable": true },
+        { "type": "escape" },
+        { "type": "hoverEnd" },
+        { "type": "hoverStart", "hoverCapable": true }
+      ],
+      "expect": ["show", "hide", "show"],
+      "expectVisible": true
+    },
+    {
+      "name": "a touch source is never tracked into an active show",
+      "events": [
+        { "type": "focus", "hoverCapable": true },
+        { "type": "hoverStart", "hoverCapable": false },
+        { "type": "blur" }
+      ],
+      "expect": ["show", "hide"],
+      "expectVisible": false
+    },
+    {
+      "name": "unmount balances an active show",
+      "events": [
+        { "type": "focus", "hoverCapable": true },
+        { "type": "unmount" }
+      ],
+      "expect": ["show", "hide"],
+      "expectVisible": false
+    },
+    {
+      "name": "unmount while hidden is inert",
+      "events": [
+        { "type": "unmount" }
+      ],
+      "expect": [],
+      "expectVisible": false
+    }
+  ]
+}

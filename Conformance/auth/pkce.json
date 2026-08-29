@@ -1,0 +1,320 @@
+{
+  "version": 1,
+  "_note": "A1 — the OAUTH PROOF folds (completeness/A1-auth-hardening.md H3): PKCE (RFC 7636), `state` (RFC 6749 §10.12, RFC 9700 §2.1) and OIDC `nonce`. Every value here is derived from bytes the module supplies, so the folds are deterministic and a corpus can judge three runtimes; the CSPRNG that produces those bytes is the platform's (SecRandomCopyBytes / SecureRandom / crypto.getRandomValues) and is deliberately not modelled. NOTHING in these folds hashes: RFC 7636's S256 is BASE64URL-ENCODE(SHA256(ASCII(verifier))), and the SHA-256 half is the platform's job (CryptoKit / MessageDigest / WebCrypto) exactly as CryptoCore says. What is pinned here is the half that would otherwise drift — the ABNF, the base64url alphabet and the dropped padding, which parameters get minted onto an authorize URL and which are adopted from it, and the verdict a callback earns. The digests below were computed offline; each runner ALSO hashes the verifier with its own platform primitive and asserts it equals `sha256Hex`, so the corpus cannot silently encode a wrong digest.",
+
+  "verifier": {
+    "_note": "isCodeVerifier(value) — RFC 7636 §4.1 verbatim: code-verifier = 43*128unreserved, unreserved = ALPHA / DIGIT / '-' / '.' / '_' / '~'. Nothing else, no trimming, no case folding: a verifier is compared byte-for-byte by the authorization server, so a fold that accepts what the server will not is a login that fails at the token endpoint with a useless message.",
+    "minLength": 43,
+    "maxLength": 128,
+    "unreserved": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~",
+    "cases": [
+      { "name": "the RFC 7636 appendix B verifier", "value": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk", "expect": true },
+      { "name": "exactly 43 characters is the floor", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "expect": true },
+      { "name": "42 characters is one short", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "expect": false },
+      { "name": "exactly 128 characters is the ceiling", "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "expect": true },
+      { "name": "129 characters is one too many", "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "expect": false },
+      { "name": "every unreserved character is legal", "value": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~", "expect": true },
+      { "name": "'+' is base64, not base64url — refused", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa+", "expect": false },
+      { "name": "'/' is refused", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/", "expect": false },
+      { "name": "'=' padding is refused", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=", "expect": false },
+      { "name": "a space is refused", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ", "expect": false },
+      { "name": "a non-ASCII character is refused", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaé", "expect": false },
+      { "name": "an empty verifier is refused", "value": "", "expect": false }
+    ]
+  },
+
+  "base64url": {
+    "_note": "base64UrlNoPad(bytes) — RFC 4648 §5 with 'all trailing = characters omitted' (RFC 7636 §A). One encoder serves the verifier, the challenge, `state` and `nonce`, so a padding character can never appear in any of them. Bytes are given as unsigned decimal octets so no runner has to agree about signed bytes first.",
+    "cases": [
+      { "name": "empty", "bytes": [], "expect": "" },
+      { "name": "one octet — two output characters, no padding", "bytes": [0], "expect": "AA" },
+      { "name": "two octets", "bytes": [0, 0], "expect": "AAA" },
+      { "name": "three octets is a whole group", "bytes": [0, 0, 0], "expect": "AAAA" },
+      { "name": "the - and _ substitutions", "bytes": [251, 239, 190], "expect": "----" },
+      { "name": "high bits reach both substituted characters", "bytes": [251, 255], "expect": "-_8" },
+      { "name": "the 32-octet counting sequence", "bytes": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31], "expect": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" }
+    ]
+  },
+
+  "mint": {
+    "_note": "codeVerifierFromEntropy(bytes) and opaqueProof(bytes) — the entropy floors, expressed as a REFUSAL rather than a silent short value. RFC 7636 §7.1: 'The client SHOULD create a code_verifier with a minimum of 256 bits of entropy... a 32-octet sequence'. 32 octets base64url-encode to exactly 43 characters, which is also the ABNF floor — the two constraints meet, which is why 32 is the right number and not a taste. `state`/`nonce` carry a 16-octet floor: they are unguessability tokens, not key material, and 128 bits is the bar RFC 9700 §4.7.1 language implies for a CSRF token.",
+    "verifierEntropyBytes": 32,
+    "proofEntropyBytes": 16,
+    "cases": [
+      { "fold": "codeVerifierFromEntropy", "name": "32 octets mint a 43-character verifier",
+        "bytes": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31],
+        "expect": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" },
+      { "fold": "codeVerifierFromEntropy", "name": "31 octets are refused, never padded",
+        "bytes": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30],
+        "expect": null },
+      { "fold": "codeVerifierFromEntropy", "name": "no entropy is refused", "bytes": [], "expect": null },
+      { "fold": "opaqueProof", "name": "16 octets mint a 22-character proof",
+        "bytes": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], "expect": "AAECAwQFBgcICQoLDA0ODw" },
+      { "fold": "opaqueProof", "name": "15 octets are refused",
+        "bytes": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14], "expect": null }
+    ]
+  },
+
+  "challenge": {
+    "_note": "codeChallengeS256(digest) — RFC 7636 §4.2: code_challenge = BASE64URL-ENCODE(SHA256(ASCII(code_verifier))). The fold takes the 32-byte digest, because hashing is the platform's. A digest of any other length is refused rather than encoded: a short digest here would produce a challenge the server accepts and no verifier can ever satisfy. Each row carries the verifier, its SHA-256 in hex, and the resulting challenge — the runner hashes the verifier itself and must reproduce `sha256Hex` before encoding it.",
+    "method": "S256",
+    "cases": [
+      { "name": "RFC 7636 appendix B, the canonical vector",
+        "verifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+        "sha256Hex": "13d31e961a1ad8ec2f16b10c4c982e0876a878ad6df144566ee1894acb70f9c3",
+        "expect": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM" },
+      { "name": "the minimum-length verifier",
+        "verifier": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sha256Hex": "66d34fba71f8f450f7e45598853e53bfc23bbd129027cbb131a2f4ffd7878cd0",
+        "expect": "ZtNPunH49FD35FWYhT5Tv8I7vRKQJ8uxMaL0_9eHjNA" },
+      { "name": "the maximum-length verifier",
+        "verifier": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "sha256Hex": "b6ac3cc10386331c765f04f041c147d0f278f2aed8eaa021e2d0057fc6f6ff9e",
+        "expect": "tqw8wQOGMxx2XwTwQcFH0PJ48q7Y6qAh4tAFf8b2_54" },
+      { "name": "a minted verifier round-trips",
+        "verifier": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+        "sha256Hex": "ea866a757e4c38babfa8127cbe9a409d3e1f93a00ff1488ff735fcf917afffd0",
+        "expect": "6oZqdX5MOLq_qBJ8vppAnT4fk6AP8UiP9zX8-Rev_9A" },
+      { "name": "a verifier whose digest exercises both substituted characters",
+        "verifier": "__________________________________________8",
+        "sha256Hex": "225f7e75329dd45aa354975d73987319309393af3a4c6733bc13601a4f1b8796",
+        "expect": "Il9-dTKd1FqjVJddc5hzGTCTk686TGczvBNgGk8bh5Y" },
+      { "name": "the whole unreserved alphabet as a verifier",
+        "verifier": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~",
+        "sha256Hex": "226a6209df29a7832f7823676c84bbf865c4b41d311791cc203a16aaf180e628",
+        "expect": "ImpiCd8pp4MveCNnbIS7-GXEtB0xF5HMIDoWqvGA5ig" }
+    ],
+    "lengthRefusals": [
+      { "name": "a 31-byte digest is refused", "length": 31 },
+      { "name": "a 33-byte digest is refused", "length": 33 },
+      { "name": "an empty digest is refused", "length": 0 }
+    ]
+  },
+
+  "plan": {
+    "_note": "planAuthorizeProofs(authorizeUrl, wantsPkce) — WHICH proofs the module owns for a given authorize URL. The rule that makes this non-breaking: a parameter already in the URL is ADOPTED (the caller built it, the module verifies what comes back), a parameter that is absent is MINTED. `state` is always owned. `nonce` is owned only for an OIDC request (scope contains `openid`, or response_type contains `id_token`) — minting a nonce onto a plain OAuth request is noise, and RFC 9700 §2.1 lets PKCE carry the same protection. PKCE is OPT-IN (`pkce: true`), because a module-minted verifier is one the module must also redeem: appending a code_challenge to a flow whose token exchange the caller performs breaks that exchange at the authorization server, which is a worse failure than the one being fixed.",
+    "refusals": ["pkce_unsupported"],
+    "cases": [
+      { "name": "a bare authorize URL: state minted, no nonce, no pkce",
+        "url": "https://idp.example/authorize?response_type=code&client_id=abc&redirect_uri=myapp%3A%2F%2Foauth",
+        "wantsPkce": false,
+        "expect": { "mintState": true, "adoptedState": null, "mintNonce": false, "mintPkce": false } },
+
+      { "name": "a caller-supplied state is ADOPTED, never replaced",
+        "url": "https://idp.example/authorize?response_type=code&client_id=abc&state=caller-owned-123",
+        "wantsPkce": false,
+        "expect": { "mintState": false, "adoptedState": "caller-owned-123", "mintNonce": false, "mintPkce": false } },
+
+      { "name": "an empty state= is not a state — it is minted",
+        "url": "https://idp.example/authorize?response_type=code&client_id=abc&state=",
+        "wantsPkce": false,
+        "expect": { "mintState": true, "adoptedState": null, "mintNonce": false, "mintPkce": false } },
+
+      { "name": "an OIDC code request mints a nonce too",
+        "url": "https://idp.example/authorize?response_type=code&scope=openid%20email&client_id=abc",
+        "wantsPkce": false,
+        "expect": { "mintState": true, "adoptedState": null, "mintNonce": true, "mintPkce": false } },
+
+      { "name": "a hybrid response_type mints a nonce even without an openid scope",
+        "url": "https://idp.example/authorize?response_type=code%20id_token&client_id=abc",
+        "wantsPkce": false,
+        "expect": { "mintState": true, "adoptedState": null, "mintNonce": true, "mintPkce": false } },
+
+      { "name": "a caller-supplied nonce is adopted",
+        "url": "https://idp.example/authorize?response_type=id_token&scope=openid&nonce=n-0S6_WzA2Mj&client_id=abc",
+        "wantsPkce": false,
+        "expect": { "mintState": true, "adoptedState": null, "mintNonce": false, "adoptedNonce": "n-0S6_WzA2Mj", "mintPkce": false } },
+
+      { "name": "opting into PKCE on a code flow mints the verifier",
+        "url": "https://idp.example/authorize?response_type=code&client_id=abc",
+        "wantsPkce": true,
+        "expect": { "mintState": true, "adoptedState": null, "mintNonce": false, "mintPkce": true } },
+
+      { "name": "opting into PKCE when the URL already carries a challenge is a contradiction",
+        "url": "https://idp.example/authorize?response_type=code&client_id=abc&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256",
+        "wantsPkce": true,
+        "expect": { "refusal": "pkce_unsupported" } },
+
+      { "name": "opting into PKCE on a token-issuing response_type is a contradiction",
+        "url": "https://idp.example/authorize?response_type=token&client_id=abc",
+        "wantsPkce": true,
+        "expect": { "refusal": "pkce_unsupported" } },
+
+      { "name": "opting into PKCE with no response_type is a contradiction",
+        "url": "https://idp.example/authorize?client_id=abc",
+        "wantsPkce": true,
+        "expect": { "refusal": "pkce_unsupported" } },
+
+      { "name": "a caller-supplied challenge without opting in is left entirely alone",
+        "url": "https://idp.example/authorize?response_type=code&client_id=abc&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&state=s1",
+        "wantsPkce": false,
+        "expect": { "mintState": false, "adoptedState": "s1", "mintNonce": false, "mintPkce": false } },
+
+      { "name": "a URL with no query at all still gets a state",
+        "url": "https://idp.example/authorize", "wantsPkce": false,
+        "expect": { "mintState": true, "adoptedState": null, "mintNonce": false, "mintPkce": false } },
+
+      { "name": "a percent-encoded state value is adopted decoded, the way the server will echo it",
+        "url": "https://idp.example/authorize?response_type=code&state=a%20b%26c",
+        "wantsPkce": false,
+        "expect": { "mintState": false, "adoptedState": "a b&c", "mintNonce": false, "mintPkce": false } },
+
+      { "name": "a '+' in a query value is a space, the form-encoding the callback also uses",
+        "url": "https://idp.example/authorize?response_type=code&state=a+b",
+        "wantsPkce": false,
+        "expect": { "mintState": false, "adoptedState": "a b", "mintNonce": false, "mintPkce": false } }
+    ]
+  },
+
+  "apply": {
+    "_note": "applyAuthorizeProofs(url, minted) — the minted parameters appended to the authorize URL. Appending, never rewriting: the caller's URL is reproduced byte-for-byte with `&name=value` pairs added in a fixed order (state, nonce, code_challenge, code_challenge_method) so three runtimes build the same string. A fragment, if any, stays last — a query appended after a fragment is not a query. Minted values are base64url and need no escaping; the encoder still percent-escapes anything outside the unreserved set so an adopted-then-remitted value can never break the URL.",
+    "cases": [
+      { "name": "state onto a URL that already has a query",
+        "url": "https://idp.example/authorize?response_type=code&client_id=abc",
+        "minted": { "state": "AAECAwQFBgcICQoLDA0ODw" },
+        "expect": "https://idp.example/authorize?response_type=code&client_id=abc&state=AAECAwQFBgcICQoLDA0ODw" },
+      { "name": "state onto a URL with no query",
+        "url": "https://idp.example/authorize",
+        "minted": { "state": "AAECAwQFBgcICQoLDA0ODw" },
+        "expect": "https://idp.example/authorize?state=AAECAwQFBgcICQoLDA0ODw" },
+      { "name": "a trailing ? is a query with nothing in it",
+        "url": "https://idp.example/authorize?",
+        "minted": { "state": "s" },
+        "expect": "https://idp.example/authorize?state=s" },
+      { "name": "all four parameters in their fixed order",
+        "url": "https://idp.example/authorize?response_type=code&scope=openid",
+        "minted": { "state": "st", "nonce": "no", "challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM" },
+        "expect": "https://idp.example/authorize?response_type=code&scope=openid&state=st&nonce=no&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256" },
+      { "name": "a fragment stays last",
+        "url": "https://idp.example/authorize?response_type=code#frag",
+        "minted": { "state": "st" },
+        "expect": "https://idp.example/authorize?response_type=code&state=st#frag" },
+      { "name": "a fragment on a query-less URL",
+        "url": "https://idp.example/authorize#frag",
+        "minted": { "state": "st" },
+        "expect": "https://idp.example/authorize?state=st#frag" },
+      { "name": "nothing minted leaves the URL untouched",
+        "url": "https://idp.example/authorize?response_type=code",
+        "minted": {},
+        "expect": "https://idp.example/authorize?response_type=code" },
+      { "name": "a value outside the unreserved set is percent-escaped",
+        "url": "https://idp.example/authorize",
+        "minted": { "state": "a b&c=d" },
+        "expect": "https://idp.example/authorize?state=a%20b%26c%3Dd" }
+    ]
+  },
+
+  "verify": {
+    "_note": "verifyCallbackProofs(expectedState, consumedStates, receivedState, expectedNonce, idTokenNonce) — the verdict a returning callback earns, and the ONLY place a callback becomes deliverable. `unproven` is the compatibility floor: a flow this module never armed (a cold start after the process died behind the browser, a deep link that is not a callback at all) keeps the behaviour it has today, because refusing there would break working logins to fix nothing. Everything else is a refusal, and a refusal NEVER resolves, never broadcasts and never echoes the received value — the value is attacker-controlled and an error message is a log line. `replayed` exists because clearing the expectation on success is not enough: a one-shot authorization code replayed a second later would otherwise land in the `unproven` arm and be delivered.",
+    "verdicts": ["ok", "unproven", "missing_state", "state_mismatch", "replayed", "nonce_mismatch"],
+    "cases": [
+      { "name": "the armed state comes back exactly",
+        "expected": "st-1", "consumed": [], "received": "st-1", "expect": "ok" },
+      { "name": "a different state is refused",
+        "expected": "st-1", "consumed": [], "received": "st-2", "expect": "state_mismatch" },
+      { "name": "a state that is a prefix of the armed one is refused",
+        "expected": "st-1234", "consumed": [], "received": "st-1", "expect": "state_mismatch" },
+      { "name": "a state that extends the armed one is refused",
+        "expected": "st-1", "consumed": [], "received": "st-1234", "expect": "state_mismatch" },
+      { "name": "case differs, so it is a different state",
+        "expected": "st-1", "consumed": [], "received": "ST-1", "expect": "state_mismatch" },
+      { "name": "an armed flow whose callback carries no state at all is refused",
+        "expected": "st-1", "consumed": [], "received": null, "expect": "missing_state" },
+      { "name": "an armed flow whose callback carries an empty state is refused",
+        "expected": "st-1", "consumed": [], "received": "", "expect": "missing_state" },
+      { "name": "nothing armed and nothing consumed is unproven, not refused",
+        "expected": null, "consumed": [], "received": null, "expect": "unproven" },
+      { "name": "nothing armed but a state present is still unproven — this module did not mint it",
+        "expected": null, "consumed": [], "received": "someone-elses", "expect": "unproven" },
+      { "name": "REPLAY — a consumed state coming back a second time is refused",
+        "expected": null, "consumed": ["st-1"], "received": "st-1", "expect": "replayed" },
+      { "name": "a replay while a NEW flow is armed is a mismatch against the new flow",
+        "expected": "st-2", "consumed": ["st-1"], "received": "st-1", "expect": "state_mismatch" },
+      { "name": "the nonce is checked only after the state passes",
+        "expected": "st-1", "consumed": [], "received": "st-1",
+        "expectedNonce": "no-1", "idTokenNonce": "no-1", "expect": "ok" },
+      { "name": "a mismatched id_token nonce is refused",
+        "expected": "st-1", "consumed": [], "received": "st-1",
+        "expectedNonce": "no-1", "idTokenNonce": "no-2", "expect": "nonce_mismatch" },
+      { "name": "no id_token in the callback leaves the nonce for the token exchange",
+        "expected": "st-1", "consumed": [], "received": "st-1",
+        "expectedNonce": "no-1", "idTokenNonce": null, "expect": "ok" },
+      { "name": "an id_token with no nonce claim, against an armed nonce, is refused",
+        "expected": "st-1", "consumed": [], "received": "st-1",
+        "expectedNonce": "no-1", "idTokenNonce": "", "expect": "nonce_mismatch" },
+      { "name": "a nonce arriving where none was armed is not this module's business",
+        "expected": "st-1", "consumed": [], "received": "st-1",
+        "expectedNonce": null, "idTokenNonce": "no-9", "expect": "ok" },
+      { "name": "a bad state beats a good nonce",
+        "expected": "st-1", "consumed": [], "received": "st-9",
+        "expectedNonce": "no-1", "idTokenNonce": "no-1", "expect": "state_mismatch" }
+    ]
+  },
+
+  "idToken": {
+    "_note": "idTokenPayload(jwt) — the middle segment, base64url-decoded to UTF-8, and NOTHING else. The signature is not checked and the result is used for exactly one purpose: REFUSING a callback whose nonce does not match. It never makes a token valid. Reading the claim out of the returned JSON is each renderer's own JSON parser, which is why the fold stops at the decoded string.",
+    "cases": [
+      { "name": "a three-segment token yields its payload",
+        "jwt": "eyJhbGciOiJSUzI1NiJ9.eyJub25jZSI6Im4tMSJ9.sig", "expect": "{\"nonce\":\"n-1\"}" },
+      { "name": "padding-free segments of every residue decode",
+        "jwt": "aGVhZA.eyJhIjoxfQ.c2ln", "expect": "{\"a\":1}" },
+      { "name": "the base64url substituted characters decode",
+        "jwt": "h.eyJub25jZSI6Iu-_vSJ9.s", "expect": "{\"nonce\":\"\uFFFD\"}" },
+      { "name": "two segments is not a JWT", "jwt": "eyJhbGciOiJSUzI1NiJ9.eyJub25jZSI6Im4tMSJ9", "expect": null },
+      { "name": "four segments is not a JWT (a JWE is not read here)",
+        "jwt": "a.b.c.d", "expect": null },
+      { "name": "an empty payload segment is refused", "jwt": "aGVhZA..c2ln", "expect": null },
+      { "name": "a non-base64url character is refused", "jwt": "aGVhZA.eyJhIjox+fQ.c2ln", "expect": null },
+      { "name": "payload bytes that are not UTF-8 are refused", "jwt": "aGVhZA.-_8.c2ln", "expect": null },
+      { "name": "an impossible residue of one is refused", "jwt": "aGVhZA.eyJhIjoxfQEEE.c2ln", "expect": null },
+      { "name": "an empty string is refused", "jwt": "", "expect": null }
+    ]
+  },
+
+  "tokenEndpoint": {
+    "_note": "tokenEndpointAllowed(tokenUrl, declaredOrigins) — the VERIFIER RELEASE BOUNDARY. A module-minted verifier is the one secret this module holds, and `exchange` is the only path that sends it anywhere. The destination is therefore not the caller's to choose freely: it must be an https origin the APP declared in config (`token_endpoints`). An empty declaration allows nothing, so a build that has not opted in cannot leak a verifier at all. Origins compare scheme+host+port with the default port normalized away and the host case-folded; paths, queries and userinfo are never part of an origin.",
+    "cases": [
+      { "name": "the declared origin, exactly",
+        "url": "https://oauth2.googleapis.com/token", "declared": ["https://oauth2.googleapis.com"], "expect": true },
+      { "name": "the declared origin written with its default port",
+        "url": "https://oauth2.googleapis.com/token", "declared": ["https://oauth2.googleapis.com:443"], "expect": true },
+      { "name": "a declared origin with a path is still an origin",
+        "url": "https://idp.example/oauth/token", "declared": ["https://idp.example/anything"], "expect": true },
+      { "name": "host case does not matter",
+        "url": "https://IDP.example/token", "declared": ["https://idp.EXAMPLE"], "expect": true },
+      { "name": "one of several declared origins",
+        "url": "https://b.example/token", "declared": ["https://a.example", "https://b.example"], "expect": true },
+      { "name": "an undeclared origin is refused",
+        "url": "https://evil.tld/token", "declared": ["https://idp.example"], "expect": false },
+      { "name": "a subdomain of a declared origin is a different origin",
+        "url": "https://sub.idp.example/token", "declared": ["https://idp.example"], "expect": false },
+      { "name": "a non-default port is a different origin",
+        "url": "https://idp.example:8443/token", "declared": ["https://idp.example"], "expect": false },
+      { "name": "http is refused even when declared",
+        "url": "http://idp.example/token", "declared": ["http://idp.example"], "expect": false },
+      { "name": "userinfo is refused",
+        "url": "https://user@idp.example/token", "declared": ["https://idp.example"], "expect": false },
+      { "name": "an empty declaration allows nothing",
+        "url": "https://idp.example/token", "declared": [], "expect": false },
+      { "name": "a wildcard is not a declaration",
+        "url": "https://idp.example/token", "declared": ["*"], "expect": false },
+      { "name": "an unparseable URL is refused",
+        "url": "", "declared": ["https://idp.example"], "expect": false }
+    ]
+  },
+
+  "constantTime": {
+    "_note": "constantTimeEquals(a, b) — every proof comparison above runs through it. It has no early return on the first differing byte and no early return on a length difference; it folds both lengths and every byte position into one accumulator. The corpus can only pin the ANSWER, not the timing, so the timing is pinned by reading: a runner asserting these rows proves correctness, and the header comment plus the absence of a `return` inside the loop is what proves the shape.",
+    "cases": [
+      { "name": "equal", "a": "abc", "b": "abc", "expect": true },
+      { "name": "both empty", "a": "", "b": "", "expect": true },
+      { "name": "differs in the last byte", "a": "abc", "b": "abd", "expect": false },
+      { "name": "differs in the first byte", "a": "abc", "b": "zbc", "expect": false },
+      { "name": "a prefix is not equal", "a": "abc", "b": "ab", "expect": false },
+      { "name": "an extension is not equal", "a": "ab", "b": "abc", "expect": false },
+      { "name": "one empty", "a": "", "b": "a", "expect": false },
+      { "name": "case matters", "a": "abc", "b": "ABC", "expect": false },
+      { "name": "non-ASCII compares by code unit", "a": "é", "b": "é", "expect": true }
+    ]
+  }
+}

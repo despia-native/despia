@@ -20,19 +20,20 @@ ignored.
 2. [Universal attributes](#universal-attributes) (work on every element) · [Accessibility](#accessibility)
 3. [Elements](#elements)
 4. [Style attributes](#style-attributes)
-5. [Named styles](#named-styles)
-6. [Colors](#colors)
-7. [Materials](#materials)
-8. [Expressions](#expressions)
-9. [Bindings](#bindings)
-10. [Actions (`on:` syntax)](#actions) · [Screen readiness](#screen-readiness) · [Component ↔ native comms & payloads](#comms)
-11. [State — variables, computed, formulas & actions](#state)
-12. [Animations](#animations)
-13. [Lists](#lists)
-14. [Components](#components)
-15. [`native:<name>` registry](#native-registry)
-16. [Reactive API (Swift)](#reactive-api)
-17. [Pixel-perfect checklist](#pixel-perfect)
+5. [Fonts](#fonts)
+6. [Named styles](#named-styles)
+7. [Colors](#colors)
+8. [Materials](#materials)
+9. [Expressions](#expressions)
+10. [Bindings](#bindings)
+11. [Actions (`on:` syntax)](#actions) · [Screen readiness](#screen-readiness) · [Component ↔ native comms & payloads](#comms)
+12. [State — variables, computed, formulas & actions](#state)
+13. [Animations](#animations)
+14. [Lists](#lists)
+15. [Components](#components)
+16. [`native:<name>` registry](#native-registry)
+17. [Reactive API (Swift)](#reactive-api)
+18. [Pixel-perfect checklist](#pixel-perfect)
 
 ---
 
@@ -74,8 +75,12 @@ all [style attributes](#style-attributes)).
 | `on:hoverStart` / `on:hoverEnd` | action | — | The **pointer-hover lifecycle** on any element (desktop-platforms.md input grammar). Fires only under a REAL pointer — macOS/Windows/Linux, iPad pointer, desktop-web mouse (`(any-hover: hover)` plus a non-touch pointer), Android mouse/stylus. The pair is balanced across pointer cancellation and unmount. On a touch screen it simply **never fires** (degradation, never divergence — Article 7), so one markup serves both: `on:hoverStart="hovered = true" on:hoverEnd="hovered = false" style="opacity: {{ hovered ? 1 : 0.8 }}"`. Never gate *content* behind hover alone — a touch user must have another path to it. |
 | `shortcut` | string | — | The **declared keyboard accelerator** for this element's tap (desktop-platforms.md input grammar): `shortcut="cmd+s"` — `cmd` is the PRIMARY modifier (⌘ on Apple, Ctrl elsewhere; the web matches either), `ctrl`/`alt`/`shift` literal, the last token is the key. Fires the element's `on:tap` while mounted; a match consumes the browser default; an unmodified shortcut never steals keys from a focused text field. Touch surfaces never fire it (Article 7). On native desktops, menu-borne accelerators ride the Menu module (M1) with real system menu-item semantics. |
 | `focusOrder` | number | — | The **keyboard-focus traversal order** (desktop-platforms.md input grammar): the web maps it to `tabIndex` verbatim; native twins map to the platform focus engines (M1/D1). Declare it on interactive elements when document order isn't the right tab order; touch users lose nothing. |
+| `tooltip` | string | — | The **universal hint** on any element (design-system.md Wave 3 (c)1; the shared law: `Conformance/input/tooltip.json`): `tooltip="Save draft"` shows a small floating bubble on **hover intent** (a short delay) and on **keyboard focus** — only under a REAL fine pointer (`(hover: hover)` on web, the platform analogue native). On a touch screen it simply **never fires** (Article 7 — never gate content behind it), yet the text still reaches assistive tech everywhere: the web renders a real `role="tooltip"` node wired via `aria-describedby` for the element's whole lifetime; native maps to the platform hint slots (`UIToolTipInteraction`/`.help` on Apple targets, `tooltipText` on Android). Dismisses on pointer-out, blur, and Escape (Escape holds until hover AND focus clear). Interpolates (`tooltip="Delete {{ item.name }}"`); whitespace-only text is no tooltip. **No events** — a tooltip is presentation, never a trigger. |
+| `tooltipSide` | enum | `top` | Which side of the element the tooltip bubble sits on: `top` \| `bottom` \| `leading` \| `trailing` (exact lowercase; anything else falls back to `top`). Placement rides the shared floating solver, so it collision-flips to the opposite side at a viewport edge and follows the document direction (leading/trailing swap under RTL). Ignored without `tooltip=`. |
+| `density` | enum | platform | The **subtree density knob** (component-library.md W9; the shared law: `Conformance/input/density.json`): `density="comfortable"` \| `"compact"` on any element pins the control-metric plane — paddings, heights, gaps — for that element and everything under it. Exact lowercase after trim; anything else is **no pin** (the subtree stays transparent, so the NEAREST resolving ancestor wins). Unset anywhere, the **platform default** applies: desktop fine pointers (web: ≥ 64rem + `(hover: hover) and (pointer: fine)`) default `compact`; touch stays `comfortable`. Web derives every control metric from the density token tables (`data-dsx-density`); iOS maps the pin onto the system `controlSize` environment; Android's resolution is corpus-gated in `:core` with the Compose presentation pinned as a deferral (M3 ships no control-density system). Interpolates (`density="{{ dsx.variable.dense ? 'compact' : 'comfortable' }}"`). |
 | `on:drag` / `on:dragEnd` | action | — | Raw drag on any element — build a **custom** slider / seek bar / knob / swipeable (no system `Slider`). `dsx.this` = `{ fraction` (x/width, 0–1)`, fractionY, x, y, width, height, dx, dy, phase }`. Fires continuously (a tap seeks too); `on:dragEnd` on release. See [Bindings](#bindings). |
 | `on:adjust` | action | — | The **VoiceOver / assistive adjustable action** for a custom `on:drag` control — a swipe-up/-down fires this with `dsx.this` = `{ direction: "increment" \| "decrement", phase: "adjust" }`, so a hand-built slider/seek bar/knob is operable without sight. Opt-in; pair with `a11yValue` so the new value is announced. See [Accessibility](#accessibility). |
+| `ref` | string | — | **Name this element so a MODULE can reach its live view.** `ref="card"` publishes the element's backing platform view into the shared-handle registry under `ref.card`, and withdraws it when the element leaves. Consumers resolve it over the bus: `dsx.module.capture.element({ ref: "card" })`, `dsx.scroll("feed").toElement({ ref: "card" })`, `<Spotlight>`'s target rect. **The kernel names no consumer** — it publishes a handle and any module asks for it, which is what keeps `ref` a primitive rather than a feature. A name is opaque and exact-case; whitespace-only is no ref. A ref that was never published, or whose view has gone, resolves as the typed `unknown_ref` absence rather than a blank result. In a recycled list the LAST provider wins and a stale row's teardown cannot steal the name from the visible one (the law is `Conformance/input/ref.json`). |
 | `measure` | state path | — | Write the element's live `{ width, height }` to state (`measure="dsx.variable.bar"`), so a custom fill/thumb can size against it: `width="{{ dsx.variable.pos * dsx.variable.bar.width }}"`. **This is the container-query primitive** (the CSS `@container` analogue): put `measure="dsx.variable.card"` on a container and its descendants adapt to the space *it* occupies — `columns="{{ dsx.variable.card.width > 360 ? 2 : 1 }}"` — independent of `dsx.screen.*` (the whole window). Cheap: writes only when the size changes. The **implicit** form is the `container` attribute below. |
 | `container` | bool | — | Mark this element a **query container**: it publishes its live size to descendants as `dsx.element.width` / `dsx.element.height` — the CSS `@container` analogue, **implicit nearest-ancestor, no key**: `columns="{{ dsx.element.width > 360 ? 2 : 1 }}"`, `visible-if="dsx.element.width > 480"`. Reactive (re-flows as the container resizes). `measure=` is the explicit named-key alternative. |
 | `on:appear` | action | — | Runs when the element mounts (load-on-show, start a timer). |
@@ -190,7 +195,55 @@ surfaces (Live Activities/widgets), which have no CSS engine.
 > Use `align="center"` to center it. See [Pixel-perfect](#pixel-perfect).
 
 #### `scroll`
-Vertical `ScrollView`, scroll indicators hidden. Children scroll.
+Vertical `ScrollView`, scroll indicators hidden. Children scroll. The law for everything below is
+`OpenSource/Conformance/scroll/*.json`, run on all three renderers.
+
+| Attribute | Type | Default | Notes |
+|---|---|---|---|
+| `axis` / `direction` | `vertical` \| `horizontal` | `vertical` | |
+| `bind` | store key | none | Two-way offset. Writing it scrolls; scrolling writes it. |
+| `on:scroll` | action | none | Coalesced to one dispatch per frame; `dsx.this` carries offset, size and direction. |
+| `on:scrollEnd` | action | none | Fires once the scroll settles, not on every deceleration frame. |
+| `on:reachEnd` | action | none | Fires once per approach within `threshold` of the end, and re-arms only after leaving. |
+| `threshold` | number(pt) | `0` | Distance from the end that counts as reaching it. |
+| `indicators` | bool | `true` | |
+| `bounces` | bool | platform | |
+| `paging` | bool | `false` | |
+| `snap` | `none` \| `start` \| `center` \| `end` | `none` | |
+| `keyboardDismiss` | `none` \| `onDrag` \| `interactive` | `interactive` | |
+| `overscroll` | `auto` \| `never` \| `always` | `auto` | |
+| `contentInset` | edges | none | |
+| `maintainPosition` | bool | `false` | Keep the visible row anchored when content is prepended. |
+
+**Scroll-linked custom properties** are published by the renderer and read by DSX-CSS. They are
+read-only: authoring them does nothing. Each length exists in two spellings on purpose, because one
+property cannot be both a number and a length.
+
+| Property | Unit | Meaning |
+|---|---|---|
+| `--scroll-y` / `--scroll-x` | unitless points | The offset as a number, for arithmetic. |
+| `--scroll-y-px` / `--scroll-x-px` | px length | The same offset as a length, for `calc()`. |
+| `--scroll-progress` / `--scroll-progress-x` | 0..1 | Fraction of the scrollable extent travelled. |
+| `--scroll-velocity` / `--scroll-velocity-x` | points per second, signed | |
+| `--scroll-remaining` / `--scroll-remaining-x` | unitless points | Distance still to travel, from the clamped offset. The mirror of the offset, so a bottom-anchored effect measures in points rather than in a fraction of the content. |
+| `--scroll-remaining-px` / `--scroll-remaining-x-px` | px length | The same distance as a length. |
+
+They resolve from the NEAREST scroll ancestor per axis, so a horizontal rail inside a vertical
+page owns `--scroll-x*` and leaves `--scroll-y*` to the page. With no ancestor on an axis that
+plane's keys are **absent rather than zero**, so `var(--scroll-y, 0)` can tell "no scroller" from
+"at the top".
+
+**A scroller with a `ref` also publishes its plane under that name, at the document root**, where
+any element reads it whether or not it is a descendant: `--scroll-<ref>-y`, `--scroll-<ref>-progress`,
+`--scroll-<ref>-remaining` and the rest of the family. That is what makes PINNED chrome
+declarative, since chrome that sits over a scroller is by definition not inside it and no cascade
+can reach it (`<ScrollFade>` is the shipped example; runtime-pressure R27 is the reasoning). Two
+rules: a `ref` that cannot spell a CSS custom property (a space, a dot) publishes nothing, and a
+name that would spell one of the unqualified keys above does not publish THAT key, so a scroller
+called `progress` cannot become the page's `--scroll-progress-x`. A duplicated `ref` resolves to
+its last provider, like the ref registry itself.
+
+`zoom` is **not** implemented on any renderer and is deliberately undocumented as an attribute.
 
 #### `spacer`
 Flexible space; expands along the parent stack's axis to push/distribute.
@@ -249,6 +302,22 @@ Non-interactive (use `button` for a tappable icon).
 | `iconSize` / `fontSize` | number(pt) | `24` | Symbol size (weight semibold). |
 | `color` | color | `label` | Symbol tint. Unstyled = the semantic `label` slot, like text. |
 | `src` | URL | — | Remote image (async, fills, placeholder while loading). |
+| `contentFit` | `cover` \| `contain` \| `fill` \| `none` \| `scaleDown` | `cover` | How the image fills its box. |
+| `contentPosition` | anchor or `x y` | `center` | Which part survives the crop. |
+| `placeholder` | string | none | A blurhash, a thumbhash, or a URL. Decoded and shown until the real bytes land. |
+| `placeholderFit` | as `contentFit` | `cover` | |
+| `transition` | ms or `{duration,effect}` | `200` crossDissolve | `0` means no fade, and is honored: a duration of zero is a value, not an absent one. |
+| `priority` | `low` \| `normal` \| `high` | `normal` | |
+| `cachePolicy` | `memory` \| `disk` \| `memoryDisk` \| `none` | `memoryDisk` | `cache` remains the legacy alias. |
+| `recyclingKey` | string | none | Identity across a recycled row, so a reused view does not flash the previous image. |
+| `allowDownscaling` | bool | `true` | |
+| `tint` | color | none | |
+| `blurRadius` | number | `0` | |
+| `fallback` | string | none | Shown when the source fails. |
+| `on:load` / `on:error` | action | none | |
+
+`on:progress` is not supported on the web renderer and is marked `data-dsx-unsupported` there.
+The resolution law is `OpenSource/Conformance/image/resolution.json`.
 
 #### `button` / `glassButton` / `transport`
 Tappable. Identical today (glass is opt-in via `surface="glass"`; the names are
@@ -302,7 +371,14 @@ Indeterminate `ProgressView`. Unstyled = the OS's own untinted spinner
 
 ### Inputs (two-way bound)
 
-Every input fires `on:change` when its bound value changes.
+Every input fires `on:change` when its bound value changes, and every interactive
+control accepts the **disabled pair** (the W9 grammar wave, all three renderers):
+`disabled` (bool) and `disabled-if` (expr) — either truthy disables the control (the
+0.5 dim discipline, focus/tap/write all inert; web sets the real native `disabled`,
+iOS `.disabled(...)`, Android the component's `enabled=` seam). The pair covers the
+button family plus toggle, slider, stepper, segmented, `segmentedButton`, stars,
+textfield/searchbar, textarea, picker, wheelpicker, datepicker, combobox, otp,
+calendar, rangeslider, `field`, `Checkbox`, and `RadioGroup`.
 
 #### `textfield` / `input`
 | Attribute | Type | Default | Notes |
@@ -342,6 +418,51 @@ Two-way date/time bound to an **ISO-8601 string**. `mode="date"` (default) /
 #### `stepper`
 ± a bound number, clamped. `bind`, `min` (default `0`), `max` (default `100`),
 `step` (default `1`), `label`, `color` (default `accent`), `on:change`.
+
+#### `Signature` <a id="signature"></a>
+A signing pad drawn with real native ink - a SwiftUI `Canvas` on iOS, a Compose `Canvas` on
+Android and desktop, a 2D canvas on web. No web view, no JS bridge, and no per-point store
+write: the finger is tracked natively and the bound value is written ONCE per stroke, on
+pointer-up.
+
+| Attribute | Type | Default | Notes |
+|---|---|---|---|
+| `bind` | store key | — | The stroke list (below). Two-way: writing it back redraws the pad. |
+| `strokeWidth` | number | `3` | Ink width, in points. |
+| `color` | color | `label` | Ink colour. |
+| `height` / `radius` | number | `180` / `12` | The pad box; style attributes size it further. |
+| `baseline` | bool | `true` | The signing rule, inset 24 and 36 above the bottom. |
+| `placeholder` | string | — | Shown while the pad is empty ("Sign here"). |
+| `readOnly` | bool | `false` | Render the strokes, refuse new ones (`disabled` does the same). |
+| `on:begin` / `on:end` | action | — | A stroke started `{ strokes }` / committed `{ strokes, points }`. |
+| `on:change` | action | — | Fires from the bound write, like every two-way element. |
+
+It is the pad, not the ink: the ink is `<canvas>`'s [`<ink>`](#canvas-ink) primitive, and this
+element wraps it in the chrome a signing pad needs plus a two-way `bind` — which is why it is an
+element rather than a markup component (a component boundary cannot forward a two-way binding).
+
+**The value IS the API.** `bind` holds a list of strokes, each
+`{ points: [[x, y], …], width }`, with x/y **normalized 0…1** against the pad box and rounded
+to four decimals at capture - so a signature captured on a phone replays unchanged on a
+desktop pad, on the web renderer, and in a server-rendered PDF. There is deliberately no
+`clear()` or `undo()` method to look for:
+
+```xml
+<Signature bind="sig" placeholder="Sign here" ref="sig"/>
+<button title="Clear" on:tap="sig = []" disabled-if="sig.length == 0"/>
+<button title="Undo"  on:tap="sig = sig.slice(0, sig.length - 1)"/>
+<button title="Save"  on:tap="call: capture.element" arg:ref="sig"/>
+```
+
+Exporting an image is the `ref` primitive plus the capture module
+(`dsx.module.capture.element({ ref: "sig" })`); the element ships no encoder of its own. On the
+web the server renderer paints the committed strokes as an inline SVG in the same normalized
+space, so a signed document has real first paint before the pad mounts.
+
+**Accessibility:** a pointer-drawn pad has no keyboard or switch-control equivalent on any
+platform. It reads as one element labelled `a11yLabel` (default `Signature`, or the
+placeholder) and valued Empty/Signed - pair it with a typed-name field rather than pretending
+the canvas is operable without a pointer.
 
 ### Structure
 
@@ -401,6 +522,41 @@ Bottom tab bar. Each child pane carries its own `tabTitle` / `tabIcon`
 </tabs>
 ```
 
+#### `split`
+The two/three-pane adaptive container — the list-detail / NavigationSplitView primitive.
+Each child pane carries a `paneRole` (`sidebar` \| `content` \| `detail`); `value` is the
+two-way **selected detail identity** (`""` = none). Phone widths collapse to a navigation
+stack (the host pane is the screen, a non-empty `value` pushes the detail, the Back pop
+clears it and fires `on:change`); tablet widths pin a pane pair with a three-pane split's
+sidebar as an overlay; desktop widths pin every pane — on the web with draggable hairline
+dividers, on iOS/Android via the platform's own split host (`NavigationSplitView` / the
+Material list-detail layout), which owns the visual collapse exactly like `<tabs>`.
+
+```xml
+<split value="dsx.variable.note" on:change="dsx.log('selection cleared')">
+  <list paneRole="sidebar" bind="dsx.variable.notes">
+    <pressable on:tap="dsx.variable.note = item.id"><text bind="item.title"/></pressable>
+  </list>
+  <vstack paneRole="detail"><NoteDetail id="{{ dsx.variable.note }}"/></vstack>
+</split>
+```
+
+| Attribute | Type | Default | Notes |
+|---|---|---|---|
+| `paneRole` *(child marker)* | `sidebar` \| `content` \| `detail` | — | Explicit roles win (first claimant keeps a duplicate); the rest fill positionally — 2 panes: sidebar+detail, 3: sidebar+content+detail. Children beyond three are ignored. |
+| `value` | expr (string) | — | Two-way selected detail identity; `""`/blank = none (numeric ids like `0` stay selectable). |
+| `on:change` | action | — | Fires only when the **split itself** clears the selection (the compact Back pop) — never for the selection it mounted with. |
+| `panes` | number (2–3) | — | Advisory pane-count hint; the children are the truth. |
+| `collapseAt` | number (320–4096) | `760` | Semantic renderers stack below this **container** width; native delegates the collapse to the platform split host. |
+| `expandAt` | number (320–4096) | `1104` | A three-pane split pins its sidebar at/above this width and overlays it below; raised to `collapseAt` when authored lower. |
+| `resizable` | bool | `true` | Desktop divider drag + arrow/Home/End keyboard resize (fine pointers, columns presentation) on the semantic renderers. |
+| `sidebarMin` / `sidebarIdeal` / `sidebarMax` | number | `220` / `280` / `360` | Sidebar column width triplet; normalized so min ≤ ideal ≤ max. |
+| `contentMin` / `contentIdeal` / `contentMax` | number | `280` / `340` / `480` | Three-pane content column width triplet, same normalization. |
+| `detailMin` | number (120–1024) | `360` | The flexible detail column's floor (clamps divider drag / the web grid `minmax`). |
+
+The plan (role resolution, width classes, selection routing) is corpus-pinned on all three
+renderers — `OpenSource/Conformance/split/split.json`.
+
 #### `grid`
 The same keyed, per-row data model as [`<list>`](#lists), flowing into N
 flexible columns (episode pickers, plan cards, …). The single child is the row
@@ -413,6 +569,28 @@ template, rendered once per row in its own `item` scope with write-back.
 | `spacing` | number(pt) | `10` | Cell gap, both axes. |
 | `scroll` | bool | `true` | `"false"` = no own ScrollView — compose inside `<scroll>` / measured sheets (sizes to content; renders **eagerly** so intrinsic height is real — see the laziness rule under [Fit-content](#fit-content)). |
 | `on:reachEnd` | action | — | Fires when the last cell appears (pagination). |
+
+#### `flow`
+The **wrap** layout: pack children left to right at their ideal sizes and break to a new line
+whenever the next one would overflow. Tag clouds, chip filters, attribute rows, anything whose
+item count you do not control. Same greedy packer on all four renderers.
+
+Since 2026-08-26 it is also a **repeater** (runtime-pressure R29): give it `bind` and its single
+child becomes the row template, exactly as in `<list>` and `<grid>`. Before that it was the one
+layout in DSX that could not be driven by data, so a wrapping run of anything had to be authored
+by hand.
+
+| Attribute | Type | Default | Notes |
+|---|---|---|---|
+| `bind` + `key` | list + field | `key="id"` | The rows. Omit `bind` and the authored children lay out instead. `key="index"` keys by position. |
+| `spacing` | number(pt) | `8` | Gap between items **within** a line. |
+| `lineSpacing` | number(pt) | `8` | Gap between lines. |
+
+```xml
+<flow bind="dsx.variable.tags" key="id" spacing="8" lineSpacing="8">
+  <Chip label="{{ dsx.this.label }}" on:tap="…"/>
+</flow>
+```
 
 #### `refreshable` / `refresh`
 Pull-to-refresh around its children. It provides the ScrollView — put
@@ -648,13 +826,22 @@ any style can bind to the store.
 | `background` | color | — | Fill behind the element (rounded by `radius`). A **literal** color (hex / `rgb()`/`rgba()` / `white`/`black`) that is opaque-ish (alpha ≥ 0.5) also **derives the subtree's color scheme** from its relative luminance — see `theme` below (the explicit form, which always wins). Semantic words keep following the ambient scheme. **On a page ROOT** (a route frame's root element, resolved through component references) the declared background also becomes the **host canvas, full-bleed** — behind a claimed system bar / large title and through top/bottom overscroll — so a `groupedBackground` or designed page is seamless edge-to-edge like a real system screen (semantic words stay adaptive; a literal canvas composes with the derived subtree scheme). No root background keeps the `systemBackground` host canvas; `clear`, gradients and materials never become a canvas; sheets, covers and overlay layers are unaffected. |
 | `surface` | material | — | Blur/vibrancy material behind the element (`glass`, …). See [Materials](#materials). |
 | `glassTint` | color | — | Colors the Liquid Glass ITSELF (iOS 26+) — a full-color glass button, not tinted text. Below 26: a solid fill of the tint (the full-color read survives everywhere). CSS: `-dsx-glass-tint`. |
-| `glassInteractive` | bool | tappables: `true` | The system's bouncy press-stretch Liquid Glass response (iOS 26+). Defaults ON for elements with `on:tap`; `"false"` removes it, `"true"` forces it on static surfaces. CSS: `-dsx-glass-interactive`. |
+| `glassInteractive` | bool | `false` | The press response on a glass surface. iOS 26+ stretches the real material (`glassEffect(.interactive())`); the other three renderers scale the surface to 0.97 on press and spring back, which is the observable half where there is no material to stretch. OPT-IN on every renderer - only `"true"` turns it on. CSS: `-dsx-glass-interactive`. |
 | `gradient` | colors | — | Linear gradient `c1\|c2\|…` (2+ colors). |
 | `gradientDir` | enum | `vertical` | `vertical` / `horizontal` / `diagonal`. |
+| `gradientType` | enum | `linear` | `linear` / `radial` / `angular` / `mesh`. Mesh needs `gradientPoints`; a malformed grid degrades to linear. |
+| `gradientStops` | CSV of 0..1 | even | Must match the colour count, else even spacing. Clamped and forced non-decreasing. |
+| `gradientAngle` | angle | `180deg` | **0deg is up, clockwise** (CSS). Accepts `deg`/`rad`/`turn`/`grad`/bare. Wins over `gradientDir`, which stays an exact alias (`vertical`=180, `horizontal`=90, `diagonal`=135). |
+| `gradientCenter` | `x y` unit point | `0.5 0.5` | Radial and angular. A single value means both axes. |
+| `gradientRadius` | number or % | `0.5` | Fraction of the larger side, capped at 4. |
+| `gradientPoints` | mesh grid | none | `"x y color, ...; x y color, ..."`. Real `MeshGradient` on iOS 18+; below it the pinned fallback (base fill plus one radial per control point, row-major). |
 | `radius` | number(pt) | `0` (surface: `16`, sheet `24`) | Corner radius; also clips the element. |
 | `fontSize` | number(pt) | system | Text/symbol size. |
 | `fontWeight` | enum | `regular` | `regular`/`medium`/`semibold`/`bold`/`heavy`. |
 | `fontDesign` | enum | `default` | `default`/`rounded`/`serif`/`monospaced`. |
+| `fontFamily` | family | system | A typeface declared by an enabled module's [`fonts`](#fonts) block, or `system`. Selects the real face for the requested `fontWeight` + `italic`. **An unknown family is a build error, never a silent fallback.** |
+| `fontVariation` | string | — | Variable-font axes: `"wght 480, SOFT 40"`. Tags are case sensitive. Out of range clamps to the declared bound; an undeclared axis is dropped; a static face ignores the whole declaration without erroring. |
+| `fontFeature` | string | — | OpenType feature tags: `"tnum, ss01"`. Exactly four characters each; anything else is dropped rather than passed to the platform, which would ignore it silently. |
 | `width` / `height` | number(pt) \| `fit` | intrinsic | Fixed size — or **`fit`** (alias `fit-content`): the element takes its content's **ideal** size on that axis; greedy descendants (scrolls, spacers, `grow`) collapse to their content. The hug primitive — `<sheet detents="content">` applies it to its slot automatically. |
 | `minWidth`/`maxWidth`/`minHeight`/`maxHeight` | number(pt) | — | Flexible bounds. |
 | `grow` | `true`/`width`/`height` | `false` | Fill available space: `true` = both axes; `width`/`height` = one axis (a pill fills its row width but keeps its natural height). |
@@ -679,6 +866,8 @@ any style can bind to the store.
 `tracking` (letter spacing, pt), `lineLimit` (int), `lineSpacing` (pt),
 `textAlign` (`leading`/`center`/`trailing`), `textCase` (`upper`/`lower`).
 (`underline`/`strikethrough`/`tracking` need iOS 16+; no-ops below.)
+With a `fontFamily` that declares a real italic face, `italic` **selects that face**; it
+synthesises an oblique only when the family ships none — see [Fonts](#fonts).
 
 **Order of application:** padding → frame(width/height) → font →
 min/max-frame (`grow`) → background → surface → gradient → radius/clip →
@@ -759,6 +948,86 @@ Rules of thumb:
   present time).
 
 See [Cross-platform mapping](#xplat) for the SwiftUI ↔ Compose equivalents.
+
+---
+
+## Fonts <a id="fonts"></a>
+
+`fontFamily` renders a real typeface, not a lookalike. A font is a **module asset**: any
+module declares the faces it ships in its `dsx.json`, the build collects every *enabled*
+module's declaration into one registry, and the family disappears from the build when its
+owner is excluded.
+
+```jsonc
+// ClosedSource/DSX/Modules/Core/Brand/dsx.json
+"fonts": {
+  "Inter": {
+    "400":  { "file": "fonts/Inter-Regular.ttf" },
+    "600":  { "file": "fonts/Inter-SemiBold.ttf" },
+    "700":  { "file": "fonts/Inter-Bold.ttf" },
+    "400i": { "file": "fonts/Inter-Italic.ttf" }
+  },
+  "Fraunces": {
+    "from":     "google:Fraunces@1.0.0",
+    "file":     "fonts/Fraunces.ttf",
+    "variable": true,
+    "axes":     { "wght": [100, 900], "SOFT": [0, 100] },
+    "defaults": { "SOFT": 40 },
+    "fallback": ["system"]
+  }
+}
+```
+
+A key is a **CSS numeric weight** (1…1000), suffixed `i` for italic. `file` is
+package-relative; at family level it declares the single file of a **variable** family, whose
+`axes` ranges `fontVariation` clamps against. `from` is a **build-time** locator resolved by
+`build_frameworks.rb` and pinned in the module's `dsx.lock.json` — the runtime never calls
+Google, because a font fetch at first paint is a privacy leak and a render stall. Ship `.ttf`
+or `.otf`: `.woff`/`.woff2` are web containers that neither iOS nor Android opens.
+
+Then use it like any other style attribute:
+
+```xml
+<text fontFamily="Inter" fontSize="17" fontWeight="600">Balance</text>
+<text fontFamily="Inter" fontFeature="tnum">$1,240.00</text>
+<text fontFamily="Fraunces" fontVariation="wght 620, SOFT 80">Fraunces</text>
+```
+
+**What the build guarantees.**
+
+- Each face's **PostScript name** is read from the font's own `name` table. That name is rarely
+  the family name and never the filename, and getting it wrong is how an app silently renders
+  the system face with nothing logged. Nobody types it.
+- A `fontFamily=` naming a family no enabled module declares **fails the build**, with the file
+  and the declared set in the message.
+- Two modules declaring the same family with different files fails the build. One family, one
+  set of faces.
+
+**Face selection** is one shared pure core run identically by all three renderers, pinned by
+`OpenSource/Conformance/fonts/matching.json`, so a heading is never semibold on iOS and bold on
+Android. It is the CSS Fonts 4 algorithm, deliberately **not** "nearest weight": in the 400-500
+band the search goes UP to 500 first, so a family shipping 400 and 700 renders **400** for a
+requested 500 and **700** for a requested 501.
+
+- `italic` picks a **real** italic face when the family declares one, and synthesises an oblique
+  only when it does not.
+- Weight **never** synthesises. A missing 700 resolves to the nearest real face, because
+  faux-bold is how a brand looks cheap.
+- `fontDesign` is not deprecated: it keeps meaning the system design axis and applies to the
+  system fallback. A declared family wins.
+
+**Dynamic Type keeps working.** With no `fontSize`, a custom family is sized by the body metric
+and tracks the user's accessibility text setting live. With a `fontSize`, it follows the same
+`dynamicType` / `dynamicTypeMax` rule the system-font path follows, so declaring a family is
+never a hidden change in scaling behaviour.
+
+**The fallback chain is declared, not accidental.** Each family may declare `fallback`; the
+default is the platform system stack. An emoji or CJK glyph missing from a brand face falls
+through to the system font rather than rendering nothing.
+
+Introspection, OTA-delivered theme fonts and text measurement live in the `Core/Fonts` module
+(`dsx.module.font.families()` / `.load()` / `.metrics()`), which is excludable: without it,
+declared families still render.
 
 ---
 
@@ -850,6 +1119,9 @@ value as `dp`** on Android. This table is the contract each renderer implements 
 | `offset`/`offsetX`/`offsetY` | `.offset(x:y:)` | `Modifier.offset(x.dp, y.dp)` |
 | `align` (stack) | `VStack/HStack/ZStack(alignment:)` | `Column/Row(...Alignment)` / `Box(contentAlignment)` |
 | `fontSize` / `fontWeight` / `fontDesign` | `.font(.system(size:weight:design:))` | `fontSize=.sp, fontWeight=, fontFamily=` |
+| `fontFamily` | registry PostScript name → `UIFont(name:size:)` inside `UIFontMetrics` | registry asset → Compose `FontFamily` (`Font(path, assetManager, …)`) |
+| `fontVariation` | `kCTFontVariationAttribute` (four-char axis codes) | `FontVariation.Settings` (API 26+; static instance below) |
+| `fontFeature` | `kCTFontOpenTypeFeatureTag` feature settings | `TextStyle.fontFeatureSettings` |
 | `color` | `.foregroundColor` | `color=` / `tint=` |
 | `icon` (semantic token) | shared icon set (Lucide/Material Symbols), SF Symbols as iOS fast path | same shared set, resolved by the **same name** — never a per-platform id |
 | `italic` | `Text.italic()` | `fontStyle = Italic` |
@@ -972,12 +1244,35 @@ process (a channel can't change mid-run) — for the LIVE staging override read
 
 | Mechanism | Where | Reads |
 |---|---|---|
-| `{{ expr }}` | any attribute value or text | interpolated into the string |
+| `{{ expr }}` | any attribute value or text | interpolated into the string — **except** a COMPONENT attribute whose whole value is one `{{ … }}`, which carries the VALUE (see below) |
 | `bind="path"` | `text`/`image`(value)/`progress`/inputs/`list` | the store value at `path` (or `item.*` in a row) |
 | `value="…"` | `text` (and others) | static (interpolated) fallback |
 | `visible-if="expr"` | any element | show/hide |
 | `visible-if="has:scheme"` | any element | true if a module with that scheme is installed |
 | `has('scheme')` | any expression (`{{ }}`, `on:*`, computed) | the callable form of the above — `true` when that module is in this build (e.g. `{{ has('clerk') ? 'Clerk' : 'OAuth' }}`) |
+
+### A component attribute carries a value when it is one whole `{{ … }}`
+
+On a **component** invocation (`<Card …/>`, `<Node …/>`), an attribute whose trimmed value is
+exactly one `{{ … }}` and nothing else hands the child the expression's **value**: an object stays
+an object, a number stays a number, `false` stays `false`. Mix it with any other text and it is a
+sentence again, string-coerced like everywhere else.
+
+```xml
+<Node node="{{ item }}"/>          <!-- dsx.attribute.node is the OBJECT -->
+<Badge count="{{ n }}"/>           <!-- dsx.attribute.count is the NUMBER -->
+<Badge label="{{ n }} left"/>      <!-- dsx.attribute.label is the STRING "3 left" -->
+<Badge tone="accent"/>             <!-- dsx.attribute.tone is the STRING "accent" -->
+```
+
+This is what lets a component take **data** rather than only text, and therefore what lets a
+component render **itself** — a tree, an outliner, a comment thread, a file browser all pass
+their own children down this way. Recursion terminates because the data does; a corrupt or
+cyclic child list stops at the depth floor (256 expansions, uniform on all three renderers)
+rather than taking the surface with it.
+
+One authoring edge, shared by every renderer: a hole ends at the first `}}`, so write an inline
+object literal with a space before the closer (`{{ { id: row.id } }}`), not flush (`{{ {id: 1}}}`).
 
 Inputs (`textfield`/`toggle`/`slider`/…) are **two-way**, and `bind=` is **path-aware** — it
 reads/writes exactly where `{{ }}` / a store write (`x = …`) do, so an input can map onto a **key
@@ -1284,6 +1579,7 @@ see [Actions](#actions).) `dsx.this` is the current scope in any body.
 | `<attribute as="x" default="…">` | declares once | a component INPUT (`dsx.attribute.x`) — THE contract: set by the invoking tag (`<C x="…"/>`), by mount verbs' `attrs:`, or natively (`ui.attribute`); reactive, passed beats `default=`, live changes fire `on:change` (see [`dsx-anatomy.md`](./dsx-anatomy.md)) |
 | `<expects variable="x"/>` | declares once | the seed contract — state the mounting side must `ui.variable` (debug missing-seed log); `vars:` is the legacy mount-seed for it — new inputs are `<attribute>`s |
 | `<event as="x" payload="a b"/>` | declares once | an event this component raises (`dsx.event('x')`) — the outbound contract, lint-checked |
+| `<tool action="x" description="…" mutates="…"/>` | declares once | an action this document exposes to an AI AGENT (`proposals/webmcp.md`) — the descriptor is DERIVED from the named action's declared inputs (no `schema=`, ever); `as` defaults to the action name, and `mutates`'s absence is what emits the read-only hint. Registers with `document.modelContext` while the document is mounted; declarative on native |
 
 ### `<variable>` — state & derivations
 ```xml
@@ -1535,6 +1831,37 @@ icons hidden).
 | `<NavBar/>` | `title` · `system` (`true`) · `large` · `subtitle` · `back` · `backLabel` (`Back`) · `color` · `surface` | DEFAULT (`system="true"`): claims the REAL system navigation bar for the screen — system title (`large="true"` for large-title), the system back button (pop + edge-swipe already wired), iOS 26 Liquid Glass bar for free. `system="false"`: the custom centered-title bar (circular glass back raises `on:back`, trailing content via `slot="trailing"`) — use inside sheets (the system claim targets the top FRAME). |
 | `<SettingsRow>` | `icon` · `iconBg` (`fill`) · `title` · `subtitle` · `value` · `chevron` · `tappable` | A disclosure row (`chevron="true"`) or explicit `tappable="true"` raises `on:tap` and reads as one button. A row with a slotted control stays static so the control keeps independent native semantics. |
 | `<Table/>` | `bind` (rows) · `columns` (CSV labels) · `fields` (CSV keys; default = lowercased labels) · `color` | Plain text data table: header row (header trait) + one combined-utterance row per dict. For custom cells use `<grid>`. |
+| `<Swipe>` | `actionWidth` (80) · `fullSwipe` (`true`) · `haptics` (`true`) · `disabled` · `a11yHint` | A row that slides aside to reveal what you can do to it (`slot="actions"`, behind the row so nothing re-lays out), and fires `on:action` outright on a far swipe. `on:open` / `on:close` report the rest position. No native code: the pointer writes ONE number (the row's offset) and the transform reads it. The actions stay real buttons in the tree, so assistive tech reaches them without discovering a gesture. **For a row inside a `<list>`, use `swipeLeading=` / `swipeTrailing=` / `swipeFullTrailing=` instead** — those are the system's own swipe actions, with its gesture, its rubber-banding and its accessibility. `<Swipe>` is for a standalone row. |
+| `<PromptInput/>` | `value` · `placeholder` · `busy` · `attachments` · `models` · `model` · `max` · `minLines` (1) · `maxLines` (8) · `attach` · `voice` | The AI composer: growing field, attachment tray, model picker, dictate, and a send button that becomes **stop** while `busy` - one control in one place, so an unwanted two-minute answer has an exit. `value` in / `on:change` out; submitting clears the draft. `on:submit` carries `{ text, attachments }`. No Enter-to-send: `<textarea>` has no keyboard-submit seam (`<textfield on:submit>` does). |
+| `<ToolCall/>` | `name` · `args` · `result` · `status` · `error` · `duration` · `open` | One tool invocation, shown: live status, the arguments, the result, collapsed by default. Status is derived (`error` -> failed, `result` -> done, else running). Turns "the model is doing something" into something a developer can debug and a user can trust. `on:toggle` · `on:retry`. |
+| `<Actions/>` | `copy` · `retry` · `share` · `feedback` · `voted` · `copied` | The row under an answer: copy, retry, share, thumbs. The vote is the caller's value, because a rating the component keeps is a rating your backend never sees. `on:copy` · `on:retry` · `on:share` · `on:up` · `on:down`. |
+| `<Citation/>` | `n` · `title` · `url` · `site` | The in-text half of attribution: a numbered marker bound to a source, tappable, that reads as "reference 1, The constitution, despia.com" rather than a bare number. `<Sources>` is the rail; this is the marker inside the prose. `on:open`. |
+| `<ContextMeter/>` | `used` · `max` · `label` · `cost` · `currency` · `compact` | How much of the context window is spent, as a bar plus "184.3k / 200k". Amber at 75%, red at 90%, because a meter that stays one colour until it is full told you nothing you could act on. |
+| `<Artifact>` | `title` · `subtitle` · `kind` (`code`/`document`/`image`/`data`/`preview`) · `version` · `copy` · `download` · `open` · `collapsible` | A generated thing, framed: a title bar with the kind and an action set, the output in the slot. It frames and never interprets, so it needs no renderer per kind. `on:copy` · `on:download` · `on:open` · `on:close`. |
+| `<VoiceInput/>` | `listening` · `level` (0..1) · `transcript` · `label` | Push-to-talk chrome over the shipped `speechrecognition` / `Recorder` / `LocalAI` modules: a live level meter (a mic with no visible input is indistinguishable from a broken one), the transcript, and one button whose name carries the state. It owns no audio and requests no permission. `on:start` · `on:stop` · `on:cancel`. |
+| `<ImageGeneration/>` | `src` · `placeholder` (blurhash/thumbhash) · `ratio` (`16:9` · `16/9` · a number · `square`/`portrait`/`landscape`/`story`) · `prompt` · `progress` (0..1) · `status` · `error` · `fit` (`cover`) · `radius` (12) · `label` · `retryLabel` | The frame an image is generated INTO. It takes the aspect ratio **up front**, so the space is reserved from the first paint and nothing moves when the bytes land. ONE `<image>` is mounted throughout: a blurhash passed as `placeholder` decodes immediately and the real bytes replace it in place, so arrival is a repaint rather than a mount. State is derived (an `error` is failed, a `src` is ready, anything else is generating) and `status` overrides it. `on:retry` · `on:tap` · `on:load` · `on:error`. It announces what it is DOING, not what it looks like. |
+| `<Tree/>` | `bind` (roots) · `labelField` · `idField` · `iconField` · `childrenField` · `expanded` · `indent` (18) | A disclosure tree over hierarchical data; the expansion state lives in the component, so a caller passes hierarchy and nothing else. Only OPEN branches are walked, so the row list is the size of what is visible. `on:select` (a leaf) / `on:toggle` (a branch). Each row speaks its level, its expanded state and its position among its siblings. |
+| `<Post/>` | `name` · `handle` · `avatar` · `text` · `image` · `time` / `timeText` · `likes` · `comments` · `liked` · `actions` | The feed row. `time` takes an ISO string or epoch millis and reads as "4h"; counts read as "1.2K" and a zero renders as nothing. Body is `<text markdown>`. `on:like` / `on:comment` / `on:share`. Anything richer goes in the slot, under the body. |
+| `<Attachment/>` | `name` · `size` (bytes) · `removable` (`true`) · `icon` | A file chip: type glyph derived from the extension, name, formatted size, opt-in remove. `on:tap` / `on:remove`. |
+| `<SectionRail/>` | `letters` (array, CSV, or empty for A-Z) · `active` · `color` | The A-Z index down the trailing edge of a sectioned list. It SELECTS (`on:select` carries the letter); where a letter goes is the list's business, so the caller keeps that decision. |
+| `<SelectionBar>` | `selected` (ids or a count) · `total` · `noun` (`selected`) · `always` | The bar for a list in selection mode: "3 selected", Select all, Done, and the caller's actions in the slot. The selection lives in the CALLER, because the rows do. `on:all` / `on:clear`. |
+| `<ButtonGroup/>` | `items` (rows) · `idField` · `labelField` · `iconField` · `size` (`regular`/`small`) · `color` | N actions joined into one bordered control with hairlines between them. NOT `<segmented>`: segmented is single-SELECT and holds a value; this holds none and every member is a button. `on:tap` carries the id. |
+| `<ToggleButton/>` | `label` · `icon` · `pressed` · `color` · `size` · `disabled` | A button that stays down (bold, mute, a verb-shaped filter). The pressed state is the caller's value and the caller flips it in `on:tap` — one value, one owner. Exposes `aria-pressed` rather than a label that changes under the reader. |
+| `<InputGroup>` | `prefix` · `suffix` · `icon` · `background` | The chrome around an input: leading/trailing addons inside one border. **The input is yours** — put your own `<textfield bind=>` in the slot (`slot="leading"` / `slot="trailing"` for controls), because a component boundary cannot forward a two-way binding. |
+| `<ColorPicker/>` | `value` · `swatches` (CSV or rows of `{color,label}`) · `sliders` (`true`) · `preview` (`true`) | A palette rail plus R/G/B sliders. `value` in, `on:change` out carrying `{ hex, r, g, b }`. Announces a swatch's own label, or its hex when the palette carries none. |
+| `<Questionnaire/>` | `questions` · `submitLabel` (`Finish`) · `progress` (`true`) | One question at a time with a progress line and Back/Next. Question types: `choice` · `multi` · `text` · `long` · `scale` · `boolean`. Answers are held in the component and handed over whole on `on:done`; `on:answer` fires per question for save-as-you-go. The progress is spoken ("Question 3 of 8"), not only drawn. |
+| `<MarkdownEditor/>` | `value` · `placeholder` · `minLines` (8) · `count` (`true`) · `max` | Write / preview tabs with a live character count that turns red past `max`. `value` in, `on:change` out. No formatting ribbon: a ribbon wraps the SELECTION, and `<textarea>` exposes no selection or caret. |
+| `<Plot/>` | `type` (`pie`/`donut`/`ring`/`polar`/`radar`/`heatmap`/`funnel`/`treemap`/`waterfall`/`candlestick`) · `data` · `label`/`value`/`open`/`high`/`low`/`close` fields · `colors` · `height` · `max` · `columns` · `legend` | The chart shapes `<chart>` has no axis mark for, drawn as tier-2 commands on `<canvas>` — one component, three renderers, no native work. `a11yChildren` gives every datum a readable row, so a plot reads as a table rather than a picture. `<chart>` still owns line/area/bar/point natively. |
+| `<Diagram/>` | `nodes` (`{id,label,icon,color,x,y}`) · `edges` (`{from,to}`) · `nodeWidth` (128) · `nodeHeight` (52) · `columnGap` (56) · `rowGap` (20) | Nodes and the edges between them: a flow chart, a pipeline, a state machine, an agent run. With no coordinates it LAYERS — every node in the column of its longest path from a root. Edges are drawn on a `<canvas>` in one geometry pass and the nodes are ordinary reachable controls, because a line is a picture and a node is not. `on:tap` carries the id. (`<flow>` is the wrap LAYOUT; the diagram needed its own name.) |
+| `<ScrollText/>` | `text` · `from` (0.15) · `to` (0.75) · `dim` (0.2) · `overlap` (2) · `type` · `lineGap` | A passage that brightens line by line as the reader scrolls. **Must be inside a `<scroll>`**: it is a pure declaration over that scroller's `--scroll-progress` (no handler, no store write), and outside one it renders at full brightness. Splits on newlines, else on sentences. |
+| `<ScrollFade/>` | `source` · `axis` (`vertical`) · `size` (32) · `color` (`systemBackground`) · `range` (24) · `edges` (`both`) | Soft edges that say a list continues past the frame. It does NOT own the scroller: `source` names one by its `ref=`, and the bars read the plane that scroller publishes at document root, so they can sit OVER it as a `<zstack>` sibling instead of scrolling away inside it. Each bar's opacity is derived (distance travelled / distance remaining over `range` points), never toggled; with no scroller of that name both are invisible. Decorative and `passthrough`, so the finger reaches the list. |
+| `<Answer>` | `text` · `streaming` · `a11yLabel` | The assistant reply block: markdown body, a `<ThinkingOrb>` while generating, and a slot underneath for whatever the answer carries (a `<Sources>` rail, actions, a rating). |
+| `<Reasoning>` | *(see the component)* | The collapsible "thinking" block, over `<Accordion>`. |
+| `<Sources/>` | `items` (`{title,url,site}`) · `label` (`Sources`) · `max` (6) | The citation rail under an answer; each chip is tappable and `on:open` carries the row, because a citation nobody can open is decoration. |
+| `<ThinkingOrb/>` | `label` · `color` (`accent`) | The "an answer is coming" pulse — not a spinner, which says "the app is loading". The pulse is a CSS keyframe and runs on every renderer (the browser's own on the web, the keyframe sampler natively); the dots keep a resting opacity so the state stays legible under `prefers-reduced-motion`. |
+| `<Marquee>` | `duration` (20s per pass) · `direction` (`normal`/`reverse`) · `gap` (3rem) · *(children)* | A row that scrolls forever: ticker, now-playing line, logo rail. The children are rendered TWICE and the pair is translated by exactly half its own width, so the second copy is where the first was at the instant the loop restarts and the seam is invisible; the duplicate is hidden from assistive tech. The loop runs on every renderer. Under `prefers-reduced-motion` it stops and becomes an ordinary scrollable row — an infinite horizontal scroll is a documented vestibular trigger, so the preference turns it off rather than slowing it down. |
+| `<TextAnimation/>` | `lines` (array) · `stagger` (0.09s) · `duration` (0.45s) · `type` (`body`) · `gap` (0.25rem) | Lines that arrive one after another. LINES, not characters: a per-character effect is a typewriter, and it breaks selection and the a11y tree. The stagger is a per-row `animation-delay` computed from the row's position, since a stylesheet cannot carry a rule per array element. `both` fill holds each line invisible through its delay and arrived after its last frame, so the entrance neither flashes nor snaps back; under `prefers-reduced-motion` every line is simply present. |
+| `<Signature/>` | `bind` (stroke list) · `strokeWidth` (3) · `color` (`label`) · `height` (180) · `radius` (12) · `baseline` (`true`) · `placeholder` · `readOnly` | Real native ink (SwiftUI/Compose Canvas, a DOM 2D canvas on web) - no web view, no per-point store write. The bound value IS the API: clearing is `sig = []`, undo is `sig.slice(0, sig.length - 1)`, export is `ref` + `dsx.module.capture.element`. See [Signature](#signature). |
 | `<AuthLogin/>` | `title` (`Welcome back`) · `subtitle` · `submitLabel` (`Sign in`) · `accent` · `forgot` · `signup` · `apple`/`google`/`facebook` | Email+password sign-in over `<form>/<field>` (state in the `authLogin` namespace — read `authLogin.values.email` etc.). The styled submit is validity-gated (invalid tap reveals all errors) and raises `on:submit`; optional social buttons raise `on:apple`/`on:google`/`on:facebook`; `on:forgot`/`on:signup` footers. Decoupled — wire the events to OAuth/Clerk/your backend. |
 | `<AuthSignup/>` | `title` (`Create account`) · `subtitle` · `submitLabel` (`Sign up`) · `accent` · `name` · `terms` · `login` · `apple`/`google`/`facebook` | Account-creation sibling of `<AuthLogin>` (state in `authSignup`). Same decoupled event contract; `name`/`terms` add those fields; the `on:login` footer switches to sign-in. |
 | `<VipCard/>` | `title` · `subtitle` · `price` · `productId` | The gold plan card (paywall rails); raises `on:tap` carrying its attributes. |
@@ -1652,3 +1979,88 @@ To match a design exactly:
    or a named style (`heading`, `rowTitle`, `price`).
 8. **Verify on device.** SwiftUI sizing (intrinsic vs. fill) is the usual source
    of "off by a bit" — set explicit `width`/`height` where a design demands it.
+
+### Canvas (2D drawing)
+
+#### `canvas`
+The 2-D drawing surface (`parity/U04-canvas.md`). Stack layout stops at `<canvas>`;
+inside, children are **drawing primitives, never layout elements**. Attribute naming is
+**SVG's exactly** (`d`, `cx`, `cy`, `r`, `fill`, `stroke`, `strokeWidth`, `fillRule`,
+`transform`), because that is the vocabulary authors already have. The geometry is
+corpus-pinned in `OpenSource/Conformance/canvas/`: every renderer folds the same display
+list. No Skia, no shader language, no pixel readback: each platform's own rasteriser
+draws the shared display list.
+
+| Attribute | Type | Default | Notes |
+|---|---|---|---|
+| `opaque` | bool | `false` | Skips the alpha channel; a perf win for a full-bleed canvas. |
+| `scale` | `1` / `2` / `device` | `device` | Raster scale (web only; native surfaces are already device-scaled). |
+| `commands` | expression | none | Tier 2: rows of `[method, args...]`, replayed through the kernel recorder. |
+| `a11yLabel` | string | none | **Required by the linter** when a gesture handler is bound and no `a11yChildren` are declared. |
+| `a11yChildren` | expression | none | The declared semantic overlay: rows of `{role, label, value}`, the accessible bar-chart pattern. |
+| `on:draw` | action | none | Fires before each tier-2 replay. A notification, never a mutable graphics handle. |
+| `on:frame` | action | none | Display-linked `{ time, delta, frame }` under the shared 60/s budget. Installed only while bound, mounted **and on screen**. |
+| `on:layout` | action | none | `{ width, height }` after layout, before the first draw. |
+| `on:strokeStart` / `on:strokeEnd` | action | none | The `<ink>` child's pointer stream: a stroke began `{ strokes }` / committed `{ strokes, points }`. |
+
+Tier-1 children (these tags exist only inside `<canvas>`):
+
+| Tag | Attributes |
+|---|---|
+| `path` | `d`, plus the paint set |
+| `rect` | `x`, `y`, `width`, `height`, `rx`, `ry` |
+| `circle` / `ellipse` | `cx`, `cy`, `r` / `rx`, `ry` |
+| `line` | `x1`, `y1`, `x2`, `y2` (the one shape whose unstyled fill is absent, not black) |
+| `polygon` / `polyline` | `points` |
+| `text` | `value`, `x`, `y`, `fontSize`, `textAnchor` |
+| `image` | `src`, `x`, `y`, `width`, `height` |
+| `group` | `transform`, `opacity`, `clip`, plus inherited paint |
+| `blur` / `shadow` / `blend` | `radius` / `dx dy radius color` / `mode` |
+| `gradient` + `stop` | `id`, `kind` (`linear` / `radial` / `angular`) + `offset`, `color`, `opacity` |
+| `ink` | `bind`, `stroke` (default `label`), `strokeWidth` (default `3`), `readOnly` — see below |
+
+#### `<ink>` — drawing with a finger <a id="canvas-ink"></a>
+
+The one thing a display list cannot express: a surface that is DRAWN ON. Everything else here
+is a picture the author declares; `<ink>` is a picture the user makes.
+
+```xml
+<canvas height="180" a11yLabel="Sketch" on:strokeEnd="saved = false">
+  <ink bind="drawing" stroke="label" strokeWidth="3"/>
+</canvas>
+<button title="Clear" on:tap="drawing = []" disabled-if="drawing.length == 0"/>
+<button title="Undo"  on:tap="drawing = drawing.slice(0, drawing.length - 1)"/>
+```
+
+It splits into two halves on purpose, and the split is the whole point:
+
+- **The committed drawing is ordinary tier 1.** `bind` holds
+  `[{ points: [[x, y], …], width }]` — x/y **normalized 0…1** against the surface box and
+  rounded at capture — and each stroke folds into the same stroked `path` op an author could
+  have written by hand. It diffs, transforms, clips and serialises like any other geometry, and
+  a drawing captured on a phone replays unchanged on a desktop surface.
+- **The in-flight stroke is native paint.** The renderer captures the pointer itself and paints
+  the stroke under the finger at pointer rate. The store is written **once per stroke, on
+  pointer-up** — a moved finger never rebuilds a display list, which is exactly the round trip
+  that makes JS-thread drawing feel wrong.
+
+There is no `clear()` or `undo()`: the value is the API, so clearing is `drawing = []` and undo
+is a `slice`. Events ride the CANVAS (`on:strokeStart` / `on:strokeEnd`), beside `on:draw` and
+`on:frame` — the surface owns its events, `<ink>` owns the value. `readOnly="true"` paints the
+strokes and refuses new ones. The law is `OpenSource/Conformance/canvas/ink.json`, and the
+capture folds, the coalescing floor (1.5 surface points) and the curve (a quadratic through the
+midpoints of consecutive samples) are pinned there for all four renderers.
+
+[`<Signature>`](#signature) is the ready-made pad built on this: box, signing rule, hint and
+a11y wrapper around the same ink. Reach for `<canvas><ink/></canvas>` when you want the
+surface without the pad — annotation, a whiteboard, a colouring page, a drawing game.
+
+The unstyled default is SVG's: black fill, no stroke, `strokeWidth` 1, `nonzero`. A canvas
+with no label, no overlay and no gesture handler is **decorative and hidden** from assistive
+tech; that is the correct default for a background flourish, and the reason the
+`canvas-a11y-label` lint rule can afford to be an error where it applies.
+
+Two named gaps, the same on both native renderers: `<image>` and `drawImage` need the content
+plane's async fetch, which is not a draw-thread call, so the op is skipped rather than drawn
+from a blocking decode. And SSR emits the sized, labelled box only, never a first-paint SVG the
+client would immediately replace with a raster.

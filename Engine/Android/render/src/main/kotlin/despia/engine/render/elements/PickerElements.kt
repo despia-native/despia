@@ -85,8 +85,10 @@ import despia.engine.render.ComposeStackComponentContext
 import despia.engine.render.ComposeStackComponents
 import despia.engine.render.ElementDefaults
 import despia.engine.render.StackStyle
+import despia.engine.render.dsxAccessibleRange
 import despia.engine.render.dsxAccessibleSelectable
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 internal fun registerPickerElements() {
     ComposeStackComponents.defineNative("wheelpicker") { ctx -> WheelPickerView(ctx) }
@@ -107,6 +109,8 @@ private fun WheelPickerView(ctx: ComposeStackComponentContext) {
     if (opts.isEmpty()) return
     val selectedValue = JSE.string(ctl.boundValue(key))
     val boundIndex = opts.indexOfFirst { it.first == selectedValue }.coerceAtLeast(0)
+    // disabled= / disabled-if= (W9): a disabled drum neither scrolls nor commits
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
 
     val state = rememberLazyListState(initialFirstVisibleItemIndex = boundIndex)
     var interacted by remember { mutableStateOf(false) }
@@ -131,7 +135,21 @@ private fun WheelPickerView(ctx: ComposeStackComponentContext) {
         if (!state.isScrollInProgress && centered != boundIndex) state.scrollToItem(boundIndex)
     }
 
-    Box(Modifier.elementModifier(ctx).then(Modifier.fillMaxWidth().height(DRUM_HEIGHT.dp))) {
+    // The drum, operable without the wheel gesture: TalkBack/Switch Access adjust it as a
+    // range (setProgress → bind write → the drum spins via the boundIndex effect), arrow
+    // keys ride the same seam; the spoken state is the selected option's label.
+    val a11y = Modifier.dsxAccessibleRange(
+        value = centered.coerceIn(0, opts.size - 1).toFloat(),
+        valueRange = 0f..(opts.size - 1).toFloat(),
+        steps = (opts.size - 2).coerceAtLeast(0),
+        enabled = !disabled && key.isNotEmpty(),
+        stateDescription = opts[centered.coerceIn(0, opts.size - 1)].second,
+        onSetProgress = { target ->
+            val id = opts[target.roundToInt().coerceIn(0, opts.size - 1)].first
+            if (id == JSE.string(ctl.boundValue(key))) false else { ctl.setBound(key, id); true }
+        },
+    )
+    Box(Modifier.elementModifier(ctx).then(a11y).then(Modifier.fillMaxWidth().height(DRUM_HEIGHT.dp))) {
         // The selection band behind the centre row (the UIPickerView highlight).
         Box(Modifier.fillMaxWidth().height(ROW_HEIGHT.dp).align(Alignment.Center)
                 .padding(horizontal = 8.dp)
@@ -141,6 +159,7 @@ private fun WheelPickerView(ctx: ComposeStackComponentContext) {
             flingBehavior = rememberSnapFlingBehavior(state),
             contentPadding = PaddingValues(vertical = ((DRUM_HEIGHT - ROW_HEIGHT) / 2).dp),
             modifier = Modifier.fillMaxWidth(),
+            userScrollEnabled = !disabled,
         ) {
             items(count = opts.size, key = { it }) { i ->
                 Box(Modifier.fillMaxWidth().height(ROW_HEIGHT.dp)
@@ -182,8 +201,10 @@ private fun M3ComboboxView(ctx: ComposeStackComponentContext) {
     val matches = if (needle.isEmpty()) emptyList()
                   else opts.filter { it.second.contains(needle, ignoreCase = true) }
     val ph = ctx.interp("placeholder")
+    // disabled= / disabled-if= (W9): the M3 field's own enabled seam carries it
+    val disabled = SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if"))
     var expanded by remember { mutableStateOf(false) }
-    val open = expanded && needle.isNotEmpty() && matches.isNotEmpty()
+    val open = expanded && !disabled && needle.isNotEmpty() && matches.isNotEmpty()
 
     ExposedDropdownMenuBox(
         expanded = open,
@@ -197,6 +218,7 @@ private fun M3ComboboxView(ctx: ComposeStackComponentContext) {
                 expanded = true          // typing reopens a card a pick closed
             },
             modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable).fillMaxWidth(),
+            enabled = !disabled,
             singleLine = true,
             placeholder = { if (ph != null) Text(ph) },
             colors = TextFieldDefaults.colors(cursorColor = tint, focusedIndicatorColor = tint),
@@ -249,6 +271,7 @@ private fun LegacyComboboxView(ctx: ComposeStackComponentContext) {
                 focused = it.isFocused
                 if (!it.isFocused) showResults = false
             },
+            enabled = !SelectionControl.isDisabled(ctl.interp("disabled"), ctl.interp("disabled-if")),   // W9
             textStyle = textStyle,
             singleLine = true,
             cursorBrush = SolidColor(tint),
@@ -291,6 +314,9 @@ private fun LegacyComboboxView(ctx: ComposeStackComponentContext) {
                             .pointerInput(id) {
                                 detectTapGestures { select() }
                             }
+                            // The per-row coarse-pointer floor (Combobox.swift rows, 1:1) —
+                            // inside pointerInput so the whole floored row stays tappable.
+                            .heightIn(min = ElementDefaults.COMBO_ROW_HEIGHT.dp)
                             .padding(horizontal = ElementDefaults.COMBO_ROW_PAD_H.dp, vertical = ElementDefaults.COMBO_ROW_PAD_V.dp),
                         contentAlignment = Alignment.CenterStart) {
                         BasicText(label, style = textStyle)

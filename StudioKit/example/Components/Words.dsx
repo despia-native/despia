@@ -1,0 +1,38 @@
+<stack grow="width" style="gap: 0rem" on:appear="load()">
+  <head>
+    <attribute as="selection" default=""/>
+
+    <variable as="text">return ''</variable>
+    <variable as="attr">return ''</variable>
+    <variable as="tag">return ''</variable>
+
+    <variable as="said" computed="true">
+      if (attr == '') { return 'This element shows no literal words. Bound values are copy the app writes, not copy a person edits.' }
+      return 'Its ' + attr + ' attribute. Edit it in the Copy panel to write it back.'
+    </variable>
+
+    <!-- the inspector section knows WHICH element without holding a write grant: the
+         selection arrives as an attribute, and the tree seam is a read -->
+    <action as="load">
+      dsx.variable.text = ''
+      dsx.variable.attr = ''
+      const raw = dsx.attribute.selection
+      const parsed = raw == '' ? null : JSON.parse(raw)
+      if (parsed == null || parsed.document == null || parsed.path == null) { return }
+      const tree = await dsx.module.studio.project.tree({ name: parsed.document })
+      if (tree.ok != true) { return }
+      const hits = tree.data.rows.filter(r => r.id == parsed.path)
+      if (hits.length == 0) { return }
+      dsx.variable.text = hits[0].text
+      dsx.variable.attr = hits[0].textAttr
+      dsx.variable.tag = hits[0].tag
+    </action>
+  </head>
+
+  <studiokit.Section title="Copy">
+    <studiokit.PropertyRow label="Words">
+      <text value="{{ text == '' ? '—' : text }}" class="sk-value" grow="width" lineLimit="1"/>
+    </studiokit.PropertyRow>
+    <text value="{{ said }}" class="sk-note"/>
+  </studiokit.Section>
+</stack>

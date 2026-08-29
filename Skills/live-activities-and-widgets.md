@@ -1,4 +1,4 @@
-# Live Activities & widgets — authoring the OS surfaces
+# Live Activities & widgets: authoring the OS surfaces
 
 The snapshot surfaces — the Lock Screen banner, the Dynamic Island, home-screen
 widgets, the watch Smart Stack — render DSX with the same elements as every

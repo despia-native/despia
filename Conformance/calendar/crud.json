@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "_note": "THE ESCALATED PATH AND THE `futureEvents` DECISION (parity F12). The dangerous default in every calendar API is the one where editing or deleting one occurrence quietly takes the whole recurring series with it, and it is unrecoverable from inside the app. So `futureEvents` has NO series-wide default anywhere: omitted means this occurrence only, and only an explicit true widens the blast radius. This corpus pins that on both spellings, plus the date grammar, the read-only-calendar refusal, and the iOS 17 writeOnly grant, which can write but must never read. Runners: TS (@despia/kernel calendar-core.ts, calendar-conformance.test.ts), Kotlin (:core CalendarCore, CalendarConformanceTest), Swift (Engine/iOS/CalendarCore.swift, CalendarConformance in the record lane).",
+
+  "span": {
+    "_note": "{ recurring, futureEvents } -> what the write actually touches. `scope` is the shared word; the mechanism differs per renderer (iOS EKSpan, Android a series update vs a single-occurrence exception row) and that is deliberately not what is pinned here.",
+    "cases": [
+      { "name": "a one-off event has no series to widen to",
+        "given": { "recurring": false, "futureEvents": null }, "expect": { "scope": "thisEvent" } },
+      { "name": "a one-off event with futureEvents true is still just itself",
+        "given": { "recurring": false, "futureEvents": true }, "expect": { "scope": "thisEvent" } },
+      { "name": "OMITTED on a recurring event is this occurrence only",
+        "given": { "recurring": true, "futureEvents": null }, "expect": { "scope": "thisEvent" } },
+      { "name": "EXPLICIT false is this occurrence only",
+        "given": { "recurring": true, "futureEvents": false }, "expect": { "scope": "thisEvent" } },
+      { "name": "EXPLICIT true is the only way to reach the series",
+        "given": { "recurring": true, "futureEvents": true }, "expect": { "scope": "futureEvents" } }
+    ]
+  },
+
+  "dates": {
+    "_note": "One date grammar on all three renderers: ISO-8601 (with or without fractional seconds) or epoch SECONDS. Anything else is invalid_date, refused before the store is touched.",
+    "cases": [
+      { "name": "ISO-8601 with a Z offset", "input": "2026-09-01T09:00:00Z", "expect": { "epoch": 1788253200 } },
+      { "name": "ISO-8601 with fractional seconds", "input": "2026-09-01T09:00:00.000Z", "expect": { "epoch": 1788253200 } },
+      { "name": "epoch seconds as a number", "input": 1788253200, "expect": { "epoch": 1788253200 } },
+      { "name": "epoch seconds as a string", "input": "1788253200", "expect": { "epoch": 1788253200 } },
+      { "name": "prose is refused", "input": "next tuesday", "expect": { "error": "invalid_date" } },
+      { "name": "an empty string is refused", "input": "", "expect": { "error": "invalid_date" } },
+      { "name": "an end before its start is refused",
+        "input": { "start": "2026-09-01T10:00:00Z", "end": "2026-09-01T09:00:00Z" },
+        "expect": { "error": "invalid_date" } },
+      { "name": "a zero-length event is legal: a marker, not a mistake",
+        "input": { "start": "2026-09-01T09:00:00Z", "end": "2026-09-01T09:00:00Z" },
+        "expect": { "error": null } }
+    ]
+  },
+
+  "access": {
+    "_note": "The iOS 17 split. `writeOnly` is a real grant that can create and change events but must NEVER satisfy a read: an app that got write-only access and then enumerated the diary would be defeating the point of the split.",
+    "cases": [
+      { "name": "full access reads", "given": { "access": "granted", "action": "events" }, "expect": { "runs": true } },
+      { "name": "full access writes", "given": { "access": "granted", "action": "create" }, "expect": { "runs": true } },
+      { "name": "writeOnly WRITES", "given": { "access": "writeOnly", "action": "create" }, "expect": { "runs": true } },
+      { "name": "writeOnly does NOT read",
+        "given": { "access": "writeOnly", "action": "events" },
+        "expect": { "runs": false, "error": "permission_denied" } },
+      { "name": "undetermined refuses a read and does not prompt",
+        "given": { "access": "undetermined", "action": "events" },
+        "expect": { "runs": false, "prompted": false, "error": "permission_denied", "messageNames": "permission" } },
+      { "name": "undetermined refuses a write and names BOTH fixes",
+        "given": { "access": "undetermined", "action": "create" },
+        "expect": { "runs": false, "prompted": false, "error": "permission_denied",
+                    "messageNames": "present" } }
+    ]
+  },
+
+  "calendars": {
+    "_note": "A subscribed or holiday calendar cannot take a write. Refusing is the contract; silently retargeting the default calendar would put the user's event somewhere they did not choose.",
+    "cases": [
+      { "name": "a writable calendar accepts the event",
+        "given": { "calendarId": "cal1", "writable": true }, "expect": { "runs": true } },
+      { "name": "a subscribed calendar refuses rather than silently retargeting",
+        "given": { "calendarId": "cal2", "writable": false },
+        "expect": { "runs": false, "error": "read_only_calendar" } },
+      { "name": "an unknown calendar id is not_found, which is a different mistake",
+        "given": { "calendarId": "nope", "exists": false },
+        "expect": { "runs": false, "error": "not_found" } },
+      { "name": "no calendarId lands in the default writable calendar",
+        "given": { "calendarId": null, "hasDefault": true }, "expect": { "runs": true } }
+    ]
+  },
+
+  "reminders": {
+    "_note": "Reminders exist on iOS only. Everywhere else the whole sub-namespace is the TYPED absence: never an empty list, which a caller would read as \"this user has no reminders\".",
+    "cases": [
+      { "name": "iOS has a reminders store", "given": { "renderer": "ios" }, "expect": { "supported": true } },
+      { "name": "Android has none", "given": { "renderer": "android" },
+        "expect": { "supported": false, "error": "unsupported_platform", "remindersAccess": "unsupported" } },
+      { "name": "the web has none", "given": { "renderer": "web" },
+        "expect": { "supported": false, "error": "unsupported_platform", "remindersAccess": "unsupported" } }
+    ]
+  }
+}

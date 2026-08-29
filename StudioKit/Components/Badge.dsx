@@ -1,0 +1,8 @@
+<!-- Badge — a status word, not a decoration: `ok` when a thing is live or verified, `warn`
+     when it needs a person, plain when it is simply a fact. -->
+<text class="sk-badge sk-badge-{{ dsx.attribute.tone }}" value="{{ dsx.attribute.label }}">
+  <head>
+    <attribute as="label"/>
+    <attribute as="tone" default="quiet"/>
+  </head>
+</text>

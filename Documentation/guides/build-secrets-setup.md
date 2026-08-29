@@ -1,4 +1,4 @@
-# Build secrets — simple setup guide
+# Build secrets: simple setup guide
 
 > **Scope.** This guide documents Despia's managed build pipeline, part of
 > [Despia Cloud](https://despia.com), the commercial layer. It ships in the open tree for

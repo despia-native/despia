@@ -1,0 +1,27 @@
+<!-- One selectable plan. Attributes down (id, name, price, note, selected), the event up
+     (`choose`); the selection VALUE lives in the consumer, because two cards share it.
+     The selected state is told three ways: the ring color, the check, and a11yTrait. -->
+<pressable on:tap="dsx.event('choose', { id: dsx.attribute.id })">
+  <head>
+    <attribute as="id"/>
+    <attribute as="name"/>
+    <attribute as="price"/>
+    <attribute as="note" default="''"/>
+    <attribute as="selected" default="false"/>
+
+    <event as="choose" payload="id"/>
+  </head>
+  <!-- a constant border width keeps the geometry identical across selection, so choosing a
+       plan recolors the ring instead of reflowing the page -->
+  <hstack spacing="12" padding="16" background="{{ dsx.attribute.selected ? 'fill' : 'background' }}" radius="16"
+          borderWidth="2" borderColor="{{ dsx.attribute.selected ? 'accent' : 'separator' }}"
+          a11yGroup="true" a11yTrait="{{ dsx.attribute.selected ? 'button selected' : 'button' }}">
+    <vstack spacing="2">
+      <text value="{{ dsx.attribute.name }}" fontSize="17" fontWeight="semibold"/>
+      <text value="{{ dsx.attribute.note }}" fontSize="13" color="secondary" visible-if="dsx.attribute.note != ''"/>
+    </vstack>
+    <spacer/>
+    <text value="{{ dsx.attribute.price }}" fontSize="15" color="secondary"/>
+    <image icon="checkmark" iconSize="17" color="accent" visible-if="dsx.attribute.selected"/>
+  </hstack>
+</pressable>

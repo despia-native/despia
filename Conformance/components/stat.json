@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "component": "Stat",
+  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Core/Stat.dsx",
+  "_note": "<Stat> — the dashboard KPI tile (U11). The whole law is DIRECTION: the trend is derived from the delta's SIGN when it is not stated, and it is announced with direction WORDS ('up' / 'down' / 'no change'), never with the arrow or the colour, because a screen reader gets neither. The tint comes from the ten corpus tokens only — there is no `success` token in Conformance/defaults/tokens.json, so the positive direction rides `accent` and the negative one `destructive`, and pinning that here is what stops a later edit inventing a colour the token plane does not have. The utterance is ONE sentence: label, value, then the direction word and the magnitude with its sign character stripped, because '+12%' read aloud as 'plus twelve percent' after the word 'up' says it twice.",
+  "cases": [
+    {
+      "name": "a plus-signed delta is up: accent, an up arrow and the word 'up'",
+      "attributes": { "label": "Revenue", "value": "$48,120", "delta": "+12%" },
+      "expect": [
+        { "expr": "dsx.variable.statTrend", "value": "up" },
+        { "expr": "dsx.variable.statTrendWord", "value": "up" },
+        { "expr": "dsx.variable.statTrendIcon", "value": "arrow.up.right" },
+        { "expr": "dsx.variable.statTrendTint", "value": "accent" },
+        { "expr": "dsx.variable.statUtterance", "value": "Revenue, $48,120, up 12%" }
+      ]
+    },
+    {
+      "name": "a minus-signed delta is down and rides `destructive`, not a success/danger pair",
+      "attributes": { "label": "Churn", "value": "1.8%", "delta": "-0.4pt" },
+      "expect": [
+        { "expr": "dsx.variable.statTrend", "value": "down" },
+        { "expr": "dsx.variable.statTrendWord", "value": "down" },
+        { "expr": "dsx.variable.statTrendIcon", "value": "arrow.down.right" },
+        { "expr": "dsx.variable.statTrendTint", "value": "destructive" },
+        { "expr": "dsx.variable.statUtterance", "value": "Churn, 1.8%, down 0.4pt" }
+      ]
+    },
+    {
+      "name": "the typographic minus sign counts as a minus sign",
+      "attributes": { "label": "Churn", "value": "1.8%", "delta": "−0.4pt" },
+      "expect": [
+        { "expr": "dsx.variable.statTrend", "value": "down" },
+        { "expr": "dsx.variable.statUtterance", "value": "Churn, 1.8%, down 0.4pt" }
+      ]
+    },
+    {
+      "name": "an unsigned positive number is still up",
+      "attributes": { "label": "Signups", "value": "312", "delta": "18" },
+      "expect": [
+        { "expr": "dsx.variable.statTrend", "value": "up" },
+        { "expr": "dsx.variable.statUtterance", "value": "Signups, 312, up 18" }
+      ]
+    },
+    {
+      "name": "a zero delta is flat and announces 'no change', not silence",
+      "attributes": { "label": "Open tickets", "value": "34", "delta": "0" },
+      "expect": [
+        { "expr": "dsx.variable.statTrend", "value": "flat" },
+        { "expr": "dsx.variable.statTrendWord", "value": "no change" },
+        { "expr": "dsx.variable.statTrendIcon", "value": "arrow.right" },
+        { "expr": "dsx.variable.statTrendTint", "value": "secondary" },
+        { "expr": "dsx.variable.statUtterance", "value": "Open tickets, 34, no change 0" }
+      ]
+    },
+    {
+      "name": "a delta that is not a number at all is flat rather than a guess",
+      "attributes": { "label": "Mood", "value": "fine", "delta": "n/a" },
+      "expect": [{ "expr": "dsx.variable.statTrend", "value": "flat" }]
+    },
+    {
+      "name": "EMPTY: no delta means no trend clause in the utterance",
+      "attributes": { "label": "Users", "value": "12" },
+      "expect": [
+        { "expr": "dsx.variable.statTrend", "value": "flat" },
+        { "expr": "dsx.variable.statUtterance", "value": "Users, 12" }
+      ]
+    },
+    {
+      "name": "a stated `trend` overrides the sign — an inverted metric can say so",
+      "attributes": { "label": "Latency", "value": "180ms", "delta": "+9ms", "trend": "down" },
+      "expect": [
+        { "expr": "dsx.variable.statTrend", "value": "down" },
+        { "expr": "dsx.variable.statTrendTint", "value": "destructive" },
+        { "expr": "dsx.variable.statUtterance", "value": "Latency, 180ms, down 9ms" }
+      ]
+    },
+    {
+      "name": "a stated trend is read case-insensitively and trimmed (it is a dashboard field)",
+      "attributes": { "label": "Latency", "value": "180ms", "delta": "+9ms", "trend": "  FLAT " },
+      "expect": [{ "expr": "dsx.variable.statTrend", "value": "flat" }]
+    },
+    {
+      "name": "an unrecognised `trend` word falls back to the delta's sign rather than failing",
+      "attributes": { "label": "Latency", "value": "180ms", "delta": "+9ms", "trend": "sideways" },
+      "expect": [{ "expr": "dsx.variable.statTrend", "value": "up" }]
+    },
+    {
+      "name": "the leading icon defaults to the secondary tint and is decorative",
+      "attributes": { "label": "Revenue", "value": "$1", "icon": "dollarsign.circle" },
+      "expect": [{ "expr": "dsx.attribute.tone", "value": "secondary" }]
+    }
+  ]
+}

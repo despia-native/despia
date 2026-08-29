@@ -9,7 +9,19 @@
 import type { Identity } from "./identity.ts";
 import { rateHeaders, spend, type RateLimitRule } from "./ratelimit.ts";
 import { secretEquals } from "./secrets.ts";
+import { chargeSpend, configureSpend, flushSpendIfDue, spendHeaders, spendSnapshot, type SpendBudget } from "./spend.ts";
 import { readTraceContext, type TraceContext } from "./trace.ts";
+
+// Declared CRUD is part of the host surface: a standalone consumer wiring an `entity`+`op`
+// route needs the generated-handler factory and the entity registry, and leaving them
+// unimportable would force exactly the hand-written data handlers the declared path exists
+// to prevent (the same argument index.ts makes for createSiteHandler).
+export { crudHandler, installEntities, type EntitySpec } from "./repo.ts";
+
+// The spend row's type rides the host surface for the same reason: `HostConfig.spend` is
+// filled by generated barrels (the `<server>` compile step emits `spendBudgets`), and a
+// consumer typing that array must not need a second import path to name one field.
+export { type SpendBudget } from "./spend.ts";
 
 /** One row of the emitter's routes table (prepare_server.rb): a module action exposed at method+path. */
 export interface ServerRoute {
@@ -38,6 +50,18 @@ export interface ServerRoute {
   reach?: string[];
   /** the queue this row drains (T4). A worker row is internal by construction. */
   worker?: string;
+  /** declared-CRUD rows: the entity + op the generated handler binds. Carried here so the spend
+   *  plane can charge `data:reads`/`data:writes` BEFORE the body is read — a hand-written action
+   *  is charged at its data seam instead (actions.ts). */
+  entity?: string;
+  op?: string;
+  /**
+   * The declared `<webhook>` source this row receives for. Informational on the row: the
+   * verification lives in the generated receiver the row's `action` names, so the host does not
+   * special-case it. It is emitted so an operator reading routes.ts can see which endpoints are
+   * public-by-signature rather than having to infer it from the absent `auth`.
+   */
+  webhook?: string;
   /** the payload field carrying the idempotency key (T4) — enforced by the queue table's UNIQUE */
   idempotencyKey?: string;
   /**
@@ -90,6 +114,22 @@ export interface HostContext {
    */
   trace: TraceContext;
   /**
+   * Where post-response work goes on a platform that kills the isolate after the answer
+   * (Workers `ctx.waitUntil`). Absent = the promise is simply left to run, which is correct on
+   * Node/Deno where the process outlives the response. Today's one user is the spend plane's
+   * write-behind flush.
+   */
+  background?: (p: Promise<unknown>) => void;
+  /**
+   * True when this dispatch is the server working on its own behalf - a `reach: []` route (a
+   * cron worker, a queue drain). The spend plane METERS internal work exactly like any other
+   * (demand during a trip is what the owner needs to see) but never REFUSES it: a ceiling that
+   * could stop the queue draining would turn a spend trip into a data outage, and a drain whose
+   * handler throws `spend_capped` burns the message's retry attempts into the dead-letter state
+   * for work the deployment had already accepted.
+   */
+  internal?: boolean;
+  /**
    * The request itself, for the handlers that genuinely need it: the raw signed bytes of an
    * inbound webhook (`rawBody`), and a header no arg plane carries, such as the `Last-Event-ID`
    * an SSE client resumes from.
@@ -109,6 +149,13 @@ export interface HostConfig {
   /** chain → action name → implementation (the generated handlers barrel) */
   handlers: Record<string, Record<string, HostHandler>>;
   buildInfo?: Record<string, unknown>;
+  /**
+   * THE SPEND PLANE's ceilings (cost-guardrails.md), as the emitter writes them into
+   * `settings.spend_budgets`. Present = the plane is (re)configured at host construction, which
+   * is what gives EVERY bootloader the guardrails with no wiring of its own. Absent = the plane
+   * is left exactly as it is — a test that configured it directly keeps its configuration.
+   */
+  spend?: SpendBudget[];
   /**
    * Request-body ceiling in bytes (default 1 MiB). An unbounded `await req.text()` is a
    * memory-exhaustion DoS with a one-line request; the cap is enforced BEFORE parsing, and
@@ -164,7 +211,7 @@ export interface HostConfig {
 }
 
 /** The closed failure vocabulary of the wire envelope (errors are typed values — error-system.md). */
-export type HostErrorReason = "unknown_route" | "method_not_allowed" | "unauthenticated" | "bad_request" | "handler_failed" | "unknown_action" | "rate_limited";
+export type HostErrorReason = "unknown_route" | "method_not_allowed" | "unauthenticated" | "bad_request" | "handler_failed" | "unknown_action" | "rate_limited" | "spend_capped";
 
 export interface Host {
   handle(req: Request, ctx?: Partial<HostContext>): Promise<Response>;
@@ -382,6 +429,11 @@ async function readBodyCapped(req: Request, maxBytes: number): Promise<BodyRead>
 
 export function createHost(config: HostConfig): Host {
   const table = config.routes.map(compileRoute).sort(compareRoutes); // built ONCE, never per-request
+  // The spend plane is configured WITH the host, from the emitted table, so every platform entry
+  // (Workers, Supabase edge, Node, Firebase) inherits the guardrails by constructing a host —
+  // no bootloader carries wiring of its own. Absent means "leave the plane alone", which is what
+  // lets a test configure it directly and what keeps a bare `createHost()` from tearing it down.
+  if (config.spend !== undefined) configureSpend(config.spend);
   const configBuildInfo = config.buildInfo ?? {};
   const maxBodyBytes = config.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
   const serviceRoles = config.serviceRoles ?? DEFAULT_SERVICE_ROLES;
@@ -421,7 +473,8 @@ export function createHost(config: HostConfig): Host {
     // than by carrying a service-role identity. Scoped to one request, set only inside the
     // `reach: []` branch, and read only by the auth check immediately after it.
     let admittedByKey = false;
-    if (route.reach !== undefined && route.reach.length === 0) {
+    const internalDispatch = route.reach !== undefined && route.reach.length === 0;
+    if (internalDispatch) {
       const role = identityRole(identity);
       const byRole = role !== null && serviceRoles.includes(role);
       // The declared internal key is an ALTERNATIVE to a service-role identity, never a
@@ -433,6 +486,21 @@ export function createHost(config: HostConfig): Host {
         return failure(404, "unknown_route", `no route matches ${method} ${url.pathname}`);
       }
       admittedByKey = byKey;
+    } else {
+      // THE SPEND CEILING (cost-guardrails.md), at the host's threshold: before its auth gate,
+      // before the body is read, before the handler and every binding — no parse, no data or
+      // egress subrequest, because the expensive part of a runaway is the fan-out and the
+      // refusal exists to amputate it. Stated precisely: the platform ENTRIES resolve bearer
+      // identity before handing the request in (isolate-cached JWKS; a refetch is possible on
+      // cache expiry), so token verification is the one cost a blocked request can still pay
+      // beside the invocation itself — the host is platform-free and cannot hoist past it.
+      // Internal dispatch (the `reach: []` branch above) is deliberately NOT charged: cron
+      // drains are platform-cadenced and bounded, and a request ceiling that could stop the
+      // queue draining would turn a spend trip into a data outage.
+      const requests = chargeSpend("requests");
+      if (!requests.allowed) {
+        return failure(429, "spend_capped", `the deployment's "${requests.budget}" budget is spent for this window`, spendHeaders(requests));
+      }
     }
     // ON AN INTERNAL ROUTE, THE KEY *IS* THE CREDENTIAL. The emitter marks every worker row
     // `auth: "required"` as well as `reach: []`, so without this the key would clear the gateway
@@ -474,6 +542,19 @@ export function createHost(config: HostConfig): Host {
         return failure(429, "rate_limited", `too many requests for route "${route.key}"`, rateHeaders(verdict));
       }
       rateAdvisory = rateHeaders(verdict);
+    }
+
+    // Declared CRUD is charged HERE, where the row names its op, so the refusal costs no body
+    // read and no repository work. A hand-written or markup action is charged at its data seam
+    // instead (actions.ts) — one op, one charge, never both: a CRUD row dispatches straight to
+    // the generated repository handler and can never reach the seam path.
+    if (route.entity !== undefined && route.op !== undefined) {
+      const data = chargeSpend(route.op === "list" || route.op === "get" ? "data:reads" : "data:writes");
+      // Internal dispatch is metered, never refused - the same posture as the requests ceiling
+      // above, for the same reason (HostContext.internal).
+      if (!data.allowed && !internalDispatch) {
+        return failure(429, "spend_capped", `the deployment's "${data.budget}" budget is spent for this window`, spendHeaders(data));
+      }
     }
 
     const query: Record<string, string> = {};
@@ -534,6 +615,7 @@ export function createHost(config: HostConfig): Host {
       correlationId,
       trace: ctx?.trace ?? readTraceContext(req.headers),
       request: req,
+      internal: internalDispatch,
     };
     let data: unknown;
     try {
@@ -565,9 +647,61 @@ export function createHost(config: HostConfig): Host {
     }
   }
 
+  /**
+   * THE INTERNAL PLANE's read face (cost-guardrails.md): `/dsx-internal/spend` answers the
+   * spend snapshot — budgets, windows, counts, flags — to exactly three callers: a service-role
+   * identity, the declared internal key, or the deploy-minted READ token (`DSX_SPEND_READ_TOKEN`,
+   * presented as `x-dsx-spend-token`). The read token exists so the DASHBOARD can read
+   * browser-direct without ever holding the internal key — it can read meters and nothing else.
+   * Everyone else gets the prober's 404, exactly like a `reach: []` route. CORS is answered
+   * because the reader IS a browser on another origin; the data is meter counts, no user rows.
+   */
+  function spendFace(req: Request, method: string, url: URL, ctx?: Partial<HostContext>): Response | null {
+    if (url.pathname !== "/dsx-internal/spend") return null;
+    const cors = {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET, OPTIONS",
+      // The read token ONLY. Advertising x-dsx-internal-key here blessed the one integration
+      // path the token exists to close: a cross-origin dashboard shipping the privileged
+      // internal key from browser-held storage, where it also admits every reach:[] route.
+      // A server-side reader never preflights, so dropping it breaks no legitimate caller.
+      "access-control-allow-headers": "x-dsx-spend-token",
+      // A day. The dashboard polls this face; without a cached preflight every poll is two
+      // requests, and the second one is pure spend-plane overhead of the spend plane.
+      "access-control-max-age": "86400",
+    };
+    if (method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+    if (method !== "GET") return failure(404, "unknown_route", `no route matches ${method} ${url.pathname}`);
+    const env = ctx?.env ?? ((): undefined => undefined);
+    const role = identityRole(ctx?.identity ?? null);
+    const byRole = role !== null && serviceRoles.includes(role);
+    const byKey = internalKey !== null && secretEquals(req.headers.get(INTERNAL_KEY_HEADER), internalKey);
+    const readToken = env("DSX_SPEND_READ_TOKEN");
+    const byToken = typeof readToken === "string" && readToken !== "" && secretEquals(req.headers.get("x-dsx-spend-token"), readToken);
+    if (!byRole && !byKey && !byToken) {
+      return failure(404, "unknown_route", `no route matches ${method} ${url.pathname}`);
+    }
+    return json(200, spendSnapshot(), cors);
+  }
+
   async function handle(req: Request, ctx?: Partial<HostContext>): Promise<Response> {
+    try {
+      return await route(req, ctx);
+    } finally {
+      // The write-behind flush, AFTER the answer is decided: batched counter writes, transition
+      // events and the doorbell ride `background` (Workers `waitUntil`) so they cost the caller
+      // nothing; on Node/Deno the promise simply runs. `finally` so a refused request still
+      // flushes — a trip's event must not wait for the next successful one.
+      const flush = flushSpendIfDue(ctx?.env);
+      if (flush !== null) (ctx?.background ?? ((): void => {}))(flush);
+    }
+  }
+
+  async function route(req: Request, ctx?: Partial<HostContext>): Promise<Response> {
     const url = new URL(req.url);
     const method = req.method.toUpperCase();
+    const faced = spendFace(req, method, url, ctx);
+    if (faced !== null) return faced;
     const pathSegments = splitPath(url.pathname);
     const allowed: string[] = [];
     for (const compiled of table) {

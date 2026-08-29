@@ -1,0 +1,225 @@
+<ShotSlide ground="{{ dsx.attribute.ground }}" card="{{ dsx.attribute.card }}"
+           inset="{{ dsx.attribute.inset }}" radius="{{ dsx.attribute.radius }}">
+  <head>
+    <!-- THE PROFESSIONAL SLIDE: theme + two-tone headline + a HERO device + decorations.
+         Everything is data, so an agent composes by choosing values, never authoring layout.
+
+         THE SCENE IS DSX, WITH DSX'S RULES - not a freeform canvas. Three positioning
+         schemes, and only three:
+
+           FLOW      the default. Headline, sub, chips, slotted content and the device stack
+                     the way DSX stacks anywhere; each element reserves space, so flow content
+                     is INCAPABLE of covering the app screen. A layout where everything is
+                     percent-positioned cannot reflow when a headline wraps, and that
+                     brittleness is precisely what reads as machine-made.
+           ANCHORED  a decoration is absolute WITHIN a named box (`at: "device"` rides the
+                     device and is clipped by the crop; the default anchors to the card), so
+                     its percentages mean something stable and survive layout changes.
+           DECLARED  covering readable app UI is legal ONLY when the row declares
+                     `over: "screen"` - the render REFUSES otherwise (G-cover). Accidental
+                     occlusion is a guard failure, never a shipped image.
+
+         ONE CLIP BOUNDARY: THE CARD. The copy column pads its text; nothing else clips. The
+         first version put `overflow: hidden` and side padding on the whole column, so the
+         device's drop shadow was sliced 34px inside the card - a hard vertical band that
+         reads as a compositing bug. The crop box clips only the BOTTOM (that is its job) and
+         spans the full card, so a shadow falls off softly all the way to the card edge.
+
+         THE SAFE AREA IS STRUCTURAL. The card canvas keeps a 1rem safe inset on the content
+         it shows - the same responsive discipline DSX enforces everywhere else, not a
+         freeform canvas. The crop box CARRIES the inset as side padding, so `deviceWidth`
+         percentages resolve against the SAFE width and 100% is the largest lawful phone:
+         edge-to-edge bleed is not a bigger hero, it is a phone glued to the card border
+         with no breathing room. Only the shadow paints inside the inset (padding does not
+         clip), which is exactly what the inset is for. G-safe enforces the same law on the
+         measured frame, so a decoration crowding the edge refuses to render unless its row
+         declares `bleed: true`.
+
+         THE DEVICE IS THE HERO. When `deviceCrop` is set, only the top of the phone is on
+         the slide - the rest runs past the card edge and DISSOLVES: stacked backdrop-blur
+         bands under a gradient into the card colour. `deviceCrop` is the VISIBLE height of
+         the device area; empty means uncropped. -->
+    <attribute as="ground" default="'#eceef6'"/>
+    <attribute as="card" default="'#ffffff'"/>
+    <!-- FULL BLEED BY DEFAULT (ShotSlide). These are the opt-in for the inset-card look, and
+         they are attributes rather than a hardcode so the editor can offer them and the safe
+         area still resolves against whatever the author chose. -->
+    <attribute as="inset" default="'0px'"/>
+    <attribute as="radius" default="'0px'"/>
+    <attribute as="ink" default="'#0d0f14'"/>
+    <attribute as="accent" default="'#22c55e'"/>
+    <attribute as="parts" sample="[{&quot;t&quot;:&quot;Crush Your&quot;},{&quot;t&quot;:&quot;Workouts&quot;,&quot;accent&quot;:true}]"/>
+    <attribute as="sub" sample="&quot;Log every set in seconds, even offline.&quot;"/>
+    <attribute as="screen" sample="&quot;01-orders.png&quot;"/>
+    <attribute as="chips" sample="[]"/>
+    <attribute as="deviceWidth" default="'88%'"/>
+    <attribute as="deviceTop" default="'24px'"/>
+    <attribute as="subMeasure" default="'17em'"/>
+    <attribute as="subSize" default="'17px'"/>
+    <attribute as="lean" default="'0deg'"/>
+    <attribute as="shine" default="'true'"/>
+    <attribute as="safeInset" default="'16px'"/>
+    <attribute as="deviceCrop" default="''"/>
+    <attribute as="deviceFade" default="'true'"/>
+    <attribute as="headlineSize" default="'40px'"/>
+    <attribute as="align" default="'center'"/>
+    <attribute as="decor" sample="[]"/>
+
+    <variable as="cropHeight" computed="true">
+      if (!dsx.attribute.deviceCrop) { return 'auto' }
+      return dsx.attribute.deviceCrop
+    </variable>
+    <variable as="cropClip" computed="true">
+      return dsx.attribute.deviceCrop ? 'hidden' : 'visible'
+    </variable>
+    <!-- The chip row centres itself with auto margins (the one alignment form that survives
+         the style-attribute class fold) and follows the slide's text alignment. -->
+    <variable as="chipsMarginLeft" computed="true">
+      if (dsx.attribute.align == 'left') { return '0px' }
+      return 'auto'
+    </variable>
+    <variable as="chipsMarginRight" computed="true">
+      return 'auto'
+    </variable>
+    <!-- A MEASURED block is narrower than its column, so it needs the same auto-margin
+         centring: text-align alone centres the GLYPHS inside a box still pinned to the
+         left edge. -->
+    <variable as="copyMarginLeft" computed="true">
+      if (dsx.attribute.align == 'left') { return '0px' }
+      return 'auto'
+    </variable>
+    <variable as="copyMarginRight" computed="true">
+      if (dsx.attribute.align == 'right') { return '0px' }
+      return 'auto'
+    </variable>
+    <!-- The anchor split: `at: "device"` rows render INSIDE the device box (their percentages
+         are device-space, they ride it when the layout reflows, and the crop clips them);
+         everything else anchors to the card. -->
+    <variable as="cardDecor" computed="true">
+      const out = []
+      for (let i = 0; i < dsx.attribute.decor.length; i++) {
+        const d = dsx.attribute.decor[i]
+        if (d.at != 'device') { out.push(d) }
+      }
+      return out
+    </variable>
+    <variable as="deviceDecor" computed="true">
+      const out = []
+      for (let i = 0; i < dsx.attribute.decor.length; i++) {
+        const d = dsx.attribute.decor[i]
+        if (d.at == 'device') { out.push(d) }
+      }
+      return out
+    </variable>
+  </head>
+
+  <vstack style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; gap: 0rem">
+    <!-- THE COPY BLOCK: the only padded box, and it holds only flow content. -->
+    <vstack style="padding: 52px 34px 0 34px; gap: 0rem">
+      <ShotHeadline parts="{{ dsx.attribute.parts }}" ink="{{ dsx.attribute.ink }}"
+                    accent="{{ dsx.attribute.accent }}" size="{{ dsx.attribute.headlineSize }}"
+                    align="{{ dsx.attribute.align }}"/>
+      <!-- THE TAGLINE HAS A MEASURE. Left to the full column it wrapped wherever the box
+           ended, which is how "...from the first / set." got a one-word last line - the
+           orphan a typesetter removes first. A measure in EM (so it tracks the size, which
+           is the typographic definition) caps the line near 38 characters and makes the
+           break even, and it scales WITH the size - an em measure holds the same character
+           count per line, so changing `subSize` rebalances rather than reflows. 17px/1.4 at
+           0.66 opacity carries at thumbnail size; 14px at 0.58 dissolved into the card. -->
+      <text visible-if="dsx.attribute.sub" value="{{ dsx.attribute.sub }}"
+            style="margin-top: 12px; color: {{ dsx.attribute.ink }}; opacity: 0.66;
+                   font-size: {{ dsx.attribute.subSize }}; font-weight: 500; line-height: 1.4;
+                   max-width: {{ dsx.attribute.subMeasure }};
+                   margin-left: {{ copyMarginLeft }}; margin-right: {{ copyMarginRight }};
+                   text-align: {{ dsx.attribute.align }}"/>
+
+      <!-- FEATURE CHIPS IN FLOW: they reserve their own band between the copy and the phone,
+           so they can never land on the screen. Four slots, same ceiling logic as ShotDecor. -->
+      <hstack visible-if="dsx.attribute.chips.length > 0"
+              style="margin-top: 20px; gap: 10px; width: max-content; max-width: 100%;
+                     margin-left: {{ chipsMarginLeft }}; margin-right: {{ chipsMarginRight }};
+                     flex: 0 0 auto">
+        <ShotChip visible-if="dsx.attribute.chips.length > 0" chip="{{ dsx.attribute.chips[0] }}"/>
+        <ShotChip visible-if="dsx.attribute.chips.length > 1" chip="{{ dsx.attribute.chips[1] }}"/>
+        <ShotChip visible-if="dsx.attribute.chips.length > 2" chip="{{ dsx.attribute.chips[2] }}"/>
+        <ShotChip visible-if="dsx.attribute.chips.length > 3" chip="{{ dsx.attribute.chips[3] }}"/>
+      </hstack>
+
+      <!-- Anything the caller stacks here flows between the copy and the device, exactly like
+           ordinary DSX children - a panel, a rating row, whatever the slide needs in flow
+           rather than at coordinates. -->
+      <slot/>
+    </vstack>
+
+    <!-- THE CROP BOX: full card width so a shadow is never truncated inside the card, with
+         the SAFE INSET as side padding so the device itself keeps 1rem of breathing room -
+         padding does not clip, so only the soft shadow tail paints inside the inset. Top
+         padding gives the drop shadow room above; the only aggressive clip is the bottom,
+         which is the crop's entire purpose. -->
+    <!-- THE CLIP EXISTS ONLY WHEN THERE IS A CROP. `overflow: hidden` on an AUTO-height crop
+         box has nothing to crop and everything to slice: the box is exactly the device's own
+         box, so the drop shadow - which paints below it by design - was cut off at a hard
+         horizontal line under the phone. That is the same defect the copy column had, one box
+         further in, and it only showed on slides with no `deviceCrop`. When a crop IS set the
+         clip is the whole point, and the dissolve hides the cut. -->
+    <stack id="shot-crop"
+           style="margin-top: {{ dsx.attribute.deviceTop }}; position: relative; width: 100%;
+                  height: {{ cropHeight }}; overflow: {{ cropClip }}; flex: 0 0 auto;
+                  padding: 30px {{ dsx.attribute.safeInset }} 0 {{ dsx.attribute.safeInset }}">
+      <stack id="shot-device"
+             style="position: relative; width: {{ dsx.attribute.deviceWidth }}; left: 50%;
+                    transform: translateX(-50%); flex: 0 0 auto">
+        <ShotFrame screen="{{ dsx.attribute.screen }}" width="100%" lift="0.42"
+                   lean="{{ dsx.attribute.lean }}" shine="{{ dsx.attribute.shine }}"/>
+        <!-- DEVICE-ANCHORED DECORATIONS: percentages resolve against the device box, they
+             move with it, and the crop clips them with it. They sit UNDER the dissolve, so
+             one placed in the fade zone fades with the phone - which is the honest reading. -->
+        <stack visible-if="deviceDecor.length > 0"
+               style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 3">
+          <ShotDecor items="{{ deviceDecor }}"/>
+        </stack>
+      </stack>
+
+      <!-- THE DISSOLVE is a TRUE progressive blur, the Apple/Chrome material: six stacked
+           backdrop layers whose linear-gradient MASKS crossfade into one another across eight
+           fenceposts (0, 12.5 .. 100% of the 230px band). No layer covers the top 12.5%, so
+           the ramp starts at literally zero and the entry is seamless; each deeper layer's
+           backdrop already contains the shallower layers' output, so the radii COMPOUND down
+           the band into a smooth continuous ramp. The first version stepped three discrete
+           bands (blur 2 / 6 / 14) and every band boundary printed a visible seam across the
+           dark rails - a hard line where crisp became blurred, which is the artifact this
+           layout replaces. mask-image on a backdrop-filter element masks the filtered output
+           itself, which is what makes the crossfade possible. -->
+      <!-- PIXEL heights, not percent-of-crop (audit A4): percent sizing meant a tall crop
+           diluted the dissolve exactly where the dark rails are, trailing grey plumes through
+           the fade. A fixed 230px dissolve is the same depth at every crop height. -->
+      <stack visible-if="dsx.attribute.deviceFade == 'true' &amp;&amp; dsx.attribute.deviceCrop"
+             style="position: absolute; left: 0; right: 0; bottom: 0; height: 230px; backdrop-filter: blur(0.5px);
+                    mask-image: linear-gradient(180deg, rgba(0,0,0,0) 0%, #000 12.5%, #000 25%, rgba(0,0,0,0) 37.5%)"/>
+      <stack visible-if="dsx.attribute.deviceFade == 'true' &amp;&amp; dsx.attribute.deviceCrop"
+             style="position: absolute; left: 0; right: 0; bottom: 0; height: 230px; backdrop-filter: blur(1px);
+                    mask-image: linear-gradient(180deg, rgba(0,0,0,0) 12.5%, #000 25%, #000 37.5%, rgba(0,0,0,0) 50%)"/>
+      <stack visible-if="dsx.attribute.deviceFade == 'true' &amp;&amp; dsx.attribute.deviceCrop"
+             style="position: absolute; left: 0; right: 0; bottom: 0; height: 230px; backdrop-filter: blur(2px);
+                    mask-image: linear-gradient(180deg, rgba(0,0,0,0) 25%, #000 37.5%, #000 50%, rgba(0,0,0,0) 62.5%)"/>
+      <stack visible-if="dsx.attribute.deviceFade == 'true' &amp;&amp; dsx.attribute.deviceCrop"
+             style="position: absolute; left: 0; right: 0; bottom: 0; height: 230px; backdrop-filter: blur(4px);
+                    mask-image: linear-gradient(180deg, rgba(0,0,0,0) 37.5%, #000 50%, #000 62.5%, rgba(0,0,0,0) 75%)"/>
+      <stack visible-if="dsx.attribute.deviceFade == 'true' &amp;&amp; dsx.attribute.deviceCrop"
+             style="position: absolute; left: 0; right: 0; bottom: 0; height: 230px; backdrop-filter: blur(8px);
+                    mask-image: linear-gradient(180deg, rgba(0,0,0,0) 50%, #000 62.5%, #000 75%, rgba(0,0,0,0) 87.5%)"/>
+      <stack visible-if="dsx.attribute.deviceFade == 'true' &amp;&amp; dsx.attribute.deviceCrop"
+             style="position: absolute; left: 0; right: 0; bottom: 0; height: 230px; backdrop-filter: blur(16px);
+                    mask-image: linear-gradient(180deg, rgba(0,0,0,0) 62.5%, #000 75%, #000 100%)"/>
+      <stack visible-if="dsx.attribute.deviceFade == 'true' &amp;&amp; dsx.attribute.deviceCrop"
+             id="shot-veil"
+             style="position: absolute; left: 0; right: 0; bottom: 0; height: 230px;
+                    background: linear-gradient(180deg, rgba(255,255,255,0) 0%,
+                                {{ dsx.attribute.card }} 72%)"/>
+    </stack>
+  </vstack>
+
+  <!-- CARD-ANCHORED DECORATIONS: the accent layer over the card. Every row that intersects
+       readable app UI must declare `over: "screen"` or the render refuses (G-cover). -->
+  <ShotDecor items="{{ cardDecor }}"/>
+</ShotSlide>

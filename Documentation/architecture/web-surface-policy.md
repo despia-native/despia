@@ -7,7 +7,7 @@
 > config is behavior-identical to the pre-#982 single-bridge app, so v4 ships on the neutral
 > defaults without §13". **That was wrong.** The code ships the RESTRICTIVE, least-privilege pair —
 > `bridge_policy: "app"` + `bridge_subdomains: false` — in
-> `ClosedSource/DSX/Modules/Mandatory/Dom/config.json`, mirrored into the generated
+> `ClosedSource/DSX/Modules/Core/Dom/config.json`, mirrored into the generated
 > `ModuleConfig.generated.swift` / `ModuleConfig.generated.kt`; an unknown or missing value also
 > resolves to `app` (fail-closed). The default build is therefore **not** behavior-identical to
 > pre-#982: a page on an undeclared origin — including an undeclared `www.` or `sub.` host — renders
@@ -19,7 +19,7 @@
 > reviews ran over the series; every correctness finding from both is fixed in-tree, and the
 > remaining efficiency/altitude notes are **accepted design decisions** (recorded inline below and
 > in §5/§7), not open work. The pieces: `DomBridgeGate` + `DomBridgeKit` + `DomSurfaces`
-> (Mandatory/Dom), the `<WebView/>` component (Foundation/Components/Views/WebView), the
+> (Core/Dom), the `<WebView/>` component (Core/Dom/Components/Views/WebView), the
 > surface-tagged relay (WebDelegate) + consumer guards, `bridge_policy`/`bridge_origins`/
 > `bridge_subdomains` (Dom config, ships `app`/`false` = least privilege). The only true remaining
 > item is optional: `bridge_*` exposure in the dashboard config UI (a frontend task, no runtime
@@ -277,7 +277,10 @@ uses (`attrs["on:…"]`).
   that is a new **trust tier**, not a flag — a future `<MiniApp/>` wrapper composing the
   primitive + its own scoped messenger mount, routed **through** the gate with its own origin +
   capability contract. The layered model gives it a home without touching BridgeKit or the
-  primitive; nothing in v1/v2 needs rework to add it later.
+  primitive; nothing in v1/v2 needs rework to add it later. The WEB tier of this idea now has
+  its own proposal — the `studio` residence (`proposals/studio-apps.md` §5: a scoped module
+  funnel handed to a mounted third-party DSX subtree); when `<MiniApp/>` lands, it is the
+  native twin of that seam list, not a second design.
 
 **Accepted-design notes (not open work — the code is correct as-is; these are decisions):**
 - **Node-event sinks stay a Dom-owned registry** (`DomSurfaces.setNodeSink`/`clearNodeSink` +
@@ -302,7 +305,7 @@ uses (`attrs["on:…"]`).
 | **5 — App.json on faith** | appOrigins derive from App.json + existing config — no second identity source. |
 | **7 — fail-open is law** | A denied page degrades (inert bridge), never blanks; explicit `full` remains available for reviewed legacy compatibility. |
 | **8 — the contract is names** | `web.bridgeDenied`, `surface`, `on:message` are platform-free. Android: the primitive ↔ Android `WebView` + `WebMessageListener`; BridgeKit ↔ `addJavascriptInterface` on the one composed surface; the gate ↔ `allowedOriginRules` (native origin scoping — the gate is a *parameter* there). |
-| **9 — WebKit only in Dom** | Every new WebKit line sits in `Mandatory/Dom` + its two components. Exempt set gains `<WebView/>`; `check_module_rules` keeps enforcing. |
+| **9 — WebKit only in Dom** | Every new WebKit line sits in `Core/Dom` + its two components. Exempt set gains `<WebView/>`; `check_module_rules` keeps enforcing. |
 
 ## 9. Rollout
 

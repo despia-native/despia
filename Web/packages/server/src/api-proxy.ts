@@ -13,6 +13,8 @@
 //  Track S work and is deliberately left to the host.
 //
 
+import { chargeSpend } from "./spend.ts";
+
 /** The internal route one `via="server"` block calls. Keep in sync with the kernel's
  *  `applyTransportControls` (api.ts / ApiBlock.kt / ApiBlock.swift). */
 export const API_PROXY_PREFIX = "/dsx/api/";
@@ -291,6 +293,13 @@ export async function handleApiProxy(
     let currentUrl = resolved.url;
 
     while (true) {
+      // The spend meter, per upstream call — redirect hops each cost a call, so each is charged.
+      // A host with no matching `egress:` budget answers OPEN (the proxy's own origin included),
+      // so only declared egress ever meters here, exactly as at the interpreter's fetch funnel.
+      const spendVerdict = chargeSpend(`egress:${new URL(currentUrl).hostname.toLowerCase()}`);
+      if (!spendVerdict.allowed) {
+        return failure(429, "spend_capped", `the deployment's "${spendVerdict.budget}" budget is spent for this window`);
+      }
       let upstream: Response;
       try {
         upstream = await abortable(doFetch(currentUrl, {

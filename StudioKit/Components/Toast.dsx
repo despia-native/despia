@@ -1,0 +1,11 @@
+<!-- Toast — an inline notice that STAYS: for state a reader should keep seeing (a held
+     automation, a sync fact, a warning about the selection). The floating, host-stamped kind
+     is `dsx.module.studio.ui.toast`, which the Studio draws outside the app. -->
+<hstack class="sk-toast sk-toast-{{ dsx.attribute.tone }}" grow="width"
+        style="align-items: center; gap: 0.5rem; min-width: 0">
+  <head>
+    <attribute as="text"/>
+    <attribute as="tone" default="info"/>
+  </head>
+  <text value="{{ dsx.attribute.text }}" class="sk-toast-text" grow="width"/>
+</hstack>

@@ -1,0 +1,790 @@
+{
+ "_note": "THE DATE-RANGE VALIDITY FOLD (U08 · <datepicker> min/max/range/disabledDates/on:month). Dates are ISO civil dates 'YYYY-MM-DD' and ALL arithmetic is the proleptic-Gregorian day count (days_from_civil / civil_from_days) — there is no timezone anywhere in this fold, which is exactly why a DST transition day is one day long here on all three runtimes (the classic 23-hour bug cannot be expressed). SELECTABILITY: within [min, max] when either is set, not in disabledDates, and a real civil date (2026-02-30 is rejected, never coerced). RANGE LAW: with no open start, or with a closed range, a select OPENS a new range {start, end:null}; with an open start a select at or after it CLOSES the range; a select BEFORE it RESTARTS at the new date (never a silent swap — that is the interaction every calendar gets wrong). A close whose span contains a disabled date is refused WHOLE with reason 'range-contains-disabled', because a hotel cannot sell across a blackout night. MONTH LAW: on:month fires only when the visible month actually changes. formsMonthGrid(year, month, firstWeekday) is the grid geometry (firstWeekday is ISO 1=Mon..7=Sun). Expected values come from an independent scratch implementation.",
+ "grid": [
+  {
+   "year": 2026,
+   "month": 3,
+   "firstWeekday": 1,
+   "expect": {
+    "days": 31,
+    "leading": 6,
+    "weeks": 6
+   }
+  },
+  {
+   "year": 2026,
+   "month": 3,
+   "firstWeekday": 7,
+   "expect": {
+    "days": 31,
+    "leading": 0,
+    "weeks": 5
+   }
+  },
+  {
+   "year": 2026,
+   "month": 2,
+   "firstWeekday": 7,
+   "expect": {
+    "days": 28,
+    "leading": 0,
+    "weeks": 4
+   }
+  },
+  {
+   "year": 2024,
+   "month": 2,
+   "firstWeekday": 1,
+   "expect": {
+    "days": 29,
+    "leading": 3,
+    "weeks": 5
+   }
+  },
+  {
+   "year": 2023,
+   "month": 2,
+   "firstWeekday": 1,
+   "expect": {
+    "days": 28,
+    "leading": 2,
+    "weeks": 5
+   }
+  },
+  {
+   "year": 2026,
+   "month": 12,
+   "firstWeekday": 1,
+   "expect": {
+    "days": 31,
+    "leading": 1,
+    "weeks": 5
+   }
+  },
+  {
+   "year": 2027,
+   "month": 1,
+   "firstWeekday": 1,
+   "expect": {
+    "days": 31,
+    "leading": 4,
+    "weeks": 5
+   }
+  },
+  {
+   "year": 2000,
+   "month": 2,
+   "firstWeekday": 1,
+   "expect": {
+    "days": 29,
+    "leading": 1,
+    "weeks": 5
+   }
+  },
+  {
+   "year": 1900,
+   "month": 2,
+   "firstWeekday": 1,
+   "expect": {
+    "days": 28,
+    "leading": 3,
+    "weeks": 5
+   }
+  },
+  {
+   "year": 2026,
+   "month": 8,
+   "firstWeekday": 6,
+   "expect": {
+    "days": 31,
+    "leading": 0,
+    "weeks": 5
+   }
+  }
+ ],
+ "dayNumbers": [
+  {
+   "date": "1970-01-01",
+   "day": 0
+  },
+  {
+   "date": "2026-08-20",
+   "day": 20685
+  },
+  {
+   "date": "2026-02-30",
+   "day": null
+  },
+  {
+   "date": "2024-02-29",
+   "day": 19782
+  },
+  {
+   "date": "1900-02-29",
+   "day": null
+  },
+  {
+   "date": "not-a-date",
+   "day": null
+  },
+  {
+   "date": "2026-13-01",
+   "day": null
+  }
+ ],
+ "dstAdjacency": [
+  {
+   "from": "2026-03-07",
+   "to": "2026-03-08",
+   "delta": 1,
+   "next": "2026-03-08"
+  },
+  {
+   "from": "2026-11-01",
+   "to": "2026-11-02",
+   "delta": 1,
+   "next": "2026-11-02"
+  },
+  {
+   "from": "2026-10-25",
+   "to": "2026-10-26",
+   "delta": 1,
+   "next": "2026-10-26"
+  },
+  {
+   "from": "2024-02-28",
+   "to": "2024-02-29",
+   "delta": 1,
+   "next": "2024-02-29"
+  },
+  {
+   "from": "2023-02-28",
+   "to": "2023-03-01",
+   "delta": 1,
+   "next": "2023-03-01"
+  }
+ ],
+ "selectable": [
+  {
+   "config": {
+    "min": "2026-03-05",
+    "max": "2026-03-20",
+    "disabledDates": [
+     "2026-03-11",
+     "2026-03-12"
+    ]
+   },
+   "date": "2026-03-04",
+   "expect": {
+    "ok": false,
+    "reason": "before-min"
+   }
+  },
+  {
+   "config": {
+    "min": "2026-03-05",
+    "max": "2026-03-20",
+    "disabledDates": [
+     "2026-03-11",
+     "2026-03-12"
+    ]
+   },
+   "date": "2026-03-05",
+   "expect": {
+    "ok": true,
+    "reason": ""
+   }
+  },
+  {
+   "config": {
+    "min": "2026-03-05",
+    "max": "2026-03-20",
+    "disabledDates": [
+     "2026-03-11",
+     "2026-03-12"
+    ]
+   },
+   "date": "2026-03-11",
+   "expect": {
+    "ok": false,
+    "reason": "disabled"
+   }
+  },
+  {
+   "config": {
+    "min": "2026-03-05",
+    "max": "2026-03-20",
+    "disabledDates": [
+     "2026-03-11",
+     "2026-03-12"
+    ]
+   },
+   "date": "2026-03-20",
+   "expect": {
+    "ok": true,
+    "reason": ""
+   }
+  },
+  {
+   "config": {
+    "min": "2026-03-05",
+    "max": "2026-03-20",
+    "disabledDates": [
+     "2026-03-11",
+     "2026-03-12"
+    ]
+   },
+   "date": "2026-03-21",
+   "expect": {
+    "ok": false,
+    "reason": "after-max"
+   }
+  },
+  {
+   "config": {
+    "min": "2026-03-05",
+    "max": "2026-03-20",
+    "disabledDates": [
+     "2026-03-11",
+     "2026-03-12"
+    ]
+   },
+   "date": "2026-02-30",
+   "expect": {
+    "ok": false,
+    "reason": "malformed"
+   }
+  }
+ ],
+ "folds": [
+  {
+   "name": "single date — every select replaces",
+   "config": {
+    "range": false,
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-03-05"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-09"
+    }
+   ],
+   "expect": [
+    {
+     "start": "2026-03-05",
+     "end": "2026-03-05",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": "2026-03-09",
+     "end": "2026-03-09",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  },
+  {
+   "name": "range — first select opens, second closes",
+   "config": {
+    "range": true,
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-03-05"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-09"
+    }
+   ],
+   "expect": [
+    {
+     "start": "2026-03-05",
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": "2026-03-05",
+     "end": "2026-03-09",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  },
+  {
+   "name": "range — a third select starts a NEW range",
+   "config": {
+    "range": true,
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-03-05"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-09"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-15"
+    }
+   ],
+   "expect": [
+    {
+     "start": "2026-03-05",
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": "2026-03-05",
+     "end": "2026-03-09",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": "2026-03-15",
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  },
+  {
+   "name": "range — selecting BEFORE the open start restarts, never swaps",
+   "config": {
+    "range": true,
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-03-09"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-05"
+    }
+   ],
+   "expect": [
+    {
+     "start": "2026-03-09",
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": "2026-03-05",
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  },
+  {
+   "name": "range — a same-day close is a legal one-day range",
+   "config": {
+    "range": true,
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-03-05"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-05"
+    }
+   ],
+   "expect": [
+    {
+     "start": "2026-03-05",
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": "2026-03-05",
+     "end": "2026-03-05",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  },
+  {
+   "name": "min/max clamp both ends",
+   "config": {
+    "range": false,
+    "min": "2026-03-05",
+    "max": "2026-03-20",
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-03-04"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-21"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-05"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-20"
+    }
+   ],
+   "expect": [
+    {
+     "start": null,
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "before-min",
+     "fired": []
+    },
+    {
+     "start": null,
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "after-max",
+     "fired": []
+    },
+    {
+     "start": "2026-03-05",
+     "end": "2026-03-05",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": "2026-03-20",
+     "end": "2026-03-20",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  },
+  {
+   "name": "a disabled date is not selectable",
+   "config": {
+    "range": false,
+    "disabledDates": [
+     "2026-03-11",
+     "2026-03-12"
+    ],
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-03-11"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-13"
+    }
+   ],
+   "expect": [
+    {
+     "start": null,
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "disabled",
+     "fired": []
+    },
+    {
+     "start": "2026-03-13",
+     "end": "2026-03-13",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  },
+  {
+   "name": "a RANGE spanning a disabled date is rejected whole — the booking law",
+   "config": {
+    "range": true,
+    "disabledDates": [
+     "2026-03-11",
+     "2026-03-12"
+    ],
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-03-09"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-14"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-10"
+    }
+   ],
+   "expect": [
+    {
+     "start": "2026-03-09",
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": "2026-03-09",
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "range-contains-disabled",
+     "fired": []
+    },
+    {
+     "start": "2026-03-09",
+     "end": "2026-03-10",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  },
+  {
+   "name": "on:month fires on a CHANGE and never otherwise",
+   "config": {
+    "range": false,
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "month",
+     "month": "2026-03"
+    },
+    {
+     "kind": "month",
+     "month": "2026-04"
+    },
+    {
+     "kind": "month",
+     "month": "2026-04"
+    },
+    {
+     "kind": "month",
+     "month": "2026-03"
+    }
+   ],
+   "expect": [
+    {
+     "start": null,
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": null,
+     "end": null,
+     "month": "2026-04",
+     "complete": false,
+     "reason": "",
+     "fired": [
+      "month"
+     ]
+    },
+    {
+     "start": null,
+     "end": null,
+     "month": "2026-04",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": null,
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": [
+      "month"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "clear empties both ends and leaves the visible month alone",
+   "config": {
+    "range": true,
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-03-05"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-09"
+    },
+    {
+     "kind": "clear"
+    }
+   ],
+   "expect": [
+    {
+     "start": "2026-03-05",
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": "2026-03-05",
+     "end": "2026-03-09",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": null,
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  },
+  {
+   "name": "a malformed date is rejected, not coerced",
+   "config": {
+    "range": false,
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-02-30"
+    },
+    {
+     "kind": "select",
+     "date": "not-a-date"
+    },
+    {
+     "kind": "select",
+     "date": "2026-02-28"
+    }
+   ],
+   "expect": [
+    {
+     "start": null,
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "malformed",
+     "fired": []
+    },
+    {
+     "start": null,
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "malformed",
+     "fired": []
+    },
+    {
+     "start": "2026-02-28",
+     "end": "2026-02-28",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  },
+  {
+   "name": "DST DAY — the fold is timezone-free, so 2026-03-08 is one day after 2026-03-07",
+   "config": {
+    "range": true,
+    "month": "2026-03"
+   },
+   "events": [
+    {
+     "kind": "select",
+     "date": "2026-03-07"
+    },
+    {
+     "kind": "select",
+     "date": "2026-03-08"
+    }
+   ],
+   "expect": [
+    {
+     "start": "2026-03-07",
+     "end": null,
+     "month": "2026-03",
+     "complete": false,
+     "reason": "",
+     "fired": []
+    },
+    {
+     "start": "2026-03-07",
+     "end": "2026-03-08",
+     "month": "2026-03",
+     "complete": true,
+     "reason": "",
+     "fired": []
+    }
+   ]
+  }
+ ]
+}

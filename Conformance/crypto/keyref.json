@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "_note": "The key-handling law, pinned as a contract check rather than a runtime one, because the property has to hold on every path and a runtime test only covers the paths it walks (parity/F15-crypto.md 3b). The runner reads Core/Crypto's dsx.json and asserts three things about the DECLARATION itself: a resolve that hands back a stored key names no private material; the one action that may return raw material says so, optionally, and only under the flag that asked for it; and every stored-key resolve discloses where the key actually landed so a secure-hardware fallback can never be silent.",
+
+  "manifest": "ClosedSource/DSX/Modules/Core/Crypto/dsx.json",
+
+  "forbiddenResolveFields": {
+    "_note": "Field names that would mean private key material crossed the bus. Matched case-insensitively against every declared resolve key of every action, with the single documented exemption below.",
+    "names": ["privatekey", "private", "secret", "seed", "material", "raw", "d", "keybytes", "keymaterial"],
+    "exempt": [
+      { "action": "keypair", "field": "privateKey",
+        "reason": "the store:false ephemeral-exchange escape hatch; must be declared optional, and the store:true tests must not carry it",
+        "mustBeOptional": true }
+    ]
+  },
+
+  "refShape": {
+    "_note": "A keyRef is an opaque handle, not a serialised key. It is short, printable, and carries a scheme prefix so a value that turns up in a log is instantly identifiable as a reference rather than a secret.",
+    "prefix": "dsx.key:",
+    "pattern": "^dsx\\.key:[A-Za-z0-9._-]{1,128}$",
+    "examples": ["dsx.key:notes", "dsx.key:p256-1", "dsx.key:ed25519-1"],
+    "refused": ["notes", "dsx.key:", "dsx.key:has space", "dsx.key:../../etc/passwd"]
+  },
+
+  "storedKeyActions": {
+    "_note": "Every action that MINTS a stored key must disclose where it landed, so a device without a secure element degrades loudly. `hardware` is the boolean a caller branches on; `storage` is the human-readable half for a support log.",
+    "actions": ["secretKey", "keypair"],
+    "requiredResolveFields": ["storage", "hardware"],
+    "storageValues": ["secureEnclave", "strongBox", "keychain", "keystore", "memory"],
+    "hardwareValues": { "secureEnclave": true, "strongBox": true, "keychain": false, "keystore": false, "memory": false }
+  },
+
+  "consumingActions": {
+    "_note": "Every action that USES a key must accept a reference. sign and verify additionally accept raw material, because a store:false pair and a server-supplied public key are both legitimate; encrypt and decrypt accept ONLY a reference, because there is no case where an AES key should be typed into markup.",
+    "referenceOnly": ["encrypt", "decrypt", "secretKey"],
+    "referenceOrValue": ["sign", "verify", "hmac"],
+    "mustDeclareKeyNotFound": ["encrypt", "decrypt", "sign", "verify", "hmac"]
+  },
+
+  "opaqueFailure": {
+    "_note": "A tag mismatch and a wrong key are ONE code. Distinguishing them is the padding-oracle mistake and no caller has a legitimate reason to branch on the difference.",
+    "action": "decrypt",
+    "code": "decrypt_failed",
+    "mustNotDeclare": ["tag_mismatch", "bad_padding", "wrong_key", "authentication_failed"]
+  },
+
+  "modeMenu": {
+    "_note": "AES-256-GCM only, structurally: `encrypt` declares no `mode`, `cipher` or `padding` argument, so no app can end up on ECB by passing a string.",
+    "action": "encrypt",
+    "forbiddenArgs": ["mode", "cipher", "padding", "algorithm"],
+    "algorithm": "aes-256-gcm"
+  },
+
+  "noExport": {
+    "_note": "There is no action that reads a stored key back out. Not a flag, not an internal action, not a debug path.",
+    "forbiddenActionNames": ["export", "exportKey", "reveal", "readKey", "keyMaterial", "unwrap"]
+  }
+}

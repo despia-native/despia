@@ -21,7 +21,7 @@ it works on `DSXView` too. The shell lifecycle it (and its peers) hook — the u
 ### KEEP — the web layer + auth/cookies/content (the allowed exception)
 | Module | Why it keeps web-view access |
 |---|---|
-| `Mandatory/Dom` (Dom, WebDelegate, DomWebHost) · `DSXWebView` | They ARE the web surface + relay. |
+| `Core/Dom` (Dom, WebDelegate, DomWebHost) · `DSXWebView` | They ARE the web surface + relay. |
 | `Mandatory/ContentServer` | cookies (16) + localStorage + the local server — the content/cookie layer. |
 | `Core/Clerk` | auth session cookies/JS (69). |
 | `Core/Auth/OAuth` · `Core/Auth/LoginHelper` | OAuth redirect + the login popup's OWN web view. |

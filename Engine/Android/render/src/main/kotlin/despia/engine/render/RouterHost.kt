@@ -105,6 +105,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -122,11 +123,16 @@ import despia.engine.DSX
 import despia.engine.JSERunner
 import despia.engine.Router
 import despia.engine.ScreenReadiness
+import despia.engine.RouterOrientationBridge
 import despia.engine.StackNode
+import despia.engine.StackOrientationBinding
+import despia.engine.StackSharedTransition
 import despia.engine.StackStore
 import despia.engine.StackSurface
 import despia.engine.getPath
 import despia.engine.render.elements.blockHits
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import despia.engine.render.elements.wireSurfaceReleaseHold
 import despia.engine.set
 import despia.engine.setPath
@@ -316,11 +322,13 @@ fun routeFrameRoot(frame: Map<*, *>?): StackNode? {
 /// (LEGACY) and `attrs` (THE input contract). Held by the host in a frame-id map so a covered
 /// screen keeps its state; freed only when the id permanently leaves `nav.stack` (the Swift
 /// `@StateObject` contract — RouterHost.swift FrameSurface).
-private class RouterFrameSurface(id: Int?, vars: Map<String, Any?>?, attrs: Map<String, Any?>?) {
+private class RouterFrameSurface(id: Int?, vars: Map<String, Any?>?, attrs: Map<String, Any?>?,
+                                 overrides: Map<String, Any?>? = null) {
     val store = StackStore().also { s ->
         s.frameId = id                      // frame-scoped verbs + dsx.screen.settled() target THIS screen
         if (!vars.isNullOrEmpty()) s.setPath("vars", vars)          // LEGACY seed (documented)
         if (!attrs.isNullOrEmpty()) s.set("dsx.attribute", attrs)   // THE input contract
+        if (!overrides.isNullOrEmpty()) s.set("dsx.override", overrides)   // the STYLE contract (Conformance/overrides)
     }
     val env = JSERunner(store)
 }
@@ -339,6 +347,29 @@ private class NavTransition(
     start: Float,
 ) {
     val coverage = Animatable(start)
+
+    /// U03 - the shared-element flight this transition carries, or null when the two frames
+    /// declare no `shared=` id in common (the unmatched law: the ordinary transition, silently).
+    /// `coverage` and the flight's progress are THE SAME AXIS: 1 is the pushed screen fully in
+    /// place, 0 the screen beneath. So a predictive-back gesture that interrupts a push hands the
+    /// flight the progress the animation had actually reached, and it reverses instead of
+    /// snapping - the acceptance test, for free, off the pose the host was already computing.
+    var flight: SharedFlight? = null
+
+    fun beginFlight(reducedMotion: Boolean) {
+        val source = RouterStackDiff.frameId((if (push) under else top)["id"]) ?: return
+        val destination = RouterStackDiff.frameId((if (push) top else under)["id"]) ?: return
+        val started = SharedFlight.between(source, destination, reducedMotion) ?: return
+        flight = started
+        started.begin(if (push) StackSharedTransition.Direction.FORWARD
+                      else StackSharedTransition.Direction.REVERSE)
+        if (gesture) started.interrupt()
+    }
+
+    fun endFlight() {
+        flight?.finish()
+        flight = null
+    }
 }
 
 // MARK: - the host
@@ -350,6 +381,9 @@ private class NavTransition(
 /// minimal host. Mount ONCE, inside RouterChromeHost's content slot (the host shell does).
 @Composable
 fun RouterHost(fallback: StackNode? = null) {
+    // global.screen.* (dsx.screen) — the RouterHost.swift `.modifier(DSXScreenMetrics())`
+    // twin: publish the live window metrics for the surface's whole life (ScreenState.kt).
+    ScreenStatePublisher()
     var vars by remember { mutableStateOf<Map<String, Any?>>(DSX.state.vars.toMap()) }
     DisposableEffect(Unit) {
         val c = DSX.state.sink { vars = it }
@@ -385,6 +419,7 @@ fun RouterHost(fallback: StackNode? = null) {
     if (navStack != displayed) {
         val displayedIds = displayed.mapNotNull { RouterStackDiff.frameId(it["id"]) }
         if (ids != displayedIds) {
+            transition?.endFlight()
             transition = if (reduceMotion) null else when (RouterStackDiff.classify(displayedIds, ids)) {
                 RouterStackDiff.Kind.PUSH -> NavTransition(push = true, gesture = false,
                                                            top = navStack.last(), under = displayed.last(),
@@ -394,6 +429,7 @@ fun RouterHost(fallback: StackNode? = null) {
                                                           start = 1f)
                 else -> null    // SWAP (boot seed / replace / reset / root heal) — instant, the silence rule
             }
+            transition?.beginFlight(reduceMotion)
         }
         displayed = navStack
     }
@@ -441,7 +477,10 @@ fun RouterHost(fallback: StackNode? = null) {
                 // undispatched applies snapTo before this callback returns; dispatching one
                 // coroutine per sample lets cancelled jobs queue ahead of the release commit.
                 gestureProgressJob = backScope.launch(start = CoroutineStart.UNDISPATCHED) {
-                    t.coverage.snapTo(RouterMotion.gestureCoverage(event.progress))
+                    val coverage = RouterMotion.gestureCoverage(event.progress)
+                    t.coverage.snapTo(coverage)
+                    // U03: the finger drives the pair on the SAME axis as the frame pose.
+                    t.flight?.drag(coverage.toDouble())
                 }
             }
         },
@@ -491,6 +530,12 @@ fun RouterHost(fallback: StackNode? = null) {
                 backScope.launch(start = CoroutineStart.UNDISPATCHED) {
                     t.coverage.snapTo(0f)
                 }
+                // U03: the gesture WON - the flight reverses home and settles there. It travels
+                // only what is left, never a replay (the corpus's `remaining`).
+                t.flight?.release(commit = true)
+                t.flight?.drag(0.0)
+                t.flight?.machine?.settle()
+                t.endFlight()
                 displayed = committed
                 transition = null
                 Router.shared?.pop()
@@ -504,11 +549,20 @@ fun RouterHost(fallback: StackNode? = null) {
             val t = gestureTransition
             gestureTransition = null
             if (t != null && transition === t) {
+                // U03: the finger let go short of the threshold, so the push it interrupted
+                // resumes FROM WHERE IT IS - `cancel`, not a restart.
+                t.flight?.release(commit = false)
                 backScope.launch {
+                    val flight = t.flight
+                    if (flight != null) {
+                        snapshotFlow { t.coverage.value }.onEach { flight.tick(it.toDouble()) }.launchIn(this)
+                    }
                     t.coverage.animateTo(
                         1f,
                         StackMotion.spec(RouterMotion.settleSpec(t.coverage.value, 1f)),
                     )
+                    flight?.machine?.settle()
+                    t.endFlight()
                     if (transition === t) transition = null
                 }
             }
@@ -521,7 +575,15 @@ fun RouterHost(fallback: StackNode? = null) {
     val t = transition
     LaunchedEffect(t) {
         if (t == null || t.gesture) return@LaunchedEffect
+        // U03: the flight rides the SAME Animatable as the frame pose, so the pair and the
+        // screens can never drift apart by a frame.
+        val flight = t.flight
+        if (flight != null) {
+            snapshotFlow { t.coverage.value }.onEach { flight.tick(it.toDouble()) }.launchIn(this)
+        }
         t.coverage.animateTo(if (t.push) 1f else 0f, StackMotion.spec(RouterMotion.NAV))
+        flight?.machine?.settle()
+        t.endFlight()
         if (transition === t) transition = null
     }
 
@@ -596,9 +658,29 @@ fun RouterHost(fallback: StackNode? = null) {
             if (id !in liveIds) {
                 ScreenReadiness.release(id)
                 frameState.removeState(id)
+                // U03: a frame that is permanently gone can hold no measurements.
+                SharedElementRegistry.release(id)
                 iter.remove()
             }
         }
+    }
+
+    // ── F07b `lockOrientation=` ────────────────────────────────────────────────────────────
+    //
+    // The reconcile is a function of the LIVE published surfaces, not of a pair of appear /
+    // disappear callbacks - so a button pop, a predictive-back gesture, a modal drag-dismiss, a
+    // deep link that replaces the stack and a backgrounded return all funnel into the SAME
+    // release path, and a merely COVERED screen (whose composition Compose disposes, but which
+    // is still in `nav.stack`) correctly keeps its claim.
+    // Corpus: OpenSource/Conformance/input/orientation-binding.json.
+    val orientationLedger = remember { mutableStateOf(emptyList<StackOrientationBinding.Surface>()) }
+    val navModal: List<Map<*, *>> = ((vars["nav"] as? Map<*, *>)?.get("modal") as? List<*>)
+        ?.filterIsInstance<Map<*, *>>() ?: emptyList()
+    SideEffect {
+        val live = RouterOrientationSurfaces.surfaces(navStack, navModal)
+        val plan = StackOrientationBinding.plan(live, orientationLedger.value)
+        orientationLedger.value = plan.ledger
+        RouterOrientationBridge.apply(plan.ops)
     }
 }
 
@@ -630,15 +712,19 @@ private fun RouterScreenFrame(
     val attrs = frame?.get("attrs") as? Map<String, Any?>
     @Suppress("UNCHECKED_CAST")
     val vars = frame?.get("vars") as? Map<String, Any?>
+    @Suppress("UNCHECKED_CAST")
+    val frameOverrides = frame?.get("overrides") as? Map<String, Any?>
     // The retained surface: get-or-create in the host's frame-id map (state survives cover);
     // the id-less synthetic fallback frame gets a local, unretained one (exactly the old host).
     val surface = remember {
-        if (id != null) surfaces.getOrPut(id) { RouterFrameSurface(id, vars, attrs) }
-        else RouterFrameSurface(null, vars, attrs)
+        if (id != null) surfaces.getOrPut(id) { RouterFrameSurface(id, vars, attrs, frameOverrides) }
+        else RouterFrameSurface(null, vars, attrs, frameOverrides)
     }
     // LIVE updates (route.updateComponent) — re-seed the reactive dict on entry change, and on
-    // a resurface remount (idempotent set; bindings recalc via the store publish).
+    // a resurface remount (idempotent set; bindings recalc via the store publish). The style
+    // plane rides the same discipline (dsx.override — Conformance/overrides).
     LaunchedEffect(attrs) { attrs?.let { if (it.isNotEmpty()) surface.store.set("dsx.attribute", it) } }
+    LaunchedEffect(frameOverrides) { frameOverrides?.let { if (it.isNotEmpty()) surface.store.set("dsx.override", it) } }
     // NATIVE READINESS — the frame-render seam (Conformance/lifecycle/readiness.json; Swift:
     // ScreenFrame.onAppear). `mount` is idempotent while the record lives, so the re-run when a
     // covered screen resurfaces mid-back changes nothing (rule 2); `settleManual`/`hostsWebSurface`

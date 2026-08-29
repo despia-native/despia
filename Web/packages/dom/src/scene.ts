@@ -2085,7 +2085,7 @@ export const SCENE_CSS = `@layer dsx-elements {
     display: block;
     padding: 0.375rem 0.625rem;
     font-family: var(--dsx-font);
-    font-size: 0.6875rem;
+    font-size: var(--dsx-type-caption2-size);
     color: var(--dsx-secondary-label);
     background: color-mix(in srgb, var(--dsx-background) 72%, transparent);
     z-index: 1;

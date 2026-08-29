@@ -20,6 +20,12 @@ export type ModuleInput = {
   dir: string;
   /** overrides dsx.json scheme (Foundation has none — pool-only modules) */
   scheme?: string;
+  /** the APPLICATION root (master plan P15): a `theme.css` beside this module's dsx.json
+   *  is the PROJECT TOKEN TIER — auto-folded into `@layer dsx-theme` AFTER every
+   *  package-declared sheet, so the app's design tokens win over a package's within the
+   *  theme layer while component sheets (`dsx-sheets`) still win over both. Zero config:
+   *  the file existing IS the declaration (the same file-presence law as everywhere). */
+  app?: boolean;
 };
 
 type RegistryCssMetadata = {
@@ -101,7 +107,15 @@ function walkDsxFiles(dir: string): string[] {
 export function buildRegistry(
   modules: ModuleInput[],
   extraCss: string[] = [],
-  opts: { routes?: Registry["routes"]; notFound?: string; router?: Registry["router"] } = {},
+  opts: {
+    routes?: Registry["routes"];
+    notFound?: string;
+    router?: Registry["router"];
+    /** The compile target every component folds for. Default `web`; the shot renderer passes
+     *  `ios`/`android` so a depiction of the native build keeps that build's `:ios` branches
+     *  (platform/10-screenshot-execution.md W3). */
+    target?: string;
+  } = {},
 ): Registry {
   const components: { [qualified: string]: ComponentIR } = {};
   const globalPool: { [name: string]: string } = {};
@@ -139,7 +153,7 @@ export function buildRegistry(
       const source = readFileSync(file, "utf-8");
       let ir: ComponentIR;
       try {
-        ir = compileComponent(name, scheme, source);
+        ir = compileComponent(name, scheme, source, { target: opts.target });
       } catch (e) {
         console.warn(`[dsx registry] ${file}: ${String(e)} — component skipped (renders blank, the runtime contract)`);
         continue;
@@ -190,6 +204,37 @@ export function buildRegistry(
     }
   }
 
+  // THE PROJECT TOKEN TIER (master plan P15, dsx-css §4.2): the app root's `theme.css`,
+  // discovered by file presence, folded LAST inside dsx-theme so the application's tokens
+  // out-cascade package sheets at equal specificity. The Studio's theme sheet writes this
+  // file; the dev watcher already reacts to .css, so an edit rides the P2 hot-swap lane.
+  for (const mod of modules) {
+    if (mod.app !== true) continue;
+    const themePath = join(mod.dir, "theme.css");
+    if (existsSync(themePath)) packageStyles.push(readFileSync(themePath, "utf-8").trim());
+  }
+
+  // THE STRINGS BUILD TIER (master plan P12, localization.md): the app root's
+  // `Strings.<tag>.json` files - flat { "Save": "Sichern" } maps, the tag a lowercase
+  // BCP-47 - ride the registry so the client boot can hand DSXStrings a synchronous
+  // loader. File presence IS the declaration, an invalid file is skipped (fail-open,
+  // Article 7), and the Studio's strings table writes these same files.
+  let strings: { [tag: string]: { [key: string]: string } } | undefined;
+  for (const mod of modules) {
+    if (mod.app !== true) continue;
+    for (const entry of readdirSync(mod.dir)) {
+      const match = /^Strings\.([a-z][a-z0-9-]*)\.json$/.exec(entry);
+      if (match === null) continue;
+      try {
+        const parsed: unknown = JSON.parse(readFileSync(join(mod.dir, entry), "utf-8"));
+        if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) continue;
+        const table: { [key: string]: string } = {};
+        for (const [k, v] of Object.entries(parsed)) if (typeof v === "string") table[k] = v;
+        if (Object.keys(table).length > 0) (strings ??= {})[match[1]!] = table;
+      } catch { /* an unparsable table is no table - the app renders its source language */ }
+    }
+  }
+
   const theme = packageStyles.length > 0 ? `@layer dsx-theme {\n${packageStyles.join("\n\n")}\n}` : "";
 
   const css = [
@@ -200,7 +245,7 @@ export function buildRegistry(
     collector.emit(),
   ].filter((s) => s.length > 0).join("\n\n");
 
-  const registry: Registry = { components, globalPool, css, schemes };
+  const registry: Registry = { components, globalPool, css, schemes, ...(strings !== undefined ? { strings } : {}) };
   REGISTRY_CSS_METADATA.set(registry, {
     extraCss: [...extraCss],
     theme,

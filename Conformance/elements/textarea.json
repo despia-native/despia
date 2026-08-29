@@ -1,9 +1,7 @@
 {
   "_schema": "despia-element-parity-v1",
   "tag": "textarea",
-  "aliases": [
-
-  ],
+  "aliases": [],
   "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift",
   "attributes": {
     "bind": {
@@ -31,6 +29,26 @@
       "default": 8,
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:32"
     },
+    "on:change": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:34 - fired by setBound on each edit; the web twin fires it from the input listener (dom elements.ts) and Compose from onValueChange. All three implemented it and only the catalog omitted it, so no editor could offer the one event a text area is edited through."
+    },
+    "resize": {
+      "type": "enum(vertical|none)",
+      "default": "vertical",
+      "_src": "OpenSource/Web/packages/dom/src/elements.ts - the web is the only renderer with a user resize handle to suppress: a native text view has none, so `none` is what iOS and Android already do and this attribute is the web catching up to them. It matters wherever a field is laid out AS the composition (the Studio inline tagline), because dragging its height apart moves the words it stands in for."
+    },
+    "on:submit": {
+      "type": "action",
+      "default": null,
+      "_src": "the HARDWARE-keyboard submit chord in a multiline field. Return stays a line break on a soft keyboard; Cmd/Ctrl+Return always submits once this is bound. The decision is StackDesktopInput.multilineReturn, pinned by Conformance/input/multiline-submit.json"
+    },
+    "submitOnEnter": {
+      "type": "bool",
+      "default": false,
+      "_src": "opt bare Return into submitting, the composer convention. Shift+Return and Alt+Return stay line breaks whatever this says - turning Enter-to-send on must not take away the way out of it"
+    },
     "on:focus": {
       "type": "action",
       "default": null,
@@ -40,6 +58,16 @@
       "type": "action",
       "default": null,
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:44-45"
+    },
+    "disabled": {
+      "type": "bool",
+      "default": false,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/TextArea/swift/TextArea.swift:50 (the W9 disabled-grammar pair — `disabled` OR `disabled-if` truthy disables; all three renderers)"
+    },
+    "disabled-if": {
+      "type": "expr",
+      "default": null,
+      "_src": "the conditional half of the W9 disabled-grammar pair, ratified with `disabled` and implemented on all three renderers - see the `disabled` row above"
     }
   },
   "geometry": {

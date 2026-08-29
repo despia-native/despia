@@ -203,22 +203,48 @@ export function asRows(v: unknown): Dict[] {
   return v.filter((e): e is Dict => isDict(e));
 }
 
-/** A stable, deep key for `<watch>` equality — changes iff the value meaningfully
- *  changes (dict keys sorted so ordering never churns). */
-export function watchKey(v: unknown): string {
-  if (v === null || v === undefined || v === NSNull) return "∅";
+/** A stable, deep key for `<watch>` equality - changes iff the value meaningfully
+ *  changes (dict keys sorted so ordering never churns).
+ *
+ *  CYCLE-SAFE, and it has to be. This is the JS plane's structural identity function:
+ *  every store write runs it, and `jseEquals` delegates to it for dicts and arrays. A
+ *  self-referencing value therefore did not merely render wrong, it overflowed the stack
+ *  on the write that introduced it and took the surface with it - the exact failure the
+ *  component depth floor exists to prevent, one layer lower and louder. Native data
+ *  cannot express the shape (Swift dictionaries and arrays are value types), so this is a
+ *  JS-plane guard rather than a cross-renderer law.
+ *
+ *  A node already on the current PATH keys as a cycle marker and stops. `seen` is unwound
+ *  after each branch, so a value shared by two siblings still expands in both - the key
+ *  for any acyclic input is byte-identical to what it always was. */
+export function watchKey(v: unknown, seen?: Set<object>): string {
+  if (v === null || v === undefined || v === NSNull) return "\u2205";
   if (typeof v === "string") return "s" + v;
   if (typeof v === "boolean") return v ? "b1" : "b0";
   if (typeof v === "number") return "n" + string(v);
-  if (Array.isArray(v)) return "[" + v.map(watchKey).join("") + "]";
-  if (isDict(v)) {
+  const nested = Array.isArray(v) || isDict(v);
+  if (!nested) return "x" + String(v);
+  const path = seen ?? new Set<object>();
+  if (path.has(v as object)) return "\u21ba";
+  path.add(v as object);
+  try {
+    if (Array.isArray(v)) return "[" + v.map((e) => watchKey(e, path)).join("") + "]";
     const d = v as Dict;
-    return "{" + Object.keys(d).sort().map((k) => `${k}=` + watchKey(d[k])).join("") + "}";
+    return "{" + Object.keys(d).sort().map((k) => `${k}=` + watchKey(d[k], path)).join("") + "}";
+  } finally {
+    path.delete(v as object);
   }
-  return "x" + String(v);
 }
 
 export function jseEquals(a: unknown, b: unknown): boolean {
+  // The scope sentinel reads as null here: a bound-but-null lambda param / const /
+  // destructured key is stored as NSNull, and `x == null` is the guard every author
+  // writes. Without this the sentinel fell through to string coercion ("<null>" != "")
+  // and the guard was silently false. Null equals only null — includes/indexOf/switch/
+  // Map/Set all ride this function, so they inherit the law.
+  if (a === NSNull || a === undefined) a = null;
+  if (b === NSNull || b === undefined) b = null;
+  if (a === null || b === null) return a === b;
   const x = number(a);
   const y = number(b);
   if (x !== null && y !== null) return x === y; // NaN != NaN, -0 == 0 (Swift semantics)

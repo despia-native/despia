@@ -27,6 +27,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.google.zxing.qrcode.encoder.Encoder
@@ -58,7 +60,13 @@ private fun QrCodeView(ctx: ComposeStackComponentContext) {
     val bg = StackStyle.color(ctx.str("background", ElementDefaults.QR_BACKGROUND))
     val matrix = remember(value, correction) { qrMatrix(value, correction) }
 
-    Canvas(Modifier.elementModifier(ctx).then(Modifier.size(size.dp))) {
+    // The encoded value, spoken (the web twin's aria-label "QR code containing <value>");
+    // an authored a11yLabel rides the universal style chain instead and wins by order.
+    val labeled = if (ctx.interp("a11yLabel").isNullOrEmpty())
+        Modifier.semantics { contentDescription = "QR code containing $value" }
+    else Modifier
+
+    Canvas(Modifier.elementModifier(ctx).then(labeled).then(Modifier.size(size.dp))) {
         drawRect(bg)                                               // background spans the square
         val m = matrix ?: return@Canvas                            // fail-open: empty square
         val count = m.size

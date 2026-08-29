@@ -30,6 +30,8 @@
 //  Platform-free, like host.ts — env arrives as a function; nothing here names node: or Deno.
 //
 
+import type { SpendBudget } from "./spend.ts";
+
 /** One setting the server must not start without (emitted by prepare_server.rb). */
 export interface ServerRequirement {
   /** the config.json key */
@@ -137,8 +139,7 @@ export function missingConfigMessage(missing: readonly ServerRequirement[]): str
     "",
     "Starting anyway would look healthy and fail silently: every route that needs this would",
     "refuse every caller with a bare 401 and no diagnostic. Set the value for this app and",
-    "redeploy (ruby ClosedSource/scripts/dsx_deploy.rb <target>), or export the variable for",
-    "a local run.",
+    "redeploy (`despia deploy <target> --apply`), or export the variable for a local run.",
   ].join("\n");
 }
 
@@ -161,8 +162,20 @@ export function assertConfigured(config: ServerConfig, platformEnv: (key: string
  */
 export const INTERNAL_KEY_ENV = "DSX_INTERNAL_KEY";
 
-export function hostOptions(config: ServerConfig): { maxBodyBytes?: number; serviceRoles?: string[]; internalKey?: string } {
-  const out: { maxBodyBytes?: number; serviceRoles?: string[]; internalKey?: string } = {};
+/**
+ * The declared event-history window (Core/Server config `event_retention_hours`) — the bound on
+ * the "a disconnected subscriber misses nothing" promise, consumed by the bootloaders' retention
+ * sweeps. Lives here because it reads the DECLARED table: bootloader-node's private copy read a
+ * `values` key the emitter never writes, so the declaration was silently ignored and the 24h
+ * default always won.
+ */
+export function eventRetentionHours(config: ServerConfig): number {
+  const hours = Number(config.settings["event_retention_hours"]);
+  return Number.isFinite(hours) && hours > 0 ? Math.trunc(hours) : 24;
+}
+
+export function hostOptions(config: ServerConfig): { maxBodyBytes?: number; serviceRoles?: string[]; internalKey?: string; spend?: SpendBudget[] } {
+  const out: { maxBodyBytes?: number; serviceRoles?: string[]; internalKey?: string; spend?: SpendBudget[] } = {};
   const max = config.settings["max_body_bytes"];
   if (max !== undefined) {
     if (typeof max !== "number" || !Number.isFinite(max) || max <= 0) {
@@ -176,6 +189,34 @@ export function hostOptions(config: ServerConfig): { maxBodyBytes?: number; serv
       throw new Error(`@despia/server: config "service_roles" must be a list of role names (got ${JSON.stringify(roles)})`);
     }
     out.serviceRoles = roles as string[]; // an EMPTY list is meaningful: no caller is internal
+  }
+  // The spend plane's emitted table (cost-guardrails.md). The emitter validated the grammar and
+  // applied the guarded defaults; what is shape-checked here is the same class every other
+  // setting gets — a malformed table THROWS at boot rather than silently guarding nothing,
+  // because a deployment that believes it is guarded and is not is this plane's worst outcome.
+  const budgets = config.settings["spend_budgets"];
+  if (budgets !== undefined) {
+    if (!Array.isArray(budgets)) {
+      throw new Error(`@despia/server: config "spend_budgets" must be a list of budget rows (got ${JSON.stringify(budgets)})`);
+    }
+    const rows: SpendBudget[] = [];
+    for (const row of budgets) {
+      if (
+        typeof row !== "object" || row === null ||
+        typeof (row as { of?: unknown }).of !== "string" ||
+        !["hour", "day", "month"].includes(String((row as { per?: unknown }).per)) ||
+        // A numeric max must be a positive integer: NaN passes a bare typeof check and then
+        // every >= / > comparison in chargeSpend is false forever - the deployment believes it
+        // is guarded and is not, which is this block's own definition of the worst outcome.
+        !((typeof (row as { max?: unknown }).max === "number" &&
+           Number.isInteger((row as { max?: unknown }).max) && ((row as { max?: unknown }).max as number) > 0) ||
+          (row as { max?: unknown }).max === "unbounded")
+      ) {
+        throw new Error(`@despia/server: config "spend_budgets" carries a malformed row: ${JSON.stringify(row)}`);
+      }
+      rows.push(row as unknown as SpendBudget);
+    }
+    out.spend = rows;
   }
   return out;
 }

@@ -1,0 +1,83 @@
+{
+  "_note": "JSE conformance corpus - pop/shift AS PURE READS (2026-08-22). JS pop()/shift() mutate; JSE values are value-typed on the native runtimes, so the JSE spelling is the PURE read: pop() returns the last element, shift() the first, the receiver is untouched (the toReversed/toSpliced family's law). Before this file both were unknown methods - a silent null - so the two most common list reads an author reaches for died invisibly. Swift = reference (record lane authoritates expected). ALSO here: Number.toLocaleString - deterministic en-US-style THOUSANDS GROUPING over the JSE string of the value (hand-rolled on every runtime; no platform locale reaches it, so three renderers print one string). The locale/options arguments are accepted and ignored beyond that.",
+  "cases": [
+    {
+      "name": "pop-returns-last",
+      "scope": {},
+      "expression": "[1, 2, 3].pop()",
+      "expected": 3
+    },
+    {
+      "name": "pop-empty-is-null",
+      "scope": {},
+      "expression": "[].pop()",
+      "expected": null
+    },
+    {
+      "name": "shift-returns-first",
+      "scope": {},
+      "expression": "[1, 2, 3].shift()",
+      "expected": 1
+    },
+    {
+      "name": "shift-empty-is-null",
+      "scope": {},
+      "expression": "[].shift()",
+      "expected": null
+    },
+    {
+      "name": "pop-is-pure",
+      "scope": {
+        "xs": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expression": "xs.pop() + xs.length",
+      "expected": 6
+    },
+    {
+      "name": "shift-is-pure",
+      "scope": {
+        "xs": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expression": "xs.shift() + xs.length",
+      "expected": 4
+    },
+    {
+      "name": "pop-of-string-chars",
+      "scope": {},
+      "expression": "'abc'.split('').pop()",
+      "expected": "c"
+    },
+    {
+      "name": "number-tolocalestring-groups",
+      "scope": {},
+      "expression": "(1234567).toLocaleString('en-US')",
+      "expected": "1,234,567"
+    },
+    {
+      "name": "number-tolocalestring-fraction",
+      "scope": {},
+      "expression": "(1234567.5).toLocaleString('en-US')",
+      "expected": "1,234,567.5"
+    },
+    {
+      "name": "number-tolocalestring-small",
+      "scope": {},
+      "expression": "(999).toLocaleString('en-US')",
+      "expected": "999"
+    },
+    {
+      "name": "number-tolocalestring-negative",
+      "scope": {},
+      "expression": "(-42030).toLocaleString('en-US')",
+      "expected": "-42,030"
+    }
+  ]
+}

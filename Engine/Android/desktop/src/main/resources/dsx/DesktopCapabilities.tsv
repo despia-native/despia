@@ -5,12 +5,12 @@
 # capability<TAB>id<TAB>failure-code<TAB>message      ("-" code/message = a bound capability)
 # tag<TAB>component-tag<TAB>capability-id
 capability	embedded-web-runtime	native_web_runtime_unavailable	This DSX desktop build does not bundle an embedded browser runtime.
-capability	godot-runtime	godot_runtime_unavailable	This DSX desktop build does not bundle the Godot engine.
 capability	remote-dsx-document	-	-
 capability	scene3d-runtime	scene3d_runtime_unavailable	This DSX desktop build does not bundle a qualified native 3D scene engine.
+capability	rive-runtime	rive_runtime_unavailable	This DSX desktop build does not bundle the Rive animation runtime.
 tag	DSXView	remote-dsx-document
 tag	DSXWebView	embedded-web-runtime
-tag	Godot	godot-runtime
 tag	Scene360	scene3d-runtime
 tag	Scene3D	scene3d-runtime
 tag	WebView	embedded-web-runtime
+tag	rive	rive-runtime

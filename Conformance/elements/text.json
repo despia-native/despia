@@ -19,7 +19,26 @@
     "markdown": {
       "type": "bool",
       "default": false,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift:16"
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift:16 (iOS AttributedString, web markdown.ts, Android markdownInlineAnnotated — the same inline vocabulary on all three)"
+    },
+    "type": {
+      "type": "enum",
+      "default": "body",
+      "values": [
+        "display",
+        "title1",
+        "title2",
+        "title3",
+        "headline",
+        "body",
+        "reading",
+        "callout",
+        "footnote",
+        "label",
+        "caption",
+        "caption2"
+      ],
+      "_src": "Text.swift:38 typeStyle(_:) — the twelve roles of OpenSource/Conformance/defaults/type.json, each resolved through its OWN platform column: Font.TextStyle here, MaterialTheme.typography on Compose (TypeRamp.kt), the --dsx-type-<role>-* quartet on web. The native columns are role NAMES, so a rung follows Dynamic Type and the Material scale rather than freezing a size. A word that is not a rung resolves to nothing and the text keeps the body default."
     },
     "color": {
       "type": "color",
@@ -40,5 +59,5 @@
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/Text/swift/Text.swift:22 — system-defaults.md base pass: default text rides the `label` token (was the pinned `white`)"
     }
   },
-  "notes": "PLATFORM GAP, DECLARED (no silent gaps): `markdown` is implemented on the iOS reference (Text.swift — Text(AttributedString(markdown:))) and on web (packages/dom/src/markdown.ts, the same INLINE vocabulary: emphasis · strong · code · strikethrough · links; block intents deliberately collapse). :render has NO twin — StackNodeView's \"text\" branch renders a plain String through BasicText, so on Android `markdown=\"true\"` shows the RAW SOURCE. That is a missing implementation, not an OS floor: Compose can express the same spans through AnnotatedString, so this is a DEFERRAL and must not be ratified as a permanent divergence (contrast fontDesign=\"rounded\"/wheelpicker/stars, which have no Material equivalent). The twin lands with the block-level <Markdown> wave (v4-launch execution-plan A4/A4b), which brings a shared markdown corpus all three renderers answer; until then the attribute is iOS+web and this fixture says so rather than implying parity."
+  "notes": "`markdown` is the same INLINE vocabulary on all three renderers: iOS Text(AttributedString(markdown:)), web packages/dom/src/markdown.ts, Android markdownInlineAnnotated (MarkdownBlocks.parseInline into AnnotatedString). Block intents still collapse on <text>; the block-level <markdown> element answers OpenSource/Conformance/markdown/blocks.json."
 }

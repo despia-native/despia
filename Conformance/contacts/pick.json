@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "_note": "THE PERMISSION-FREE PATH (parity F12). `dsx.module.contacts.pick` opens the SYSTEM picker: iOS CNContactPickerViewController, Android ACTION_PICK on the contacts provider, web navigator.contacts.select. None of the three triggers an authorization prompt and none needs a manifest grant, because the user hand-picks and the OS returns only what was picked. This corpus pins that fact so a future refactor cannot quietly route `pick` through the store, and pins the two shapes that are easy to get wrong: a dismissal RESOLVES (it is a user decision, not an error) and a platform with no multi-select SAYS SO rather than returning a one-element array. Runners: TS (@despia/kernel contacts-core.ts, contacts-conformance.test.ts), Kotlin (:core ContactsCore, ContactsConformanceTest), Swift (Engine/iOS/ContactsCore.swift, ContactsConformance in the record lane).",
+
+  "permissionSurface": {
+    "_note": "action -> the grant it requires before it will run. `none` is the contract, not an implementation detail: an action listed as `none` that starts prompting is a regression, and an action listed as `read`/`write` that stops refusing is a privacy bug.",
+    "pick": "none",
+    "permission": "none",
+    "list": "read",
+    "get": "read",
+    "groups": "read",
+    "add": "write",
+    "update": "write",
+    "remove": "write",
+    "read": "read"
+  },
+
+  "cases": [
+    {
+      "name": "a single pick returns one contact and never prompts",
+      "args": { "multiple": false },
+      "given": { "access": "undetermined", "picked": [{ "id": "c1", "displayName": "Jane Doe" }] },
+      "expect": { "contacts": 1, "cancelled": false, "prompted": false }
+    },
+    {
+      "name": "a dismissed picker RESOLVES cancelled and settles no error",
+      "args": {},
+      "given": { "access": "undetermined", "picked": null },
+      "expect": { "contacts": 0, "cancelled": true, "prompted": false, "error": null }
+    },
+    {
+      "name": "multi-select returns every chosen contact where the platform has it",
+      "args": { "multiple": true },
+      "given": { "access": "undetermined", "multiSelect": true,
+                 "picked": [{ "id": "c1" }, { "id": "c2" }] },
+      "expect": { "contacts": 2, "cancelled": false, "multiple": null }
+    },
+    {
+      "name": "a platform with no multi-select reports multiple:false, never a silent single",
+      "args": { "multiple": true },
+      "given": { "access": "undetermined", "multiSelect": false, "picked": [{ "id": "c1" }] },
+      "expect": { "contacts": 1, "cancelled": false, "multiple": false }
+    },
+    {
+      "name": "an already-denied store does NOT stop the picker: it needs no grant",
+      "args": {},
+      "given": { "access": "denied", "picked": [{ "id": "c1" }] },
+      "expect": { "contacts": 1, "cancelled": false, "prompted": false }
+    },
+    {
+      "name": "fields subsets the hydrated shape and drops nothing else in",
+      "args": { "fields": ["displayName", "emails"] },
+      "given": { "access": "undetermined",
+                 "picked": [{ "id": "c1", "displayName": "Jane Doe", "givenName": "Jane",
+                              "emails": [{ "label": "work", "value": "jane@example.com" }],
+                              "phones": [{ "label": "mobile", "value": "+15551234567" }] }] },
+      "expect": { "contacts": 1, "keys": ["id", "displayName", "emails"] }
+    },
+    {
+      "name": "a browser with no Contact Picker API refuses in type",
+      "args": {},
+      "given": { "platform": "web", "pickerAvailable": false },
+      "expect": { "error": "unsupported_platform" }
+    }
+  ]
+}

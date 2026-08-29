@@ -11,7 +11,7 @@
 //
 //  Two tethers:
 //    1. BUILTIN_TAGS must equal facts.json's builtinTags exactly — not superset, EQUAL,
-//       because an extra tag here means `dsx lint` waves through markup the repo gate and
+//       because an extra tag here means `despia lint` waves through markup the repo gate and
 //       the runtimes would reject.
 //    2. Every shared corpus case must produce the expected (line, level, rule) set for the
 //       MAPPED ruleset — the same comparison lint_conformance.rb makes for the Ruby gate.
@@ -27,10 +27,16 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { BUILTIN_TAGS, lintSource, type Finding, type LintContext } from "../src/lint.ts";
+import { BUILTIN_TAGS, GLOBAL_ELEMENT_TAGS, VALUELESS_INPUT_TAGS, lintSource, readAttributeCensus, type Finding, type LintContext } from "../src/lint.ts";
+
+const repoRoot = join(import.meta.dirname, "../../../../..");
 
 const lintDir = join(import.meta.dirname, "..", "..", "..", "..", "Conformance", "lint");
-const facts = JSON.parse(readFileSync(join(lintDir, "facts.json"), "utf8")) as { builtinTags: string[] };
+const facts = JSON.parse(readFileSync(join(lintDir, "facts.json"), "utf8")) as {
+  builtinTags: string[];
+  globalElementTags: string[];
+  valuelessInputTags: string[];
+};
 
 // lint_conformance.rb's RULE_MAP, ported verbatim: message → corpus rule id, anchored on
 // the STABLE phrase naming the defect, never the full wording.
@@ -44,7 +50,25 @@ const RULE_MAP: Array<[RegExp, string]> = [
   [/missing as= — registration is a silent no-op/, "missing-as"],
   [/must be an ASCII identifier/, "api-as-identifier"],
   [/<expects> missing variable=/, "expects-variable"],
+  [/<tool> missing action=/, "tool-action"],
+  [/<tool> missing description=/, "tool-description"],
+  [/<tool as=\.\.\.> must be 1 to 128 characters/, "tool-name"],
   [/without key= — rows need a stable identity/, "bind-without-key"],
+  [/is inert — a text input reads its content from bind=/, "input-value-inert"],
+  [/not an attribute this element honours/, "attr-unknown"],
+  [/not in the census for this element/, "attr-census-gap"],
+  [/sample= is not valid JSON/, "sample-json"],
+  [/sample= on <(?:formula|action)> is deferred/, "sample-deferred"],
+  // the style-override plane (Conformance/overrides) — the declaration discipline all
+  // three runners own, plus the misplaced-on-element warning:
+  [/an override name is an identifier/, "override-name"],
+  [/is a platform-suffix word — the platform fold consumes/, "override-reserved-name"],
+  [/not an override type/, "override-type"],
+  [/without options= — an enum knob with no members/, "override-options"],
+  [/is a number \(the clamp bound\)/, "override-min-max"],
+  [/never a binding — \{\{ \}\} belongs at the usage site/, "override-default-bound"],
+  [/an invalid default resolves null/, "override-default"],
+  [/override: is the component style contract/, "override-on-element"],
 ];
 
 function ruleOf(message: string): string | null {
@@ -60,6 +84,12 @@ function corpusContext(): LintContext {
     schemes: new Set(),
     schemeOf: () => null,
     styleEjects: new Set<string>(),
+    // the census from the repo's own references: the corpus gates R9 on both runners
+    census: readAttributeCensus(
+      join(repoRoot, "OpenSource/Documentation/reference/stack-elements.json"),
+      join(repoRoot, "OpenSource/Documentation/reference/stack-style-properties.json"),
+      join(repoRoot, "OpenSource/Conformance/lint/facts.json"),
+    ),
     schemesComplete: false,
   };
 }
@@ -71,6 +101,26 @@ test("BUILTIN_TAGS equals facts.json builtinTags — the copy cannot drift silen
     shipped,
     truth,
     "src/lint.ts BUILTIN_TAGS diverged from Conformance/lint/facts.json — edit facts.json first, then mirror it here",
+  );
+});
+
+test("GLOBAL_ELEMENT_TAGS equals facts.json globalElementTags — same tether as BUILTIN_TAGS", () => {
+  const shipped = [...GLOBAL_ELEMENT_TAGS].sort();
+  const truth = [...new Set(facts.globalElementTags)].sort();
+  assert.deepEqual(
+    shipped,
+    truth,
+    "src/lint.ts GLOBAL_ELEMENT_TAGS diverged from Conformance/lint/facts.json — edit facts.json first, then mirror it here",
+  );
+});
+
+test("VALUELESS_INPUT_TAGS equals facts.json valuelessInputTags — same tether", () => {
+  const shipped = [...VALUELESS_INPUT_TAGS].sort();
+  const truth = [...new Set(facts.valuelessInputTags)].sort();
+  assert.deepEqual(
+    shipped,
+    truth,
+    "src/lint.ts VALUELESS_INPUT_TAGS diverged from Conformance/lint/facts.json — edit facts.json first, then mirror it here",
   );
 });
 

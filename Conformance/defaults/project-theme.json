@@ -1,0 +1,39 @@
+{
+  "_note": "The PROJECT TOKEN TIER (dsx-css proposal 4.2, master plan P15): an application's theme.css - design tokens re-pinned over the renderer defaults, one file at the project root beside its manifest. THE LAW ENCODED HERE: (1) the file is the SAME dsx-css sheet grammar every renderer already compiles - a location convention, not new grammar (web folds it into @layer dsx-theme; a native app's equivalent is its own app-module sheet through the dsx-css pipeline); (2) cascade position, weakest to strongest: renderer defaults (dsx-tokens + dsx-elements) < package-declared sheets (dsx-theme, in package order) < THE PROJECT THEME (dsx-theme, folded last) < component sheets (dsx-sheets) < inline styles (dsx-inline) - so an app re-pin beats every package and the kernel, and a component's own sheet still beats the app; (3) discovery is FILE PRESENCE - theme.css existing beside the app manifest IS the declaration, the same file-presence law as everywhere else; a missing file is simply no tier, never an error. Cases pin the effective value a consumer of the named token computes.",
+  "cases": [
+    {
+      "name": "project-repins-a-kernel-token",
+      "defaults": { "--dsx-accent": "#0a84ff" },
+      "project": { "--dsx-accent": "#ff2d55" },
+      "reads": { "--dsx-accent": "#ff2d55" },
+      "why": "dsx-theme is a stronger layer than dsx-tokens: the app's accent wins everywhere the kernel skin says var(--dsx-accent), with no component edited."
+    },
+    {
+      "name": "project-beats-a-package-sheet",
+      "package": { "--dsx-accent": "#34c759" },
+      "project": { "--dsx-accent": "#ff2d55" },
+      "reads": { "--dsx-accent": "#ff2d55" },
+      "why": "both live in dsx-theme at equal specificity, and the project folds LAST - the application owns its design over any installed package."
+    },
+    {
+      "name": "component-sheet-beats-the-project",
+      "project": { "--dsx-accent": "#ff2d55" },
+      "component": { "--dsx-accent": "#5e5ce6" },
+      "reads": { "--dsx-accent": "#5e5ce6" },
+      "why": "dsx-sheets out-layers dsx-theme: a component that deliberately re-maps a token for its subtree keeps that authority (dsx-css 4.2's re-map clause)."
+    },
+    {
+      "name": "geometry-token-repaints-the-skin",
+      "defaults": { "--dsx-radius": "10px" },
+      "project": { "--dsx-radius": "2px" },
+      "reads": { "--dsx-radius": "2px" },
+      "why": "the theme studio's wow gate rides this row: one radius token edit and every control that computes var(--dsx-radius) follows - no per-element writes."
+    },
+    {
+      "name": "absent-file-is-no-tier",
+      "defaults": { "--dsx-accent": "#0a84ff" },
+      "reads": { "--dsx-accent": "#0a84ff" },
+      "why": "no theme.css means the renderer defaults stand exactly as shipped - the tier is additive and its absence is the fresh-project state, not a degraded one."
+    }
+  ]
+}

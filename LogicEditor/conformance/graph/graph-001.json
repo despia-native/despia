@@ -1,0 +1,309 @@
+{
+  "_note": "Formula-graph conformance — {graph, jse, scope, expected} quads. `jse` pins the compiler's EXACT text output (byte-stable, deterministic); `expected` pins evaluation under the corpus semantics (the vendored jse corpus is the evaluator's own gate). The runner also proves the round-trip law on every case: lift(jse) → compile → evaluate must equal `expected`, and for canonical inputs compile(lift(jse)) must equal `jse` byte-for-byte. Cases whose text is not in canonical form set `canonical: false` to skip the byte re-check (the semantic check still runs).",
+  "cases": [
+    {
+      "name": "lit-string",
+      "graph": { "v": 1, "kind": "expression", "nodes": {}, "out": { "value": "hi" } },
+      "jse": "'hi'",
+      "scope": {},
+      "expected": "hi"
+    },
+    {
+      "name": "lit-number-integral",
+      "graph": { "v": 1, "kind": "expression", "nodes": {}, "out": { "value": 2 } },
+      "jse": "2",
+      "scope": {},
+      "expected": 2
+    },
+    {
+      "name": "lit-string-escapes-quote",
+      "graph": { "v": 1, "kind": "expression", "nodes": {}, "out": { "value": "it's" } },
+      "jse": "'it\\'s'",
+      "scope": {},
+      "expected": "it's"
+    },
+    {
+      "name": "op-add",
+      "graph": { "v": 1, "kind": "expression", "nodes": { "a": { "kind": "op", "op": "+", "args": [{ "value": 2 }, { "value": 3 }] } }, "out": { "node": "a" } },
+      "jse": "2 + 3",
+      "scope": {},
+      "expected": 5
+    },
+    {
+      "name": "op-precedence-no-extra-parens",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": {
+          "m": { "kind": "op", "op": "*", "args": [{ "value": 3 }, { "value": 4 }] },
+          "a": { "kind": "op", "op": "+", "args": [{ "value": 2 }, { "node": "m" }] }
+        },
+        "out": { "node": "a" }
+      },
+      "jse": "2 + 3 * 4",
+      "scope": {},
+      "expected": 14
+    },
+    {
+      "name": "op-precedence-parens-required",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": {
+          "a": { "kind": "op", "op": "+", "args": [{ "value": 2 }, { "value": 3 }] },
+          "m": { "kind": "op", "op": "*", "args": [{ "node": "a" }, { "value": 4 }] }
+        },
+        "out": { "node": "m" }
+      },
+      "jse": "(2 + 3) * 4",
+      "scope": {},
+      "expected": 20
+    },
+    {
+      "name": "op-unary-not",
+      "graph": { "v": 1, "kind": "expression", "nodes": { "n": { "kind": "op", "op": "!", "args": [{ "value": 0 }] } }, "out": { "node": "n" } },
+      "jse": "!0",
+      "scope": {},
+      "expected": true
+    },
+    {
+      "name": "path-read",
+      "graph": { "v": 1, "kind": "expression", "nodes": { "p": { "kind": "path", "path": "user.name" } }, "out": { "node": "p" } },
+      "jse": "user.name",
+      "scope": { "user": { "name": "amy" } },
+      "expected": "amy"
+    },
+    {
+      "name": "if-compiles-to-ternary",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": {
+          "pa": { "kind": "path", "path": "a" },
+          "c": { "kind": "op", "op": ">", "args": [{ "node": "pa" }, { "value": 3 }] },
+          "i": { "kind": "if", "cases": [{ "when": { "node": "c" }, "then": { "value": "big" } }], "else": { "value": "small" } }
+        },
+        "out": { "node": "i" }
+      },
+      "jse": "a > 3 ? 'big' : 'small'",
+      "scope": { "a": 5 },
+      "expected": "big"
+    },
+    {
+      "name": "if-multi-case-chains",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": {
+          "i": {
+            "kind": "if",
+            "cases": [
+              { "when": { "node": "c1" }, "then": { "value": "one" } },
+              { "when": { "node": "c2" }, "then": { "value": "two" } }
+            ],
+            "else": { "value": "many" }
+          },
+          "c1": { "kind": "op", "op": "==", "args": [{ "node": "n" }, { "value": 1 }] },
+          "c2": { "kind": "op", "op": "==", "args": [{ "node": "n" }, { "value": 2 }] },
+          "n": { "kind": "path", "path": "n" }
+        },
+        "out": { "node": "i" }
+      },
+      "jse": "n == 1 ? 'one' : n == 2 ? 'two' : 'many'",
+      "scope": { "n": 2 },
+      "expected": "two"
+    },
+    {
+      "name": "if-nested-then-parenthesized",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": {
+          "inner": { "kind": "if", "cases": [{ "when": { "node": "c2" }, "then": { "value": "x" } }], "else": { "value": "y" } },
+          "outer": { "kind": "if", "cases": [{ "when": { "node": "c1" }, "then": { "node": "inner" } }], "else": { "value": "z" } },
+          "c1": { "kind": "path", "path": "c1" },
+          "c2": { "kind": "path", "path": "c2" }
+        },
+        "out": { "node": "outer" }
+      },
+      "jse": "c1 ? (c2 ? 'x' : 'y') : 'z'",
+      "scope": { "c1": true, "c2": false },
+      "expected": "y"
+    },
+    {
+      "name": "fn-free-call",
+      "graph": { "v": 1, "kind": "expression", "nodes": { "u": { "kind": "fn", "fn": "upper", "args": [{ "value": "abc" }] } }, "out": { "node": "u" } },
+      "jse": "upper('abc')",
+      "scope": {},
+      "expected": "ABC"
+    },
+    {
+      "name": "fn-method-style",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": {
+          "xs": { "kind": "path", "path": "xs" },
+          "inc": { "kind": "fn", "fn": "includes", "args": [{ "node": "xs" }, { "value": 2 }] }
+        },
+        "out": { "node": "inc" }
+      },
+      "jse": "xs.includes(2)",
+      "scope": { "xs": [1, 2, 3] },
+      "expected": true
+    },
+    {
+      "name": "method-chain-with-arrow",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": {
+          "xs": { "kind": "path", "path": "xs" },
+          "dbl": { "kind": "arrow", "params": ["x"], "body": { "node": "mul" } },
+          "px": { "kind": "path", "path": "x" },
+          "mul": { "kind": "op", "op": "*", "args": [{ "node": "px" }, { "value": 2 }] },
+          "map": { "kind": "method", "target": { "node": "xs" }, "method": "map", "args": [{ "node": "dbl" }] },
+          "join": { "kind": "method", "target": { "node": "map" }, "method": "join", "args": [{ "value": "," }] }
+        },
+        "out": { "node": "join" }
+      },
+      "jse": "xs.map(x => x * 2).join(',')",
+      "scope": { "xs": [1, 2, 3] },
+      "expected": "2,4,6"
+    },
+    {
+      "name": "object-literal-target-parenthesized",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": {
+          "o": { "kind": "object", "entries": [{ "key": "a", "value": { "value": 1 } }, { "key": "b", "value": { "value": 2 } }] },
+          "g": { "kind": "get", "target": { "node": "o" }, "path": "b" }
+        },
+        "out": { "node": "g" }
+      },
+      "jse": "({ a: 1, b: 2 }).b",
+      "scope": {},
+      "expected": 2
+    },
+    {
+      "name": "array-literal",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": { "a": { "kind": "array", "items": [{ "value": 1 }, { "value": 2 }] } },
+        "out": { "node": "a" }
+      },
+      "jse": "[1, 2]",
+      "scope": {},
+      "expected": [1, 2]
+    },
+    {
+      "name": "expansion-capitalize",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": {
+          "v": { "kind": "path", "path": "value" },
+          "c": { "kind": "fn", "fn": "capitalize", "args": [{ "node": "v" }] }
+        },
+        "out": { "node": "c" }
+      },
+      "jse": "upper(value.slice(0, 1)) + value.slice(1)",
+      "scope": { "value": "hello" },
+      "expected": "Hello"
+    },
+    {
+      "name": "code-node-embeds-parenthesized",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": { "s": { "kind": "op", "op": "+", "args": [{ "code": "a * 2" }, { "value": 1 }] } },
+        "out": { "node": "s" }
+      },
+      "jse": "(a * 2) + 1",
+      "scope": { "a": 3 },
+      "expected": 7,
+      "canonical": false
+    },
+    {
+      "name": "membership-sample-full",
+      "graph": {
+        "v": 1, "kind": "formula", "name": "membership",
+        "inputs": [{ "name": "title", "sample": "hello despia" }, { "name": "isPro", "sample": true }],
+        "nodes": {
+          "val": { "kind": "path", "path": "title" },
+          "str": { "kind": "path", "path": "isPro" },
+          "inc": { "kind": "fn", "fn": "includes", "args": [{ "node": "val" }, { "value": "despia" }] },
+          "pick": { "kind": "if", "cases": [{ "when": { "node": "str" }, "then": { "value": "Pro member" } }], "else": { "value": "Member" } },
+          "cap": { "kind": "fn", "fn": "capitalize", "args": [{ "node": "val" }] },
+          "root": { "kind": "if", "cases": [{ "when": { "node": "inc" }, "then": { "node": "pick" } }], "else": { "node": "cap" } }
+        },
+        "out": { "node": "root" }
+      },
+      "jse": "title.includes('despia') ? (isPro ? 'Pro member' : 'Member') : upper(title.slice(0, 1)) + title.slice(1)",
+      "scope": { "title": "hello despia", "isPro": true },
+      "expected": "Pro member",
+      "canonical": false
+    },
+    {
+      "name": "logical-and-returns-last",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "nodes": { "a": { "kind": "op", "op": "&&", "args": [{ "value": 1 }, { "value": "x" }] } },
+        "out": { "node": "a" }
+      },
+      "jse": "1 && 'x'",
+      "scope": {},
+      "expected": "x"
+    },
+    {
+      "name": "lift-structures-ternary-and-calls",
+      "liftOnly": true,
+      "jse": "n > 2 ? upper(name) : name.slice(0, 2)",
+      "scope": { "n": 3, "name": "despia" },
+      "expected": "DESPIA"
+    },
+    {
+      "name": "lift-structures-hof-reduce",
+      "liftOnly": true,
+      "jse": "xs.reduce((s, p) => s + p * qty, 0)",
+      "scope": { "xs": [1, 2], "qty": 2 },
+      "expected": 6
+    },
+    {
+      "name": "lift-falls-back-to-code-on-index",
+      "liftOnly": true,
+      "canonical": false,
+      "jse": "a[0] + 1",
+      "scope": { "a": [41] },
+      "expected": 42
+    },
+    {
+      "name": "user-function-lego",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "functions": [
+          {
+            "name": "parseJson",
+            "params": ["value", "fallback"],
+            "body": "if (typeof value != 'string') { return fallback }\ntry { return JSON.parse(value) } catch (e) { return fallback }",
+            "description": "Safely parses a JSON string; returns the fallback when parsing fails."
+          }
+        ],
+        "nodes": { "d": { "kind": "fn", "fn": "parseJson", "args": [{ "value": "[1, 2, 3]" }, { "value": "wow" }] } },
+        "out": { "node": "d" }
+      },
+      "jse": "parseJson('[1, 2, 3]', 'wow')",
+      "scope": {},
+      "expected": [1, 2, 3]
+    },
+    {
+      "name": "user-function-fallback-path",
+      "graph": {
+        "v": 1, "kind": "expression",
+        "functions": [
+          {
+            "name": "parseJson",
+            "params": ["value", "fallback"],
+            "body": "if (typeof value != 'string') { return fallback }\ntry { return JSON.parse(value) } catch (e) { return fallback }"
+          }
+        ],
+        "nodes": { "d": { "kind": "fn", "fn": "parseJson", "args": [{ "value": "not json" }, { "value": "wow" }] } },
+        "out": { "node": "d" }
+      },
+      "jse": "parseJson('not json', 'wow')",
+      "scope": {},
+      "expected": "wow"
+    }
+  ]
+}

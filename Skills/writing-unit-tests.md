@@ -1,4 +1,4 @@
-# Writing unit tests — self-contained actions in `dsx.json`
+# Writing unit tests: self-contained actions in `dsx.json`
 
 > Audience: module authors. How a package declares its command surface and its **unit tests** in one
 > place — the `actions` block — so the **build gate** validates them and **StackCanvas** plays them as

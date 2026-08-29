@@ -488,7 +488,7 @@ final class VirtualBridge: NSObject {
                         // platform"); excluded-by-this-app and unknown schemes keep `not_loaded`.
                         // Inert while platformSupport is empty (the bare kernel).
                         let envelope: [String: Any]
-                        if let supported = ModuleRegistry.shared.unsupportedPlatforms(scheme) {
+                        if let supported = ModuleRegistry.shared.unsupportedPlatforms(scheme, action: actionPath) {
                             envelope = [
                                 "id": rid, "scheme": scheme, "host": actionPath,
                                 "event": "error", "final": true,

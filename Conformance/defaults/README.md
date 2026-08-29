@@ -57,3 +57,41 @@ target — never pixels) and the full-ladder precedence corpus run on every runt
 
 A change to the vocabulary or a mapping is illegal without a spec change and green
 gates on every runtime that ships it — same discipline as `../jse`.
+
+## The five axes beside `tokens.json` (landed 2026-08-25)
+
+`tokens.json` ratified COLOUR and nothing else, and colour is the one foundation axis that
+never drifted. That is not a coincidence, and it is the whole argument for these files.
+
+`design-system.md` Part 1 specified a complete foundation layer on 2026-08-17: a type ramp
+with size, weight, tracking AND leading, a spacing scale, a radius scale, elevation 0-4,
+motion, one focus ring, a density knob, and derived interaction states. Most of it shipped on
+web. None of it was ever written down cross-runtime, and nothing forced a component to use
+it. By 2026-08-25 the measured result was 108 box-shadow declarations against a five-level
+scale that already existed with only 31 tokenised, 74 font-size declarations against an
+eleven-role ramp with 33 literal, and 144 hand-written `color-mix()` calls where the state
+layer belonged. The diagnosis is `architecture/runtime-pressure.md` R22.
+
+| file | roles | the thing it carries that nothing else did |
+| --- | --- | --- |
+| `type.json` | 9 | the ramp's **leading**, absent until now, which is why nine hand-typed line-heights were in the sheet |
+| `elevation.json` | 5 | the five rungs as **scheme twins**, because a shadow that reads on white is a smudge on near-black |
+| `state.json` | 8 | the whole interaction plane, which had **zero** tokens and 144 improvisations |
+| `shape.json` | 5 | a radius **bound to a control size band**, so a 40px button and a 56px card stop matching |
+| `motion.json` | 7 | one duration ramp plus its published alias, replacing two rival families |
+
+All five keep this folder's existing law without amendment: native columns are ROLE NAMES
+because the OS owns the value, only `web` carries literals because the web has no system to
+inherit from, and every value here is RATIFIED - read out of the shipping sheet, not chosen.
+
+Two honest asymmetries are recorded rather than smoothed over. The Compose targets have a
+ratified elevation scale and the Apple targets do not: they express depth with materials,
+which is not a shadow and has no numeric rung, so their column names the mechanism. The same
+is true of motion, where the Apple platforms own their curves and honour reduced motion
+themselves. Writing a number into those columns would be re-specifying a system look, which
+is the mistake the constitution refuses by name, so the gate below fails on it.
+
+Pinned by `OpenSource/Web/packages/dom/test/defaults-corpus.test.ts`, which asserts that every
+web value is what `TOKENS_CSS` actually emits, that every role carries every platform column,
+and that no native column contains a value. The element layer is separately held to this
+vocabulary by `packages/dom/test/design-system-gate.test.ts`.

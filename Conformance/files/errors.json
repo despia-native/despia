@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "_note": "The `files` error catalog — every code the module can settle with, its `recoverable` verdict, and the capabilities each platform genuinely lacks (parity/F03-files.md §3c, §5). Two things drift silently when they are not pinned: a code that means `retry is worth offering` on one renderer and `give up` on another, and a platform quietly no-opping a capability it cannot perform. `recoverable` is the contract a surface branches on, so it lives in the shared core (FILE_ERROR_RECOVERABLE) and all three runners assert their table against this file. `unsupportedByPlatform` is the typed-absence roster (durability P4): the named capability resolves `unsupported_platform` with a real message on that platform — never a fake success, never a silent no-op. An empty list means the platform performs every capability.",
+
+  "codes": {
+    "not_found":          { "recoverable": false, "_note": "The path names nothing. Terminal: retrying the same read finds the same nothing." },
+    "permission_denied":  { "recoverable": false, "_note": "The OS refused, or the root is read-only (`bundle:`). Terminal from the module's side — a permission a user can grant is asked for by the module that owns it, not retried blindly here." },
+    "no_space":           { "recoverable": true,  "_note": "The free-space PRE-CHECK failed before a large write, not an exception caught after a partial one. Recoverable: the user can free space and retry, and the destination is untouched." },
+    "is_directory":       { "recoverable": false, "_note": "A file operation was aimed at a directory. Terminal: the caller asked the wrong question." },
+    "not_directory":      { "recoverable": false, "_note": "A directory operation was aimed at a file, or a parent segment is a file. Terminal." },
+    "exists":             { "recoverable": true,  "_note": "The destination already exists and `overwrite` was not set. Recoverable: the same call with `overwrite: true` succeeds, which is exactly the retry a surface offers." },
+    "hash_mismatch":      { "recoverable": true,  "_note": "A verified download landed with the wrong sha256. The partial is removed; a retry is worth offering because the usual cause is a truncated or middlebox-rewritten body." },
+    "network_failed":     { "recoverable": true,  "_note": "The transfer could not complete. The destination is left with NO partial file; `resume: true` picks up from the persisted resume data on the next attempt." },
+    "http_error":         { "recoverable": true,  "_note": "The request reached the server and the server refused it — any status outside 2xx. Distinct from network_failed on purpose: the transport worked, so `resume` is meaningless and the remedy is the STATUS, which rides on `data` as { status, headers, body? } (the body is the server's own explanation, truncated). Recoverable because a 401/429/503 is routinely fixed by refreshing a token or waiting; a caller that wants to give up on a 404 branches on `data.status`, which is exactly why the status is carried rather than folded away. The destination is untouched: the refused body is discarded, never moved into place." },
+    "unsupported_root":   { "recoverable": false, "_note": "The path is not addressable: an unknown root token, a malformed path, or an attempt to escape the root. Terminal, and deliberately ONE code for every shape of that attempt — a probing caller learns nothing from the distinction." },
+    "unsupported_platform": { "recoverable": false, "_note": "The reserved kernel code for a capability this platform genuinely lacks. Terminal, and honest: the caller branches on the code rather than string-matching a message." }
+  },
+
+  "unsupportedByPlatform": {
+    "ios": [],
+    "android": ["exclude"],
+    "web": ["shared", "zip", "unzip", "exclude", "background"]
+  },
+
+  "capabilities": {
+    "shared":     "The `shared:` root — an App Group container on iOS, the app's own external files directory on Android. The web has no second sandbox to share into.",
+    "zip":        "Producing an archive.",
+    "unzip":      "Expanding an archive.",
+    "exclude":    "Marking a path as excluded from device backup. iOS has `isExcludedFromBackupKey`; Android backup is declared per-app in the manifest, not per-file, and the web has no backup plane at all.",
+    "background": "A transfer that survives the app being suspended. iOS uses a background `URLSession`, Android a WorkManager foreground worker; a browser tab that is closed takes its fetch with it, so `download`/`upload` still run on the web but the `background: true` guarantee is refused rather than pretended."
+  }
+}

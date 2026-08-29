@@ -7,11 +7,15 @@ import {
   APPLICATION_CONTROL_LIMITS,
   APPLICATION_CONTROL_TAGS,
   APPLICATION_CONTROLS_CSS,
+  APPLICATION_WIDE_MEDIA,
+  DRAWER_STANDING,
   normalizeMenuBarEnabledIndex,
   normalizeMenuBarIndex,
   normalizeMenuBarItems,
   registerApplicationControls,
 } from "../src/application-controls.ts";
+import { TABS_WIDE_MEDIA } from "../src/structural-controls.ts";
+import { OVERLAY_LIMITS } from "../src/overlay-controls.ts";
 
 type Rgb = readonly [number, number, number];
 
@@ -138,12 +142,95 @@ test("application chrome defaults preserve fixture geometry and adaptive accessi
   assert.ok(APPLICATION_CONTROLS_CSS.includes("width: 36px"), "Drawer handle width follows the fixture");
   assert.ok(APPLICATION_CONTROLS_CSS.includes("height: 5px"), "Drawer handle height follows the fixture");
   assert.ok(APPLICATION_CONTROLS_CSS.includes("height: 44px"), "Drawer drag target remains touch accessible");
-  assert.ok(APPLICATION_CONTROLS_CSS.includes("24px"), "Drawer radius follows the fixture");
+  // The drawer's radius was 24px against the sheet's 20px while both are the same
+  // thing - a surface that meets a screen edge. The shape corpus ratified one rung for
+  // that band, so the drawer follows it and the fixture's 24 is retired.
+  assert.ok(APPLICATION_CONTROLS_CSS.includes("var(--dsx-drawer-radius, var(--dsx-radius-sheet))"),
+    "Drawer radius is the sheet rung, with the drawer's own override still ahead of it");
+  assert.ok(!/border-radius:[^;]*\b\d+px/.test(APPLICATION_CONTROLS_CSS.replace(/border-radius: var\(--dsx-radius-full\)/g, "")),
+    "no drawer corner re-decides a radius in pixels");
   assert.ok(APPLICATION_CONTROLS_CSS.includes("@media (min-width: 48rem)"));
   assert.ok(APPLICATION_CONTROLS_CSS.includes("(pointer: fine)"));
   assert.ok(APPLICATION_CONTROLS_CSS.includes("prefers-reduced-motion: reduce"));
   assert.ok(APPLICATION_CONTROLS_CSS.includes("forced-colors: active"));
   assert.ok(APPLICATION_CONTROLS_CSS.includes("env(safe-area-inset-bottom)"));
+});
+
+test("the application desktop step composes the tabs breakpoint, never a fork of it", () => {
+  assert.ok(APPLICATION_WIDE_MEDIA.startsWith(TABS_WIDE_MEDIA),
+    "the standing drawer / menubar step reuses TABS_WIDE_MEDIA verbatim");
+  assert.ok(APPLICATION_WIDE_MEDIA.includes("(hover: hover)") && APPLICATION_WIDE_MEDIA.includes("(pointer: fine)"),
+    "the wide presentations are desktop-input idioms, so coarse tablets keep the compact chrome");
+  assert.equal((APPLICATION_WIDE_MEDIA.match(/min-width/g) ?? []).length, 1, "one breakpoint, one source");
+});
+
+test("standing drawer geometry contract is ordered and mirrored into the weak CSS", () => {
+  assert.ok(DRAWER_STANDING.minWidth < DRAWER_STANDING.defaultWidth, "min < default");
+  assert.ok(DRAWER_STANDING.defaultWidth < DRAWER_STANDING.maxWidth, "default < max");
+  assert.ok(DRAWER_STANDING.railWidth > 44, "the rail still holds a 44px-class control");
+  assert.ok(DRAWER_STANDING.keyboardStep > 0);
+  assert.ok(
+    APPLICATION_CONTROLS_CSS.includes(`var(--dsx-drawer-standing-width, ${DRAWER_STANDING.defaultWidth}px)`),
+    "CSS default width literal follows DRAWER_STANDING.defaultWidth",
+  );
+  assert.ok(
+    APPLICATION_CONTROLS_CSS.includes(`[data-dsx-collapsed="true"] { width: ${DRAWER_STANDING.railWidth}px; }`),
+    "CSS rail width literal follows DRAWER_STANDING.railWidth",
+  );
+});
+
+test("standing and bar presentations are attribute-keyed twins of the compact chrome", () => {
+  assert.ok(APPLICATION_CONTROLS_CSS.includes('.dsx-drawer-host[data-dsx-presentation="standing"]'));
+  assert.ok(APPLICATION_CONTROLS_CSS.includes('.dsx-drawer-layer[data-dsx-presentation="standing"]'));
+  assert.ok(APPLICATION_CONTROLS_CSS.includes("position: static"), "standing layer leaves the fixed overlay plane");
+  assert.ok(APPLICATION_CONTROLS_CSS.includes("border-inline-end: var(--dsx-hairline) solid var(--dsx-separator)"),
+    "standing panel mirrors the tabs sidebar rail's flat separator treatment");
+  assert.ok(APPLICATION_CONTROLS_CSS.includes("var(--dsx-secondary-background)"),
+    "standing panel is the flat premium sidebar surface, not glass");
+  assert.ok(APPLICATION_CONTROLS_CSS.includes('.dsx-menu-bar[data-dsx-presentation="bar"]'));
+  const bar = APPLICATION_CONTROLS_CSS.match(/\.dsx-menu-bar\[data-dsx-presentation="bar"\] \{[\s\S]*?\n {2}\}/)?.[0] ?? "";
+  assert.ok(bar.includes("color-scheme: normal") && bar.includes("color: var(--dsx-label)")
+    && bar.includes("var(--dsx-background)"),
+    "the bar strip is app chrome on ambient tokens; the authored dark= tone stays a dock-only knob");
+  assert.ok(APPLICATION_CONTROLS_CSS.indexOf('[data-dsx-presentation="bar"] {')
+    > APPLICATION_CONTROLS_CSS.indexOf('[data-dsx-tone="dark"]'),
+    "the bar override outranks the equal-specificity tone rules by order");
+  assert.ok(APPLICATION_CONTROLS_CSS.includes(".dsx-drawer-resizer"), "the drag hairline exists");
+  assert.ok(APPLICATION_CONTROLS_CSS.includes(".dsx-drawer-collapse"), "the rail control exists");
+  assert.ok(
+    APPLICATION_CONTROLS_CSS.includes(".dsx-drawer-content[hidden]"),
+    "hidden overrides beat the content's display: grid",
+  );
+});
+
+test("MenuBar roots carry their nested flyout items through the shared overlay grammar", () => {
+  const items = normalizeMenuBarItems([
+    {
+      id: "file",
+      name: "File",
+      items: [
+        { title: "New", shortcut: "cmd+n", action: "workspace.new" },
+        { separator: true },
+        { title: "Share", items: [{ title: "Copy link" }] },
+      ],
+    },
+    { id: "home", name: "Home", icon: "star" },
+    { id: "bare", name: "Bare", icon: "" },
+  ]);
+  assert.equal(items[0]!.items.length, 3);
+  assert.equal(items[0]!.items[0]!.shortcut, "cmd+n");
+  assert.equal(items[0]!.items[0]!.action, "workspace.new");
+  assert.equal(items[0]!.items[2]!.items[0]!.title, "Copy link");
+  assert.equal(items[0]!.iconDeclared, false, "a defaulted icon is not a declared icon");
+  assert.equal(items[0]!.icon, "circle", "the compact dock keeps its glyph fallback");
+  assert.equal(items[1]!.iconDeclared, true);
+  assert.equal(items[2]!.iconDeclared, false, "an empty authored icon is not declared");
+  const hostile = normalizeMenuBarItems([{
+    id: "deep",
+    name: "Deep",
+    items: Array.from({ length: OVERLAY_LIMITS.maxItems + 50 }, (_, index) => ({ title: `x${index}` })),
+  }]);
+  assert.equal(hostile[0]!.items.length, OVERLAY_LIMITS.maxItems, "each root's flyout keeps the overlay item ledger");
 });
 
 test("MenuBar unselected small labels retain normal-text contrast in both schemes", () => {

@@ -1,0 +1,1283 @@
+{
+  "_schema": "despia-motion-v1",
+  "version": 1,
+  "_note": "The keyframe sampler (runtime-pressure R28): `@keyframes` plus an `animation` shorthand, folded to the values one frame shows. THE REFERENCE IS THE BROWSER - the web renderer never calls this core, because a browser owns its own animations, so every expectation here is what CSS itself does and the two native runtimes are judged against it. Only `opacity` and `transform` animate: they are the compositor properties both native bridges already apply without a layout pass, and every other property is DROPPED and REPORTED rather than half-applied, because an animated `width` that only moves on the web is the exact defect this corpus exists to end. `iterations: -1` is `infinite` (JSON has no spelling for it and each language has its own). Values format the way the scroll-linked plane's do: four decimals, trailing zeros trimmed, negative zero normalised, because three languages compare these strings against this file. The `attributes` group is the last mile: a native renderer has no `transform` attribute, it has `opacity`, `rotation`, uniform `scale` and `offsetX`/`offsetY`, so a sampled frame is DECOMPOSED into those. The decomposition is exact or refused - CSS composes transforms leftmost-outermost and the native ladder is fixed at rotation -> scale -> offset, so a translate must come first (a uniform scale and a rotation about one centre commute, so those two are free), one occurrence per family, and anything else yields no attributes and is reported.",
+  "animatable": [
+    "opacity",
+    "transform"
+  ],
+  "animationKeys": [
+    "animation",
+    "animationName",
+    "animationDuration",
+    "animationDelay",
+    "animationEasing",
+    "animationIterations",
+    "animationDirection",
+    "animationFill",
+    "animationPlayState"
+  ],
+  "easings": {
+    "linear": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "ease": [
+      0.25,
+      0.1,
+      0.25,
+      1
+    ],
+    "ease-in": [
+      0.42,
+      0,
+      1,
+      1
+    ],
+    "ease-out": [
+      0,
+      0,
+      0.58,
+      1
+    ],
+    "ease-in-out": [
+      0.42,
+      0,
+      0.58,
+      1
+    ]
+  },
+  "parse": [
+    {
+      "note": "the shorthand every loop is written with",
+      "shorthand": "spin 2s linear infinite",
+      "expect": {
+        "name": "spin",
+        "duration": 2000,
+        "delay": 0,
+        "easing": "linear",
+        "iterations": -1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "CSS orders loosely: the FIRST time is the duration whatever comes before it",
+      "shorthand": "2s spin",
+      "expect": {
+        "name": "spin",
+        "duration": 2000,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "the ThinkingOrb declaration, verbatim",
+      "shorthand": "pulse 1.2s ease-in-out infinite",
+      "expect": {
+        "name": "pulse",
+        "duration": 1200,
+        "delay": 0,
+        "easing": "ease-in-out",
+        "iterations": -1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "second time is the DELAY, and a fill word is not a name",
+      "shorthand": "slide 400ms 150ms ease-out forwards",
+      "expect": {
+        "name": "slide",
+        "duration": 400,
+        "delay": 150,
+        "easing": "ease-out",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "forwards",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "a bezier carries commas and must not split",
+      "shorthand": "bounce 1s cubic-bezier(0.5, 0, 0.5, 1) 3 alternate",
+      "expect": {
+        "name": "bounce",
+        "duration": 1000,
+        "delay": 0,
+        "easing": "cubic-bezier(0.5, 0, 0.5, 1)",
+        "iterations": 3,
+        "direction": "alternate",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "a step easing, and a bare number that is an iteration count",
+      "shorthand": "step 1s steps(4, end) 2",
+      "expect": {
+        "name": "step",
+        "duration": 1000,
+        "delay": 0,
+        "easing": "steps(4, end)",
+        "iterations": 2,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "the off switch",
+      "shorthand": "none",
+      "expect": {
+        "name": "",
+        "duration": 0,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": true
+      }
+    },
+    {
+      "note": "an empty declaration is off, not a nameless animation",
+      "shorthand": "",
+      "expect": {
+        "name": "",
+        "duration": 0,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": true
+      }
+    },
+    {
+      "note": "no name at all: nothing to run",
+      "shorthand": "2s 1s ease",
+      "expect": {
+        "name": "",
+        "duration": 0,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": true
+      }
+    },
+    {
+      "note": "direction and fill together",
+      "shorthand": "x 1s reverse both",
+      "expect": {
+        "name": "x",
+        "duration": 1000,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "reverse",
+        "fill": "both",
+        "paused": false,
+        "none": false
+      }
+    }
+  ],
+  "normalize": [
+    {
+      "name": "pulse",
+      "rules": [
+        {
+          "selector": "0%, 80%, 100%",
+          "declarations": {
+            "opacity": "0.28",
+            "transform": "scale(0.82)"
+          }
+        },
+        {
+          "selector": "40%",
+          "declarations": {
+            "opacity": "1",
+            "transform": "scale(1)"
+          }
+        }
+      ],
+      "expect": [
+        {
+          "offset": 0,
+          "declarations": {
+            "opacity": "0.28",
+            "transform": "scale(0.82)"
+          }
+        },
+        {
+          "offset": 0.4,
+          "declarations": {
+            "opacity": "1",
+            "transform": "scale(1)"
+          }
+        },
+        {
+          "offset": 0.8,
+          "declarations": {
+            "opacity": "0.28",
+            "transform": "scale(0.82)"
+          }
+        },
+        {
+          "offset": 1,
+          "declarations": {
+            "opacity": "0.28",
+            "transform": "scale(0.82)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "fromTo",
+      "rules": [
+        {
+          "selector": "from",
+          "declarations": {
+            "opacity": "0",
+            "transform": "translateX(0px)"
+          }
+        },
+        {
+          "selector": "to",
+          "declarations": {
+            "opacity": "1",
+            "transform": "translateX(100px)"
+          }
+        }
+      ],
+      "expect": [
+        {
+          "offset": 0,
+          "declarations": {
+            "opacity": "0",
+            "transform": "translateX(0px)"
+          }
+        },
+        {
+          "offset": 1,
+          "declarations": {
+            "opacity": "1",
+            "transform": "translateX(100px)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mixed",
+      "rules": [
+        {
+          "selector": "from",
+          "declarations": {
+            "width": "10px",
+            "opacity": "0"
+          }
+        },
+        {
+          "selector": "to",
+          "declarations": {
+            "width": "20px",
+            "opacity": "1"
+          }
+        }
+      ],
+      "expect": [
+        {
+          "offset": 0,
+          "declarations": {
+            "width": "10px",
+            "opacity": "0"
+          }
+        },
+        {
+          "offset": 1,
+          "declarations": {
+            "width": "20px",
+            "opacity": "1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "shapeChange",
+      "rules": [
+        {
+          "selector": "from",
+          "declarations": {
+            "transform": "scale(1)"
+          }
+        },
+        {
+          "selector": "to",
+          "declarations": {
+            "transform": "rotate(90deg) scale(2)"
+          }
+        }
+      ],
+      "expect": [
+        {
+          "offset": 0,
+          "declarations": {
+            "transform": "scale(1)"
+          }
+        },
+        {
+          "offset": 1,
+          "declarations": {
+            "transform": "rotate(90deg) scale(2)"
+          }
+        }
+      ]
+    }
+  ],
+  "sample": [
+    {
+      "note": "the loop restarts: t and t+period agree exactly",
+      "timeline": "pulse",
+      "shorthand": "pulse 1.2s ease-in-out infinite",
+      "elapsed": 0,
+      "expect": {
+        "values": {
+          "opacity": "0.28",
+          "transform": "scale(0.82)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "the loop restarts: t and t+period agree exactly",
+      "timeline": "pulse",
+      "shorthand": "pulse 1.2s ease-in-out infinite",
+      "elapsed": 300,
+      "expect": {
+        "values": {
+          "opacity": "0.5125",
+          "transform": "scale(0.8781)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "the loop restarts: t and t+period agree exactly",
+      "timeline": "pulse",
+      "shorthand": "pulse 1.2s ease-in-out infinite",
+      "elapsed": 600,
+      "expect": {
+        "values": {
+          "opacity": "0.82",
+          "transform": "scale(0.955)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "the loop restarts: t and t+period agree exactly",
+      "timeline": "pulse",
+      "shorthand": "pulse 1.2s ease-in-out infinite",
+      "elapsed": 1200,
+      "expect": {
+        "values": {
+          "opacity": "0.28",
+          "transform": "scale(0.82)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "the loop restarts: t and t+period agree exactly",
+      "timeline": "pulse",
+      "shorthand": "pulse 1.2s ease-in-out infinite",
+      "elapsed": 1500,
+      "expect": {
+        "values": {
+          "opacity": "0.5125",
+          "transform": "scale(0.8781)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "linear from/to interpolates both properties",
+      "timeline": "fromTo",
+      "shorthand": "x 1000ms linear",
+      "elapsed": 0,
+      "expect": {
+        "values": {
+          "opacity": "0",
+          "transform": "translateX(0px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "linear from/to interpolates both properties",
+      "timeline": "fromTo",
+      "shorthand": "x 1000ms linear",
+      "elapsed": 250,
+      "expect": {
+        "values": {
+          "opacity": "0.25",
+          "transform": "translateX(25px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "linear from/to interpolates both properties",
+      "timeline": "fromTo",
+      "shorthand": "x 1000ms linear",
+      "elapsed": 500,
+      "expect": {
+        "values": {
+          "opacity": "0.5",
+          "transform": "translateX(50px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "linear from/to interpolates both properties",
+      "timeline": "fromTo",
+      "shorthand": "x 1000ms linear",
+      "elapsed": 1000,
+      "expect": {
+        "values": {},
+        "dropped": [],
+        "active": false
+      }
+    },
+    {
+      "note": "a delay holds, and without a fill word nothing shows before it",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 500ms",
+      "elapsed": 0,
+      "expect": {
+        "values": {},
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "a delay holds, and without a fill word nothing shows before it",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 500ms",
+      "elapsed": 400,
+      "expect": {
+        "values": {},
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "a delay holds, and without a fill word nothing shows before it",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 500ms",
+      "elapsed": 500,
+      "expect": {
+        "values": {
+          "opacity": "0",
+          "transform": "translateX(0px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "a delay holds, and without a fill word nothing shows before it",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 500ms",
+      "elapsed": 900,
+      "expect": {
+        "values": {
+          "opacity": "0.4",
+          "transform": "translateX(40px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "backwards fills the start during the delay",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 500ms backwards",
+      "elapsed": 0,
+      "expect": {
+        "values": {
+          "opacity": "0",
+          "transform": "translateX(0px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "backwards fills the start during the delay",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 500ms backwards",
+      "elapsed": 400,
+      "expect": {
+        "values": {
+          "opacity": "0",
+          "transform": "translateX(0px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "forwards holds the last stop after the end",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear forwards",
+      "elapsed": 1000,
+      "expect": {
+        "values": {
+          "opacity": "1",
+          "transform": "translateX(100px)"
+        },
+        "dropped": [],
+        "active": false
+      }
+    },
+    {
+      "note": "forwards holds the last stop after the end",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear forwards",
+      "elapsed": 5000,
+      "expect": {
+        "values": {
+          "opacity": "1",
+          "transform": "translateX(100px)"
+        },
+        "dropped": [],
+        "active": false
+      }
+    },
+    {
+      "note": "without forwards the animation stops showing anything",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear",
+      "elapsed": 1000,
+      "expect": {
+        "values": {},
+        "dropped": [],
+        "active": false
+      }
+    },
+    {
+      "note": "without forwards the animation stops showing anything",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear",
+      "elapsed": 5000,
+      "expect": {
+        "values": {},
+        "dropped": [],
+        "active": false
+      }
+    },
+    {
+      "note": "alternate reverses on odd iterations",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 0s 4 alternate",
+      "elapsed": 250,
+      "expect": {
+        "values": {
+          "opacity": "0.25",
+          "transform": "translateX(25px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "alternate reverses on odd iterations",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 0s 4 alternate",
+      "elapsed": 1250,
+      "expect": {
+        "values": {
+          "opacity": "0.75",
+          "transform": "translateX(75px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "alternate reverses on odd iterations",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 0s 4 alternate",
+      "elapsed": 2250,
+      "expect": {
+        "values": {
+          "opacity": "0.25",
+          "transform": "translateX(25px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "reverse runs the timeline backwards",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 0s 1 reverse",
+      "elapsed": 0,
+      "expect": {
+        "values": {
+          "opacity": "1",
+          "transform": "translateX(100px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "reverse runs the timeline backwards",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 0s 1 reverse",
+      "elapsed": 250,
+      "expect": {
+        "values": {
+          "opacity": "0.75",
+          "transform": "translateX(75px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "reverse runs the timeline backwards",
+      "timeline": "fromTo",
+      "shorthand": "x 1s linear 0s 1 reverse",
+      "elapsed": 750,
+      "expect": {
+        "values": {
+          "opacity": "0.25",
+          "transform": "translateX(25px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "a non-animatable property is DROPPED and reported, never half-applied",
+      "timeline": "mixed",
+      "shorthand": "x 1s linear",
+      "elapsed": 500,
+      "expect": {
+        "values": {
+          "opacity": "0.5"
+        },
+        "dropped": [
+          "width"
+        ],
+        "active": true
+      }
+    },
+    {
+      "note": "a transform whose function list changes snaps at the midpoint rather than blending to a shape nobody wrote",
+      "timeline": "shapeChange",
+      "shorthand": "x 1s linear",
+      "elapsed": 400,
+      "expect": {
+        "values": {
+          "transform": "scale(1)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "a transform whose function list changes snaps at the midpoint rather than blending to a shape nobody wrote",
+      "timeline": "shapeChange",
+      "shorthand": "x 1s linear",
+      "elapsed": 600,
+      "expect": {
+        "values": {
+          "transform": "rotate(90deg) scale(2)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "zero duration shows the last stop and is not active",
+      "timeline": "fromTo",
+      "shorthand": "x 0s linear",
+      "elapsed": 0,
+      "expect": {
+        "values": {},
+        "dropped": [],
+        "active": false
+      }
+    },
+    {
+      "note": "zero duration shows the last stop and is not active",
+      "timeline": "fromTo",
+      "shorthand": "x 0s linear",
+      "elapsed": 100,
+      "expect": {
+        "values": {},
+        "dropped": [],
+        "active": false
+      }
+    },
+    {
+      "note": "steps() quantises, and a trailing easing word does not silently win",
+      "timeline": "fromTo",
+      "shorthand": "x 1s steps(4, end)",
+      "elapsed": 0,
+      "expect": {
+        "values": {
+          "opacity": "0",
+          "transform": "translateX(0px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "steps() quantises, and a trailing easing word does not silently win",
+      "timeline": "fromTo",
+      "shorthand": "x 1s steps(4, end)",
+      "elapsed": 300,
+      "expect": {
+        "values": {
+          "opacity": "0.25",
+          "transform": "translateX(25px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "steps() quantises, and a trailing easing word does not silently win",
+      "timeline": "fromTo",
+      "shorthand": "x 1s steps(4, end)",
+      "elapsed": 600,
+      "expect": {
+        "values": {
+          "opacity": "0.5",
+          "transform": "translateX(50px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    },
+    {
+      "note": "steps() quantises, and a trailing easing word does not silently win",
+      "timeline": "fromTo",
+      "shorthand": "x 1s steps(4, end)",
+      "elapsed": 900,
+      "expect": {
+        "values": {
+          "opacity": "0.75",
+          "transform": "translateX(75px)"
+        },
+        "dropped": [],
+        "active": true
+      }
+    }
+  ],
+  "spec": [
+    {
+      "note": "the shorthand alone",
+      "attrs": {
+        "animation": "spin 2s linear infinite"
+      },
+      "expect": {
+        "name": "spin",
+        "duration": 2000,
+        "delay": 0,
+        "easing": "linear",
+        "iterations": -1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "longhands ALONE are a complete declaration: a name turns the off spec on",
+      "attrs": {
+        "animationName": "spin",
+        "animationDuration": "2s"
+      },
+      "expect": {
+        "name": "spin",
+        "duration": 2000,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "a longhand overrides the shorthand it follows",
+      "attrs": {
+        "animation": "spin 2s",
+        "animationDuration": "600ms"
+      },
+      "expect": {
+        "name": "spin",
+        "duration": 600,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "infinite arrives as a longhand too",
+      "attrs": {
+        "animation": "spin 2s linear",
+        "animationIterations": "infinite"
+      },
+      "expect": {
+        "name": "spin",
+        "duration": 2000,
+        "delay": 0,
+        "easing": "linear",
+        "iterations": -1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "a fractional iteration count is legal CSS",
+      "attrs": {
+        "animationName": "x",
+        "animationDuration": "1s",
+        "animationIterations": "3.5"
+      },
+      "expect": {
+        "name": "x",
+        "duration": 1000,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 3.5,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "direction and fill longhands",
+      "attrs": {
+        "animationName": "x",
+        "animationDuration": "1s",
+        "animationDirection": "alternate",
+        "animationFill": "both"
+      },
+      "expect": {
+        "name": "x",
+        "duration": 1000,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "alternate",
+        "fill": "both",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "a bezier easing longhand keeps its commas",
+      "attrs": {
+        "animationName": "x",
+        "animationDuration": "1s",
+        "animationEasing": "cubic-bezier(0.5, 0, 0.5, 1)"
+      },
+      "expect": {
+        "name": "x",
+        "duration": 1000,
+        "delay": 0,
+        "easing": "cubic-bezier(0.5, 0, 0.5, 1)",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "play-state pauses without turning the animation off",
+      "attrs": {
+        "animation": "spin 2s linear infinite",
+        "animationPlayState": "paused"
+      },
+      "expect": {
+        "name": "spin",
+        "duration": 2000,
+        "delay": 0,
+        "easing": "linear",
+        "iterations": -1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": true,
+        "none": false
+      }
+    },
+    {
+      "note": "and the longhand can un-pause the shorthand",
+      "attrs": {
+        "animation": "spin 2s paused",
+        "animationPlayState": "running"
+      },
+      "expect": {
+        "name": "spin",
+        "duration": 2000,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    },
+    {
+      "note": "`none` as a name is the off switch, not an animation called none",
+      "attrs": {
+        "animationName": "none",
+        "animationDuration": "2s"
+      },
+      "expect": {
+        "name": "",
+        "duration": 2000,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": true
+      }
+    },
+    {
+      "note": "duration without a name runs nothing",
+      "attrs": {
+        "animationDuration": "2s",
+        "animationIterations": "infinite"
+      },
+      "expect": {
+        "name": "",
+        "duration": 2000,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": -1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": true
+      }
+    },
+    {
+      "note": "no animation attributes at all",
+      "attrs": {},
+      "expect": {
+        "name": "",
+        "duration": 0,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": true
+      }
+    },
+    {
+      "note": "an unknown enum word is ignored, never adopted",
+      "attrs": {
+        "animationName": "x",
+        "animationDuration": "1s",
+        "animationDirection": "sideways",
+        "animationFill": "sometimes"
+      },
+      "expect": {
+        "name": "x",
+        "duration": 1000,
+        "delay": 0,
+        "easing": "ease",
+        "iterations": 1,
+        "direction": "normal",
+        "fill": "none",
+        "paused": false,
+        "none": false
+      }
+    }
+  ],
+  "attributes": [
+    {
+      "note": "an opacity rides straight across",
+      "values": {
+        "opacity": "0.4"
+      },
+      "expect": {
+        "attributes": {
+          "opacity": "0.4"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "the uniform scale the loop idiom is written with",
+      "values": {
+        "transform": "scale(0.82)"
+      },
+      "expect": {
+        "attributes": {
+          "scale": "0.82"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "both halves of a pulse stop",
+      "values": {
+        "opacity": "1",
+        "transform": "scale(1)"
+      },
+      "expect": {
+        "attributes": {
+          "opacity": "1",
+          "scale": "1"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "the marquee: a translation becomes offsetX AND offsetY",
+      "values": {
+        "transform": "translateX(-40px)"
+      },
+      "expect": {
+        "attributes": {
+          "offsetX": "-40",
+          "offsetY": "0"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "a two-argument translate fills both axes",
+      "values": {
+        "transform": "translate(12px, -8px)"
+      },
+      "expect": {
+        "attributes": {
+          "offsetX": "12",
+          "offsetY": "-8"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "a unitless zero is a legal length in CSS",
+      "values": {
+        "transform": "translateY(0)"
+      },
+      "expect": {
+        "attributes": {
+          "offsetX": "0",
+          "offsetY": "0"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "degrees pass through",
+      "values": {
+        "transform": "rotate(90deg)"
+      },
+      "expect": {
+        "attributes": {
+          "rotation": "90"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "a turn is 360 degrees",
+      "values": {
+        "transform": "rotate(0.25turn)"
+      },
+      "expect": {
+        "attributes": {
+          "rotation": "90"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "radians convert, at the corpus format",
+      "values": {
+        "transform": "rotate(1rad)"
+      },
+      "expect": {
+        "attributes": {
+          "rotation": "57.2958"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "the canonical order decomposes whole",
+      "values": {
+        "transform": "translateX(10px) scale(2) rotate(45deg)"
+      },
+      "expect": {
+        "attributes": {
+          "offsetX": "10",
+          "offsetY": "0",
+          "scale": "2",
+          "rotation": "45"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "a uniform scale and a rotation about one centre commute, so their order is free",
+      "values": {
+        "transform": "rotate(45deg) scale(2)"
+      },
+      "expect": {
+        "attributes": {
+          "scale": "2",
+          "rotation": "45"
+        },
+        "unsupported": []
+      }
+    },
+    {
+      "note": "a translate AFTER a shape is a different matrix than the ladder builds: refused, not reordered",
+      "values": {
+        "transform": "scale(2) translateX(10px)"
+      },
+      "expect": {
+        "attributes": {},
+        "unsupported": [
+          "translateX"
+        ]
+      }
+    },
+    {
+      "note": "a non-uniform scale has no native attribute",
+      "values": {
+        "transform": "scale(2, 3)"
+      },
+      "expect": {
+        "attributes": {},
+        "unsupported": [
+          "scale"
+        ]
+      }
+    },
+    {
+      "note": "skew has no native attribute",
+      "values": {
+        "transform": "skewX(10deg)"
+      },
+      "expect": {
+        "attributes": {},
+        "unsupported": [
+          "skewX"
+        ]
+      }
+    },
+    {
+      "note": "a raw matrix is not decomposed",
+      "values": {
+        "transform": "matrix(1, 0, 0, 1, 10, 10)"
+      },
+      "expect": {
+        "attributes": {},
+        "unsupported": [
+          "matrix"
+        ]
+      }
+    },
+    {
+      "note": "a percentage translation needs a box this fold does not have",
+      "values": {
+        "transform": "translateX(50%)"
+      },
+      "expect": {
+        "attributes": {},
+        "unsupported": [
+          "translateX"
+        ]
+      }
+    },
+    {
+      "note": "one occurrence per family, so a repeat is refused rather than summed",
+      "values": {
+        "transform": "translateX(4px) translateX(6px)"
+      },
+      "expect": {
+        "attributes": {},
+        "unsupported": [
+          "translateX"
+        ]
+      }
+    },
+    {
+      "note": "`none` is a legal transform and yields no attributes",
+      "values": {
+        "transform": "none"
+      },
+      "expect": {
+        "attributes": {},
+        "unsupported": []
+      }
+    },
+    {
+      "note": "an empty frame is an empty attribute set",
+      "values": {},
+      "expect": {
+        "attributes": {},
+        "unsupported": []
+      }
+    }
+  ]
+}

@@ -144,9 +144,10 @@ just egress:
   `broadcast` additionally fans out to EVERY mounted sink (surfaces filter
   client-side, like `despia.on`). Calls with no `surfaceID` (the web, native
   `dsx.module`) are byte-identical to before.
-- **First consumer**: the Godot module mounts `"godot"` and encodes egress onto the
-  engine's host-bridge wire (`ClosedSource/DSX/Modules/Core/Godot/GodotBridge.swift`);
-  its GDScript SDK (`despia.gd`) is the surface-side pending-map twin of runtime.js.
+- **First consumer**: the embedded Godot runtime, which mounted `"godot"` and encoded
+  egress onto that engine's host-bridge wire. That module was removed on 2026-08-29,
+  superseded by the in-house `Scene3D` engine; the messenger contract it exercised is
+  unchanged, and a surface owner still mounts by name exactly as shown above.
 
 ### ✅ Mechanism B COMPLETE — DSXWebView mounts `"web"`; the kernel's delivery names NO module
 

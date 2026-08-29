@@ -1,10 +1,12 @@
-# Building an iOS app — Codemagic & the `iOS/` assets folder
+# Building an iOS app: Codemagic & the `iOS/` assets folder
 
 > **Scope.** This guide documents Despia's managed build pipeline, part of
 > [Despia Cloud](https://despia.com), the commercial layer. It ships in the open tree for
 > transparency: the contract is public even though running the pipeline is not. Building
 > and shipping web apps, PWAs, backends, and CLI tools needs none of this; see the
-> [quickstart](quickstart.md).
+> [quickstart](quickstart.md). Every `scripts/…` and `release/…` path below is a file in
+> the pipeline's own private tree, named so the contract can be read — not something to
+> run from this drop.
 
 This repo is the **framework** (the native shell + the DSX engine + every module).
 Your **app** is a small overlay folder — `iOS/` at the root of your assets zip —
@@ -27,7 +29,7 @@ trigger ─▶ Codemagic checks out this repo (build branch)
         ─▶ verifies opt-in independent SHA-256 ($CLIENT_ASSETS_SHA256, when supplied)
         ─▶ validates every ZIP path/type/size, then privately stages only consumed assets
         ─▶ applies the staged iOS/ inputs (legacy wrapped ios_assets/ is auto-detected)
-        ─▶ ruby ClosedSource/scripts/prepare_modules.rb   (modules → pods/SPM/plist/targets + codegen)
+        ─▶ ruby scripts/prepare_modules.rb   (modules → pods/SPM/plist/targets + codegen)
         ─▶ pod install → xcodebuild → signed .ipa
         ─▶ verifies the exported IPA + writes private local status/attestation artifacts
         ─▶ stops before store publishing; an isolated release controller performs handoff
@@ -202,7 +204,7 @@ of two ways:
    build trigger and pass a `SIGNING_TOKEN` variable alongside it.
 
 The fetch path remains disabled until the trusted release branch pins the exact
-broker and signed-object hosts in `ClosedSource/release/signing-network-hosts.json`.
+broker and signed-object hosts in the pipeline's `release/signing-network-hosts.json`.
 Wildcards and trigger-provided host allowlists are not accepted, so an API variable
 cannot redirect the genuine Bearer token to an attacker-controlled HTTPS endpoint.
 
@@ -411,7 +413,7 @@ keyed by module `id`, `name`, or `scheme`. It fans into each module's own `confi
 > hand-authored file can still use `name`/`scheme` (resolved as a fallback). The full machine-readable
 > schema for every module — `id`, `name`, `scheme`, `icon`, `version`, and each config key's form
 > metadata (`friendly_name`/`type`/`value`/…) — is generated into **`PackageCatalog.json`**
-> (`ClosedSource/scripts/generate_package_catalog.rb`): the source a config UI renders bulk-config forms from.
+> (`scripts/generate_package_catalog.rb`): the source a config UI renders bulk-config forms from.
 
 `App.url_schemes` is your deep-link scheme **list** (e.g. a `myapp` URL scheme): every entry
 registers in the generated Info.plist, and the **first** is the primary scheme

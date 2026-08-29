@@ -6,15 +6,26 @@
 //  nodes/set/camera/pick/contacts/stats all answer from the corpus-pinned kernel folds.
 //
 
-import { test } from "node:test";
+import { test as nodeTest } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import type { XmlNode } from "@despia/compiler/xml";
 import { sceneSurfaceSeam, sceneBusResolve, sceneBusEmit } from "@despia/kernel";
 import { scene } from "../src/scene.ts";
 import type { ElementApi } from "../src/elements.ts";
 import type { MountCtx } from "../src/mount.ts";
-import sceneFacet from "../../../../../ClosedSource/DSX/Modules/Core/Scene/web/index.js";
+
+// The facet under test ships in ClosedSource; an open drop skips LOUDLY, per test,
+// with the reason - never silently (the component-fold-conformance rule).
+const hasClosedSource = existsSync(fileURLToPath(new URL("../../../../../ClosedSource", import.meta.url)));
+const test: typeof nodeTest = hasClosedSource
+  ? nodeTest
+  : (((name: string) => nodeTest(name, (t) => t.skip("open drop without ClosedSource - Core/Scene's web facet ships closed"))) as typeof nodeTest);
+const sceneFacet = hasClosedSource
+  ? (await import("../../../../../ClosedSource/DSX/Modules/Core/Scene/web/index.js")).default
+  : (undefined as never);
 
 // ── the scene.test.ts DOM stand-in (each node --test file owns its process) ─────────
 
@@ -52,6 +63,7 @@ function xml(tag: string, attrs: { [k: string]: string } = {}, children: XmlNode
 function stubApi(node: XmlNode): ElementApi {
   return {
     bindText(expr, apply) { if (expr !== undefined) apply(expr.includes("{{") ? "" : expr); },
+    bindDisplay(expr, apply) { if (expr !== undefined) apply(expr.includes("{{") ? "" : expr); },
     bindValue() {},
     writeBack() {},
     handler() {},

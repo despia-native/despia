@@ -10,21 +10,22 @@ mechanisms**, and the bus to expose the capability.
 This page is the map. The mechanism docs it points at are authoritative.
 
 > **Read "Honest status" below before quoting this page.** The framework capabilities here are
-> real, but exactly one AI module ships today (Studio's DSP/ONNX work). LocalAI — the general
-> intelligence module — is a **prototype excluded from every release profile**. "On-device"
-> is also not the same as "nothing leaves the device": a third-party inference SDK can carry
-> its own telemetry, and a module that forwards page-supplied options to it verbatim cannot
-> promise otherwise. Say what is enforced, not what sounds good.
+> real, but only one AI module is in a shipping profile today (Studio's DSP/ONNX work). LocalAI —
+> the general intelligence module — is in `qa-expanded` and is still out of `production-minimal`.
+> "On-device" is also not the same as "nothing leaves the device": a third-party inference SDK can
+> carry its own telemetry, and a module that forwards page-supplied options to it verbatim cannot
+> promise otherwise. That risk is why LocalAI now runs on an engine this repository owns and can
+> read. Say what is enforced, not what sounds good.
 
 ## What "AI-ready" means here
 
 | Pillar | What the framework provides | Where |
 |---|---|---|
-| **Inference runtimes** | CoreML, ONNX Runtime, llama.cpp (Cactus), and native DSP (Accelerate/vDSP) — all on-device, all reachable from a module. | this doc |
+| **Inference runtimes** | CoreML, ONNX Runtime, the Despia AI engine (llama.cpp / whisper.cpp under an owned C ABI), and native DSP (Accelerate/vDSP) — all on-device, all reachable from a module. | this doc |
 | **Model delivery** | Two first-class ways to get weights onto the device: **build-time bundling** (pinned, verified) and **runtime download** (deferred, user-opt-in). | [`module-weights.md`](../../Skills/module-weights.md) |
 | **Native compute** | C/C++/Rust inside a module via the `languages` primitive — for a custom kernel, a DSP core, or a vendored inference lib. | [`native-languages.md`](../../Skills/native-languages.md) |
 | **Exposure** | The model's output is published with the normal bus shapes (`dsx.resolve`, `dsx.module.<scheme>`, `dsx.context`, `dsx.fire`) — equal to every other module. | [`cross-module-calls.md`](../../Skills/cross-module-calls.md) |
-| **Privacy / cost** | Inference runs locally → works offline and has **zero per-call cost**. "No user data leaves the device" is a property of the *module you write*, not a framework guarantee: a vendor SDK may telemeter (gate it off — LocalAI's `telemetry` config is the worked example) and any options you forward from a page are yours to filter. | — |
+| **Privacy / cost** | Inference runs locally → works offline and has **zero per-call cost**. "No user data leaves the device" is a property of the *module you write*, not a framework guarantee: a vendor SDK may telemeter, and any options you forward from a page are yours to filter. LocalAI is the worked example of removing the question instead of gating it — the engine is in-repo source with no telemetry symbol in its ABI. | — |
 
 ## The inference runtimes a module can use
 
@@ -35,11 +36,12 @@ can use several:
   model converts cleanly to `.mlpackage`/`.mlmodelc`.
 - **ONNX Runtime** (`onnxruntime-objc` pod) — the portable path for PyTorch/ONNX graphs that don't
   convert to CoreML. Runs on CPU and (with the CoreML execution provider) the Neural Engine.
-- **llama.cpp via Cactus** (`Cactus` xcframework) — on-device LLMs, Whisper ASR, embeddings/RAG.
-  GGUF models. This is what the **LocalAI** module is built on — and LocalAI is a prototype that
-  ships in no profile, so treat this row as "the integration exists in-tree", not "this runs".
-  Cactus is also license-restricted (no DSX redistribution sublicense) and carries its own
-  telemetry, which LocalAI now keeps **off by default** behind a config opt-in.
+- **The Despia AI engine** (`OpenSource/AI`, consumed as an SPM path dependency on Apple and
+  built into one `libdespia_ai.so` on Android) — on-device LLMs, Whisper ASR, embeddings and a
+  phoneme frontend. GGUF and whisper-ggml models. This is what the **LocalAI** module is built
+  on. It is Apache-2.0 over MIT vendored engines (ggml, llama.cpp, whisper.cpp, pinned in
+  `OpenSource/AI/vendor/VERSIONS`), so there is no redistribution restriction and no vendor
+  telemetry to gate: the C ABI has eleven exported symbols and none of them opens a socket.
 - **Native DSP** — Accelerate/vDSP for classical signal processing (FFT, filtering, pitch
   detection). Not every "AI" feature needs a neural net; **Studio's autotune and de-noise are
   exact DSP**, no model required.
@@ -79,12 +81,14 @@ so the app stays small until a user opts into the feature.
 module writes*, and it inherits **none** of the `weights` guarantees: no pinned hash, no verify
 step, no build-time abort. Whatever integrity you want, you implement.
 
-*Only example:* **LocalAI** (a prototype, see "Honest status") downloads GGUF/Whisper models via
-`HuggingFaceDownloader.swift` / `.kt`. It is also the cautionary tale: the blob is handed to the
-engine **unverified**, from a **mutable** revision (`main`, or a re-pointable `v<sdk>` tag) rather
-than a commit SHA. Both downloaders now log a warning on every fetch, and the gap is documented at
-the call site — but it is **not fixed**. If you build a runtime-download path, pin a digest per
-model and verify before use.
+*Worked example:* **LocalAI** downloads GGUF/Whisper models via `HuggingFaceDownloader.swift` /
+`.kt`, and it is worth reading because it had to build every guarantee `weights` gives for free.
+Four locks apply to every model, catalog row or bring-your-own: an https origin allowlist checked
+before a byte moves, digest discipline (a declared `sha256` verified on every fetch, or pin-on-
+first-download for a model that declares none), a GGUF pre-flight parse before the loader maps the
+file, and a storage floor. Each shipped row is pinned to an **immutable commit**, never a branch
+or a tag, and a failed check DELETES the file rather than leaving it for the loader. If you build
+a runtime-download path, copy that shape: pin a digest per model and verify before use.
 
 > Rule of thumb: **ship-with-app and always-on → `weights` (verified); large/optional/user-chosen →
 > runtime download (verification is on you).**
@@ -105,34 +109,39 @@ as if they were.
   This is the precedent to copy: a permissive model, delivered by the verified mechanism, with the
   exotic ops lifted into native code.
 
-### Prototype — excluded from every profile, on both platforms
+### In QA, not yet in production
 
-- **LocalAI** (`scheme: intelligence`) — LLM chat completion, Whisper ASR, embeddings and RAG via
-  the Cactus (llama.cpp) engine, models downloaded on demand. The code is complete and
-  cross-platform (Swift + Kotlin twins), and it **runs nowhere**:
-  - it is absent from the `production-minimal` allowlist and explicitly excluded from
-    `qa-expanded` (`ClosedSource/release/profiles/`), so **no release build contains it**;
-  - its Cactus dependency is license-restricted — no commercial use, no DSX redistribution
-    sublicense — and `check_dependency_licenses.rb --public-release` fails the public build if it
-    is enabled;
-  - no native artifact is committed for either platform, so nothing links even if enabled;
-  - its runtime model download is **unverified from a mutable revision** (§2 above);
-  - neither native path has runtime proof (no artifact/inference tests in any lane).
+- **LocalAI** (`scheme: intelligence`) — LLM chat completion, Whisper ASR, embeddings and RAG on
+  the **Despia AI** engine, models downloaded on demand. The code is complete and cross-platform
+  (Swift + Kotlin twins). What changed, and what has not:
+  - the licence blocker is **gone**. The engine is `OpenSource/AI` (Apache-2.0 over MIT vendored
+    engines), reached by an SPM `path` product on Apple and an in-repo `path:` build locator on
+    Android. The manifest declares no CocoaPod and no restricted dependency at all, so
+    `check_dependency_licenses.rb --public-release` has nothing left to fail on;
+  - it is **in `qa-expanded`** (an exclude-mode profile that no longer names it) and still **out of
+    `production-minimal`** (an allowlist that does not list it). The reasons that keep it out are
+    stated in `production-minimal.json` and neither is licensing: it is opt-in megabytes, and its
+    Kotlin facet cannot resolve `com.despia.ai` in `RuntimeAndroid` today;
+  - **no native artifact is committed**, on purpose. The Android `.so` is BUILT from the in-repo
+    package by the manifest's `build` entry (a machine with no NDK soft-skips it and every
+    inference call answers code 20), and the Apple lane compiles the package from source through
+    SPM;
+  - the **download-integrity gap is closed**: immutable commits, declared digests, four locks
+    (§2 above);
+  - runtime proof is still partial. Every catalog row was loaded through `despia_ai_load_model`
+    before it was written down, but no CI lane runs inference on either native path — the
+    real-weights drivers in `OpenSource/AI/engine/test/` are hand-run.
 
-  Enabling it is a private-integration project — own rights, own artifacts, own linkage, own
-  runtime tests, plus closing the download-integrity gap. An allowlist entry is not readiness.
-
-  The program to end this state — **Despia AI**: replace Cactus with an owned, open engine
-  (llama.cpp/whisper.cpp under a Despia ABI), make the privacy and licensing claims enforced, and
-  go agentic-first (tools, MCP both directions, voice, vision, the Despia Local data plane) —
-  is [`proposals/local-ai-engine.md`](proposals/local-ai-engine.md).
+  The engine program itself is [`proposals/local-ai-engine.md`](proposals/local-ai-engine.md):
+  own the engine, make the privacy and licensing claims enforced, and go agentic-first (tools, MCP
+  both directions, voice, the Despia Local data plane).
 
 Between them the framework has exercised audio (separation/DSP, shipping) and text/speech (LLM/ASR,
-prototype) — do not read the second as delivered.
+in QA) — do not read the second as production-delivered.
 
 ## Adding a new AI feature (the recipe)
 
-1. **Pick a runtime** for your model (CoreML / ONNX Runtime / Cactus / DSP).
+1. **Pick a runtime** for your model (CoreML / ONNX Runtime / Despia AI / DSP).
 2. **Deliver the model** — `weights` (bundled) or a runtime download.
 3. **Author the module** ([`writing-a-module.md`](../../Skills/writing-a-module.md)) — load the
    model, run inference off the main thread, and **resolve** the result. If the model is absent,
@@ -141,20 +150,23 @@ prototype) — do not read the second as delivered.
    `dsx.context`, events via `dsx.fire`. Surfaces consume it like any capability.
 5. **Need native code?** Declare `languages` and drop in C/C++/Rust ([`native-languages.md`](../../Skills/native-languages.md)).
 6. **Earn the privacy claim.** If you intend to say "nothing leaves the device", make it true:
-   gate any vendor telemetry OFF by default behind a config key (LocalAI's `telemetry` is the
-   pattern), don't forward page-supplied option dicts to an engine unfiltered, and verify anything
-   you download. Otherwise say what is actually enforced — an overclaiming README is a defect.
+   prefer an engine whose sources you can read over a binary you cannot, gate any vendor telemetry
+   OFF by default behind a config key, don't forward page-supplied option dicts to an engine
+   unfiltered, and verify anything you download. Otherwise say what is actually enforced — an
+   overclaiming README is a defect. LocalAI's README is the model: it names what is guaranteed and
+   what is not, in that order.
 
 The model is the only new thing; the *plumbing* — delivery, gating, exposure, cross-platform payloads —
 is the framework's, identical to a non-AI module. That is what makes Despia AI-ready.
 
 ## See also
 - [`proposals/local-ai-engine.md`](proposals/local-ai-engine.md) — the **Despia AI** program
-  (replace Cactus with an open, agentic Despia stack: streaming, tools, MCP client + local MCP
-  servers, voice, vision, Despia Local).
+  (the owned, agentic Despia stack: streaming, tools, MCP client + local MCP servers, voice,
+  vision, Despia Local).
 - [`module-weights.md`](../../Skills/module-weights.md) — bundling large models, securely.
 - [`native-languages.md`](../../Skills/native-languages.md) — C/C++/Rust in a module.
 - [`dsx-native-bus.md`](dsx-native-bus.md) — modules provide, surfaces consume.
 - `ClosedSource/DSX/Modules/Core/Studio/AI/README.md` — a worked model conversion (PyTorch → ONNX).
 - `ClosedSource/DSX/Modules/Core/LocalAI/README.md` — the on-device LLM/ASR/RAG module
-  (**prototype**; its privacy section states precisely what is and is not guaranteed).
+  (in `qa-expanded`, not in `production-minimal`; its privacy section states precisely what is and
+  is not guaranteed).

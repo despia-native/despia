@@ -4,22 +4,22 @@
   "aliases": [
 
   ],
-  "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/DSXWebView/swift/DSXWebView.swift",
+  "source": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/DSXWebView/swift/DSXWebView.swift",
   "attributes": {
     "path": {
       "type": "string",
       "default": "/",
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/DSXWebView/swift/DSXWebView.swift:42"
+      "_src": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/DSXWebView/swift/DSXWebView.swift:42"
     },
     "origin": {
       "type": "string",
       "default": null,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Views/DSXWebView/swift/DSXWebView.swift:43"
+      "_src": "ClosedSource/DSX/Modules/Core/Dom/Components/Views/DSXWebView/swift/DSXWebView.swift:43"
     }
   },
   "geometry": {
   },
   "colors": {
   },
-  "notes": "The composed app web surface (bare construction + BridgeKit). Android twin: Mandatory/Dom/android/DSXWebViewComponent.kt registers the same tag."
+  "notes": "The composed app web surface (bare construction + BridgeKit). Android twin: Core/Dom/android/DSXWebViewComponent.kt registers the same tag."
 }

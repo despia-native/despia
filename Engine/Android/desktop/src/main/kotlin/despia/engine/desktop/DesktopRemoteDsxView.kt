@@ -187,18 +187,20 @@ internal data class DesktopRemoteDsxResult(
 /** Canonical tags and aliases are binary-owned. A remote folder may add component
  * names, never replace a renderer primitive or a shipped semantic alias. */
 internal val desktopReservedRemoteComponentTags: Set<String> = setOf(
-    "Accordion", "ChatBubble", "Checkbox", "DSXWebView", "DSXView", "Drawer", "Godot", "GodotView",
+    "Accordion", "ChatBubble", "Checkbox", "DSXWebView", "DSXView", "Drawer",
     "LevelMeter", "MenuBar", "Model3D", "Panorama", "ProgressRing", "RadioGroup", "Scene360",
-    "Scene3D", "Scene3DView", "Skeleton", "StudioPitchEditor", "StudioShow", "StudioTimecode",
+    "Scene3D", "Scene3DView", "Signature", "Skeleton", "StudioPitchEditor", "StudioShow", "StudioTimecode",
     "StudioTimeline", "StudioTrim", "Table", "Waveform", "WebView", "action", "activity", "alert",
-    "attribute", "audio", "button", "calendar", "capsuleProgress", "carousel", "chart", "combobox",
+    "attribute", "audio", "button", "calendar", "canvas", "capsuleProgress", "carousel", "chart",
+    "combobox",
     "component", "confirmDialog", "contextmenu", "date", "datepicker", "divider", "dynamic", "event",
     "expects", "field", "flow", "form", "formula", "functions", "glassButton", "grid", "head", "hstack",
     "image", "input", "label", "let", "lightbox", "list", "lottie", "map", "menu", "node", "otp",
     "pager", "picker", "popover", "pressable", "progress", "qrcode", "rangeslider", "refresh",
-    "refreshable", "row", "scaffold", "script", "scroll", "searchbar", "segmented", "segmentedButton",
-    "sheet", "slider", "slot", "spacer", "spinner", "stack", "stars", "stepper", "style", "svg",
-    "switch", "tabs", "tabview", "text", "textarea", "textfield", "toggle", "toolbar", "transport",
+    "refreshable", "rive", "row", "scaffold", "script", "scroll", "searchbar", "segmented", "segmentedButton",
+    "sheet", "slider", "slot", "spacer", "spinner", "split", "stack", "stars", "stepper", "style",
+    "svg",
+    "switch", "tabs", "tabview", "text", "textarea", "textfield", "toggle", "tool", "toolbar", "transport",
     "var", "variable", "video", "vstack", "watch", "wheelpicker", "zstack",
 ) + desktopRendererOwnedTags
 

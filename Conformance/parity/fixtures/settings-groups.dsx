@@ -1,0 +1,49 @@
+<scroll style="background: groupedBackground">
+<head>
+  <!--
+    Parity fixture: the GROUPED-LIST SETTINGS SCREEN. The starter's Settings.dsx
+    shapes verbatim: large title, uppercased section headers, inset grouped cards on
+    secondaryGroupedBackground, a toggle row, chevron rows with hairline separators,
+    and the tertiary footnote. This is the grouped-list language the fidelity ruling
+    names (full-bleed cells, inset separators, chevron affordance).
+  -->
+  <variable as="dark">return false</variable>
+</head>
+<stack style="gap: 1.5rem; padding: 2rem 1.5rem; max-width: 26rem; align-self: center; width: 100%">
+
+  <text value="Settings" style="font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; padding-top: 2rem"/>
+
+  <stack style="gap: 0.75rem">
+    <text value="APPEARANCE" style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: tertiary"/>
+    <stack style="border-radius: 14px; background: secondaryGroupedBackground; padding: 0.25rem 1rem">
+      <hstack style="align-items: center; gap: 0.75rem; padding: 0.625rem 0">
+        <text value="Dark appearance"/>
+        <spacer/>
+        <toggle bind="dsx.variable.dark"/>
+      </hstack>
+    </stack>
+  </stack>
+
+  <stack style="gap: 0.75rem">
+    <text value="ABOUT" style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: tertiary"/>
+    <stack style="border-radius: 14px; background: secondaryGroupedBackground; padding: 0 1rem">
+      <row>
+        <hstack style="align-items: center; gap: 0.75rem; padding: 0.875rem 0; border-bottom: 1px solid separator">
+          <text value="How this app is built"/>
+          <spacer/>
+          <image icon="chevron.right" style="color: tertiary; width: 1rem; height: 1rem"/>
+        </hstack>
+      </row>
+      <row>
+        <hstack style="align-items: center; gap: 0.75rem; padding: 0.875rem 0">
+          <text value="The landing page"/>
+          <spacer/>
+          <image icon="chevron.right" style="color: tertiary; width: 1rem; height: 1rem"/>
+        </hstack>
+      </row>
+    </stack>
+  </stack>
+
+  <text value="Field Notes 0.1.0. One codebase: native iOS, native Android, and this web app." style="color: tertiary; font-size: 0.8125rem; margin-top: 0.5rem"/>
+</stack>
+</scroll>

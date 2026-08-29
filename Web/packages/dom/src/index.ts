@@ -4,7 +4,7 @@
 //
 
 export {
-  mountNode, instantiate, setCookieWriter, BOUND_COLLECTION_LIMIT,
+  mountNode, instantiate, setCookieWriter, BOUND_COLLECTION_LIMIT, type ScopedEnv,
   type MountCtx, type Instance, type SlotContent,
 } from "./mount.ts";
 export {
@@ -23,6 +23,13 @@ export {
   MARKDOWN_LIMITS, safeMarkdownHref, parseMarkdown, markdownFragment, markdownHtml,
   renderMarkdown, type MarkdownSink,
 } from "./markdown.ts";
+export {
+  MARKDOWN_BLOCK_LIMITS, parseMarkdownBlocks, markdownBlocksFragment, markdownBlocksHtml,
+  type MarkdownBlock, type MarkdownListItem,
+} from "./markdown-blocks.ts";
+export {
+  PROSE_CSS, CODE_TINT_LIMITS, tokenizeCode, type CodeToken, type CodeTokenKind,
+} from "./prose.ts";
 export {
   UNIVERSAL_GLOBAL_ELEMENTS, UNIVERSAL_GLOBAL_TAGS, GLOBAL_ELEMENTS_CSS,
 } from "./globals.ts";
@@ -43,6 +50,10 @@ export {
   STRUCTURAL_CONTROL_ELEMENTS, STRUCTURAL_CONTROL_TAGS, STRUCTURAL_CONTROLS_CSS, STRUCTURAL_CHILD_LIMIT,
   registerStructuralControls, normalizeStructuralGap, normalizeStructuralIndex,
 } from "./structural-controls.ts";
+export {
+  SPLIT_CSS, SPLIT_ROLE_ORDER, SPLIT_TOGGLE_PATH, resolveSplit, resolveSplitRoles, splitSelectionActive,
+  type SplitPlan, type SplitRole, type SplitWidths,
+} from "./split.ts";
 export {
   OVERLAY_CONTROL_ELEMENTS, OVERLAY_CONTROL_TAGS, OVERLAY_CONTROLS_CSS, OVERLAY_LIMITS,
   CONTEXT_MENU_PRESS,
@@ -66,7 +77,7 @@ export {
   MEDIA_PLAYBACK_CSS, MEDIA_SVG_CSS, MEDIA_LIGHTBOX_CSS,
   audio, video, svg, lightbox,
   registerAudioSurface, registerVideoSurface, registerSvgSurface, registerLightboxSurface, registerMediaSurfaces,
-  safeMediaUrl, boundedMediaText, normalizeMediaRate, mediaErrorMessage, sanitizeSvgMarkup, sanitizeSvgSource, svgFromPath,
+  safeMediaUrl, boundedMediaText, normalizeMediaRate, normalizeAudioSessionCategory, mediaErrorMessage, sanitizeSvgMarkup, sanitizeSvgSource, svgBundleKey, svgFromPath,
   normalizeLightboxImages, parseLightboxUrls, normalizeLightboxColor,
   type LightboxImage,
 } from "./media-surfaces.ts";
@@ -84,3 +95,25 @@ export {
   registerInputDeclarations, onInputEdge, inputHostFrame, inputBindings, inputDiagnostics,
   synthesizeInput, resetInputRuntime, canonicalBrowserKey,
 } from "./input.ts";
+// U01 scroll: the DOM adapter for the shared scrolling core.
+export {
+  applyScrollBehaviour, scrollController, ScrollController,
+  type ScrollHooks, type ScrollEnvironment,
+} from "./scroll.ts";
+// U05 image: the DOM adapter for the shared image core.
+export {
+  applyImageAttributes, objectFitValue, objectPositionValue, fetchHints,
+  placeholderStyle, pixelsToBmpDataUrl, type ImageBinding, type ImageHooks,
+} from "./image.ts";
+
+// The SHOT SKIN (platform/09-store-screenshots.md §3): the iOS 26 material vocabulary, for
+// images that DEPICT the native build. Opt-in and never part of ELEMENTS_CSS - a page that
+// does not call shotSkinCss() is byte-identical to one compiled before this existed.
+export {
+  shotSkinCss, SHOT_SKIN_TOKENS_CSS, SHOT_REFRACTION_SVG, type ShotSkinLevel,
+} from "./shot-skin.ts";
+
+// The SRC-ATTRIBUTE ORIGIN GATE (studio-apps.md §8): a scoping host (the AppMount facet)
+// registers a per-app policy; the renderer's src writes consult it. Zero registrations =
+// zero behavior change — see src-gate.ts.
+export { SrcGate, admitSrc } from "./src-gate.ts";
