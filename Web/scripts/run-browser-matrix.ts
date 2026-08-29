@@ -51,6 +51,7 @@ for (const engine of BROWSER_ENGINES) {
   run(engine, ["packages/dom/oracle/sprites-browser.ts"]);
   run(engine, ["packages/dom/oracle/playthrough-browser.ts"]);
   run(engine, ["packages/dom/oracle/structural-bound-browser.ts"]);
+  run(engine, ["packages/dom/oracle/collection-rail-browser.ts"]);
   run(engine, ["packages/dom/oracle/scroll-restoration-browser.ts"]);
   run(engine, ["packages/dom/oracle/editor-element-smoke.ts"]);
 }

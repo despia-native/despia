@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "license": "Apache-2.0",
   "type": "module",
-  "description": "DSX web toolchain - `dsx build` (the @despia-native/compiler + @despia-native/server compile path), `dsx dev` (build · serve · watch · reload), `dsx lint` (the TypeScript twin of lint_dsx.rb for the surface a CLI can see), `dsx doctor` (the command table's own health check, itself authored in DSX).",
+  "description": "DSX web toolchain - `dsx build` (the @despia-native/compiler + @despia-native/server compile path), `dsx dev` (build \u00b7 serve \u00b7 watch \u00b7 reload), `dsx lint` (the TypeScript twin of lint_dsx.rb for the surface a CLI can see), `dsx doctor` (the command table's own health check, itself authored in DSX).",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
@@ -48,7 +48,7 @@
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
-    "build": "npm run clean && tsc -p tsconfig.build.json && npm run copy:document",
+    "build": "npm run clean && tsc -p tsconfig.build.json && npm run copy:document && node -e \"require('node:fs').chmodSync('dist/bin/dsx.js', 0o755)\"",
     "copy:document": "node -e \"const f=require('node:fs');f.mkdirSync('dist/src',{recursive:true});f.copyFileSync('src/dsx.cli.dsx','dist/src/dsx.cli.dsx');f.copyFileSync('src/first-party-index.json','dist/src/first-party-index.json')\"",
     "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\"",
     "test": "node --test test/*.test.ts"

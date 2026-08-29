@@ -812,8 +812,28 @@ const BUTTON_VARIANTS_CSS_H = `  .dsx-button[data-dsx-role="cancel"] { font-weig
 // collection is untouched: its cross axis is height, and a rail that grew to its parent's
 // height would be the same mistake pointing the other way. The comment lives OUT here because
 // a comment inside the template ships in every bundle that carries the sheet.
+//
+// A HORIZONTAL COLLECTION'S ROWS KEEP THEIR SIZE, which is the other half of the same law and
+// the one that had no rule. `ScrollView(.horizontal) { LazyHStack }` and `LazyRow` both lay
+// their rows out at the size the row asks for and let the CONTENT overflow into scroll; web
+// flex does the opposite by default - `flex-shrink: 1` - so the eleventh card in a rail does
+// not scroll into view, it squeezes the other ten. Measured on a 375pt phone: a rail of 150px
+// posters rendered them at 72.25px each, `width: 150px` still sitting in the markup and
+// `getComputedStyle().width` reporting the squeezed number, so the poster's `object-fit: cover`
+// then cropped art nobody had authored. Nothing warns, because nothing is wrong: this is what
+// the row was asked to do. `flex: none` is the whole fix. The selector reaches THROUGH
+// `.dsx-row`, which is `display: contents` and generates no box - the row template's own root
+// is the flex item, which is also why the neighbouring `> .dsx-row { flex: 0 0 auto }` in
+// structural-controls cannot do this job: a flex declaration on a box that does not exist is
+// inert. A row that DOES want to share the axis still says so with `grow="width"` and still
+// wins: that rule lives in the SAME @layer dsx-elements (there is no later layer - the sheet
+// declares exactly dsx-tokens and dsx-elements), and it wins on specificity, matching one
+// attribute selector more than this rule does. collection-rail-browser.ts measures both
+// halves in a real engine, because a sheet can carry a correct-looking rule that reaches
+// nothing and only the engine reports which box actually got the width.
 const COLLECTION_ELEMENTS_CSS = `  .dsx-list { display: flex; flex-direction: column; min-width: 0; }
   .dsx-list[data-dsx-axis="vertical"] { align-self: stretch; }
+  .dsx-list[data-dsx-axis="horizontal"] > .dsx-row > * { flex: none; }
   .dsx-row { display: contents; }
   .dsx-grid { display: grid; gap: var(--dsx-gap); }
   .dsx-pager:not(.dsx-paged) { flex-direction: row; overflow-x: auto; scroll-snap-type: x mandatory; }
@@ -901,6 +921,19 @@ const TYPE_ROLE_RULES = TYPE_ROLE_LIST.map((r) =>
   + ` letter-spacing: var(--dsx-type-${r}-tracking);`
   + ` line-height: var(--dsx-type-${r}-leading); }`).join("\n  ");
 
+// A TAP TARGET RESPONDS TO THE FINGER. on:tap announces as a button to assistive tech,
+// and UIKit highlights the cell under a touch - but this class carried only a cursor, so
+// every card, row and chip built as a tappable stack was inert to the press (measured:
+// zero press feedback across an entire seven-screen app, because every one of its cards
+// is a tappable stack rather than a button element). The dim is the platform cell-highlight's
+// twin: opacity, not transform, so pressed geometry never shifts under the finger, and
+// the fast duration in both directions keeps it punctuation rather than animation.
+// A full-bleed tap surface (a video stage's tap-to-pause) opts out by AUTHORING opacity
+// inline - an element style outranks every sheet layer, the same escape the stretch
+// rules honor.
+// This comment lives OUT here on purpose: a comment inside the template ships in every
+// bundle that carries the sheet, and 832 bytes of it put EmbedCard over the 40960-byte
+// G10 widget law (41364B measured). The rule below is unchanged.
 export const ELEMENTS_CSS = `@layer dsx-elements {
   .dsx-stack { display: flex; flex-direction: column; align-items: start; min-width: 0; min-height: 0; }
   .dsx-hstack { flex-direction: row; align-items: center; }
@@ -1072,7 +1105,8 @@ ${(globalThis as typeof globalThis & { __DSX_OPTIONAL_BUTTON_VARIANTS__?: boolea
     filter: saturate(.5);
     transform: none;
   }
-  .dsx-tappable { cursor: pointer; }
+  .dsx-tappable { cursor: pointer; transition: opacity var(--dsx-dur-fast) var(--dsx-ease); }
+  .dsx-tappable:active { opacity: .8; }
 
 ${(globalThis as typeof globalThis & { __DSX_OPTIONAL_SURFACES__?: boolean })
     .__DSX_OPTIONAL_SURFACES__ !== false ? SURFACE_ELEMENTS_CSS : ""}  .dsx-scroll {

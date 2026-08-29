@@ -49,6 +49,7 @@
     "browser:scroll": "npm run build:demo && node packages/dom/oracle/scroll-restoration-browser.ts",
     "browser:data-controls": "node packages/dom/oracle/data-controls-browser.ts",
     "browser:textarea-growth": "node packages/dom/oracle/textarea-growth-browser.ts",
+    "browser:collection-rail": "node packages/dom/oracle/collection-rail-browser.ts",
     "browser:application-controls": "node packages/dom/oracle/application-controls-browser.ts",
     "browser:media": "node packages/dom/oracle/media-surfaces-browser.ts",
     "browser:input": "npm run build:demo && node packages/dom/oracle/input-browser.ts",
