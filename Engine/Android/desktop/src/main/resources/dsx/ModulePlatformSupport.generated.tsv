@@ -238,6 +238,7 @@ watch	ios,android
 watch.face	ios,android
 watch.health	ios,android
 watchhealth	ios,android
+webextension	ios
 websocket	ios,android,web,macos
 widget	ios,android
 writehealthkit	ios,android

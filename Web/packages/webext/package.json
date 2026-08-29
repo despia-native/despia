@@ -1,0 +1,38 @@
+{
+  "name": "@despia/webext",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Page-side client for the Despia browser-extension envelope - one import that is total across every context: inside the native app, next to it in Safari, standalone in Chrome/Edge/Firefox, or with no extension installed at all.",
+  "keywords": [
+    "despia",
+    "dsx",
+    "webextension",
+    "safari-web-extension",
+    "chrome-extension"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/despia-native/despia.git",
+    "directory": "Web/packages/webext"
+  },
+  "homepage": "https://github.com/despia-native/despia/tree/main/Web/packages/webext",
+  "bugs": {
+    "url": "https://github.com/despia-native/despia/issues"
+  }
+}

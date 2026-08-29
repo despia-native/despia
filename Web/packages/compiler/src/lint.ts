@@ -291,6 +291,33 @@ export function lintSource(source: string, opts: LintOptions = {}): LintDiagnost
         }
       }
     }
+    // R10 — the SILENT STYLE DROP (the feedback-loop law: nothing is dropped silently).
+    // `style=""` is parsed by splitting on `;` FIRST and keeping only fragments that carry a
+    // `:` (compiler/src/cssmap.ts parseStyleAttr). So a whole-value hole composed with other
+    // declarations — `style="{{ shell }}; height: 100%"` — loses the hole entirely: the
+    // interpolation never runs, the extras apply, and nothing anywhere reports it. The
+    // whole-attribute spelling (`style="{{ oneComputedList }}"`) IS a first-class door, which
+    // is exactly what makes the composed spelling look reasonable.
+    {
+      const sm = /\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(attrs);
+      const styleValue = sm?.[1] ?? sm?.[2];
+      if (styleValue !== undefined && styleValue.includes("{{")) {
+        const parts = styleValue.split(";");
+        if (parts.length > 1) {
+          for (const part of parts) {
+            const frag = part.trim();
+            if (frag.length === 0 || frag.includes(":") || !frag.includes("{{")) continue;
+            report(line, "error", "style-hole-dropped",
+              `<${tag} style="… ${frag} …">: this hole is DISCARDED — style="" splits on ';' before `
+              + `interpolating, and a fragment with no ':' is skipped, so ${frag} never reaches the `
+              + `element while the declarations beside it apply. Fold the whole list into ONE computed `
+              + `value and use it as the whole attribute (style="{{ oneList }}"), or give the hole its `
+              + `own declaration (prop: {{ value }}).`);
+          }
+        }
+      }
+    }
+
     // G4 unified input (dsx-game.md §2): `input` is BOTH a body form element (builtinTags,
     // unchanged) and a head DEVICE-BINDING declaration — POSITION is the disambiguation, which
     // is why it carries a headRank but is deliberately absent from declTags/identifierTags.
