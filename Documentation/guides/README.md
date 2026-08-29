@@ -30,6 +30,8 @@ never hit an eject moment.
 13. **[Routing](routing.md)** — the route table, params and catch-all, guards and redirects, `href` for crawlable links, and the line between what ships over the air and what needs a build.
 14. **[The `despia` command line](cli.md)** — the twenty-one commands as workflows: the dev loop, the gates CI runs, shipping, native export, store assets, packages and the MCP face.
 
+15. **[Self-hosted CI/CD](self-hosted-cicd.md)** — one command turns a Mac mini into a Despia build node: the same lanes and config-folder contract as the hosted pipeline, an HTTP/SSH-triggerable queue, signed status webhooks, and request-gated TestFlight/Play publishing.
+
 **Writing the app itself** lives one shelf over, in [`Skills/`](../../Skills/README.md): `writing-an-app.md` (the mental model, state in
 order of preference, the list-row laws), `designing-an-app.md` (the design bar and the four
 states every screen owes) and `thinking-in-dsx.md` (the React translation table). Those pages

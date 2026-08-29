@@ -92,6 +92,7 @@ healthkit	ios,android
 heavyhaptic	ios,android,web
 hidebars	ios,android,web
 identityvault	ios,android,web,macos
+imessage	ios
 inapppurchase	ios,android,web,macos
 inappsubscription	ios,android,web,macos
 increasetapcounter	ios,android,web

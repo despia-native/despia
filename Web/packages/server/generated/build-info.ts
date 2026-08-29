@@ -3,6 +3,6 @@
 //
 
 export const buildInfo = {
-  "digest": "sha256:d63d8d0fca8d5cf3a25d842bafd44b3a298b04504b092df00e5147c074126f20",
+  "digest": "sha256:cecd7cccd754024fea01da22fa238619151f923cc37dec396a9bd6a8bdfc1356",
   "modules": 31
 } as const;
