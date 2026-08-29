@@ -639,7 +639,7 @@ universe, so the registered tag is `sprite` exactly as proposed.
   also assert
   the pinned constants against the kernel exports.
   `parse.json`'s markup parses through the compiler's own XML parser
-  (`@despia/compiler/xml`) — the corpus never grows a second parser (the prefab
+  (`@despia-native/compiler/xml`) — the corpus never grows a second parser (the prefab
   component templates parse through it too).
 - **Kotlin** (:core, SDK-free, per-PR):
   `Engine/Android/core/src/test/…/scene/SceneConformanceTest.kt` runs ALL

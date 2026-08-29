@@ -6,7 +6,7 @@
 //  never disagree.
 //
 
-import { parseFontVariation, parseFontFeatures, resolveGradient } from "@despia/kernel";
+import { parseFontVariation, parseFontFeatures, resolveGradient } from "@despia-native/kernel";
 
 export type Decl = [property: string, value: string];
 
@@ -188,8 +188,28 @@ function legacyAttrToDeclsFull(
       // axis-aware: emitted as data-dsx-grow + parent-axis child rules (theme layer),
       // because "grow along width" means MAIN axis in a row and CROSS in a column
       return [];
-    case "align":
-      return ALIGN_MAP[value] ?? [];
+    case "align": {
+      const base = ALIGN_MAP[value] ?? [];
+      // alignY owns the vertical axis when authored (the native anchor law:
+      // vRaw = alignY ?? align's top/bottom spillover), so align's contribution
+      // on that axis defers. Stacks are flex: in a column the vertical axis is
+      // justify-content, in a row it is align-items.
+      const alignYRaw = attrs?.["alignY"];
+      if (alignYRaw === undefined) return base;
+      const isRow = (attrs?.["flexDirection"] ?? "").startsWith("row");
+      const vertical = isRow ? "align-items" : "justify-content";
+      return base.filter(([prop]) => prop !== vertical);
+    }
+    case "alignY": {
+      // The vertical anchor of the element's own content box: top | center | bottom
+      // (Stack.swift flexFrame anchorV; the Android twin retired its fall-through
+      // divergence in rendering-1.0 R2.2). Axis-aware exactly like the native test:
+      // a column's vertical is the MAIN axis, a row's is the CROSS axis.
+      const word = value === "top" ? "start" : value === "bottom" ? "end" : value === "center" ? "center" : null;
+      if (word === null) return [];
+      const isRow = (attrs?.["flexDirection"] ?? "").startsWith("row");
+      return isRow ? [["align-items", word]] : [["justify-content", word]];
+    }
     case "flexDirection":
       return FLEX_DIRECTIONS.has(value) ? [["flex-direction", value]] : [];
     case "alignItems":
@@ -348,7 +368,7 @@ export const legacyAttrToDecls: (
 
 /** attrs the bridge consumes entirely (never forwarded to the DOM element) */
 export const BRIDGE_ATTRS = new Set([
-  "grow", "align", "padding", "radius", "background", "color", "spacing", "gradient",
+  "grow", "align", "alignY", "padding", "radius", "background", "color", "spacing", "gradient",
   "width", "height", "aspectRatio", "opacity", "flexDirection", "alignItems", "display",
   "fontFamily", "fontVariation", "fontFeature",
   "fontSize", "fontWeight", "italic", "letterSpacing",

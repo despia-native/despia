@@ -17,9 +17,9 @@ import {
   NATIVE_SURFACE, isDict, string, truthy, type Dict,
   orientationClaimPlan, orientationFrameSurface, orientationModalSurface,
   type OrientationSurface,
-} from "@despia/kernel";
-import { resolveComponent, type Registry } from "@despia/compiler/resolve";
-import type { ComponentIR } from "@despia/compiler/component";
+} from "@despia-native/kernel";
+import { resolveComponent, type Registry } from "@despia-native/compiler/resolve";
+import type { ComponentIR } from "@despia-native/compiler/component";
 import { instantiate, type Instance } from "./mount.ts";
 import { claimAdoptRoot } from "./adopt.ts";
 import { PresentLedger } from "./present.ts";

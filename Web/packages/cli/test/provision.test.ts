@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 
 import { PGlite } from "@electric-sql/pglite";
 
-import type { SqlClient } from "@despia/server/postgres";
+import type { SqlClient } from "@despia-native/server/postgres";
 
 import { commandProvision } from "../src/cli.ts";
 import { DATABASE_URL_ENV, databaseUrl, projectQueues, ProvisionError, RECEIPT_PATH } from "../src/provision.ts";

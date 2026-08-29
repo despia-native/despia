@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { buildSync } from "esbuild";
 
-import { STRUCTURAL_CONTROL_TAGS, STRUCTURAL_CONTROLS_CSS } from "@despia/dom/structural-controls";
+import { STRUCTURAL_CONTROL_TAGS, STRUCTURAL_CONTROLS_CSS } from "@despia-native/dom/structural-controls";
 import { compileComponent } from "../src/component.ts";
 import { buildRegistry } from "../src/registry.ts";
 import { readExpose, registryUsesAnyTag, sliceRegistry } from "../src/expose.ts";
@@ -173,7 +173,7 @@ test("generated exposed-component entries conditionally register and style struc
     registry, tag: "t-structural", component: "t.Structural",
     features: { ...noOptionalFeatures(), structuralControls: true },
   });
-  assert.match(structural, /import \{ registerStructuralControls, STRUCTURAL_CONTROLS_CSS \} from "@despia\/dom\/structural-controls"/);
+  assert.match(structural, /import \{ registerStructuralControls, STRUCTURAL_CONTROLS_CSS \} from "@despia-native\/dom\/structural-controls"/);
   assert.match(structural, /registry\.css = \[STRUCTURAL_CONTROLS_CSS, registry\.css\]/);
   assert.match(structural, /registerStructuralControls\(\);/);
   const bundled = buildSync({

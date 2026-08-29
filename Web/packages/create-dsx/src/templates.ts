@@ -19,7 +19,7 @@ export type TemplateOptions = {
   template: TemplateName;
   /** the workspace version the generated package.json depends on */
   version: string;
-  /** file: specifiers for @despia/* instead of registry versions (in-repo development) */
+  /** file: specifiers for @despia-native/* instead of registry versions (in-repo development) */
   link?: { [pkg: string]: string };
 };
 
@@ -58,13 +58,13 @@ function packageJson(opts: TemplateOptions): string {
       review: "despia review --strict",
     },
     dependencies: {
-      "@despia/compiler": dependency(opts, "@despia/compiler"),
-      "@despia/dom": dependency(opts, "@despia/dom"),
-      "@despia/kernel": dependency(opts, "@despia/kernel"),
-      "@despia/server": dependency(opts, "@despia/server"),
+      "@despia-native/compiler": dependency(opts, "@despia-native/compiler"),
+      "@despia-native/dom": dependency(opts, "@despia-native/dom"),
+      "@despia-native/kernel": dependency(opts, "@despia-native/kernel"),
+      "@despia-native/server": dependency(opts, "@despia-native/server"),
     },
     devDependencies: {
-      "@despia/cli": dependency(opts, "@despia/cli"),
+      "@despia-native/cli": dependency(opts, "@despia-native/cli"),
     },
   }, null, 2)}\n`;
 }

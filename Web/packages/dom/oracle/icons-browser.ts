@@ -17,7 +17,7 @@ import { ICON_FALLBACKS, ICON_VECTORS } from "../src/icons.generated.ts";
 const names = [...Object.keys(ICON_VECTORS), ...Object.keys(ICON_FALLBACKS)];
 
 const source = String.raw`
-  import { iconSvg } from "@despia/dom/elements";
+  import { iconSvg } from "@despia-native/dom/elements";
   const host = document.createElement("div");
   host.style.cssText = "font-size:24px; color:#111; display:flex; flex-wrap:wrap; gap:4px";
   for (const name of ${JSON.stringify(names)}) {

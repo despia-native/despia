@@ -3,7 +3,7 @@
 //
 //  Runs OpenSource/Conformance/compose/result.json through the REAL Swift pure core
 //  (ComposeCore) and throws on the first disagreement, so the reference renderer executes the
-//  same file as the TS runner (@despia/kernel compose-conformance.test.ts) and the Kotlin twin
+//  same file as the TS runner (@despia-native/kernel compose-conformance.test.ts) and the Kotlin twin
 //  (:core ComposeConformanceTest). The result ladder, the empty permission surface, the
 //  capability disclosure, the recipient cap and the attachment rule therefore cannot drift.
 //

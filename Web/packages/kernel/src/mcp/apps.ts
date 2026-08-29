@@ -3,7 +3,7 @@
 //  runs inside the host's sandboxed iframe. PURE: no DOM, no postMessage, no timers — the
 //  transport is injected, which is what makes the corpus (Conformance/mcp-apps/apps.json)
 //  runnable headless on every runtime that ever needs it. The DOM binding (window
-//  postMessage, CSS custom properties, ResizeObserver) lives in @despia/dom, exactly the way
+//  postMessage, CSS custom properties, ResizeObserver) lives in @despia-native/dom, exactly the way
 //  direct DOM access lives only there.
 //
 //  Implements the FINAL extension `modelcontextprotocol/ext-apps`, specification 2026-01-26:

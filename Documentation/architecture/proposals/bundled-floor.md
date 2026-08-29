@@ -173,7 +173,7 @@ Despia Web has no app binary, so its "bundle" is the ORIGIN itself — the floor
 service worker's precache, built from the SAME manifest dialect as every native seed:
 
 - **One dialect everywhere**: the build emits `despia/local.json` (`{ entry,
-  assets:[{path, sha256}] }`) via `offlineManifestText` (`@despia/server`) — the ruby
+  assets:[{path, sha256}] }`) via `offlineManifestText` (`@despia-native/server`) — the ruby
   auto-compiler's TS twin, deterministic, timestamp-free. The same file that would drive
   a native install's offline sync drives the browser's floor.
 - **`dsx-sw.js`** precaches it as ONE atomic generation (cache name = the manifest
@@ -184,7 +184,7 @@ service worker's precache, built from the SAME manifest dialect as every native 
   navigation the manifest revalidates in the background and a changed one precaches the
   NEXT generation + rings `content.updated` — served on the next visit, never swapped
   under the running page.
-- **`@despia/dom/offline`** is the page half: `registerOfflineFloor()` (one call in the
+- **`@despia-native/dom/offline`** is the page half: `registerOfflineFloor()` (one call in the
   bootloader, fail-open without SW support), `seedSource` (`source.online`/`source.boot`),
   and the worker's provenance messages feeding `source.web` — so `{{ dsx.source.* }}`
   reads identically on all three renderers.

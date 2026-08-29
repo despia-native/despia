@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 /**
  * The background-task conformance runner - executes
  * OpenSource/Conformance/background/{declaration,constraints,budget}.json through THIS
- * runtime's BackgroundPlan (parity/F08-background.md). The TS twin (@despia/kernel
+ * runtime's BackgroundPlan (parity/F08-background.md). The TS twin (@despia-native/kernel
  * background.ts, background-conformance.test.ts) and the Swift reference (Engine/iOS
  * BackgroundPlan) run the SAME files, so a declared task cannot mean one thing on one
  * renderer and something else on another: the same clamp, the same constraint translation,

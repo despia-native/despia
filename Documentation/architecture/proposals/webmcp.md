@@ -447,7 +447,7 @@ Each wave is independently shippable and gated; W1 alone already ships the headl
 trust twice.** Three defects, none of them visible to any gate that existed before:
 
 1. **The seam was tree-shaken away.** The adapter first registered itself with a bare
-   side-effect import from `boot.ts`. `@despia/dom` declares `sideEffects: false`, so a
+   side-effect import from `boot.ts`. `@despia-native/dom` declares `sideEffects: false`, so a
    bundler is entitled to drop an import whose exports nobody names — and esbuild did, in
    silence. `bootDsx` now wires `WebMcpSeam.bind` explicitly. Only the browser oracle could
    see this: every unit test passed while the feature did nothing.

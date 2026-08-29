@@ -67,7 +67,7 @@ for (const file of ["package.json", "dsx.json", "dsx.config.json", join("Compone
 const generated = JSON.parse(readFileSync(join(app, "package.json"), "utf8")) as Record<string, unknown>;
 for (const section of ["dependencies", "devDependencies"]) {
   for (const [name, selector] of Object.entries((generated[section] ?? {}) as Record<string, string>)) {
-    if (!name.startsWith("@despia/")) continue;
+    if (!name.startsWith("@despia-native/")) continue;
     if (/^(?:file:|link:|\.|\/)/.test(selector)) fail(`scaffold pins ${name} to a local path (${selector})`);
   }
 }
@@ -76,7 +76,7 @@ for (const section of ["dependencies", "devDependencies"]) {
 // them yet. Installing the artifacts is the same resolution npm will do after publish.
 const runtimeNames = Object.keys({ ...(generated["dependencies"] as object), ...(generated["devDependencies"] as object) })
   .filter((name) => tarball.has(name));
-if (runtimeNames.length === 0) fail("scaffold declared no @despia dependencies to install");
+if (runtimeNames.length === 0) fail("scaffold declared no @despia-native dependencies to install");
 run(npm, ["install", "--no-audit", "--no-fund", ...runtimeNames.map((name) => tarball.get(name)!)], app);
 
 run(npm, ["run", "build"], app);
@@ -110,17 +110,17 @@ console.log("[cold-start] deploy: the published build emits deploy/, and `despia
 run(npm, ["exec", "--no", "--", "dsx", "lint", "--strict"], app);
 
 // ── W8: the editor, from its published form ────────────────────────────────────────────
-// Pack @despia/canvas-editor like everything else, install it into the scaffold, then:
+// Pack @despia-native/canvas-editor like everything else, install it into the scaffold, then:
 //   1. the corpus runs against the TARBALL'S SDK bytes (conformance from the published form);
 //   2. `dsx edit` boots against the scaffold, an edit round-trips through the API to the
 //      local file, and the preview reload event fires — the whole local loop, no monorepo.
-console.log("[cold-start] editor: packing @despia/canvas-editor and walking the edit loop …");
+console.log("[cold-start] editor: packing @despia-native/canvas-editor and walking the edit loop …");
 const editorPackOut = run(npm, ["pack", join(root, "..", "CanvasEditor"), "--silent", "--pack-destination", registry], root);
 const editorTarball = join(registry, editorPackOut.split(/\r?\n/).filter(Boolean).at(-1)!);
 if (!existsSync(editorTarball)) fail("npm pack produced no editor tarball");
 run(npm, ["install", "--no-audit", "--no-fund", "--save-dev", editorTarball], app);
 
-const publishedSdk = join(app, "node_modules", "@despia", "canvas-editor", "src", "canvas-editor.js");
+const publishedSdk = join(app, "node_modules", "@despia-native", "canvas-editor", "src", "canvas-editor.js");
 if (!existsSync(publishedSdk)) fail("the packed editor ships no src/canvas-editor.js");
 execFileSync(process.execPath, [join(root, "..", "CanvasEditor", "test", "run-jse-conformance.mjs")], {
   cwd: root,

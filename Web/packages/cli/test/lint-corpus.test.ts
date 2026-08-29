@@ -3,7 +3,7 @@
 //
 //  There are two TS linters in this repository on purpose: compiler/src/lint.ts (the
 //  dev-loop twin, repo-anchored, reads facts.json at runtime) and this package's
-//  src/lint.ts (ships in @despia/cli, must run with no repo checkout, so its rule tables
+//  src/lint.ts (ships in @despia-native/cli, must run with no repo checkout, so its rule tables
 //  are literals). A literal copy of a rule table is exactly the thing that drifts, and it
 //  HAD drifted — the twelve scene-3D tags were missing from BUILTIN_TAGS while facts.json
 //  and the Ruby gate both carried them — with every gate green, because nothing compared

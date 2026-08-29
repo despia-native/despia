@@ -2,7 +2,7 @@
 //  StackOrientation.swift — the shared `lockOrientation=` / orientation-module core: the
 //  vocabulary fold + the claim stack. The law is the corpus,
 //  `OpenSource/Conformance/input/orientation.json` (parity/F07-orientation.md); the Kotlin
-//  twin is `:core` StackOrientation.kt and the web twin is @despia/kernel's
+//  twin is `:core` StackOrientation.kt and the web twin is @despia-native/kernel's
 //  resolveOrientation / OrientationClaimStack.
 //
 //  Everything platform-shaped lives OUTSIDE this file. The Orientation module applies a

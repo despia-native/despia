@@ -18,8 +18,8 @@ import { fileURLToPath } from "node:url";
 import {
   evaluateShotGuards, settleHolds, shotPixelSize, checkStoreConstraints,
   type FrameRect, type FrameReport, type FrameSettle, type ShotDevice,
-} from "@despia/kernel";
-import { shotSkinCss, SHOT_SKIN_TOKENS_CSS, SHOT_REFRACTION_SVG } from "@despia/dom";
+} from "@despia-native/kernel";
+import { shotSkinCss, SHOT_SKIN_TOKENS_CSS, SHOT_REFRACTION_SVG } from "@despia-native/dom";
 import type { ProjectConfig } from "./config.ts";
 import {
   planShot, buildProjectRegistry, harnessSource, resolveDocument, SHOT_PAGE_HTML,
@@ -35,7 +35,7 @@ const SETTLE_POLL_MS = 100;
 /** The rest-state rule the parity oracle already uses: three identical consecutive snapshots. */
 const STABLE_SNAPSHOTS = 3;
 
-/** The web workspace root (the directory whose node_modules resolves @despia/*), found by
+/** The web workspace root (the directory whose node_modules resolves @despia-native/*), found by
  *  walking up from the calling module to the first directory that contains packages/cli.
  *  A fixed number of `..` steps is layout arithmetic: it silently means a different
  *  directory from `dist/src/` than from `src/`, and Node 22 runs both. */

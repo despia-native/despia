@@ -10,7 +10,7 @@
 //  path — probing cannot distinguish "blocked" from "absent".
 //
 
-import { liveReportExtract, liveReportVerdict } from "@despia/kernel";
+import { liveReportExtract, liveReportVerdict } from "@despia-native/kernel";
 import {
   LIVE_HTTP_VERIFY_MAX_BYTES,
   LIVE_KEY_HEADER,

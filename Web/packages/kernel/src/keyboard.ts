@@ -10,7 +10,7 @@
  * Core/Basics/Viewport facet. Keeping the decision separate from the plumbing is what lets one
  * corpus judge three runtimes.
  *
- * Published as the subpath `@despia/kernel/keyboard`, not the package barrel. Re-exporting
+ * Published as the subpath `@despia-native/kernel/keyboard`, not the package barrel. Re-exporting
  * from index.ts put unused gzip into every EmbedCard against the G10 widget law. mcp.ts
  * and config-validate.ts already record that class of defect.
  */

@@ -1,9 +1,9 @@
 //
-//  static.ts - static route export (@despia/server v0, node-side): every non-param route
+//  static.ts - static route export (@despia-native/server v0, node-side): every non-param route
 //  in the table renders to <out>/<path>/index.html — full documents with the cascade
 //  inlined, title/meta from the route entry, and the client boot scripts. Pages carry
 //  data-dsx-hydrate + per-node `data-dsx-n` stamps, so when JS arrives the boot
-//  ADOPTS this DOM in place (@despia/dom adopt.ts — the W6 adopt-hydration slice).
+//  ADOPTS this DOM in place (@despia-native/dom adopt.ts — the W6 adopt-hydration slice).
 //  Redirect routes emit meta-refresh pages (static-host redirects).
 //
 //  This file is the FILESYSTEM half only. Document assembly, the SSR renders and the
@@ -15,7 +15,7 @@
 import { existsSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, posix, relative, resolve, sep, win32 } from "node:path";
 
-import type { Registry } from "@despia/compiler/resolve";
+import type { Registry } from "@despia-native/compiler/resolve";
 import {
   PARAMETER_SEGMENT,
   assertSafeRedirectTarget,

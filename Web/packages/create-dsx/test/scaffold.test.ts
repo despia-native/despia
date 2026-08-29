@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// @despia/cli is a TOOLING package, deliberately outside the five-package npm workspace set
+// @despia-native/cli is a TOOLING package, deliberately outside the five-package npm workspace set
 // (the release contract), so a test reaches it by path rather than by bare specifier.
 import { buildProject, loadConfig, runCli } from "../../cli/src/index.ts";
 
@@ -52,8 +52,8 @@ test("the minimal template writes a complete, self-describing package", () => {
     const pkg = JSON.parse(readFileSync(join(result.root, "package.json"), "utf8")) as {
       dependencies: { [k: string]: string }; devDependencies: { [k: string]: string }; scripts: { [k: string]: string };
     };
-    assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["@despia/compiler", "@despia/dom", "@despia/kernel", "@despia/server"]);
-    assert.deepEqual(Object.keys(pkg.devDependencies), ["@despia/cli"]);
+    assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["@despia-native/compiler", "@despia-native/dom", "@despia-native/kernel", "@despia-native/server"]);
+    assert.deepEqual(Object.keys(pkg.devDependencies), ["@despia-native/cli"]);
     assert.deepEqual(pkg.scripts, { build: "despia build", dev: "despia dev", lint: "despia lint --strict", review: "despia review --strict" });
   } finally {
     w.cleanup();
@@ -142,13 +142,13 @@ test("an unknown template is refused and lists the real ones", () => {
   }
 });
 
-test("--link rewrites the @despia/* dependencies to the local workspace", () => {
+test("--link rewrites the @despia-native/* dependencies to the local workspace", () => {
   const links = workspaceLinks(workspace);
-  assert.ok(links["@despia/compiler"]?.startsWith("file:"));
-  assert.ok(links["@despia/cli"]?.startsWith("file:"));
+  assert.ok(links["@despia-native/compiler"]?.startsWith("file:"));
+  assert.ok(links["@despia-native/cli"]?.startsWith("file:"));
   const files = renderTemplate({ name: "x", scheme: "x", template: "minimal", version: "0.1.0", link: links });
   const pkg = JSON.parse(files["package.json"]!) as { dependencies: { [k: string]: string } };
-  assert.ok(pkg.dependencies["@despia/dom"]!.startsWith("file:"));
+  assert.ok(pkg.dependencies["@despia-native/dom"]!.startsWith("file:"));
 });
 
 test("templates are pure data — the same options always render the same bytes", () => {

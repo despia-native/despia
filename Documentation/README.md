@@ -102,6 +102,6 @@ The engine: [architecture](architecture/architecture.md), the
   registries, build phases).
 - [`OpenSource/Engine/`](../../OpenSource/Engine/) — the Swift and Kotlin kernel sources;
   [`OpenSource/Web/`](../../OpenSource/Web/) — the TypeScript kernel, compiler, DOM, and
-  server packages (`@despia/*` on npm).
+  server packages (`@despia-native/*` on npm).
 - [`scripts/README.md`](../../ClosedSource/scripts/README.md) — the toolchain
   (`prepare_modules.rb`, `prepare_config.rb`, **`lint_dsx.rb`**).

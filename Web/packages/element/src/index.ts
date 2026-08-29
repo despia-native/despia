@@ -1,5 +1,5 @@
 //
-//  index.ts - @despia/element (/web/13 W10): define an EXPOSED DSX component as a REAL
+//  index.ts - @despia-native/element (/web/13 W10): define an EXPOSED DSX component as a REAL
 //  custom element. The component head already IS the web-component contract:
 //    <attribute as="productId"> → observed attribute `product-id` + JS property
 //    `productId` (both converge on the same dsx.attribute signals — fine-grained,
@@ -9,14 +9,14 @@
 //  compiled app sheets adopted as ONE constructable stylesheet; theming pierces the
 //  boundary via CSS custom properties. SSR: a pre-rendered declarative-shadow-DOM
 //  fragment paints first and the upgrade replace-mounts the live view (the
-//  @despia/server v0 client contract); no markup = plain client render on upgrade.
+//  @despia-native/server v0 client contract); no markup = plain client render on upgrade.
 //
 
-import { JSESeams, ModuleRegistry, isDict, number, type ApiSeed, type Dict, type WebModule } from "@despia/kernel";
-import type { Registry } from "@despia/compiler/resolve";
-import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-import { instantiate, type Instance, type ScopedEnv } from "@despia/dom/mount";
-import { TOKENS_CSS, ELEMENTS_CSS } from "@despia/dom/theme";
+import { JSESeams, ModuleRegistry, isDict, number, type ApiSeed, type Dict, type WebModule } from "@despia-native/kernel";
+import type { Registry } from "@despia-native/compiler/resolve";
+import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+import { instantiate, type Instance, type ScopedEnv } from "@despia-native/dom/mount";
+import { TOKENS_CSS, ELEMENTS_CSS } from "@despia-native/dom/theme";
 
 export type EmbedSpec = {
   /** the custom-element tag (dash required — the package prefix supplies it) */
@@ -134,7 +134,7 @@ export function defineDsxElement(spec: EmbedSpec): void {
         },
       });
       // markup present = it painted first (DSD); the upgrade replace-mounts the
-      // live view (the @despia/server v0 client contract — adopt-hydration is W6)
+      // live view (the @despia-native/server v0 client contract — adopt-hydration is W6)
       root.replaceChildren(this.#instance.root);
     }
 

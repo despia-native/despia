@@ -12,7 +12,7 @@ can get to "full XML + JS + JSON" depends on the editor:
 | **Zed / Neovim** | ⚠️ XML via filetype association | see below |
 
 Beyond highlighting, [`OpenSource/CanvasEditor/`](../CanvasEditor/) is the **canvas
-editor SDK** (`@despia/canvas-editor`, the `StackCanvas` class): Apache-2.0 licensed, mirrored to the
+editor SDK** (`@despia-native/canvas-editor`, the `StackCanvas` class): Apache-2.0 licensed, mirrored to the
 public [despia-native/canvas-editor](https://github.com/despia-native/canvas-editor) repo.
 `src/canvas-editor.js` is the headless, zero-dependency renderer a dashboard embeds (JSE
 conformance-gated against the shared `OpenSource/Conformance/jse/` corpus), and

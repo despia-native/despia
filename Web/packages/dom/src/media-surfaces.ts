@@ -8,8 +8,8 @@
 //
 
 
-import { number, string, truthy, type Dict } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
+import { number, string, truthy, type Dict } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import { ELEMENTS, type ElementApi, type ElementFactory } from "./elements.ts";
 import { admitSrc } from "./src-gate.ts";
 import type { MountCtx } from "./mount.ts";

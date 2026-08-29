@@ -1,5 +1,5 @@
 //
-//  @despia/compiler - .dsx → IR, CSS emission, module registry (build time).
+//  @despia-native/compiler - .dsx → IR, CSS emission, module registry (build time).
 //  The web twin of prepare_config.rb + compile_dsx_css.rb + StackXML (/web/01).
 //
 

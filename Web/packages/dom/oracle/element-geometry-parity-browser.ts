@@ -26,21 +26,21 @@ import { CASES, LEDGER, MEASUREMENT_CONTEXT, census, geometryKeys } from "./elem
 const report = process.argv.includes("--report");
 
 const entrySource = `
-  import { compileComponent } from "@despia/compiler/component";
-  import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-  import { instantiate } from "@despia/dom/mount";
+  import { compileComponent } from "@despia-native/compiler/component";
+  import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+  import { instantiate } from "@despia-native/dom/mount";
   import {
     TOKENS_CSS, APPLICATION_ELEMENTS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS, RICH_ELEMENTS_CSS,
-  } from "@despia/dom/theme";
-  import { FORM_ELEMENTS, FORM_ELEMENTS_CSS } from "@despia/dom/forms";
-  import { ELEMENTS, registerGlobalElements, registerRichElements } from "@despia/dom/elements";
-  import { NATIVE_CONTROLS_CSS, registerNativeControls } from "@despia/dom/native-controls";
-  import { STRUCTURAL_CONTROLS_CSS, registerStructuralControls } from "@despia/dom/structural-controls";
-  import { OVERLAY_CONTROLS_CSS, registerOverlayControls } from "@despia/dom/overlay-controls";
-  import { DATA_CONTROLS_CSS, registerDataControls } from "@despia/dom/data-controls";
-  import { APPLICATION_CONTROLS_CSS, registerApplicationControls } from "@despia/dom/application-controls";
-  import { registerElementMotion } from "@despia/dom/element-motion";
-  import { UNIVERSAL_GLOBAL_ELEMENTS, GLOBAL_ELEMENTS_CSS } from "@despia/dom/globals";
+  } from "@despia-native/dom/theme";
+  import { FORM_ELEMENTS, FORM_ELEMENTS_CSS } from "@despia-native/dom/forms";
+  import { ELEMENTS, registerGlobalElements, registerRichElements } from "@despia-native/dom/elements";
+  import { NATIVE_CONTROLS_CSS, registerNativeControls } from "@despia-native/dom/native-controls";
+  import { STRUCTURAL_CONTROLS_CSS, registerStructuralControls } from "@despia-native/dom/structural-controls";
+  import { OVERLAY_CONTROLS_CSS, registerOverlayControls } from "@despia-native/dom/overlay-controls";
+  import { DATA_CONTROLS_CSS, registerDataControls } from "@despia-native/dom/data-controls";
+  import { APPLICATION_CONTROLS_CSS, registerApplicationControls } from "@despia-native/dom/application-controls";
+  import { registerElementMotion } from "@despia-native/dom/element-motion";
+  import { UNIVERSAL_GLOBAL_ELEMENTS, GLOBAL_ELEMENTS_CSS } from "@despia-native/dom/globals";
 
   Object.assign(ELEMENTS, FORM_ELEMENTS);
   registerGlobalElements(UNIVERSAL_GLOBAL_ELEMENTS);

@@ -31,11 +31,11 @@ const markup = String.raw`<vstack class="data-harness">
 </vstack>`;
 
 const source = String.raw`
-  import { compileComponent } from "@despia/compiler/component";
-  import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-  import { instantiate } from "@despia/dom/mount";
-  import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS } from "@despia/dom/theme";
-  import { DATA_CONTROLS_CSS, registerDataControls } from "@despia/dom/data-controls";
+  import { compileComponent } from "@despia-native/compiler/component";
+  import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+  import { instantiate } from "@despia-native/dom/mount";
+  import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS } from "@despia-native/dom/theme";
+  import { DATA_CONTROLS_CSS, registerDataControls } from "@despia-native/dom/data-controls";
 
   registerDataControls();
   const ir = compileComponent("DataBrowser", "test", ${JSON.stringify(markup)});

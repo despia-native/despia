@@ -19,7 +19,7 @@
 //  can be accepted from a tenant, which is the whole reason this path exists.
 //
 
-import { ActionRunner, isNSNull, makeRunEnv, ModuleCallError, ReactiveStore, type Dict } from "@despia/kernel";
+import { ActionRunner, isNSNull, makeRunEnv, ModuleCallError, ReactiveStore, type Dict } from "@despia-native/kernel";
 
 import type { HostContext, HostHandler } from "./host.ts";
 import { repoFor } from "./repo.ts";

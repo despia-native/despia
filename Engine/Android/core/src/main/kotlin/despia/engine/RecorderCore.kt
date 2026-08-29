@@ -2,7 +2,7 @@
 //  RecorderCore.kt - the shared `recorder` module core (:core, pure JVM): the metering
 //  curve and the state machine, including how an interruption moves through it. The law is
 //  the corpus, OpenSource/Conformance/recorder/ (parity/F14-recorder.md). The twin of the
-//  web @despia/kernel recorder-core.ts and of Swift RecorderCore.
+//  web @despia-native/kernel recorder-core.ts and of Swift RecorderCore.
 //
 //  WHY THESE TWO PARTS AND NOT THE RECORDING. Capturing audio is entirely platform work
 //  (MediaRecorder, AudioRecord, MediaCodec) and belongs in the module facet. What cannot

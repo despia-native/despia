@@ -28,8 +28,8 @@
 //  Worker directly.
 //
 
-import { DSXPathMatch, type Dict } from "@despia/kernel";
-import type { Registry } from "@despia/compiler/resolve";
+import { DSXPathMatch, type Dict } from "@despia-native/kernel";
+import type { Registry } from "@despia-native/compiler/resolve";
 import {
   assertSafeRedirectTarget,
   assertSafeRouteTable,

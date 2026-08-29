@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 /**
  * The telemetry conformance runner - executes OpenSource/Conformance/telemetry/{scrub,queue}.json
  * through THIS runtime's TelemetryScrub / TelemetryQueuePolicy / TelemetryQueue
- * (parity/F10-telemetry.md). The TS twin (@despia/kernel telemetry.ts,
+ * (parity/F10-telemetry.md). The TS twin (@despia-native/kernel telemetry.ts,
  * telemetry-conformance.test.ts) and the Swift reference (TelemetryPolicy) run the SAME files, so
  * a redaction rule cannot fire on one renderer and not another - which would be a privacy incident
  * with a platform column - and a crash loop cannot send a count on one platform and ten thousand

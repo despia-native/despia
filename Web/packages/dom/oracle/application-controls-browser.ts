@@ -45,12 +45,12 @@ const markup = String.raw`<vstack class="application-harness">
 </vstack>`;
 
 const source = String.raw`
-  import { compileComponent } from "@despia/compiler/component";
-  import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-  import { instantiate } from "@despia/dom/mount";
-  import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS } from "@despia/dom/theme";
-  import { APPLICATION_CONTROLS_CSS, registerApplicationControls } from "@despia/dom/application-controls";
-  import { OVERLAY_CONTROLS_CSS, registerOverlayControls } from "@despia/dom/overlay-controls";
+  import { compileComponent } from "@despia-native/compiler/component";
+  import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+  import { instantiate } from "@despia-native/dom/mount";
+  import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS } from "@despia-native/dom/theme";
+  import { APPLICATION_CONTROLS_CSS, registerApplicationControls } from "@despia-native/dom/application-controls";
+  import { OVERLAY_CONTROLS_CSS, registerOverlayControls } from "@despia-native/dom/overlay-controls";
   import { ROUTE_CHROME_CSS } from "./packages/dom/src/route-chrome-style.ts";
 
   const presentationListeners = new Set<unknown>();

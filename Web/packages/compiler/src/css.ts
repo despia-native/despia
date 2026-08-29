@@ -11,7 +11,7 @@
 //  attribute bridge lands in dsx-attrs (strongest).
 //
 
-import { attributeBinding } from "@despia/kernel";
+import { attributeBinding } from "@despia-native/kernel";
 import { splitStyleAttr, legacyAttrToDecls, BRIDGE_ATTRS, BRIDGE_CONTEXT_ATTRS, LAYER_STATEMENT, type Decl } from "./cssmap.ts";
 import type { XmlNode } from "./xml.ts";
 import type { ComponentIR } from "./component.ts";
@@ -146,7 +146,7 @@ export class CssCollector {
 }
 
 /** Walk a component tree collecting static css; stamps each node's attrs with
- *  `data-dsx` class handles (consumed by @despia/dom at mount). Reactive declarations
+ *  `data-dsx` class handles (consumed by @despia-native/dom at mount). Reactive declarations
  *  stay in the attrs for the runtime to bind. */
 /** `<style as="card" …/>` head declarations → owner-scoped class rules.
  *

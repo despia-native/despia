@@ -2,7 +2,7 @@
 //  StackDesktopInput.kt - the shared desktop input grammar (:core, pure JVM): shortcut=
 //  accelerator matching + focusOrder= traversal resolution. The law is the corpus:
 //  OpenSource/Conformance/input/{shortcut,focusOrder}.json (desktop-platforms.md). The twin
-//  of Swift StackDesktopInput and the web @despia/dom matchShortcut/resolveFocusOrder — the
+//  of Swift StackDesktopInput and the web @despia-native/dom matchShortcut/resolveFocusOrder — the
 //  Compose Desktop renderer binds its raw key events to matchesShortcut so it can never
 //  drift from the web/native accelerators.
 //

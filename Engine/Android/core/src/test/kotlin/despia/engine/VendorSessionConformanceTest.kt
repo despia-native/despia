@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
  * OpenSource/Conformance/inline-surfaces/stripe.json through THIS runtime's VendorSessionRef fold,
  * VendorSessionMachine, VendorCardField fold and VendorRetain keying
  * (architecture/proposals/inline-native-surfaces.md, parity/V01-stripe-inline.md). The TS
- * twin (@despia/kernel vendor-session.ts) and the Swift reference (VendorSession.swift)
+ * twin (@despia-native/kernel vendor-session.ts) and the Swift reference (VendorSession.swift)
  * run the SAME file, so `session=` cannot accept a literal on one renderer and refuse it
  * on another, and a payment cannot be startable twice on one renderer and once on the
  * others.

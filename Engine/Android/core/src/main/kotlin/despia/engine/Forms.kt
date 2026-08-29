@@ -1,5 +1,5 @@
 //
-//  Forms.kt - THE FORMS PURE CORE (U08), the Kotlin twin of @despia/kernel forms.ts and of
+//  Forms.kt - THE FORMS PURE CORE (U08), the Kotlin twin of @despia-native/kernel forms.ts and of
 //  Engine/iOS/Forms.swift. The input MASK engine, E.164 parse/format/validate over the one
 //  shared country table, the DATE-RANGE validity fold, form VALIDITY aggregation with the
 //  submit gate, and the <multiselect> / <tagsfield> folds with the accessibility

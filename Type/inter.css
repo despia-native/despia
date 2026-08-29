@@ -5,7 +5,7 @@
  * Editor sheet, each pointing at its own 352 KB copy of the unsubsetted upstream file,
  * none of them with a unicode-range. This file replaces all three.
  *
- * WHY IT IS NOT IN THE KERNEL'S TOKEN SHEET. @despia/dom's TOKENS_CSS is inlined into an
+ * WHY IT IS NOT IN THE KERNEL'S TOKEN SHEET. @despia-native/dom's TOKENS_CSS is inlined into an
  * SSR page head, injected as a <style> at boot, adopted into a custom element's shadow
  * root and handed to a WKWebView - four base URLs, and in the SSR case a fresh copy of
  * the string on every page. A src: url() inside it would resolve differently in each and

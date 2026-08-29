@@ -530,7 +530,7 @@ export const LEDGER: { readonly [where: string]: Entry } = {
   "Signature.strokeWidth": {
     kind: "absent",
     note: "the ink width is a canvas 2D lineWidth, not a box: nothing in the mounted DOM carries it. "
-      + "It is the INK primitive's default (@despia/kernel ink-core.ts INK_STROKE_WIDTH), asserted "
+      + "It is the INK primitive's default (@despia-native/kernel ink-core.ts INK_STROKE_WIDTH), asserted "
       + "against the shared corpus by canvas-conformance.test.ts on both the TS and Kotlin cores",
   },
 

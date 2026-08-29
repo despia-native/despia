@@ -8,8 +8,8 @@
 //  dsx-elements layer so an application sheet or unlayered author CSS wins normally.
 //
 
-import { ModuleRegistry, isDict, number, string, truthy, type Dict } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
+import { ModuleRegistry, isDict, number, string, truthy, type Dict } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import { ELEMENTS, iconSvg, type ElementApi, type ElementFactory } from "./elements.ts";
 import type { MountCtx } from "./mount.ts";
 
@@ -818,6 +818,39 @@ export const confirmDialog: ElementFactory = (node, ctx, api) => {
   return host;
 };
 
+
+/** The iOS sheet RELEASE POLICY, pure so the corpus can pin it (the gesture itself is DOM
+ *  plumbing; the decision is not). A sheet follows the finger, then settles: a flick
+ *  outruns distance, distance decides when the flick is slow, and the lowest detent
+ *  dismisses rather than rubber-banding into nothing — the behaviour UIKit ships and the
+ *  thing a click-only grabber cannot imitate.
+ *
+ *  `dy` is the drag in px (positive = downward), `velocity` px/ms at release (positive =
+ *  downward), `height` the panel's height, `index` the detent in effect when the gesture
+ *  began, `count` how many detents exist (index 0 is the SMALLEST). */
+export function sheetRelease(
+  input: { dy: number; velocity: number; height: number; index: number; count: number },
+): { index: number; dismiss: boolean } {
+  const { dy, velocity, height, index, count } = input;
+  const FLICK = 0.5;                       // px/ms — a deliberate throw, not a drift
+  const TRAVEL = Math.max(48, height * 0.25);
+  const flickDown = velocity > FLICK;
+  const flickUp = velocity < -FLICK;
+  const farDown = dy > TRAVEL;
+  const farUp = dy < -TRAVEL;
+
+  // Down: step to a smaller detent, or leave entirely from the smallest one.
+  if (flickDown || farDown) {
+    if (index <= 0) return { index: 0, dismiss: true };
+    return { index: index - 1, dismiss: false };
+  }
+  // Up: step to a larger detent when one exists.
+  if (flickUp || farUp) {
+    return { index: Math.min(index + 1, Math.max(count - 1, 0)), dismiss: false };
+  }
+  return { index, dismiss: false };        // neither — settle back where it started
+}
+
 export const sheet: ElementFactory = (node, ctx, api) => {
   const { host, layer, scrim, panel } = modalParts("sheet");
   const grabber = el("button", "dsx-sheet-grabber") as HTMLButtonElement;
@@ -901,6 +934,90 @@ export const sheet: ElementFactory = (node, ctx, api) => {
     if (event.key === "Home") { event.preventDefault(); detentIndex = 0; reflectDetent(); }
     if (event.key === "End") { event.preventDefault(); detentIndex = detents.length - 1; reflectDetent(); }
   });
+
+  // ── THE DRAG (parity/U-sheets): a sheet on the web follows the finger exactly as the
+  // UIKit and Compose sheets do — live translate, rubber-band past the top detent, a
+  // scrim that fades with the travel, and a velocity-aware settle. Without it the web
+  // twin is a click-only stepper while both native twins are gestural, which is a
+  // divergence an author feels immediately. Pointer events, so touch and mouse are one
+  // path. Reduced motion keeps the detent steps and drops the live transform.
+  {
+    const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let dragging = false;
+    let fromY = 0;
+    let lastY = 0;
+    let lastT = 0;
+    let velocity = 0;
+    let startIndex = 0;
+    let pointer = -1;
+
+    const setOffset = (px: number): void => {
+      panel.style.setProperty("--dsx-sheet-drag", `${px}px`);
+      // the scrim thins as the sheet leaves, the way a real dismissal reads
+      const fade = Math.max(0, 1 - Math.max(px, 0) / Math.max(panel.offsetHeight, 1));
+      scrim.style.setProperty("--dsx-scrim-drag", String(fade));
+    };
+    const clearOffset = (): void => {
+      panel.style.removeProperty("--dsx-sheet-drag");
+      scrim.style.removeProperty("--dsx-scrim-drag");
+    };
+
+    // A drag starts on the grabber or the chrome always, and on the CONTENT only when it
+    // is already scrolled to the top and the finger is heading down — the iOS rule that
+    // lets one gesture scroll a list and then carry the sheet.
+    const canStartFrom = (target: EventTarget | null, downward: boolean): boolean => {
+      if (!(target instanceof Node)) return false;
+      if (grabber.contains(target) || chrome.contains(target)) return true;
+      if (content.contains(target)) return downward && content.scrollTop <= 0;
+      return false;
+    };
+
+    panel.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || reduced) return;
+      if (panel.getAttribute("data-dsx-mode") === "cover") return;
+      if (!canStartFrom(event.target, true)) return;
+      dragging = true;
+      pointer = event.pointerId;
+      fromY = event.clientY;
+      lastY = event.clientY;
+      lastT = event.timeStamp;
+      velocity = 0;
+      startIndex = detentIndex;
+      panel.setAttribute("data-dsx-dragging", "true");
+    });
+
+    panel.addEventListener("pointermove", (event) => {
+      if (!dragging || event.pointerId !== pointer) return;
+      const dy = event.clientY - fromY;
+      // dragging UP past the largest detent has nowhere to go: resist rather than lie
+      const atTop = detentIndex >= detents.length - 1;
+      const travel = dy < 0 && atTop ? dy * 0.22 : dy;
+      // a downward drag from the content only owns the gesture while the list is at top
+      if (dy < 0 && content.contains(event.target as Node) && !grabber.contains(event.target as Node)) return;
+      event.preventDefault();
+      setOffset(travel);
+      const dt = event.timeStamp - lastT;
+      if (dt > 0) velocity = (event.clientY - lastY) / dt;
+      lastY = event.clientY;
+      lastT = event.timeStamp;
+    });
+
+    const settle = (event: PointerEvent): void => {
+      if (!dragging || event.pointerId !== pointer) return;
+      dragging = false;
+      pointer = -1;
+      panel.removeAttribute("data-dsx-dragging");
+      const dy = event.clientY - fromY;
+      const verdict = sheetRelease({
+        dy, velocity, height: panel.offsetHeight, index: startIndex, count: detents.length,
+      });
+      clearOffset();
+      if (verdict.dismiss) { controller.dismiss("drag"); return; }
+      if (verdict.index !== detentIndex) { detentIndex = verdict.index; reflectDetent(); }
+    };
+    panel.addEventListener("pointerup", settle);
+    panel.addEventListener("pointercancel", settle);
+  }
 
   api.bindText(node.attrs["mode"] ?? "sheet", (value) => {
     const mode = value === "card" || value === "cover" ? value : "sheet";
@@ -1448,8 +1565,15 @@ export const OVERLAY_CONTROLS_CSS = `@layer dsx-elements {
     border-radius: var(--dsx-radius-sheet) var(--dsx-radius-sheet) 0 0;
     background: var(--dsx-sheet-background, var(--dsx-background));
     animation: dsx-sheet-up var(--dsx-dur-slow) var(--dsx-ease-spring-soft) both;
-    transition: height var(--dsx-dur-base) var(--dsx-ease);
+    transition: height var(--dsx-dur-base) var(--dsx-ease),
+                transform var(--dsx-dur-base) var(--dsx-ease-spring-soft);
+    /* the live drag offset; the entry animation keeps its own translate channel */
+    transform: translateY(var(--dsx-sheet-drag, 0px));
+    touch-action: none;
   }
+  /* while the finger owns it there is no easing — the sheet IS the finger */
+  .dsx-sheet-panel[data-dsx-dragging="true"] { transition: none; }
+  .dsx-sheet-panel[data-dsx-dragging="true"] .dsx-sheet-content { overflow: hidden; }
   .dsx-sheet-panel[data-dsx-background="system"] { background: color-mix(in srgb, var(--dsx-background) 94%, transparent); }
   .dsx-sheet-panel[data-dsx-detent="content"] { height: auto; max-height: 90dvh; }
   .dsx-sheet-panel[data-dsx-detent="half"] { height: 50dvh; }

@@ -7,7 +7,7 @@
 //  display list cannot express — a pointer stream captured and painted NATIVELY, at pointer
 //  rate, without a store write per sample. `<Signature>` is its first consumer.
 //
-//  The law is OpenSource/Conformance/canvas/ink.json; the TS twin is @despia/kernel
+//  The law is OpenSource/Conformance/canvas/ink.json; the TS twin is @despia-native/kernel
 //  ink-core.ts and the Swift twin Engine/iOS/InkCore.swift.
 //
 //  THE VALUE IS THE API. A drawing is `[{ points: [[x, y], …], width }]` with x/y NORMALIZED

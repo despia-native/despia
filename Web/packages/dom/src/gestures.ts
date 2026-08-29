@@ -21,7 +21,7 @@
 //  all three runners.
 //
 
-import type { XmlNode } from "@despia/compiler/xml";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import type { ElementApi } from "./elements.ts";
 
 // MARK: - constants (the corpus pins every one of these)

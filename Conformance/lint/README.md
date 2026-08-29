@@ -18,7 +18,7 @@ runner and silently drift on another.
 |---|---|---|
 | **Ruby** — `ClosedSource/scripts/lint_dsx.rb`, the authoritative repo gate | `ruby ClosedSource/scripts/lint_conformance.rb` | wired into the codemagic gate chains beside `lint_dsx.rb --strict` |
 | **TS dev-loop twin** — `OpenSource/Web/packages/compiler/src/lint.ts` | `npm test` (`compiler/test/lint.test.ts`) | loads `facts.json` at runtime; repo-anchored, deliberately not exported from the package index |
-| **TS shipped CLI** — `OpenSource/Web/packages/cli/src/lint.ts` (`dsx lint`) | `npm test` (`cli/test/lint-corpus.test.ts`) | ships in `@despia/cli` and must run with no repo checkout, so its rule tables are LITERALS; the test tethers them by asserting `BUILTIN_TAGS` equals `facts.json`'s `builtinTags` exactly |
+| **TS shipped CLI** — `OpenSource/Web/packages/cli/src/lint.ts` (`dsx lint`) | `npm test` (`cli/test/lint-corpus.test.ts`) | ships in `@despia-native/cli` and must run with no repo checkout, so its rule tables are LITERALS; the test tethers them by asserting `BUILTIN_TAGS` equals `facts.json`'s `builtinTags` exactly |
 
 The third runner exists because a literal copy of a rule table is precisely the thing that
 drifts — and it had. The shipped linter was missing twelve tags `facts.json` and the Ruby

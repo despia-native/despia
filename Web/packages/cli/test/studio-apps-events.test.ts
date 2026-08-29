@@ -31,15 +31,15 @@ const doc = JSON.parse(readFileSync(join(root, "OpenSource/Conformance/studio-ap
 };
 
 
-// The module's bare `@despia/kernel` import resolves through the page's import map in a
+// The module's bare `@despia-native/kernel` import resolves through the page's import map in a
 // build; node has no map here, so the shim rewrites it to the workspace's own kernel —
 // the SAME class identity the runner's instanceof check sees in a real page.
 import { mkdtempSync, writeFileSync as writeTmp } from "node:fs";
 import { tmpdir } from "node:os";
 async function importScopeModule(root: string): Promise<Record<string, any>> {
   const source = readFileSync(join(root, "ClosedSource/DSX/Modules/Core/Apps/web/scope.js"), "utf8");
-  const kernel = pathToFileURL(join(root, "OpenSource/Web/node_modules/@despia/kernel/dist/index.js")).href;
-  const rewritten = source.replace('from "@despia/kernel"', `from ${JSON.stringify(kernel)}`);
+  const kernel = pathToFileURL(join(root, "OpenSource/Web/node_modules/@despia-native/kernel/dist/index.js")).href;
+  const rewritten = source.replace('from "@despia-native/kernel"', `from ${JSON.stringify(kernel)}`);
   const dir = mkdtempSync(join(tmpdir(), "dsx-scope-"));
   const file = join(dir, "scope.mjs");
   writeTmp(file, rewritten);

@@ -23,7 +23,7 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { MOTION_HANDLED, motionTiming, motionFrom, KEEP_DEFAULT, SPRING_SAMPLE_STOPS } from "../src/element-motion.ts";
-import { parseMotion, motionProgress } from "@despia/kernel";
+import { parseMotion, motionProgress } from "@despia-native/kernel";
 import { ElementMotionSeam } from "../src/mount.ts";
 import { registerElementMotion } from "../src/element-motion.ts";
 

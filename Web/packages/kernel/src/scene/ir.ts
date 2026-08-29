@@ -13,7 +13,7 @@ import {
   type Mat4, type Vec3,
 } from "./math.ts";
 
-/** the structural shape of a parsed markup node (matches @despia/compiler XmlNode) */
+/** the structural shape of a parsed markup node (matches @despia-native/compiler XmlNode) */
 export type SceneMarkupNode = {
   readonly tag: string;
   readonly attrs: { readonly [name: string]: string };

@@ -1,9 +1,9 @@
 {
-  "name": "@despia/cli",
+  "name": "@despia-native/cli",
   "version": "0.0.1",
   "license": "Apache-2.0",
   "type": "module",
-  "description": "DSX web toolchain - `dsx build` (the @despia/compiler + @despia/server compile path), `dsx dev` (build · serve · watch · reload), `dsx lint` (the TypeScript twin of lint_dsx.rb for the surface a CLI can see), `dsx doctor` (the command table's own health check, itself authored in DSX).",
+  "description": "DSX web toolchain - `dsx build` (the @despia-native/compiler + @despia-native/server compile path), `dsx dev` (build · serve · watch · reload), `dsx lint` (the TypeScript twin of lint_dsx.rb for the surface a CLI can see), `dsx doctor` (the command table's own health check, itself authored in DSX).",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
   "exports": {
@@ -40,10 +40,10 @@
     "provenance": true
   },
   "dependencies": {
-    "@despia/compiler": "0.0.1",
-    "@despia/dom": "0.0.1",
-    "@despia/kernel": "0.0.1",
-    "@despia/server": "0.0.1",
+    "@despia-native/compiler": "0.0.1",
+    "@despia-native/dom": "0.0.1",
+    "@despia-native/kernel": "0.0.1",
+    "@despia-native/server": "0.0.1",
     "esbuild": "^0.28.1"
   },
   "scripts": {

@@ -59,12 +59,12 @@ const markup = String.raw`<vstack class="media-harness">
 </vstack>`;
 
 const source = String.raw`
-  import { compileComponent } from "@despia/compiler/component";
-  import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-  import { instantiate } from "@despia/dom/mount";
-  import { TOKENS_CSS, ELEMENTS_CSS } from "@despia/dom/theme";
-  import { MEDIA_PLAYBACK_CSS, MEDIA_SVG_CSS, MEDIA_LIGHTBOX_CSS, registerMediaSurfaces } from "@despia/dom/media-surfaces";
-  import { OVERLAY_CONTROLS_CSS, registerOverlayControls } from "@despia/dom/overlay-controls";
+  import { compileComponent } from "@despia-native/compiler/component";
+  import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+  import { instantiate } from "@despia-native/dom/mount";
+  import { TOKENS_CSS, ELEMENTS_CSS } from "@despia-native/dom/theme";
+  import { MEDIA_PLAYBACK_CSS, MEDIA_SVG_CSS, MEDIA_LIGHTBOX_CSS, registerMediaSurfaces } from "@despia-native/dom/media-surfaces";
+  import { OVERLAY_CONTROLS_CSS, registerOverlayControls } from "@despia-native/dom/overlay-controls";
 
   registerOverlayControls();
   registerMediaSurfaces();

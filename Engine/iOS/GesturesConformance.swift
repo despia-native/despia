@@ -4,7 +4,7 @@
 //  Runs OpenSource/Conformance/input/gestures.json through the REAL Swift pure core
 //  (StackGestures + StackPressTracker + StackHoverMotion + StackTransformTracker) and
 //  throws on the first disagreement, so the reference renderer executes the same file as
-//  the TS runner (@despia/dom gestures.test.ts) and the Kotlin twin
+//  the TS runner (@despia-native/dom gestures.test.ts) and the Kotlin twin
 //  (GesturesConformanceTest). Recognition thresholds, velocity derivation, swipe
 //  classification, transform accumulation, the gestureAxis claim and the composition
 //  resolver therefore cannot drift between renderers.

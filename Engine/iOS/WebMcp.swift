@@ -1,7 +1,7 @@
 //
 //  WebMcp.swift - the platform-neutral half of WebMCP (proposals/webmcp.md), both directions.
 //
-//  Twin of `@despia/kernel/mcp` webmcp.ts and `:core WebMcp.kt`; all three run
+//  Twin of `@despia-native/kernel/mcp` webmcp.ts and `:core WebMcp.kt`; all three run
 //  OpenSource/Conformance/webmcp/{project,registry}.json, which is where the law actually
 //  lives. Kernel-pure like JSE.swift and ApiBlock.swift: Foundation only, no UIKit, no
 //  WebKit, no `document`. The `<tool>` row parses on every renderer and the page table's

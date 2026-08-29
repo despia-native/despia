@@ -3,7 +3,7 @@
 //  constraint translation, the budget countdown, the run-record fold and the release gate on
 //  `run`. The law is the corpus, `OpenSource/Conformance/background/*.json`
 //  (parity/F08-background.md); the Kotlin twin is `:core` BackgroundPlan.kt and the web twin
-//  is @despia/kernel's background.ts.
+//  is @despia-native/kernel's background.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file: the Background module submits
 //  BGTaskScheduler requests here, enqueues WorkManager work on Android, and registers a

@@ -8,9 +8,9 @@
 import {
   DSXState, DSXStrings, ModuleRegistry, JSESeams, installScreenPhase, installJsTier, invalidateCookies, string,
   type WebModule, type Dict,
-} from "@despia/kernel";
-import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-import type { Registry } from "@despia/compiler/resolve";
+} from "@despia-native/kernel";
+import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+import type { Registry } from "@despia-native/compiler/resolve";
 import { FrameRouter, frameIdCursor } from "./router.ts";
 import { routeModule } from "./route-module.ts";
 import { setCookieWriter, setLinkSeam, WebMcpSeam } from "./mount.ts";

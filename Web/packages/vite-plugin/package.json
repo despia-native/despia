@@ -1,5 +1,5 @@
 {
-  "name": "@despia/vite-plugin",
+  "name": "@despia-native/vite-plugin",
   "version": "0.0.1",
   "license": "Apache-2.0",
   "type": "module",
@@ -36,7 +36,7 @@
     "provenance": true
   },
   "dependencies": {
-    "@despia/compiler": "0.0.1"
+    "@despia-native/compiler": "0.0.1"
   },
   "peerDependencies": {
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0"

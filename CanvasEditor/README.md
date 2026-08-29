@@ -93,7 +93,7 @@ root as well as the document (the ghost still needs the document copy).
 framework, no build step:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/@despia/canvas-editor/dist/despia-editor.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@despia-native/canvas-editor/dist/despia-editor.js"></script>
 <!-- before the npm publish, the GitHub mirror works the same way:
      https://cdn.jsdelivr.net/gh/despia-native/canvas-editor@main/dist/despia-editor.js -->
 
@@ -109,7 +109,7 @@ Rich data flows as JSON attribute text or JS property writes (`ed.deck = tree`);
 `preview="true"` flips the live simulator. The file is regenerated at release
 time by the monorepo (`cd OpenSource/Web && npm run build:editor-dist`),
 committed here, and parse-gated by the build check so a broken artifact can
-never ship. The DSX web framework itself (`@despia/*`) is only needed when you
+never ship. The DSX web framework itself (`@despia-native/*`) is only needed when you
 want `<StackEditor/>` as a component *inside* a DSX web app - embedding
 needs none of it.
 

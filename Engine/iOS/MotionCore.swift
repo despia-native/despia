@@ -1,6 +1,6 @@
 //
 //  MotionCore.swift — the keyframe sampler: `@keyframes` plus an `animation` shorthand, folded
-//  to the property values one frame should show. Swift twin of `@despia/kernel motion-core.ts`
+//  to the property values one frame should show. Swift twin of `@despia-native/kernel motion-core.ts`
 //  and `:core MotionCore.kt`, judged by the same corpus
 //  (`OpenSource/Conformance/motion/keyframes.json`).
 //

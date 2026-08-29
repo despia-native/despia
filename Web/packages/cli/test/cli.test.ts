@@ -233,7 +233,7 @@ test("the reload client carries the swap lane, the hatch, and the preview naviga
 });
 
 test("the version has ONE truth - package.json, the VERSION constant, and the cli document agree", () => {
-  // the diligence skew (2026-08-23): an installed @despia/cli@0.0.1 reported itself as
+  // the diligence skew (2026-08-23): an installed @despia-native/cli@0.0.1 reported itself as
   // 0.1.0 because three places each held their own number. package.json is the truth
   // (RELEASING.md); the other two are tethered here so drift fails the build.
   const pkg = JSON.parse(readFileSync(

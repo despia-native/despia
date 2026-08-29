@@ -19,7 +19,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { classifyBody } from "@despia/kernel";
+import { classifyBody } from "@despia-native/kernel";
 
 export type LintLevel = "error" | "warning" | "notice";
 
@@ -241,6 +241,7 @@ export function lintSource(source: string, opts: LintOptions = {}): LintDiagnost
   type Frame = { tag: string; line: number; lastRank: number; lastRankTag: string | null };
   const stack: Frame[] = [];
   const apiNames = new Map<string, number>();   // as → first line (duplicate detection)
+  const sharedIds = new Map<string, number>();  // shared= match id → first line (U03 R11)
   let line = 1;
   let last = 0;
 
@@ -314,6 +315,33 @@ export function lintSource(source: string, opts: LintOptions = {}): LintDiagnost
               + `value and use it as the whole attribute (style="{{ oneList }}"), or give the hole its `
               + `own declaration (prop: {{ value }}).`);
           }
+        }
+      }
+    }
+
+    // R11 — the SHARED-ELEMENT match id must be unique per document (U03:
+    // "unique within a frame; a duplicate is a lint error, and at runtime the FIRST
+    // occurrence in document order wins so the ambiguity cannot resolve differently per
+    // platform"). The rule was specified and never implemented, and the failure it lets
+    // through is ugly: a card rail and a genre grid that both render the same show each
+    // declare shared="poster-{{ item.id }}", so one id names two live rects and the
+    // flight animates to whichever the DOM happened to order first.
+    // An INTERPOLATED id counts once per occurrence of the template — two repeaters over
+    // overlapping data collide at runtime even though the source text differs per row.
+    {
+      const shm = /\bshared\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(attrs);
+      const sharedId = shm?.[1] ?? shm?.[2];
+      if (sharedId !== undefined && sharedId.trim().length > 0) {
+        const key = sharedId.trim();
+        const seenAt = sharedIds.get(key);
+        if (seenAt !== undefined) {
+          report(line, "error", "shared-duplicate",
+            `<${tag} shared="${key}">: this match id is already declared on line ${seenAt}. `
+            + `A shared id names ONE rect per frame — with two, the flight animates to whichever `
+            + `the DOM ordered first and the transition reads as broken. Give each end its own id, `
+            + `or declare the pairing in exactly one place.`);
+        } else {
+          sharedIds.set(key, line);
         }
       }
     }

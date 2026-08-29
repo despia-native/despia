@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 /**
  * The authentication-proof conformance runner - executes
  * OpenSource/Conformance/auth/{trigger,pkce}.json through THIS runtime's AuthProof folds
- * (completeness/A1-auth-hardening.md). The TS twin (@despia/kernel auth-proof.ts) and the Swift
+ * (completeness/A1-auth-hardening.md). The TS twin (@despia-native/kernel auth-proof.ts) and the Swift
  * reference (Engine/iOS/AuthProof.swift via AuthProofConformance.swift) run the SAME files, so a
  * login trigger cannot pin an origin on one renderer and accept a lookalike host on another, and
  * a callback cannot be refused on one and resolved on another.

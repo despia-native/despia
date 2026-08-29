@@ -18,7 +18,7 @@ const source = String.raw`
   // ./packages/kernel/src/* instead gives esbuild a SECOND module instance: the hooks land on
   // a registry the runtime never fires, every assertion reads zero, and the harness passes or
   // fails for reasons unrelated to the code.
-  import { ModuleRegistry, DSXState, ScreenReadiness } from "@despia/kernel";
+  import { ModuleRegistry, DSXState, ScreenReadiness } from "@despia-native/kernel";
   import { bootDsx } from "./packages/dom/src/boot.ts";
 
   const failures = [];

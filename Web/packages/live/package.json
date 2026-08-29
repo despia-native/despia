@@ -1,5 +1,5 @@
 {
-  "name": "@despia/live",
+  "name": "@despia-native/live",
   "version": "0.0.1",
   "license": "MIT",
   "type": "module",
@@ -40,6 +40,6 @@
     "test:workers": "node --test test/workers/live.workers.test.ts"
   },
   "dependencies": {
-    "@despia/kernel": "0.0.1"
+    "@despia-native/kernel": "0.0.1"
   }
 }

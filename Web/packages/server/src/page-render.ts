@@ -12,15 +12,15 @@
 //  semantics are identical for UTF-8.
 //
 
-import { type Dict, type ApiSeed } from "@despia/kernel";
-import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-import type { Registry } from "@despia/compiler/resolve";
+import { type Dict, type ApiSeed } from "@despia-native/kernel";
+import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+import type { Registry } from "@despia-native/compiler/resolve";
 import {
   TOKENS_CSS, APPLICATION_ELEMENTS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS,
   FORM_ELEMENTS_CSS, RICH_ELEMENTS_CSS, GLOBAL_ELEMENTS_CSS, NATIVE_CONTROLS_CSS,
   STRUCTURAL_CONTROLS_CSS, OVERLAY_CONTROLS_CSS, DATA_CONTROLS_CSS, APPLICATION_CONTROLS_CSS,
   MEDIA_PLAYBACK_CSS, MEDIA_SVG_CSS, MEDIA_LIGHTBOX_CSS, PROSE_CSS,
-} from "@despia/dom";
+} from "@despia-native/dom";
 import { executeSsrApis, renderToString } from "./render.ts";
 
 export type ShellOptions = {

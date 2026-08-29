@@ -4,7 +4,7 @@
 //  camera maths and pin clustering. The law is the corpus:
 //  OpenSource/Conformance/dataviz/ (six files - scales, marks, interaction, a11y, camera,
 //  cluster; parity/U09-dataviz.md). The twin of Swift Dataviz.swift and the web
-//  @despia/kernel dataviz.ts, and all three run the SAME files.
+//  @despia-native/kernel dataviz.ts, and all three run the SAME files.
 //
 //  Everything platform-shaped lives OUTSIDE this file. Swift Charts, the Compose canvas and
 //  the DOM renderer paint pixels three different ways; what they may NOT do is disagree on

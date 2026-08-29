@@ -40,7 +40,7 @@ import { join } from "node:path";
 import {
   cameraAt, filmFrameAt, filmFrameCount, floatAt, poseAt, validateFilm, POSE_HOME,
   type CameraMove, type CameraState, type Film, type FilmProblem, type FilmScene,
-} from "@despia/kernel/film";
+} from "@despia-native/kernel/film";
 
 import type { ProjectConfig } from "./config.ts";
 import { planShot, buildProjectRegistry, resolveDocument, type ShotProfile } from "./shot.ts";

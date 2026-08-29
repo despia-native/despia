@@ -5,7 +5,7 @@
 //  this file existed it stopped there: the customer got a route table and no supported way to
 //  run it, because the worker entry and the wrangler manifest were emitted only by a build
 //  script that ships with the commercial layer. Both now come from ONE emitter in the open
-//  drop (`@despia/server/deploy`), which the closed pipeline also calls — so what a customer
+//  drop (`@despia-native/server/deploy`), which the closed pipeline also calls — so what a customer
 //  deploys and what the pipeline deploys are the same bytes for the same plan, by construction.
 //
 //  WHAT IS WRITTEN, AND WHERE. `deploy/` at the project root, which is already a reserved
@@ -23,7 +23,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 
-import { cloudflareDeploy, DeployPlanError, type CloudflareDeployPlan } from "@despia/server/deploy";
+import { cloudflareDeploy, DeployPlanError, type CloudflareDeployPlan } from "@despia-native/server/deploy";
 
 import type { ProjectConfig } from "./config.ts";
 import type { ServerEmitResult } from "./server-document.ts";

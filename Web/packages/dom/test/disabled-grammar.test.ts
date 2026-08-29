@@ -12,9 +12,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
-import type { Registry } from "@despia/compiler/resolve";
+import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import type { Registry } from "@despia-native/compiler/resolve";
 import { mountNode, type MountCtx } from "../src/mount.ts";
 import { registerRichElements } from "../src/elements.ts";
 import { UNIVERSAL_GLOBAL_ELEMENTS } from "../src/globals.ts";

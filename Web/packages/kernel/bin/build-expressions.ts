@@ -14,7 +14,7 @@
 //  Dependency-free BY DESIGN: imports only kernel src (relative) + node builtins, so
 //  `node bin/build-expressions.ts` works on a fresh clone with NO npm install — the
 //  native-lane escape hatch (spec §9.3). Do not import jse-audit.ts here: it pulls in
-//  @despia/compiler, which needs the workspace install. The one table both tools need
+//  @despia-native/compiler, which needs the workspace install. The one table both tools need
 //  (KNOWN_OPS) is mirrored below and pinned identical by a kernel test.
 //
 //  Unlike the runtime, evaluation here is FAIL-LOUD: the runtime's JSE.eval contains

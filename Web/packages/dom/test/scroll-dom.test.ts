@@ -14,7 +14,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { RefRegistry } from "@despia/kernel";
+import { RefRegistry } from "@despia-native/kernel";
 import { applyScrollBehaviour, scrollController, type ScrollEnvironment } from "../src/scroll.ts";
 
 // ── the fake element ──────────────────────────────────────────────────────────────

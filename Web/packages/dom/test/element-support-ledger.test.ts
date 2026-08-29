@@ -28,10 +28,10 @@ import { registerDataControls } from "../src/data-controls.ts";
 import { registerApplicationControls } from "../src/application-controls.ts";
 import { registerMediaSurfaces } from "../src/media-surfaces.ts";
 import { mountNode, type MountCtx } from "../src/mount.ts";
-import { compileComponent } from "@despia/compiler/component";
+import { compileComponent } from "@despia-native/compiler/component";
 import { renderToString } from "../../server/src/render.ts";
-import type { Registry } from "@despia/compiler/resolve";
-import type { XmlNode } from "@despia/compiler/xml";
+import type { Registry } from "@despia-native/compiler/resolve";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import { registerCanvasSurface } from "../src/canvas.ts";
 
 type Status = "supported" | "partial" | "unsupported";

@@ -3,7 +3,7 @@
 //  escalation route, the precise-location decision, the region-limit accounting, the accuracy
 //  vocabulary and the battery filter. The law is the corpus,
 //  `OpenSource/Conformance/geo/*.json` (parity/F09-geo.md); the Kotlin twin is `:core`
-//  GeoPolicy.kt and the web twin is @despia/kernel's geo.ts.
+//  GeoPolicy.kt and the web twin is @despia-native/kernel's geo.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file: CLLocationManager,
 //  FusedLocationProviderClient and navigator.geolocation all ask this core WHAT to do and then

@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 
 /**
  * The composer conformance runner - executes OpenSource/Conformance/compose/result.json through
- * THIS runtime's ComposeCore folds (parity F13). The TS twin (@despia/kernel compose-core.ts,
+ * THIS runtime's ComposeCore folds (parity F13). The TS twin (@despia-native/kernel compose-core.ts,
  * compose-conformance.test.ts) and the Swift reference (ComposeConformance) run the SAME file,
  * so `unknown` cannot quietly become `sent` on the renderer that never learns what the user did.
  *

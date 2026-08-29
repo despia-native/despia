@@ -10,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { RunnerFetchSeam, type Dict } from "@despia/kernel";
+import { RunnerFetchSeam, type Dict } from "@despia-native/kernel";
 import { compileComponent } from "../../compiler/src/component.ts";
 import type { Registry } from "../../compiler/src/resolve.ts";
 import { createPageHandler } from "../src/live.ts";
@@ -160,7 +160,7 @@ test("live adapter: the registry's BAKED shell serves a deep-linked param route 
   ], {
     shell: {
       appName: "Field Notes",
-      importMapJson: JSON.stringify({ imports: { "@despia/kernel": "./vendor/kernel/index.js" } }),
+      importMapJson: JSON.stringify({ imports: { "@despia-native/kernel": "./vendor/kernel/index.js" } }),
       mainSrc: "./main.js",
       manifestHref: "/manifest.webmanifest",
     },
@@ -168,7 +168,7 @@ test("live adapter: the registry's BAKED shell serves a deep-linked param route 
   const html = await (await handle(new Request("http://x/notes/abc123")))!.text();
   assert.ok(html.includes(`<script type="module" src="../main.js"></script>`),
     "the module script is present AND rebased for the served depth");
-  assert.ok(html.includes(`"@despia/kernel": "../vendor/kernel/index.js"`),
+  assert.ok(html.includes(`"@despia-native/kernel": "../vendor/kernel/index.js"`),
     "the inlined import map rebases with the document");
   assert.ok(html.includes(`<link rel="manifest" href="/manifest.webmanifest">`));
 });

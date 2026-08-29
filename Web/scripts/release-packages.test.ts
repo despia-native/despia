@@ -31,7 +31,7 @@ function manifest(dir: string): JsonRecord {
   const spec = PACKAGE_SPECS[dir]!;
   const source = tooling.has(dir);
   const dependencies: Record<string, string> = {};
-  if (dir !== "kernel") dependencies["@despia/kernel"] = version;
+  if (dir !== "kernel") dependencies["@despia-native/kernel"] = version;
   const entry = source ? "./dist/src/index.js" : "./dist/index.js";
   return {
     name: spec.name,
@@ -155,7 +155,7 @@ test("package set fails closed on version, visibility, internal selector, and lo
   assert.throws(() => validatePackageSet(shape.manifests, shape.lock, version), /files allowlist/);
 
   shape = packageFixture();
-  shape.manifests.get("create-dsx")!["name"] = "@despia/create-despia";
+  shape.manifests.get("create-dsx")!["name"] = "@despia-native/create-despia";
   assert.throws(() => validatePackageSet(shape.manifests, shape.lock, version), /package name must be create-despia/);
 
   let fixture = packageFixture();
@@ -167,11 +167,11 @@ test("package set fails closed on version, visibility, internal selector, and lo
   assert.throws(() => validatePackageSet(fixture.manifests, fixture.lock, version), /must not be private/);
 
   fixture = packageFixture();
-  (fixture.manifests.get("dom")!["dependencies"] as JsonRecord)["@despia/kernel"] = "^1.2.3";
+  (fixture.manifests.get("dom")!["dependencies"] as JsonRecord)["@despia-native/kernel"] = "^1.2.3";
   assert.throws(() => validatePackageSet(fixture.manifests, fixture.lock, version), /pinned exactly/);
 
   fixture = packageFixture();
-  (fixture.lock["packages"] as JsonRecord)["packages/extra"] = { name: "@despia/extra", version };
+  (fixture.lock["packages"] as JsonRecord)["packages/extra"] = { name: "@despia-native/extra", version };
   assert.throws(() => validatePackageSet(fixture.manifests, fixture.lock, version), /workspace set/);
 
   fixture = packageFixture();

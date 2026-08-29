@@ -3,7 +3,7 @@ package despia.engine
 /**
  * WebMcp.kt — the platform-neutral half of WebMCP (proposals/webmcp.md), both directions.
  *
- * Twin of `@despia/kernel/mcp` webmcp.ts and `Engine/iOS/WebMcp.swift`; all three run
+ * Twin of `@despia-native/kernel/mcp` webmcp.ts and `Engine/iOS/WebMcp.swift`; all three run
  * OpenSource/Conformance/webmcp/{project,registry}.json, which is where the law actually
  * lives. Pure Kotlin — no `android.webkit`, no Compose, no I/O — because the `<tool>` row
  * parses on every renderer and the page table's law must be identical wherever a shell

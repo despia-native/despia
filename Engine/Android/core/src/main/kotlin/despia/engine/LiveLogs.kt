@@ -1,7 +1,7 @@
 //
 //  LiveLogs.kt - the LIVE LOGS wire core (:core, pure JVM): the pure half of dev.stream
 //  (proposals/live-logs.md). The law is the corpus:
-//  OpenSource/Conformance/livelogs/{wire,report}.json. The twin of the web @despia/kernel
+//  OpenSource/Conformance/livelogs/{wire,report}.json. The twin of the web @despia-native/kernel
 //  livelogs.ts and Swift Engine/iOS/LiveLogs.swift.
 //
 //  Everything platform-shaped lives OUTSIDE this file - the flush timer, dsx.fetch, the drawer

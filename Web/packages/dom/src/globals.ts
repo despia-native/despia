@@ -9,8 +9,8 @@ import {
   INK_STROKE_WIDTH, decodeInk, encodeInk,
   number, inkFarEnough, inkOps, inkPoint, truthy,
   type InkPoint, type InkStroke,
-} from "@despia/kernel";
-import { mapStyleValue } from "@despia/compiler/cssmap";
+} from "@despia-native/kernel";
+import { mapStyleValue } from "@despia-native/compiler/cssmap";
 import type { ElementFactory } from "./elements.ts";
 
 function el(tag: string, cls: string): HTMLElement {

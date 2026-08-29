@@ -27,7 +27,7 @@ which is what makes a login proof corpus-testable at all. The CSPRNG behind thos
 (`SecRandomCopyBytes` / `SecureRandom` / `crypto.getRandomValues`) is the platform's and is
 deliberately not modelled.
 
-Three runners, one pair of files: `@despia/kernel` `auth-proof.ts`
+Three runners, one pair of files: `@despia-native/kernel` `auth-proof.ts`
 (`packages/kernel/test/auth-proof-conformance.test.ts`), `:core` `AuthProof.kt`
 (`AuthProofConformanceTest`), and the Swift reference `Engine/iOS/AuthProof.swift`
 (`AuthProofConformance.swift`, record lane).

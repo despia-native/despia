@@ -8,7 +8,7 @@
 //
 //  Byte law (/web/13): this module rides the `__DSX_OPTIONAL_MARKDOWN__` fold. The
 //  sheet reaches full apps through boot.ts (gated exactly like the element factory)
-//  and SSR documents through @despia/server page assembly; the tokenizer below is
+//  and SSR documents through @despia-native/server page assembly; the tokenizer below is
 //  imported ONLY by markdown-blocks.ts, so a slice that authors no markdown
 //  tree-shakes this whole file — an unrelated embed stays byte-identical.
 //

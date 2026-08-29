@@ -1,6 +1,6 @@
 //
 //  scroll.ts — the `<scroll>` WEB ADAPTER (U01). The decisions all live in the shared core
-//  (@despia/kernel scroll.ts, corpus OpenSource/Conformance/scroll/); this file is the plumbing
+//  (@despia-native/kernel scroll.ts, corpus OpenSource/Conformance/scroll/); this file is the plumbing
 //  the browser needs and nothing else: CSS for the declarative attributes, one rAF-coalesced
 //  listener, the `--scroll-*` publication, and the imperative surface behind `ref=`.
 //
@@ -39,7 +39,7 @@ import {
   type ScrollMetrics,
   type ChildFrame,
   type Align,
-} from "@despia/kernel";
+} from "@despia-native/kernel";
 
 /** What the adapter needs from the renderer. `ElementApi` satisfies it structurally, so the
  *  call site passes `api` straight through and the tests pass a four-line stub. */

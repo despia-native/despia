@@ -3,7 +3,7 @@
 //  decision, the one date grammar, the iOS 17 access split, the calendar-target refusals, the
 //  reminders absence, the editor result-fidelity ladder and RFC 5545 recurrence. The law is the
 //  corpus, OpenSource/Conformance/calendar/{crud,present,recurrence}.json (parity F12). The twin
-//  of Swift CalendarCore and the web @despia/kernel calendar-core.ts.
+//  of Swift CalendarCore and the web @despia-native/kernel calendar-core.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file: EventKit, CalendarContract and the .ics
 //  handoff are per-renderer plumbing. Three different mechanisms have to agree on the same

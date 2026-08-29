@@ -1,7 +1,7 @@
 //
 //  shared-transition.ts — the WEB half of U03 shared element transitions
 //  (parity/U03-shared-transitions.md). The DECISIONS all live in the platform-neutral core
-//  (@despia/kernel shared-transition.ts, corpus OpenSource/Conformance/router/shared.json);
+//  (@despia-native/kernel shared-transition.ts, corpus OpenSource/Conformance/router/shared.json);
 //  this file is the DOM plumbing: find the `shared=` nodes in a frame, measure them, fly a
 //  layer between the two frames, and let a gesture take that flight over mid-air.
 //
@@ -21,7 +21,7 @@
 import {
   matchSharedElements, sampleSharedPair, SharedTransitionMachine,
   type SharedElement, type SharedPair,
-} from "@despia/kernel";
+} from "@despia-native/kernel";
 
 /** What this browser can actually do. Reported, never assumed — U03's "typed absence, not a
  *  silent no-op": a lane that cannot fly the pair still runs the ordinary frame transition. */

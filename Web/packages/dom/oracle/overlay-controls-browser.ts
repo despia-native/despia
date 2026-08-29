@@ -37,13 +37,13 @@ const markup = String.raw`<vstack class="overlay-harness">
 </vstack>`;
 
 const source = String.raw`
-  import { compileComponent } from "@despia/compiler/component";
-  import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-  import { instantiate } from "@despia/dom/mount";
-  import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS } from "@despia/dom/theme";
-  import { OVERLAY_CONTROLS_CSS, registerOverlayControls } from "@despia/dom/overlay-controls";
+  import { compileComponent } from "@despia-native/compiler/component";
+  import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+  import { instantiate } from "@despia-native/dom/mount";
+  import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS } from "@despia-native/dom/theme";
+  import { OVERLAY_CONTROLS_CSS, registerOverlayControls } from "@despia-native/dom/overlay-controls";
   import { ROUTE_CHROME_CSS } from "./packages/dom/src/route-chrome-style.ts";
-  import { ModuleRegistry } from "@despia/kernel";
+  import { ModuleRegistry } from "@despia-native/kernel";
 
   registerOverlayControls();
   ModuleRegistry.register({ scheme: "overlaytest", actions: { select(ctx) { window.__overlayAction = ctx.args(); return { ok: true }; } } });

@@ -1,6 +1,6 @@
 //
 //  scene.test.ts — the web <scene> element's DOM contract (dsx-scene.md P1 + P4). The
-//  NUMBERS are corpus-pinned in @despia/kernel (scene-conformance.test.ts); under Node
+//  NUMBERS are corpus-pinned in @despia-native/kernel (scene-conformance.test.ts); under Node
 //  there is no WebGL, so these tests assert the structure the element must guarantee
 //  anyway: the .dsx-scene box, the honest WebGL fallback, the scheduled-row
 //  placeholder (P3 only since P4 landed: mode="ar" + <anchor> — never blank, never
@@ -11,9 +11,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import type { XmlNode } from "@despia/compiler/xml";
-import type { Registry } from "@despia/compiler/resolve";
-import { compileComponent } from "@despia/compiler/component";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import type { Registry } from "@despia-native/compiler/resolve";
+import { compileComponent } from "@despia-native/compiler/component";
 import { renderToString } from "../../server/src/render.ts";
 import { scene, registerSceneSurface, SCENE_CSS, SCENE_SCHEDULED_KINDS, buildBoxGeometry, buildSphereGeometry, buildPlaneGeometry, modelPrimitiveGeometry, sceneIndexArray } from "../src/scene.ts";
 import { ELEMENTS, type ElementApi } from "../src/elements.ts";

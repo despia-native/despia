@@ -20,7 +20,7 @@ import {
 import { GLOBAL_ELEMENTS_CSS } from "../src/globals.ts";
 import { ELEMENTS, BUTTON_ROLES, type ElementApi } from "../src/elements.ts";
 import type { MountCtx } from "../src/mount.ts";
-import type { XmlNode } from "@despia/compiler/xml";
+import type { XmlNode } from "@despia-native/compiler/xml";
 
 type WebToken = { css: string; light: string; dark: string };
 type TokenRow = { ios: string; watchos: string; android: string; wear: string; web: WebToken };

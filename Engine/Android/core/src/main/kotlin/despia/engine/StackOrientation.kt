@@ -2,7 +2,7 @@
 //  StackOrientation.kt - the shared lockOrientation= / orientation-module core (:core, pure
 //  JVM): the vocabulary fold + the claim stack. The law is the corpus:
 //  OpenSource/Conformance/input/orientation.json (parity/F07-orientation.md). The twin of
-//  Swift StackOrientation and the web @despia/kernel resolveOrientation/OrientationClaimStack.
+//  Swift StackOrientation and the web @despia-native/kernel resolveOrientation/OrientationClaimStack.
 //
 //  Everything platform-shaped lives OUTSIDE this file: the Orientation module applies the
 //  resolved mask through Activity.requestedOrientation (Android) /

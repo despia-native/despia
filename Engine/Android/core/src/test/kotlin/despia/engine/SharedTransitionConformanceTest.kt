@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 /**
  * The U03 shared-element conformance runner - executes OpenSource/Conformance/router/shared.json
  * through THIS runtime's StackSharedTransition (parity/U03-shared-transitions.md). The TS twin
- * (@despia/kernel shared-transition.ts, shared-transition-conformance.test.ts) and the Swift
+ * (@despia-native/kernel shared-transition.ts, shared-transition-conformance.test.ts) and the Swift
  * reference (StackSharedTransition, via the record lane) run the SAME file, so `shared="cover-3"`
  * cannot pair one way on one renderer and another way on the next.
  *

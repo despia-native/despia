@@ -8,7 +8,7 @@
 //
 //  The law is the corpus: OpenSource/Conformance/controls/{gradients,gauge,colorpicker,masked}
 //  .json (parity/U07-controls.md). The twin of :core ControlsCore.kt and of the web
-//  @despia/kernel controls-core.ts; this leg runs in the record lane through
+//  @despia-native/kernel controls-core.ts; this leg runs in the record lane through
 //  ControlsConformance.swift.
 //
 //  Everything platform-shaped lives OUTSIDE this file — LinearGradient/RadialGradient/

@@ -1,4 +1,4 @@
-# @despia/live
+# @despia-native/live
 
 The live-logs relay: one Cloudflare Worker plus one Durable Object class that YOU deploy to
 YOUR Cloudflare account. Devices on test channels batch-POST their scrubbed diagnostic rows to
@@ -7,7 +7,7 @@ feed, about a second behind the device. The relay also stores one-shot `.dsxrepo
 and answers the report verifier.
 
 Despia operates nothing here and is never in the byte path. The relay runs on your connected
-hosting account; usage bills there. MIT, dependency-free beyond `@despia/kernel` (the shared
+hosting account; usage bills there. MIT, dependency-free beyond `@despia-native/kernel` (the shared
 wire core), and small enough to read in one sitting.
 
 Design law: `OpenSource/Documentation/architecture/proposals/live-logs.md` (section 3.2).
@@ -15,9 +15,9 @@ Design law: `OpenSource/Documentation/architecture/proposals/live-logs.md` (sect
 ## Deploy in three commands
 
 ```bash
-npm install @despia/live
-npx wrangler deploy --config node_modules/@despia/live/wrangler.jsonc
-npx wrangler secret put LIVE_ADMIN_KEY --config node_modules/@despia/live/wrangler.jsonc
+npm install @despia-native/live
+npx wrangler deploy --config node_modules/@despia-native/live/wrangler.jsonc
+npx wrangler secret put LIVE_ADMIN_KEY --config node_modules/@despia-native/live/wrangler.jsonc
 ```
 
 The manifest binds the `LiveSession` Durable Object (SQLite-backed, available on the free

@@ -3,7 +3,7 @@
 //
 //  Runs OpenSource/Conformance/calendar/{crud,present,recurrence}.json through the REAL Swift
 //  pure core (CalendarCore) and throws on the first disagreement, so the reference renderer
-//  executes the same files as the TS runner (@despia/kernel calendar-conformance.test.ts) and
+//  executes the same files as the TS runner (@despia-native/kernel calendar-conformance.test.ts) and
 //  the Kotlin twin (:core CalendarConformanceTest). The `futureEvents` blast radius, the date
 //  grammar, the iOS 17 writeOnly split, the editor fidelity ladder and the RRULE round-trip
 //  therefore cannot drift between renderers.

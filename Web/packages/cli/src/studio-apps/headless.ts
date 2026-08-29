@@ -15,9 +15,9 @@
 //       the module-owned web funnel (Core/Apps/web/scope.js) — both run against
 //       OpenSource/Conformance/studio-apps/scope.json, so the CLI cannot quietly admit a
 //       chain the Studio refuses or vice versa. (The web file cannot be imported here: its
-//       bare `@despia/kernel` specifier resolves through a page's import map, not node.)
+//       bare `@despia-native/kernel` specifier resolves through a page's import map, not node.)
 //    3. THE RUNNER IS THE KERNEL. The body executes on ActionRunner with the app-plane
-//       budgets — the declared-handler recipe from @despia/server/actions, bound to the
+//       budgets — the declared-handler recipe from @despia-native/server/actions, bound to the
 //       studio residence instead of the server one.
 //
 //  What a headless run does NOT have is stated, never faked: no selection (reads null),
@@ -29,7 +29,7 @@ import { existsSync, readFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 
-import { ActionRunner, isNSNull, makeRunEnv, ModuleCallError, ReactiveStore, type Dict } from "@despia/kernel";
+import { ActionRunner, isNSNull, makeRunEnv, ModuleCallError, ReactiveStore, type Dict } from "@despia-native/kernel";
 
 import { loadConfig, packageRoots } from "../config.ts";
 import { lockedModuleDirs } from "../registry-commands.ts";

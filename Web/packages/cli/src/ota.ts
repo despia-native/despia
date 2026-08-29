@@ -37,7 +37,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 
-import { parseRuntimeVersion } from "@despia/kernel";
+import { parseRuntimeVersion } from "@despia-native/kernel";
 
 export class OtaError extends Error {}
 

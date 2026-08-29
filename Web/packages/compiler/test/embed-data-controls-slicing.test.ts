@@ -32,7 +32,7 @@ test("embed source conditionally registers data controls and builder enables glo
   const enabled = embedEntrySource({
     registry, tag: "t-data", component: "t.Data", features: { ...noFeatures(), dataControls: true },
   });
-  assert.match(enabled, /@despia\/dom\/data-controls/);
+  assert.match(enabled, /@despia-native\/dom\/data-controls/);
   assert.match(enabled, /DATA_CONTROLS_CSS/);
   assert.match(enabled, /registerDataControls\(\)/);
   const disabled = embedEntrySource({ registry, tag: "t-data", component: "t.Data", features: noFeatures() });

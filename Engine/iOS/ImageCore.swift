@@ -6,7 +6,7 @@
 //  blurhash / thumbhash decoders.
 //
 //  The law is the corpus, `OpenSource/Conformance/image/resolution.json` (parity/U05-image.md);
-//  the Kotlin twin is `:core` ImageCore.kt and the web twin is @despia/kernel's image-core.ts.
+//  the Kotlin twin is `:core` ImageCore.kt and the web twin is @despia-native/kernel's image-core.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file — the network fetch, NSCache, ImageIO,
 //  the SwiftUI view. Keeping the DECISION separate from the PLUMBING is what lets one corpus

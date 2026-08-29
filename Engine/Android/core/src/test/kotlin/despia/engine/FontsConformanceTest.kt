@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 /**
  * The font face-selection conformance runner - executes
  * OpenSource/Conformance/fonts/matching.json through THIS runtime's StackFonts
- * (parity/F01-fonts.md). The TS twin (@despia/kernel fonts.ts) and the Swift twin (StackFonts)
+ * (parity/F01-fonts.md). The TS twin (@despia-native/kernel fonts.ts) and the Swift twin (StackFonts)
  * run the SAME file, so a type ramp cannot come out semibold on one renderer and bold on another.
  *
  * Missing corpus = loud failure - a silently-skipped conformance suite is how drift starts.

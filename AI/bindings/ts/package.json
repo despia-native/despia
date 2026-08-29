@@ -1,5 +1,5 @@
 {
-  "name": "@despia/ai",
+  "name": "@despia-native/ai",
   "version": "0.0.1",
   "private": true,
   "description": "Despia AI types and MockEngine. Not a browser inference runtime.",

@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { LIVE_BATCH_MAX_ROWS, LIVE_MESSAGE_CAP, liveReportSeal } from "@despia/kernel";
+import { LIVE_BATCH_MAX_ROWS, LIVE_MESSAGE_CAP, liveReportSeal } from "@despia-native/kernel";
 
 import {
   LIVE_KEY_HEADER,

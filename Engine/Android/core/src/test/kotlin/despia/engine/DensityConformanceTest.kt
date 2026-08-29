@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
  * The density grammar conformance runner — executes
  * OpenSource/Conformance/input/density.json through THIS runtime's StackDensity fold and
  * subtree resolution (component-library.md W9 — the universal density knob). The TS twin
- * (@despia/dom resolveDensity/effectiveDensity, density.test.ts) and the Swift reference
+ * (@despia-native/dom resolveDensity/effectiveDensity, density.test.ts) and the Swift reference
  * (StackDensity + the record lane) run the SAME file, so the knob cannot drift between
  * renderers: exact-lowercase vocabulary, nearest-ancestor pin, fine-pointer platform
  * default compact.

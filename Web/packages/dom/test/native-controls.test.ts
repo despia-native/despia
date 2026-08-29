@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import type { XmlNode } from "@despia/compiler/xml";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import type { MountCtx } from "../src/mount.ts";
 import {
   NATIVE_CONTROL_ELEMENTS,

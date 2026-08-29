@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 /**
  * The notify conformance runner - executes OpenSource/Conformance/notify/{permission,schedule,
  * channels,presentation,routing}.json through THIS runtime's NotifyCore (parity/F02-notifications.md).
- * The TS twin (@despia/kernel notify.ts, notify-conformance.test.ts) and the Swift reference
+ * The TS twin (@despia-native/kernel notify.ts, notify-conformance.test.ts) and the Swift reference
  * (Engine/iOS NotifyCore) run the SAME files, so a reminder cannot fire at 09:00 on one platform
  * and 08:00 on another, provisional authorization cannot mean two things, and an undeclared
  * Android channel cannot be a silent drop on one renderer and a typed error on the next.

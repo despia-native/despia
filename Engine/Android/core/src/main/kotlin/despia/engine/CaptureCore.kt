@@ -2,7 +2,7 @@
 //  CaptureCore.kt - the shared `capture` module core (:core, pure JVM): the format fold,
 //  scale resolution, the pixel budget and the PDF page geometry. The law is the corpus,
 //  OpenSource/Conformance/capture/ (parity/F11-capture.md). The twin of the web
-//  @despia/kernel capture-core.ts and of Swift CaptureCore.
+//  @despia-native/kernel capture-core.ts and of Swift CaptureCore.
 //
 //  WHY THESE PARTS AND NOT THE RASTERISING. Turning a view into pixels is platform work
 //  (View.draw, PixelCopy, PdfDocument) and belongs in the module facet. What cannot live

@@ -63,7 +63,7 @@ function tighter(raw: string | null | undefined, ceiling: number, name: string, 
   if (raw === null || raw === undefined || raw === "") return ceiling;
   const parsed = Number(raw) * multiplier;
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`@despia/server: ${name} must be a positive finite number (got ${JSON.stringify(raw)})`);
+    throw new Error(`@despia-native/server: ${name} must be a positive finite number (got ${JSON.stringify(raw)})`);
   }
   return Math.max(1, Math.min(ceiling, Math.trunc(parsed)));
 }
@@ -77,10 +77,10 @@ export function postgresProviderConfig(
   try {
     parsed = new URL(connectionString);
   } catch {
-    throw new Error("@despia/server: DSX_DATABASE_URL must be a valid postgres:// or postgresql:// URL");
+    throw new Error("@despia-native/server: DSX_DATABASE_URL must be a valid postgres:// or postgresql:// URL");
   }
   if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
-    throw new Error(`@despia/server: DSX_DATABASE_URL uses unsupported scheme ${parsed.protocol}`);
+    throw new Error(`@despia-native/server: DSX_DATABASE_URL uses unsupported scheme ${parsed.protocol}`);
   }
 
   const takeUrl = (name: string, ceiling: number, multiplier = 1): number => {

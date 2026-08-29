@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import type { XmlNode } from "@despia/compiler/xml";
-import { sceneSurfaceSeam, sceneBusResolve, sceneBusEmit } from "@despia/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import { sceneSurfaceSeam, sceneBusResolve, sceneBusEmit } from "@despia-native/kernel";
 import { scene } from "../src/scene.ts";
 import type { ElementApi } from "../src/elements.ts";
 import type { MountCtx } from "../src/mount.ts";

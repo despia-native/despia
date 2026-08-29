@@ -1,4 +1,4 @@
-// @despia/webext — the page-side client for the Despia browser-extension envelope
+// @despia-native/webext — the page-side client for the Despia browser-extension envelope
 // (OpenSource/Documentation/architecture/proposals/browser-extension.md).
 //
 // ONE import, total across every context a page can wake up in:

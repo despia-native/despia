@@ -1,4 +1,4 @@
-// @despia/webext — the four contexts, each proven: in-app delegation, envelope
+// @despia-native/webext — the four contexts, each proven: in-app delegation, envelope
 // native, envelope local floor, and the absent-extension timeout. The fake
 // window is an EventTarget with a postMessage that plays the content-script
 // side of the wire (or stays silent, for the absent case).

@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 /**
  * The desktop input grammar conformance runner — executes
  * OpenSource/Conformance/input/{shortcut,focusOrder,multiline-submit}.json through THIS runtime's
- * StackDesktopInput. The TS twin (@despia/dom matchShortcut/resolveFocusOrder) and the Swift
+ * StackDesktopInput. The TS twin (@despia-native/dom matchShortcut/resolveFocusOrder) and the Swift
  * reference (StackDesktopInput + the record lane) run the SAME files; the shared matcher is
  * what the Compose Desktop renderer binds its key events to, so the accelerators can't drift.
  *

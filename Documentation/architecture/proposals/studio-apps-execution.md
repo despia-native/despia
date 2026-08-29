@@ -25,7 +25,7 @@ writing something novel, stop and re-read the substrate table below.
 | Extension-point declarations | the facet fan-in word registration (object form) + `ownComponent` field kind | `architecture/facet-contracts.md`, `dsx_graph.rb`, live consumers `Core/Legacy` + `Core/Server/Modules/Import` |
 | Scoped module reach | `RunEnv.callModule` (the overridable funnel) + the two shipped seam tables | `packages/kernel/src/runner.ts:97` + `:1413`, `packages/server/src/actions.ts#moduleTable`, `packages/cli/src/declared.ts#moduleTable` |
 | Runtime compile + resolve | browser-safe `compileComponent` / `resolveComponent(registry, …)` | `packages/compiler/src/component.ts`, `resolve.ts` |
-| Isolated mount | `mountFacet` + `isolation:"shadow"` + the `@despia/element` embed pattern + the unresolved-tag fallback children | `packages/dom/src/mount.ts:2470-2543`, `packages/element/src/index.ts` |
+| Isolated mount | `mountFacet` + `isolation:"shadow"` + the `@despia-native/element` embed pattern + the unresolved-tag fallback children | `packages/dom/src/mount.ts:2470-2543`, `packages/element/src/index.ts` |
 | Seam scanning | `viewSeamViolations` (the mcp-apps `ui` residence scan) | `packages/compiler` (see `mcp-apps.md` §10) |
 | Signing + offline verify | the entitlement signer discipline (canonical bytes, Ed25519, majorVersion) | `sign_entitlement.rb`, `packages/cli/src/entitlement.ts` (read its header — the N-implementations lesson) |
 | Contract evolution | `contract_diff.rb` (P5), the P1 envelope pattern | `ClosedSource/scripts/contract_diff.rb`, `dsx_graph.rb` |

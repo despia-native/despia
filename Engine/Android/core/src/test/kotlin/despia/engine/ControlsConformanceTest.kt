@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 /**
  * The U07 controls conformance runner - executes
  * OpenSource/Conformance/controls/{gradients,gauge,colorpicker,masked}.json through THIS
- * runtime's ControlsCore (parity/U07-controls.md). The TS twin (@despia/kernel
+ * runtime's ControlsCore (parity/U07-controls.md). The TS twin (@despia-native/kernel
  * controls-core.ts) and the Swift reference (Engine/iOS/ControlsCore.swift) run the SAME files,
  * so gradientAngle="135deg" cannot point one way on one renderer and another way on the next,
  * a <gauge> cannot report a different meter value, and a colour cannot be announced by a

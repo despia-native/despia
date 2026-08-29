@@ -2,7 +2,7 @@
 //  dsx-sw.js — the Despia Web BUNDLED FLOOR: the browser twin of the native content
 //  store's seed generations (bundled-floor.md), as a dependency-free classic service
 //  worker. The page half (registration + provenance publishing into `dsx.source.*`) is
-//  @despia/dom/offline — this file speaks only the wire: caches + postMessage.
+//  @despia-native/dom/offline — this file speaks only the wire: caches + postMessage.
 //
 //  THE MODEL, 1:1 with the kernel store:
 //  • The offline manifest (?manifest=…, default /despia/local.json — the SAME dialect the
@@ -327,7 +327,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(precacheGeneration().then(() => self.skipWaiting()));
 });
 
-// The page can force a renewal pass — sent by @despia/dom/offline on `online` events and
+// The page can force a renewal pass — sent by @despia-native/dom/offline on `online` events and
 // after registration, so a LONG-LIVED SPA SESSION (no full navigations, the only other
 // revalidation trigger) still renews while online. Aggressive-SW antidote #2; #1 is
 // updateViaCache:"none" + registration.update() on the page half (the WORKER SCRIPT

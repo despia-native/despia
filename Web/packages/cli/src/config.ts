@@ -10,7 +10,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
-import type { Registry } from "@despia/compiler/resolve";
+import type { Registry } from "@despia-native/compiler/resolve";
 
 export const CONFIG_FILENAME = "dsx.config.json";
 

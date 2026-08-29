@@ -20,7 +20,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { basename, dirname, join, sep } from "node:path";
 
-import { parseDsx, DsxParseError } from "@despia/compiler";
+import { parseDsx, DsxParseError } from "@despia-native/compiler";
 
 export type Level = "error" | "warning" | "notice";
 
@@ -68,7 +68,7 @@ export type LintContext = {
 // This list is a COPY, and copies drift — this one had drifted (the twelve scene-3D tags
 // were missing) before packages/cli/test/lint-corpus.test.ts started asserting it equals
 // facts.json's builtinTags byte for byte. It stays a literal rather than a runtime read
-// because this file ships in @despia/cli and runs on machines with no repo checkout;
+// because this file ships in @despia-native/cli and runs on machines with no repo checkout;
 // facts.json is the repo's ground truth and the test is the tether.
 
 /** Built-in lowercase tags: engine specials + Foundation components + documented aliases. */
@@ -329,6 +329,7 @@ function scanTags(lifted: string): Tag[] {
  *  is what makes every rule unit-testable from a string. */
 export function lintSource(file: string, raw: string, ctx: LintContext): Finding[] {
   const findings: Finding[] = [];
+  const sharedIdLines = new Map<string, number>();   // shared= match id → first line (U03)
   const report = (level: Level, line: number, message: string): void => {
     findings.push({ file, line, level, message });
   };
@@ -336,7 +337,7 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
   const lifted = liftCodeBodies(src);
   const localScheme = ctx.schemeOf(dirname(file));
 
-  // 0 ── strict well-formedness, through the RUNTIME's own parser (@despia/compiler parseDsx
+  // 0 ── strict well-formedness, through the RUNTIME's own parser (@despia-native/compiler parseDsx
   // is the TS twin of StackXML): a document that fails it registers NO component, so every
   // push of it renders an EMPTY screen with only a log line to show for it.
   try {
@@ -583,6 +584,44 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
         `<${t.tag} ${authored[1]}=…>: an authored data- attribute is dropped by every renderer, ` +
         `so the sheet rule keyed on it never matches. Put the state in the class instead: ` +
         `class="row {{ selected ? 'row-on' : 'row-off' }}"`);
+    }
+
+    // A shared-element match id names ONE rect per frame (U03: "unique within a frame; a
+    // duplicate is a lint error"). Two rails that both render the same row each declare
+    // shared="poster-{{ item.id }}", so one id names two live rects and the flight
+    // animates to whichever the DOM ordered first — the transition reads as broken with
+    // nothing anywhere reporting it.
+    {
+      const shm = /\bshared\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(t.attrs);
+      const sharedId = (shm?.[1] ?? shm?.[2] ?? "").trim();
+      if (sharedId.length > 0) {
+        const seenAt = sharedIdLines.get(sharedId);
+        if (seenAt !== undefined) {
+          report("error", t.line,
+            `<${t.tag} shared="${sharedId}">: this match id is already declared on line ${seenAt}. A shared id names ONE rect per frame — with two, the flight animates to whichever the DOM ordered first and the transition reads as broken. Give each end its own id, or declare the pairing in exactly one place.`);
+        } else {
+          sharedIdLines.set(sharedId, t.line);
+        }
+      }
+    }
+
+    // A whole-value hole composed with other declarations is DISCARDED: style="" splits on
+    // ';' before interpolating, and a fragment with no ':' is skipped — so the hole never
+    // reaches the element while the declarations beside it apply.
+    {
+      const stm = /\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(t.attrs);
+      const styleValue = stm?.[1] ?? stm?.[2];
+      if (styleValue !== undefined && styleValue.includes("{{")) {
+        const parts = styleValue.split(";");
+        if (parts.length > 1) {
+          for (const part of parts) {
+            const frag = part.trim();
+            if (frag.length === 0 || frag.includes(":") || !frag.includes("{{")) continue;
+            report("error", t.line,
+              `<${t.tag} style="… ${frag} …">: this hole is DISCARDED — style="" splits on ';' before interpolating, and a fragment with no ':' is skipped, so ${frag} never reaches the element while the declarations beside it apply. Fold the whole list into ONE computed value and use it as the whole attribute (style="{{ oneList }}"), or give the hole its own declaration (prop: {{ value }}).`);
+          }
+        }
+      }
     }
 
     if (VALUELESS_INPUT_TAGS.has(t.tag) && /(?:^|\s)value\s*=/.test(t.attrs)) {

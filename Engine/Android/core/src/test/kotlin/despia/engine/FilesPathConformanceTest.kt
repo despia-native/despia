@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 /**
  * The `files` path conformance runner - executes OpenSource/Conformance/files/{paths,errors,
  * operations,transfer}.json through THIS runtime's DSXFilePaths (parity/F03-files.md). The TS
- * twin (@despia/kernel parseFilePath / filePathContains, files-conformance.test.ts) runs the
+ * twin (@despia-native/kernel parseFilePath / filePathContains, files-conformance.test.ts) runs the
  * SAME files, so a path that escapes its root cannot be refused on one renderer and quietly
  * followed on another.
  *

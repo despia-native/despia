@@ -10,7 +10,7 @@ import kotlin.math.sign
 
 /**
  * MotionCore - the keyframe sampler: `@keyframes` plus an `animation` shorthand, folded to the
- * property values one frame should show. The Kotlin twin of `@despia/kernel motion-core.ts`,
+ * property values one frame should show. The Kotlin twin of `@despia-native/kernel motion-core.ts`,
  * judged by the same corpus (`OpenSource/Conformance/motion/keyframes.json`).
  *
  * WHY IT EXISTS (runtime-pressure R28). `@keyframes` and `animation` parse, lint, sit in the

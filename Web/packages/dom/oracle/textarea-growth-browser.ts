@@ -21,10 +21,10 @@ const markup = String.raw`<vstack class="grow-harness">
 </vstack>`;
 
 const source = String.raw`
-  import { compileComponent } from "@despia/compiler/component";
-  import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-  import { instantiate } from "@despia/dom/mount";
-  import { TOKENS_CSS, ELEMENTS_CSS } from "@despia/dom/theme";
+  import { compileComponent } from "@despia-native/compiler/component";
+  import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+  import { instantiate } from "@despia-native/dom/mount";
+  import { TOKENS_CSS, ELEMENTS_CSS } from "@despia-native/dom/theme";
 
   const ir = compileComponent("GrowBrowser", "test", ${JSON.stringify(markup)});
   const registry = { components: { "test.GrowBrowser": ir }, globalPool: {}, css: "", schemes: [] };

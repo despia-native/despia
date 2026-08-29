@@ -30,7 +30,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-import { parseDsx, DsxParseError, type XmlNode } from "@despia/compiler";
+import { parseDsx, DsxParseError, type XmlNode } from "@despia-native/compiler";
 
 import type { Finding } from "./lint.ts";
 import { formatFinding, tally } from "./lint.ts";

@@ -37,17 +37,17 @@ export const RELEASE_DIRS = [...PACKAGE_DIRS, ...TOOLING_DIRS] as const;
 // One table, so a package's published shape is declared rather than inferred from its
 // directory name in four places.
 export const PACKAGE_SPECS: Record<string, { name: string; files: string[] }> = {
-  kernel: { name: "@despia/kernel", files: ["LICENSE", "README.md", "dist"] },
-  compiler: { name: "@despia/compiler", files: ["LICENSE", "README.md", "dist"] },
-  dom: { name: "@despia/dom", files: ["LICENSE", "README.md", "dist", "sw"] },
-  element: { name: "@despia/element", files: ["LICENSE", "README.md", "dist"] },
-  server: { name: "@despia/server", files: ["LICENSE", "README.md", "dist"] },
+  kernel: { name: "@despia-native/kernel", files: ["LICENSE", "README.md", "dist"] },
+  compiler: { name: "@despia-native/compiler", files: ["LICENSE", "README.md", "dist"] },
+  dom: { name: "@despia-native/dom", files: ["LICENSE", "README.md", "dist", "sw"] },
+  element: { name: "@despia-native/element", files: ["LICENSE", "README.md", "dist"] },
+  server: { name: "@despia-native/server", files: ["LICENSE", "README.md", "dist"] },
   // The cli ships its own `<cli>` document inside dist/ (the build copies it next to the
   // compiled output), so the file set is unchanged — the command surface travels with the
   // code that reads it rather than as a second shipped directory.
-  cli: { name: "@despia/cli", files: ["LICENSE", "README.md", "dist"] },
+  cli: { name: "@despia-native/cli", files: ["LICENSE", "README.md", "dist"] },
   "create-dsx": { name: "create-despia", files: ["LICENSE", "README.md", "dist"] },  // dir stays create-dsx; the published name is the brand
-  "vite-plugin": { name: "@despia/vite-plugin", files: ["LICENSE", "README.md", "dist"] },
+  "vite-plugin": { name: "@despia-native/vite-plugin", files: ["LICENSE", "README.md", "dist"] },
 };
 
 const TAG_PATTERN = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
@@ -286,7 +286,7 @@ export function validatePackageSet(manifests: Map<string, JsonRecord>, lock: Jso
     }
     for (const section of ["dependencies", "optionalDependencies", "peerDependencies", "devDependencies"]) {
       for (const [dependency, selector] of Object.entries(stringMap(manifest[section], `${String(name)} ${section}`))) {
-        if (dependency.startsWith("@despia/")) {
+        if (dependency.startsWith("@despia-native/")) {
           if (!expectedNames.has(dependency)) throw new WebReleaseError(`${String(name)} references unknown internal package ${dependency}`);
           if (selector !== version) throw new WebReleaseError(`${String(name)} ${dependency} must be pinned exactly to ${version}`);
         }
@@ -310,7 +310,7 @@ export function validatePackageSet(manifests: Map<string, JsonRecord>, lock: Jso
     }
     for (const section of ["dependencies", "optionalDependencies", "peerDependencies"]) {
       for (const [dependency, selector] of Object.entries(stringMap(entry[section], `package-lock ${path} ${section}`))) {
-        if (dependency.startsWith("@despia/") && selector !== version) {
+        if (dependency.startsWith("@despia-native/") && selector !== version) {
           throw new WebReleaseError(`package-lock ${path} ${dependency} must be pinned exactly to ${version}`);
         }
       }
@@ -341,7 +341,7 @@ function exportTargets(value: unknown): string[] {
 }
 
 function expectedTarball(identity: PackageIdentity): string {
-  // npm pack derives the filename from the NAME, not the directory: @despia/dom ->
+  // npm pack derives the filename from the NAME, not the directory: @despia-native/dom ->
   // despia-dom-<v>.tgz, and the unscoped create-despia -> create-despia-<v>.tgz.
   const slug = identity.name.replace(/^@/, "").replace(/\//g, "-");
   return `${slug}-${identity.version}.tgz`;

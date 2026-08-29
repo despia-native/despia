@@ -21,13 +21,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, dirname, resolve } from "node:path";
 
-import { buildRegistry, LAYER_STATEMENT } from "@despia/compiler";
-import { compileComponent } from "@despia/compiler/component";
+import { buildRegistry, LAYER_STATEMENT } from "@despia-native/compiler";
+import { compileComponent } from "@despia-native/compiler/component";
 import {
   resolveShotScope, evaluateShotGuards, shotDevice, shotPixelSize, checkStoreConstraints,
   type ShotMode, type ShotScopeResult, type FrameReport, type GuardFinding, type AllowEmpty,
   type ShotDevice, type ShotHydrate, type ShotSnapshot,
-} from "@despia/kernel";
+} from "@despia-native/kernel";
 import { loadConfig, packageRoots, type ProjectConfig } from "./config.ts";
 
 // ── the shot profile: the file that IS the state ─────────────────────────────────────
@@ -248,8 +248,8 @@ function findDocument(config: ProjectConfig, name: string): string | null {
  *  world is pinned BEFORE the first api block can fire. */
 export function harnessSource(): string {
   return String.raw`
-import { bootDsx } from "@despia/dom/boot";
-import { RunnerFetchSeam, DSXState } from "@despia/kernel";
+import { bootDsx } from "@despia-native/dom/boot";
+import { RunnerFetchSeam, DSXState } from "@despia-native/kernel";
 
 type Route = { as: string; method: string; pattern: string; data: unknown };
 type CassetteRow = { key: string; status: number; data: unknown };

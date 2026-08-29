@@ -8,8 +8,8 @@
 //
 
 
-import { isDict, number, string, truthy, type Dict } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
+import { isDict, number, string, truthy, type Dict } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import { ELEMENTS, iconSvg, type ElementApi, type ElementFactory } from "./elements.ts";
 import type { MountCtx } from "./mount.ts";
 import { TABS_WIDE_MEDIA } from "./structural-controls.ts";

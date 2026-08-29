@@ -78,7 +78,7 @@ source.boot    = first | warm                          // first launch of this i
 
 Android wires the SAME five rows to the same owners (`Dom.kt` · `Router.kt` · `ContentStore.kt`
 · `DSXViewComponent.kt` · `:platform SourceBackend.kt`); see §Deferred for the two declared
-divergences. Web wires `online`/`boot`/`web` through `@despia/dom/offline` + the service worker.
+divergences. Web wires `online`/`boot`/`web` through `@despia-native/dom/offline` + the service worker.
 
 ## Composition with the bundled floor (`bundled-floor.md`) — the two halves
 
@@ -129,7 +129,7 @@ retires it.
   module's Android facet does not yet publish, so `source.routes` reports the bundled floor
   and never upgrades to `cache`/`origin` on a phone. The JSE corpus entry rides the next
   `conformance-record` run (record-mode authors `expected`; hand-editing the corpus is banned
-  by its README). **Web publishing LANDED** (`@despia/dom/offline`): `seedSource`
+  by its README). **Web publishing LANDED** (`@despia-native/dom/offline`): `seedSource`
   publishes `source.online` (navigator + events) and `source.boot` (localStorage
   first|warm); the service-worker floor (`dsx-sw.js`, bundled-floor.md web wiring) feeds
   `source.web` per navigation (`origin`/`live` when the origin answered, `cache` +

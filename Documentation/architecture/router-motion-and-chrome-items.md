@@ -1,6 +1,6 @@
 # ADR — DSX router motion (web, landed) & chrome toolbar items (designed)
 
-**Status:** Part A **landed** (`@despia/dom` motion.ts + router.ts, opt-in via `registry.router`).
+**Status:** Part A **landed** (`@despia-native/dom` motion.ts + router.ts, opt-in via `registry.router`).
 Part B **accepted design, implementation staged** (fixtures first — see the landing sequence).
 **Deciders:** DSX architecture. **Grounding:** a deep-research pass over Framework7 v8 source/docs
 (page-transitions CSS, the swipe-back module, master-detail, browser-history), Apple platform
@@ -110,7 +110,7 @@ FIRST occurrence in document order wins so the ambiguity cannot resolve differen
 declares, the source is the fallback, the frame is the floor.**
 
 **The decision is one platform-neutral core, run by three renderers** — `OpenSource/Conformance/router/shared.json`
-against `@despia/kernel` shared-transition.ts (per-PR), `:core` StackSharedTransition.kt (gradle)
+against `@despia-native/kernel` shared-transition.ts (per-PR), `:core` StackSharedTransition.kt (gradle)
 and `Engine/iOS/StackSharedTransition.swift` (record lane). It owns three things and nothing else:
 
 | | |

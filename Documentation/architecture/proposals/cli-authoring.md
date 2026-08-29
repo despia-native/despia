@@ -176,7 +176,7 @@ dsx doctor — ./my-app
   ok    dsx.config.json names an entry component
   ok    Components/ holds at least one .dsx
   ok    the entry component exists
-  ok    @despia/kernel is installed
+  ok    @despia-native/kernel is installed
 
 all checks passed — 1 component(s), scheme "myapp"
 ```

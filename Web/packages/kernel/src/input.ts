@@ -11,7 +11,7 @@
 //        unknown word dropped behind exactly ONE Article-7 diagnostic.
 //    2 · THE FOLD — raw device events → per-name pressed/axis values + press-edge events.
 //
-//  Everything platform-shaped lives OUTSIDE: @despia/dom's input.ts binds keydown/keyup, polls
+//  Everything platform-shaped lives OUTSIDE: @despia-native/dom's input.ts binds keydown/keyup, polls
 //  the Gamepad API inside the ONE existing frame loop and recognises touch gestures; the
 //  Kotlin twin (despia.engine.input.SceneInput) and the Swift twin (SceneInput.swift) do the
 //  same for their toolkits. Keeping the DECISION separate from the PLUMBING is what lets one

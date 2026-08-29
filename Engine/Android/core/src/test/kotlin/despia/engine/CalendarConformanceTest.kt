@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 /**
  * The calendar conformance runner - executes
  * OpenSource/Conformance/calendar/{crud,present,recurrence}.json through THIS runtime's
- * CalendarCore folds (parity F12). The TS twin (@despia/kernel calendar-core.ts,
+ * CalendarCore folds (parity F12). The TS twin (@despia-native/kernel calendar-core.ts,
  * calendar-conformance.test.ts) and the Swift reference (CalendarConformance) run the SAME
  * files, so the `futureEvents` blast radius, the iOS 17 writeOnly split, the editor
  * result-fidelity ladder and an RRULE round-trip cannot drift between renderers.

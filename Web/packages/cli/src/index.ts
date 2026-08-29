@@ -1,5 +1,5 @@
 //
-//  @despia/cli — the DSX web toolchain: `despia build`, `despia dev`, `despia lint`, `despia doctor`.
+//  @despia-native/cli — the DSX web toolchain: `despia build`, `despia dev`, `despia lint`, `despia doctor`.
 //  Every command is also a plain function, so the toolchain is scriptable without a shell.
 //
 //  IT IS ALSO THE CLI NODE ITSELF. The four exports below `cli.ts` are what makes a
@@ -8,7 +8,7 @@
 //  seams. `despia` is simply the first program built this way (cli-authoring.md), and the reason
 //  it is exported rather than kept private is that a node nobody else can use is a demo.
 //
-//    import { readCliDocument, dispatch, runDeclaredCommand, usage } from "@despia/cli";
+//    import { readCliDocument, dispatch, runDeclaredCommand, usage } from "@despia-native/cli";
 //
 //    const doc = readCliDocument(readFileSync("my.cli.dsx", "utf8"), "my.cli.dsx");
 //    if (argv[0] === undefined || argv.includes("--help")) { console.log(usage(doc)); }

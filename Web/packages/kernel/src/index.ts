@@ -1,7 +1,7 @@
 //
-//  @despia/kernel - the DSX web kernel. TS twin of OpenSource/Engine/ (see /web/01):
+//  @despia-native/kernel - the DSX web kernel. TS twin of OpenSource/Engine/ (see /web/01):
 //  store + signals, JSE (interpreter + compiled), action runner, module bus,
-//  dsx.platform. Direct DOM access lives ONLY in @despia/dom — this package is
+//  dsx.platform. Direct DOM access lives ONLY in @despia-native/dom — this package is
 //  DOM-free by law (surface-safe: browser, Node/SSR, workers).
 //
 
@@ -31,7 +31,7 @@ export { JSERegex, reDoSProne } from "./jse/regex.ts";
 // D1 validation grammar) that an embedded widget never runs, and the barrel is what the embed
 // slicer can prove reachable — folding it in cost the EmbedCard slice ~199 B of dead weight
 // against the 40,960-byte G10 law. Headroom is bought by proving absence, never by raising the
-// limit, so it ships as the subpath export `@despia/kernel/config-validate`.
+// limit, so it ships as the subpath export `@despia-native/kernel/config-validate`.
 export { DSXPathMatch } from "./jse/pathmatch.ts";
 export { JSECore, JSECrypto, base64Encode, base64Decode } from "./jse/core.ts";
 export { higherOrderFns, methodFns } from "./jse/dispatch.ts";
@@ -585,7 +585,7 @@ export {
 // barrel is what the embed slicer proves reachability from: folding it in moved the locked
 // media-embed qualification bytes, which the ledger pins. Same law as config-validate above -
 // headroom is bought by proving absence - so it ships as the subpath export
-// `@despia/kernel/film`.
+// `@despia-native/kernel/film`.
 export {
   evaluateShotGuards, settleHolds, readableScreen,
   type AllowEmpty, type FrameApi, type FrameCollection, type FrameDecoration, type FrameRect,
@@ -613,5 +613,5 @@ export {
 // web facets are the production importers, and folding the decision into this barrel
 // put unused gzip into every EmbedCard against the 40,960-byte G10 law (mcp.ts and
 // config-validate.ts already record the same class of defect). Headroom is bought by
-// proving absence. Those facets import the subpath `@despia/kernel/keyboard`; the
+// proving absence. Those facets import the subpath `@despia-native/kernel/keyboard`; the
 // conformance runner still reaches ../src/keyboard.ts directly.

@@ -89,7 +89,7 @@ test("protocol: non-JSON stdin exits 2", () => {
 
 test("KNOWN_OPS stays in lockstep with jse-audit (the mirrored table)", () => {
   // build-expressions.ts mirrors the set instead of importing jse-audit (which pulls
-  // in @despia/compiler and would cost the CLI its no-npm-install property). This pin is
+  // in @despia-native/compiler and would cost the CLI its no-npm-install property). This pin is
   // what makes the mirror safe: grammar growth updates both or fails here.
   assert.deepEqual([...EVAL_OPS].sort(), [...AUDIT_OPS].sort());
 });

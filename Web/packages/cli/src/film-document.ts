@@ -49,12 +49,12 @@
 
 import { readFileSync } from "node:fs";
 
-import { parseDsx, type XmlNode } from "@despia/compiler/xml";
-import { parseMotion } from "@despia/kernel";
+import { parseDsx, type XmlNode } from "@despia-native/compiler/xml";
+import { parseMotion } from "@despia-native/kernel";
 import {
   validateFilm, POSE_HOME,
   type Film, type FilmProblem, type FilmScene, type FilmStatePreset, type FilmTextRole,
-} from "@despia/kernel/film";
+} from "@despia-native/kernel/film";
 
 export class FilmDocumentError extends Error {}
 

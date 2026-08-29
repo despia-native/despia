@@ -3,7 +3,7 @@
 //
 //  Runs OpenSource/Conformance/auth/{trigger,pkce}.json through the REAL Swift pure core
 //  (AuthProof) and throws on the first disagreement, so the reference renderer executes the same
-//  files as the TS runner (@despia/kernel auth-proof-conformance.test.ts) and the Kotlin twin
+//  files as the TS runner (@despia-native/kernel auth-proof-conformance.test.ts) and the Kotlin twin
 //  (:core AuthProofConformanceTest). The login-trigger origin pin, the RFC 7636 ABNF, the S256
 //  encoding, the proof plan, the URL it builds and the callback verdict therefore cannot drift.
 //

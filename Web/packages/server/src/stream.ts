@@ -19,8 +19,8 @@
 //  half-written stream without it (doc 02's failure semantics).
 //
 
-import type { Dict, ApiSeed } from "@despia/kernel";
-import type { Registry } from "@despia/compiler/resolve";
+import type { Dict, ApiSeed } from "@despia-native/kernel";
+import type { Registry } from "@despia-native/compiler/resolve";
 import { executeSsrApis, executeStreamApis } from "./render.ts";
 import { renderPageWithSeeds, serializeHydrationPayload, type ShellOptions } from "./page-render.ts";
 

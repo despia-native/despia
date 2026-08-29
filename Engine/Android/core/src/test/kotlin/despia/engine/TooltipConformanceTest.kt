@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
  * The tooltip grammar conformance runner — executes
  * OpenSource/Conformance/input/tooltip.json through THIS runtime's StackTooltip fold and
  * StackTooltipLifecycle state machine (design-system.md Wave 3 (c)1). The TS twin
- * (@despia/dom resolveTooltip/TooltipLifecycle, tooltip.test.ts) and the Swift reference
+ * (@despia-native/dom resolveTooltip/TooltipLifecycle, tooltip.test.ts) and the Swift reference
  * (StackTooltip + the record lane) run the SAME file, so the universal hint attribute
  * cannot drift between renderers: touch never reveals, Escape dismisses, and a resolved
  * tooltip always doubles as the element's accessibility description.

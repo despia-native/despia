@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 /**
  * The OTA runtime-safety conformance runner - executes OpenSource/Conformance/ota/rollout.json
  * through THIS runtime's OtaGeneration (parity/P05-ota.md 4b + 4c). The TS twin
- * (@despia/kernel ota.ts, ota-conformance.test.ts) and the Swift reference (OtaGeneration, the
+ * (@despia-native/kernel ota.ts, ota-conformance.test.ts) and the Swift reference (OtaGeneration, the
  * record lane) run the SAME file, so a staged rollout cannot include a device on one renderer
  * and hold it on another, and a runtimeVersion gate cannot refuse a generation on one and
  * apply it on another.

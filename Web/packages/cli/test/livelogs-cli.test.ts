@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 
-import { liveReportSeal, LiveRing, LIVE_RING_CAP } from "@despia/kernel";
+import { liveReportSeal, LiveRing, LIVE_RING_CAP } from "@despia-native/kernel";
 
 import { runCli, type Io } from "../src/cli.ts";
 import { handleLogsDoor, formatLiveRow, devLogsAck, LOGS_PATH } from "../src/dev.ts";

@@ -13,10 +13,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import type { XmlNode } from "@despia/compiler/xml";
-import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects, sceneSurfaceSeam, sceneBusResolve } from "@despia/kernel";
-import type { Registry } from "@despia/compiler/resolve";
-import { compileComponent } from "@despia/compiler/component";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects, sceneSurfaceSeam, sceneBusResolve } from "@despia-native/kernel";
+import type { Registry } from "@despia-native/compiler/resolve";
+import { compileComponent } from "@despia-native/compiler/component";
 import { scene } from "../src/scene.ts";
 import type { ElementApi } from "../src/elements.ts";
 import type { MountCtx } from "../src/mount.ts";

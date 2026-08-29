@@ -17,9 +17,9 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects, ModuleRegistry } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
-import type { Registry } from "@despia/compiler/resolve";
+import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects, ModuleRegistry } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import type { Registry } from "@despia-native/compiler/resolve";
 import { mountNode, type MountCtx } from "../src/mount.ts";
 
 // The facet under test ships in ClosedSource; an open drop skips LOUDLY, per test,

@@ -12,7 +12,7 @@
 
 import { readFileSync } from "node:fs";
 
-import { liveReportExtract, liveReportVerdict } from "@despia/kernel";
+import { liveReportExtract, liveReportVerdict } from "@despia-native/kernel";
 
 import type { Io } from "./cli.ts";
 

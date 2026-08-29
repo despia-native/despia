@@ -1,7 +1,7 @@
 //
 //  StackFonts.swift — the shared font FACE-SELECTION core. The law is the corpus,
 //  `OpenSource/Conformance/fonts/matching.json` (parity/F01-fonts.md); the Kotlin twin is
-//  `:core` StackFonts.kt and the web twin is @despia/kernel's fonts.ts.
+//  `:core` StackFonts.kt and the web twin is @despia-native/kernel's fonts.ts.
 //
 //  WHAT LIVES HERE: given a family's declared faces and a requested weight/italic, which face
 //  renders — plus variable-axis clamping and the `fontVariation`/`fontFeature` string parsers.

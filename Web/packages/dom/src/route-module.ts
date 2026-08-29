@@ -16,7 +16,7 @@
 //  scheme); a disposed router refuses every navigation itself, so a stale handle is inert.
 //
 
-import { defineModule, type WebModule } from "@despia/kernel";
+import { defineModule, type WebModule } from "@despia-native/kernel";
 
 import type { FrameRouter } from "./router.ts";
 

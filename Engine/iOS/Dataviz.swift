@@ -3,7 +3,7 @@
 //  geometry, interaction payload arithmetic, the accessible table, web-mercator camera maths
 //  and pin clustering. The law is the corpus, `OpenSource/Conformance/dataviz/` (six files —
 //  scales · marks · interaction · a11y · camera · cluster; parity/U09-dataviz.md); the Kotlin
-//  twin is `:core` Dataviz.kt and the web twin is @despia/kernel's dataviz.ts, and all three
+//  twin is `:core` Dataviz.kt and the web twin is @despia-native/kernel's dataviz.ts, and all three
 //  run the SAME files.
 //
 //  Everything platform-shaped lives OUTSIDE this file. Swift Charts, the Compose canvas and

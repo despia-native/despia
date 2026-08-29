@@ -25,9 +25,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { compileComponent } from "@despia/compiler/component";
+import { compileComponent } from "@despia-native/compiler/component";
 import { CssCollector, extractComponentCss } from "../../compiler/src/css.ts";
-import type { Registry } from "@despia/compiler/resolve";
+import type { Registry } from "@despia-native/compiler/resolve";
 
 // ── the DOM stand-in ─────────────────────────────────────────────────────────────────
 

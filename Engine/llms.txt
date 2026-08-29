@@ -8,7 +8,7 @@ It exists three times and the three are held identical by one shared fixture cor
 
 - `iOS/` - the Swift kernel, the reference implementation
 - `Android/` - the Kotlin kernel twin (see `Android/README.md`)
-- the TypeScript kernel ships separately as `@despia/kernel` on npm
+- the TypeScript kernel ships separately as `@despia-native/kernel` on npm
   (source: `OpenSource/Web/packages/kernel` in the monorepo)
 
 Shared by every platform, verbatim: `runtime.js` (the page-facing bridge),

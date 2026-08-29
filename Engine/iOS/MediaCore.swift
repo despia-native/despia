@@ -6,7 +6,7 @@
 //  manipulate op-chain resolver, the decode hint that keeps a 12 MP photo from ever being
 //  allocated whole, and the format/quality fold with its per-platform support table. The law
 //  is the corpus, OpenSource/Conformance/media/ (parity/F04-media.md). The twin of :core
-//  MediaCore.kt and of the web @despia/kernel media-core.ts.
+//  MediaCore.kt and of the web @despia-native/kernel media-core.ts.
 //
 //  WHY THESE PARTS AND NOT THE PIXELS. Opening a picker, decoding a JPEG and running a
 //  CIFilter chain are entirely platform work (PHPickerViewController, Core Image,

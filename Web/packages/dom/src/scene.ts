@@ -1,7 +1,7 @@
 //
 //  scene.ts - the web `<scene>` element (dsx-scene.md P1 + P4): the DSX-native 3D/2D
 //  engine's WebGL renderer. The NUMBERS all live in the platform-neutral kernel
-//  (@despia/kernel scene/ — corpus OpenSource/Conformance/scene/), this module only owns
+//  (@despia-native/kernel scene/ — corpus OpenSource/Conformance/scene/), this module only owns
 //  the browser adapter: a canvas + raw WebGL1 (zero deps, broadest support), flat
 //  Lambert-ish shading (ambient + one directional light), reactive transforms (bound
 //  attributes re-resolve through the store like every element; a change re-uploads and
@@ -23,7 +23,7 @@
 //  blank, never fake. Registered from boot.ts only, so sliced embeds pay zero bytes
 //  (/web/13).
 //
-//  P5 (this file's adapter half; all NUMBERS in @despia/kernel scene/{anim,bind,collide,
+//  P5 (this file's adapter half; all NUMBERS in @despia-native/kernel scene/{anim,bind,collide,
 //  orbit}.ts + ir.ts, corpus OpenSource/Conformance/scene/):
 //  - ANIMATIONS: implicit `transition=` retargets (a base change glides from the
 //    CURRENT RENDERED value — the CSS interrupt model) + explicit `<animate>` tweens
@@ -43,7 +43,7 @@
 //    formulas pinned in the kernel (lighting.json).
 //
 //  G2 PHYSICS (dsx-game.md §2 G2 — this file's adapter half; every NUMBER lives in
-//  @despia/kernel scene/physics.ts, corpus OpenSource/Conformance/scene/physics.json):
+//  @despia-native/kernel scene/physics.ts, corpus OpenSource/Conformance/scene/physics.json):
 //  - THE FIXED-TICK LAW: the solver steps at exactly 60 Hz inside the ONE rAF loop
 //    (a 5-step accumulator cap discards excess frame time); rendered positions and
 //    rotations are INTERPOLATED between the last two steps. `on:tick`
@@ -62,7 +62,7 @@
 //    all drive them); character intent reads the `move` attr the same way.
 //
 //  G3 SKELETAL CLIPS (dsx-game.md §2 G3 — this file's adapter half; every NUMBER lives
-//  in @despia/kernel scene/skin.ts + gltf.ts, corpus OpenSource/Conformance/scene/
+//  in @despia-native/kernel scene/skin.ts + gltf.ts, corpus OpenSource/Conformance/scene/
 //  skin.json): `<model animation loop blend>` — the reactive `animation` name drives
 //  the kernel CLIP MIXER (initial clip = hard cut; a switch crossfades over `blend`;
 //  unknown name diagnoses + keeps; "" = bind pose); each rendered frame samples the
@@ -104,9 +104,9 @@ import {
   type SceneTransitionState, type SceneColliderShape,
   type SceneBusHandle, type SceneBusNode, type SceneBusCapture,
   type ScenePhysicsWorld, type ScenePhysicsBody, type ScenePhysicsIntents,
-} from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
-import { resolveComponent } from "@despia/compiler/resolve";
+} from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import { resolveComponent } from "@despia-native/compiler/resolve";
 import { ELEMENTS, type ElementApi, type ElementFactory } from "./elements.ts";
 import { adoptInternals, type MountCtx } from "./mount.ts";
 import { safeMediaUrl } from "./media-surfaces.ts";
@@ -1081,7 +1081,7 @@ const sceneFactory: ElementFactory = (node, ctx, api) => {
   // ── physics (G2): the fixed-tick solver runtime. Renderer-INDEPENDENT and placed
   // before the WebGL adapter (the bus-handle precedent) so a WebGL-less environment
   // still answers the module-face writes/reads honestly — the rAF loop below is what
-  // drives stepping. All numbers live in @despia/kernel scene/physics.ts (corpus
+  // drives stepping. All numbers live in @despia-native/kernel scene/physics.ts (corpus
   // physics.json); this block owns only extraction wiring, intents, events and the
   // interpolated position and rotation overrides.
   const physicsAccumulator = createScenePhysicsAccumulator();

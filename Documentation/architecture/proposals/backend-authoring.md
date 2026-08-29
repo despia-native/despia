@@ -372,7 +372,7 @@ binary dependencies are the `build` primitive (`OpenSource/Skills/module-framewo
 | Lint | `lint_dsx.rb` routes a `<server>` root to the document reader — stricter than the element linter, since the vocabulary is closed |
 
 The kernel additions are deliberately four lines each: `runner.ts` ships in every bundle
-including a self-contained embed, so the server-shaped logic lives in `@despia/server` where no
+including a self-contained embed, so the server-shaped logic lives in `@despia-native/server` where no
 embed pays for it. The measured cost of the whole capability is **186 bytes gzip**, and the
 media-qualification ledger was re-pinned in the same change rather than quietly drifting.
 

@@ -3,7 +3,7 @@
 //  `OpenSource/Conformance/dataviz/` (all SIX files — scales · marks · interaction · a11y ·
 //  camera · cluster) through THIS renderer's Dataviz core (parity/U09-dataviz.md).
 //
-//  The TS runner (@despia/kernel dataviz-conformance.test.ts) and the Kotlin twin
+//  The TS runner (@despia-native/kernel dataviz-conformance.test.ts) and the Kotlin twin
 //  (`:core` DatavizConformanceTest) execute the SAME files, so a chart cannot put a datum in
 //  one place on one renderer and somewhere else on another, five hundred pins cannot group two
 //  ways at the same zoom, and the accessible table cannot say something the picture does not.

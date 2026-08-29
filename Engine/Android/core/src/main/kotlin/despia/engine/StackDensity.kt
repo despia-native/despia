@@ -3,7 +3,7 @@
 //  and the subtree resolution. The law is the corpus:
 //  OpenSource/Conformance/input/density.json (component-library.md W9 - the universal
 //  subtree density knob). The twin of Swift StackDensity (StackNode.swift) and the web
-//  @despia/dom resolveDensity/effectiveDensity (mount.ts). The vocabulary is exactly
+//  @despia-native/dom resolveDensity/effectiveDensity (mount.ts). The vocabulary is exactly
 //  `comfortable | compact`, exact lowercase after trim; anything else is NO pin, so an
 //  element stays transparent to its ancestors' density. effective() walks the authored
 //  chain nearest-first - an invalid nearer value never masks an outer pin - and with no

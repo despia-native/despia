@@ -70,7 +70,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Parse + shape-check an emitted table; anything malformed is rejected, never half-read. */
 export function readServerConfig(parsed: unknown): ServerConfig {
-  if (!isRecord(parsed)) throw new Error("@despia/server: generated/config.json must be a JSON object");
+  if (!isRecord(parsed)) throw new Error("@despia-native/server: generated/config.json must be a JSON object");
   const settings = isRecord(parsed["settings"]) ? parsed["settings"] : {};
   const env: Record<string, string> = {};
   if (isRecord(parsed["env"])) {
@@ -133,7 +133,7 @@ export function missingConfigMessage(missing: readonly ServerRequirement[]): str
     return `  ✖ "${r.friendlyName}" — ${r.setting}${why}\n      carried by the environment variable ${r.env}, which is unset`;
   });
   return [
-    "@despia/server: MISSING REQUIRED CONFIG — refusing to start.",
+    "@despia-native/server: MISSING REQUIRED CONFIG — refusing to start.",
     "",
     ...lines,
     "",
@@ -179,14 +179,14 @@ export function hostOptions(config: ServerConfig): { maxBodyBytes?: number; serv
   const max = config.settings["max_body_bytes"];
   if (max !== undefined) {
     if (typeof max !== "number" || !Number.isFinite(max) || max <= 0) {
-      throw new Error(`@despia/server: config "max_body_bytes" must be a positive number (got ${JSON.stringify(max)})`);
+      throw new Error(`@despia-native/server: config "max_body_bytes" must be a positive number (got ${JSON.stringify(max)})`);
     }
     out.maxBodyBytes = max;
   }
   const roles = config.settings["service_roles"];
   if (roles !== undefined) {
     if (!Array.isArray(roles) || roles.some((r) => typeof r !== "string")) {
-      throw new Error(`@despia/server: config "service_roles" must be a list of role names (got ${JSON.stringify(roles)})`);
+      throw new Error(`@despia-native/server: config "service_roles" must be a list of role names (got ${JSON.stringify(roles)})`);
     }
     out.serviceRoles = roles as string[]; // an EMPTY list is meaningful: no caller is internal
   }
@@ -197,7 +197,7 @@ export function hostOptions(config: ServerConfig): { maxBodyBytes?: number; serv
   const budgets = config.settings["spend_budgets"];
   if (budgets !== undefined) {
     if (!Array.isArray(budgets)) {
-      throw new Error(`@despia/server: config "spend_budgets" must be a list of budget rows (got ${JSON.stringify(budgets)})`);
+      throw new Error(`@despia-native/server: config "spend_budgets" must be a list of budget rows (got ${JSON.stringify(budgets)})`);
     }
     const rows: SpendBudget[] = [];
     for (const row of budgets) {
@@ -212,7 +212,7 @@ export function hostOptions(config: ServerConfig): { maxBodyBytes?: number; serv
            Number.isInteger((row as { max?: unknown }).max) && ((row as { max?: unknown }).max as number) > 0) ||
           (row as { max?: unknown }).max === "unbounded")
       ) {
-        throw new Error(`@despia/server: config "spend_budgets" carries a malformed row: ${JSON.stringify(row)}`);
+        throw new Error(`@despia-native/server: config "spend_budgets" carries a malformed row: ${JSON.stringify(row)}`);
       }
       rows.push(row as unknown as SpendBudget);
     }

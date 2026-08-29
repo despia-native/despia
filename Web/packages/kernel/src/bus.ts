@@ -351,7 +351,7 @@ export type WebModule = {
   objects?: { [name: string]: () => unknown };
   /** module-provided COMPONENTS (/web/18): Capitalized name → the platform facet
    *  implementation. Stored OPAQUELY — the kernel names no DOM (the renderer owns
-   *  the mount contract, @despia/dom facet.ts); resolution rides facetComponent(). */
+   *  the mount contract, @despia-native/dom facet.ts); resolution rides facetComponent(). */
   components?: { [name: string]: unknown };
 };
 

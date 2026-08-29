@@ -47,7 +47,7 @@ import { sweepEvents, sweepRateCounters } from "./postgres.ts";
 import { flushSpendIfDue, flushSpendNow } from "./spend.ts";
 import { createMcpFace, type McpToolRow } from "./mcp-face.ts";
 import { createWorkersSiteHandler, type WorkersAssetsBinding, type WorkersSiteOptions } from "./site-workers.ts";
-import type { Registry } from "@despia/compiler/resolve";
+import type { Registry } from "@despia-native/compiler/resolve";
 
 //  The platform shapes, structurally — this workspace carries no @cloudflare/workers-types,
 //  the same rule that keeps bootloader-deno from naming the Deno global.

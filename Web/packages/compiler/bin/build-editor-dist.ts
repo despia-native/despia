@@ -1,7 +1,7 @@
 //
 //  build-editor-dist.ts - emit the canvas editor's DEPLOYABLE web component:
 //  OpenSource/CanvasEditor/dist/despia-editor.js — ONE self-contained ESM file
-//  (kernel + @despia/element + the editor registry slice + the EditorCanvas facet +
+//  (kernel + @despia-native/element + the editor registry slice + the EditorCanvas facet +
 //  the StackCanvas SDK + scoped CSS + customElements.define). The file is COMMITTED
 //  and mirrored/published with the package, so any page — CDN, npm, file:// — gets
 //  <despia-editor> with one script tag and zero framework install. Budget rides the
@@ -53,18 +53,18 @@ mkdirSync(outDir, { recursive: true });
 const canvasJseEntry = join(pkg, "src", "canonical-jse.ts");
 const canvasJseOut = join(pkg, "src", "canonical-jse.js");
 // nodePaths, because the bridge lives OUTSIDE the web workspace and so cannot resolve a
-// bare `@despia/kernel` by walking up. It imports the package rather than a deep path into
+// bare `@despia-native/kernel` by walking up. It imports the package rather than a deep path into
 // packages/kernel/src for a reason that only shows up in the element bundle below: a deep
 // source path is a DIFFERENT module than the package entry, so the two would not dedupe.
 const KERNEL_RESOLVE = [join(web, "node_modules")];
 buildSync({ entryPoints: [canvasJseEntry], bundle: true, format: "iife", target: "es2022", outfile: canvasJseOut, absWorkingDir: web, logLevel: "silent", nodePaths: KERNEL_RESOLVE });
 execSync(`node --check ${JSON.stringify(canvasJseOut)}`);
 
-// the entry lives INSIDE the web workspace — esbuild resolves bare @despia/* specifiers
+// the entry lives INSIDE the web workspace — esbuild resolves bare @despia-native/* specifiers
 // by walking up from the importing file, and the package folder has no node_modules
 const entryPath = join(web, ".editor-dist.entry.ts");
 writeFileSync(entryPath, [
-  `import { defineDsxElement } from "@despia/element";`,
+  `import { defineDsxElement } from "@despia-native/element";`,
   `import facet from ${JSON.stringify(join(pkg, "web/index.js"))};`,
   `const registry = JSON.parse(${JSON.stringify(JSON.stringify(slice))});`,
   `defineDsxElement({ tag: ${JSON.stringify(exposed.tag)}, component: ${JSON.stringify(exposed.qualified)}, registry, modules: [facet] });`,

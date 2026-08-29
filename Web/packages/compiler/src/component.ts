@@ -6,15 +6,15 @@
 //
 
 import { parseDsx, DsxParseError, type XmlNode } from "./xml.ts";
-import { projectTools } from "@despia/kernel/mcp";
+import { projectTools } from "@despia-native/kernel/mcp";
 
 /** an IR node: the parsed markup node + the compiler's per-node reactivity stamp.
  *  `reactive` is the reactive-DESCENDANT bit — false means this whole subtree is
  *  inert static HTML: no bindings, no handlers, nothing to hydrate. The islands
  *  pass (/web/02, W6) draws hydration boundaries directly from these stamps.
  *  `nid` is the node's IDENTITY within its component (stampNodeIds below) — the
- *  adopt-hydration alignment key shared by @despia/server (emits `data-dsx-n`) and
- *  @despia/dom (verifies it while claiming server DOM). */
+ *  adopt-hydration alignment key shared by @despia-native/server (emits `data-dsx-n`) and
+ *  @despia-native/dom (verifies it while claiming server DOM). */
 export type IRNode = XmlNode & { reactive?: boolean; nid?: number };
 
 /** Stamp every node of a component IR with its per-component identity: the preorder
@@ -62,7 +62,7 @@ export type ComponentHead = {
    *  rule, applied to a document). Validated at the END of the head pass, because a row is
    *  interface and reads BEFORE the action it names.
    *
-   *  Spelled STRUCTURALLY rather than imported from `@despia/kernel/mcp`: a type import
+   *  Spelled STRUCTURALLY rather than imported from `@despia-native/kernel/mcp`: a type import
    *  here would pull the MCP subpath into the declaration closure of every entrypoint that
    *  names ComponentHead, widening the frozen public API surface for a four-field record.
    *  The projection fold is still the kernel's - only the shape is restated. */

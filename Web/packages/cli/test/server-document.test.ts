@@ -222,7 +222,7 @@ test("a declared action compiles to a declaredHandler entry with its raw body", 
     const result = buildProject(loadConfig(p.root));
     assert.deepEqual(result.server!.documents, ["api"]);
     const barrel = readFileSync(join(p.root, "server/generated/index.ts"), "utf8");
-    assert.match(barrel, /import \{ declaredHandler \} from "@despia\/server\/actions";/);
+    assert.match(barrel, /import \{ declaredHandler \} from "@despia-native\/server\/actions";/);
     assert.match(barrel, /charge: declaredHandler\(\{/);
     assert.match(barrel, /secrets: \["STRIPE_KEY"\]/);
     assert.match(barrel, /egress: \["api\.stripe\.com"\]/);

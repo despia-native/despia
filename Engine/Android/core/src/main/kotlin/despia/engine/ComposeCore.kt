@@ -3,7 +3,7 @@
 //  vocabulary and its fidelity ladder, the (empty) permission surface, the capability
 //  disclosure, the recipient cap and the attachment rule. The law is the corpus,
 //  OpenSource/Conformance/compose/result.json (parity F13). The twin of Swift ComposeCore and
-//  the web @despia/kernel compose-core.ts.
+//  the web @despia-native/kernel compose-core.ts.
 //
 //  dsx.module.compose.{sms,mail} PRESENT the system composer prefilled and NEVER SEND: the user
 //  reads the message in their own messaging or mail app and taps send there. That is why no

@@ -26,7 +26,7 @@
 //  `exprInvariants` checks all three on any tree.
 //
 
-import { endOfRegex, endOfJseNumber, higherOrderFns, methodFns } from "@despia/kernel";
+import { endOfRegex, endOfJseNumber, higherOrderFns, methodFns } from "@despia-native/kernel";
 
 export type Span = { start: number; end: number };
 

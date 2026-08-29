@@ -49,7 +49,7 @@ test("generated embed entries import, register and style overlays only when sele
     registry, tag: "t-overlay", component: "t.Overlay",
     features: { ...noOptionalFeatures(), overlayControls: true },
   });
-  assert.match(overlay, /@despia\/dom\/overlay-controls/);
+  assert.match(overlay, /@despia-native\/dom\/overlay-controls/);
   assert.match(overlay, /OVERLAY_CONTROLS_CSS/);
   assert.match(overlay, /registerOverlayControls\(\)/);
 

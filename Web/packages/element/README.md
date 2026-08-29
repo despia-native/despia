@@ -1,13 +1,13 @@
-# @despia/element
+# @despia-native/element
 
 Expose a compiled DSX component as a standards-based custom element with typed attributes, properties, events, slots, and shadow-DOM isolation.
 
 ```sh
-npm install @despia/element @despia/dom @despia/compiler @despia/kernel
+npm install @despia-native/element @despia-native/dom @despia-native/compiler @despia-native/kernel
 ```
 
 ```ts
-import { defineDsxElement } from "@despia/element";
+import { defineDsxElement } from "@despia-native/element";
 
 defineDsxElement({ tag: "shop-paywall", component: "shop.Paywall", registry });
 ```

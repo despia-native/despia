@@ -2,7 +2,7 @@
 //  StackSharedTransition.kt - the shared-element (`shared=`) transition PURE CORE (:core, pure
 //  JVM): the matching algorithm, the interpolation schedule and the interruption/reversal state
 //  machine. The law is the corpus: OpenSource/Conformance/router/shared.json
-//  (parity/U03-shared-transitions.md). Twin of the TS @despia/kernel shared-transition.ts and
+//  (parity/U03-shared-transitions.md). Twin of the TS @despia-native/kernel shared-transition.ts and
 //  the Swift Engine/iOS/StackSharedTransition.swift.
 //
 //  Everything platform-shaped lives OUTSIDE this file. Android places the pairs inside a shared

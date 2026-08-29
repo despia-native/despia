@@ -28,13 +28,13 @@ const markup = String.raw`<vstack class="fixture-harness">
 </vstack>`;
 
 const source = String.raw`
-  import { compileComponent } from "@despia/compiler/component";
+  import { compileComponent } from "@despia-native/compiler/component";
   import { CssCollector, extractComponentCss } from "./packages/compiler/src/css.ts";
-  import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-  import { instantiate } from "@despia/dom/mount";
-  import { registerGlobalElements, registerRichElements } from "@despia/dom/elements";
-  import { UNIVERSAL_GLOBAL_ELEMENTS, GLOBAL_ELEMENTS_CSS } from "@despia/dom/globals";
-  import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS, RICH_ELEMENTS_CSS } from "@despia/dom/theme";
+  import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+  import { instantiate } from "@despia-native/dom/mount";
+  import { registerGlobalElements, registerRichElements } from "@despia-native/dom/elements";
+  import { UNIVERSAL_GLOBAL_ELEMENTS, GLOBAL_ELEMENTS_CSS } from "@despia-native/dom/globals";
+  import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS, RICH_ELEMENTS_CSS } from "@despia-native/dom/theme";
 
   registerGlobalElements(UNIVERSAL_GLOBAL_ELEMENTS);
   registerRichElements();

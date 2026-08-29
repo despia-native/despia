@@ -324,7 +324,7 @@ private fun StackStore.apiHandle(name: String): StackApiHandle? {
 /// wins, no scope capture), a plain block stays surface-local exactly as before. The
 /// renderer's head dispatch calls this instead of naming the tables itself. Swift twin:
 /// StackHead.register + raw()'s "script","functions" case (Stack.swift); web twin: the
-/// compiler's head.globalScripts → JSE.registerGlobalFunctions in @despia/dom / @despia/server.
+/// compiler's head.globalScripts → JSE.registerGlobalFunctions in @despia-native/dom / @despia-native/server.
 /// Corpus: OpenSource/Conformance/functions (FunctionConformanceTest here).
 fun StackStore.registerHeadFunctions(attrs: Map<String, String>, body: String) {
     if (attrs.containsKey("global")) JSE.registerGlobalFunctions(body)

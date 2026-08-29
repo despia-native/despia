@@ -2,7 +2,7 @@
 //  CryptoCore.kt - the shared `crypto` module core (:core, pure JVM): the digest-name fold,
 //  the UUID bit layouts and the uniform-integer rejection bound. The law is the corpus,
 //  OpenSource/Conformance/crypto/ (parity/F15-crypto.md). The twin of the web
-//  @despia/kernel crypto-core.ts and of Swift CryptoCore.
+//  @despia-native/kernel crypto-core.ts and of Swift CryptoCore.
 //
 //  NOTHING here computes a hash, a MAC or a signature. Those are java.security and the
 //  AndroidKeyStore's job and the module facet calls straight into them. What lives here is

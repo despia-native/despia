@@ -5,7 +5,7 @@
 //  placeholder classification, the recycling identity, and the blurhash / thumbhash decoders.
 //
 //  The law is the corpus: OpenSource/Conformance/image/resolution.json (parity/U05-image.md).
-//  The twin of Swift Engine/iOS/ImageCore.swift and the web @despia/kernel image-core.ts.
+//  The twin of Swift Engine/iOS/ImageCore.swift and the web @despia-native/kernel image-core.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file - the network fetch, LruCache,
 //  BitmapFactory, the Compose painter. Keeping the DECISION separate from the PLUMBING is what

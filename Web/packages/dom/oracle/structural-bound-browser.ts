@@ -61,12 +61,12 @@ const source = String.raw`
 const output = buildSync({
   stdin: { contents: source, loader: "ts", resolveDir: webRoot, sourcefile: "structural-bound-browser-entry.ts" },
   alias: {
-    "@despia/kernel": resolve(webRoot, "packages/kernel/src/index.ts"),
-    "@despia/compiler/component": resolve(webRoot, "packages/compiler/src/component.ts"),
-    "@despia/compiler/cssmap": resolve(webRoot, "packages/compiler/src/cssmap.ts"),
-    "@despia/compiler/options": resolve(webRoot, "packages/compiler/src/options.ts"),
-    "@despia/compiler/resolve": resolve(webRoot, "packages/compiler/src/resolve.ts"),
-    "@despia/compiler/xml": resolve(webRoot, "packages/compiler/src/xml.ts"),
+    "@despia-native/kernel": resolve(webRoot, "packages/kernel/src/index.ts"),
+    "@despia-native/compiler/component": resolve(webRoot, "packages/compiler/src/component.ts"),
+    "@despia-native/compiler/cssmap": resolve(webRoot, "packages/compiler/src/cssmap.ts"),
+    "@despia-native/compiler/options": resolve(webRoot, "packages/compiler/src/options.ts"),
+    "@despia-native/compiler/resolve": resolve(webRoot, "packages/compiler/src/resolve.ts"),
+    "@despia-native/compiler/xml": resolve(webRoot, "packages/compiler/src/xml.ts"),
   },
   bundle: true,
   write: false,

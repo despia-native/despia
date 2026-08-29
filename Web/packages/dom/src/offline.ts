@@ -23,7 +23,7 @@
 //  registration error → everything no-ops, the app runs exactly as before.
 //
 
-import { DSXState, ModuleRegistry } from "@despia/kernel";
+import { DSXState, ModuleRegistry } from "@despia-native/kernel";
 
 // ── pure helpers (exported for the node test suite — no window/DOM touched) ─────────────
 

@@ -1,4 +1,4 @@
-# @despia/webext
+# @despia-native/webext
 
 Page-side client for the **Despia browser-extension envelope** - one import
 that is **total across every context** a web page can wake up in. No
@@ -7,11 +7,11 @@ deliberately does **not** create any global: `window.dsx` stays the kernel's
 own "you are inside the native app" signal.
 
 ```bash
-npm install @despia/webext
+npm install @despia-native/webext
 ```
 
 ```js
-import { webext } from "@despia/webext";
+import { webext } from "@despia-native/webext";
 
 const ext = await webext();            // one detect, four possible worlds
 

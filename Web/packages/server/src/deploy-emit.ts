@@ -182,7 +182,7 @@ function projectWorker(plan: CloudflareDeployPlan): string {
   const names = ["entities", "handlers", "routes", "spendBudgets"];
   if (plan.mcpTools === true) names.push("mcpTools");
   const imports = [
-    `import { createWorkersHandler } from "@despia/server/bootloader-workers";`,
+    `import { createWorkersHandler } from "@despia-native/server/bootloader-workers";`,
     `import { ${names.join(", ")} } from ${JSON.stringify(plan.barrel)};`,
   ];
   if (site) imports.push(`import siteRegistry from ${JSON.stringify(plan.siteRegistry)};`);

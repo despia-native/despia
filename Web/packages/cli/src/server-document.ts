@@ -6,7 +6,7 @@
 //  A backend surface is a .dsx document: the head declares entities, secrets, egress and
 //  actions; the body declares routes, workers and tools. In the monorepo those compile to
 //  facet rows prepare_server.rb aggregates; a standalone project has no facet aggregate, so
-//  this step compiles `server/*.dsx` straight into the shapes `@despia/server/host` consumes —
+//  this step compiles `server/*.dsx` straight into the shapes `@despia-native/server/host` consumes —
 //  `server/generated/index.ts` (entities · routes · handlers · migrationSql) plus
 //  `server/generated/migration.sql` — and the project's worker imports the barrel instead of
 //  hand-carrying the compiled form. One source of truth; the drift class dies at the root.
@@ -23,7 +23,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { systemTables } from "@despia/server/postgres";
+import { systemTables } from "@despia-native/server/postgres";
 
 export class ServerDocumentError extends Error {}
 
@@ -734,8 +734,8 @@ export function emitServerArtifacts(
   lines.push("//  is its compiled form, and hand-carrying the rows next to it is the drift class");
   lines.push("//  this step exists to kill.");
   lines.push("//", "");
-  lines.push(`import { crudHandler, type EntitySpec, type ServerRoute, type SpendBudget } from "@despia/server/host";`);
-  if (anyActions) lines.push(`import { declaredHandler } from "@despia/server/actions";`);
+  lines.push(`import { crudHandler, type EntitySpec, type ServerRoute, type SpendBudget } from "@despia-native/server/host";`);
+  if (anyActions) lines.push(`import { declaredHandler } from "@despia-native/server/actions";`);
   lines.push("");
   lines.push(`export const entities: EntitySpec[] = ${JSON.stringify(entities, null, 2)};`);
   lines.push("");

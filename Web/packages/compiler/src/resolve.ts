@@ -1,6 +1,6 @@
 //
 //  resolve.ts - the compiled registry SHAPE + component resolution. Browser-safe
-//  (no node imports): @despia/dom consumes this at runtime; registry.ts (build-time,
+//  (no node imports): @despia-native/dom consumes this at runtime; registry.ts (build-time,
 //  node) produces the same shape.
 //
 
@@ -80,7 +80,7 @@ export type Registry = {
      *  default stays — studio-apps.md §8, the Apps mount host is the first consumer) */
     boot?: boolean;
   }>;
-  /** OPT-IN router motion (/web/04 + @despia/dom motion.ts): neutral DSX Web transitions,
+  /** OPT-IN router motion (/web/04 + @despia-native/dom motion.ts): neutral DSX Web transitions,
    *  explicit legacy families, edge swipe-back, and the master-detail split. Config-plane only — markup and the dsx API
    *  are byte-identical with or without it; omitted = instant swaps (today's behavior). */
   router?: {

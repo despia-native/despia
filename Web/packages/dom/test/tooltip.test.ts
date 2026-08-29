@@ -17,9 +17,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { ReactiveStore, ActionRunner, makeRunEnv } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
-import type { Registry } from "@despia/compiler/resolve";
+import { ReactiveStore, ActionRunner, makeRunEnv } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import type { Registry } from "@despia-native/compiler/resolve";
 import {
   TooltipLifecycle, resolveTooltip, mountNode, TOOLTIP_INTENT_DELAY_MS,
   type TooltipAction, type MountCtx,

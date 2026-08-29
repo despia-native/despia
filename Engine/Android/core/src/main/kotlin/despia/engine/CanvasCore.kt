@@ -4,7 +4,7 @@
 //  display list (+ its keyed diff and SVG serialisation), the tier-2 command recorder, the
 //  `on:frame` schedule and the accessibility fold. The law is the corpus,
 //  OpenSource/Conformance/canvas/ (parity/U04-canvas.md). The twin of the web
-//  @despia/kernel canvas-core.ts and of Swift CanvasCore.
+//  @despia-native/kernel canvas-core.ts and of Swift CanvasCore.
 //
 //  WHY THIS IS A SHARED CORE AND NOT THREE RASTERISERS. Three rasterisers will never be
 //  bit-identical, so the determinism split is deliberate: PIXELS are toleranced and belong

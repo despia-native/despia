@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "_note": "G4 unified input \u2014 the DECLARATION \u2192 RESOLVED BINDING table (dsx-game.md \u00a72 G4). A head `<input as=\u2026 keys= gamepad= touch= axis= deadzone=/>` folds to exactly one binding record; every unknown word is dropped with ONE Article-7 diagnostic and the rest of the binding survives. Key SETS (WASD/Arrows/ZQSD/IJKL) expand positionally to [up, left, down, right]. Defaults: axis=false, deadzone=0.15. The three kernels (@despia/kernel input.ts \u00b7 despia.engine.input.SceneInput \u00b7 SceneInput.swift) run this file; every expectation came from an independent scratch implementation.",
+  "_note": "G4 unified input \u2014 the DECLARATION \u2192 RESOLVED BINDING table (dsx-game.md \u00a72 G4). A head `<input as=\u2026 keys= gamepad= touch= axis= deadzone=/>` folds to exactly one binding record; every unknown word is dropped with ONE Article-7 diagnostic and the rest of the binding survives. Key SETS (WASD/Arrows/ZQSD/IJKL) expand positionally to [up, left, down, right]. Defaults: axis=false, deadzone=0.15. The three kernels (@despia-native/kernel input.ts \u00b7 despia.engine.input.SceneInput \u00b7 SceneInput.swift) run this file; every expectation came from an independent scratch implementation.",
   "diagnosticCodes": [
     "input-as",
     "input-duplicate",

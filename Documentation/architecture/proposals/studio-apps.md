@@ -322,7 +322,7 @@ understandable, reversible.
   scheme `dsx` refuses at the compiler.
 - **The mount is the facet-component mechanism.** `Core/Apps`' web facet registers ONE facet
   component, `StudioAppSurface` (shadow isolation — `isolation:"shadow"` — the
-  `@despia/element` embed pattern minus the custom-element wrapper). The host draws a
+  `@despia-native/element` embed pattern minus the custom-element wrapper). The host draws a
   provenance strip ("App · AcmeCopy") the app cannot draw over; the surface's fallback children
   render when the app is absent, disabled, killed or skewed (the unresolved-tag degradation,
   Article 7 for free).

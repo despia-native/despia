@@ -12,7 +12,7 @@ mirror. Closed packages and app builds are governed by the release lanes, not by
 
 | Package | Source of truth |
 |---|---|
-| The kernel, all three faces (npm `@despia/*`, Maven `com.despia.dsx`, SPM) | `OpenSource/Engine/VERSION` |
+| The kernel, all three faces (npm `@despia-native/*`, Maven `com.despia.dsx`, SPM) | `OpenSource/Engine/VERSION` |
 | Despia AI | `OpenSource/AI/VERSION` |
 | Despia Local | `OpenSource/Local/VERSION` |
 | Despia MCP | `OpenSource/MCP/VERSION` |

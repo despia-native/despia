@@ -2,7 +2,7 @@
 
 > **Status: LANDED (2026-08-27) — P1, P2, and P3's device + relay halves, same day, owner-directed
 > ("prod ready, no gaps").** The corpus, the three-language core, the `dev.stream` module (four
-> facets), the `.dsxreport` seal + verifier, the `@despia/live` relay, the CLI legs, the dashboard
+> facets), the `.dsxreport` seal + verifier, the `@despia-native/live` relay, the CLI legs, the dashboard
 > panel and the Android channel fill are all in-tree and gated — the build log is §6, including
 > the four places this document's first draft was wrong. The one named remainder is the PLATFORM
 > half of P3 (the one-click BYO-Cloudflare provisioning + the Apple/Google attestation verify
@@ -119,7 +119,7 @@ panel, one is an envelope. Nothing runs on Despia infrastructure.
 ```
 device (test channel)                      developer's Cloudflare account            Despia dashboard
 ┌──────────────────────────┐               ┌───────────────────────────┐             ┌──────────────────┐
-│ dsx.logs / dsx.errors /  │  NDJSON batch │  @despia/live worker      │   SSE       │  Live logs panel │
+│ dsx.logs / dsx.errors /  │  NDJSON batch │  @despia-native/live worker      │   SSE       │  Live logs panel │
 │ kernel tail (unchanged)  │  POST ~1–2 s  │  DO per session:          │  cursor +   │  (the Console    │
 │  → dev.stream module     │──────────────▶│  seq · ring · fan-out     │──resume────▶│   feed, shared   │
 │  (scrub at enqueue,      │               │  optional R2 archive, TTL │  Last-Event │   DSX component) │
@@ -173,9 +173,9 @@ Config (`config.json`): `relay` (origin, host-first like every module knob), `en
 config pipeline; DevSettings' `allowed_hosts` discipline applies to the relay origin on
 TestFlight/ad-hoc installs.
 
-### 3.2 The relay: `@despia/live` — a worker the developer owns
+### 3.2 The relay: `@despia-native/live` — a worker the developer owns
 
-A free, MIT, dependency-free worker package (the `@despia/push` precedent: we publish it, the
+A free, MIT, dependency-free worker package (the `@despia-native/push` precedent: we publish it, the
 developer's Cloudflare account runs it, "we are not in the path"). One Worker + one Durable
 Object class + an optional R2 binding:
 
@@ -203,7 +203,7 @@ rejected — the contract, not the backing store, is what gets corpus-pinned.
 **Deployment, two doors, same artifact** (§39 escape-hatch law):
 
 1. **Dashboard one-click** through the BYO Cloudflare grant (master-plan P0 custody: encrypted
-   grant, consent ledger, one-click revoke): the platform deploys `@despia/live` into the
+   grant, consent ledger, one-click revoke): the platform deploys `@despia-native/live` into the
    CUSTOMER'S account with the granted token, binds the DO namespace + optional R2 bucket, and
    stores only the relay origin. The billing sentence is the platform's existing one, verbatim:
    *"runs on your connected hosting account; usage bills there."*
@@ -374,7 +374,7 @@ The unified-codebase law applies — fixtures first, three runners:
   exercised end-to-end before any provisioning exists. Corpus `livelogs/` on three runners.
   **This slice alone retires most of the support incident:** the macro ("shake → Copy report →
   paste") plus verdicts 1–3 of the verifier need nothing but the envelope.
-- **P2 — the relay + the panel.** `@despia/live` (worker + DO + fixtures under the workers
+- **P2 — the relay + the panel.** `@despia-native/live` (worker + DO + fixtures under the workers
   face), the `dsx deploy` door, the BYO-Cloudflare one-click door behind the P0 grant store,
   the dashboard panel as the shared Console component, the pairing QR. Sequenced with A6b so
   build logs and device logs land as one surface.
@@ -411,7 +411,7 @@ document was wrong.
 | The corpus | `OpenSource/Conformance/livelogs/{wire,report}.json` + README — expectations computed by an INDEPENDENT python oracle (json.dumps sort_keys/compact + hashlib), not by any implementation; the motivating incident's AI-fabricated paste is a pinned `not_report` verdict case | three runners below; `generate_conformance_index.rb` → 73 corpora, 0 run by nobody |
 | The pure core, three languages | `packages/kernel/src/livelogs.ts` · `:core LiveLogs.kt` · `Engine/iOS/LiveLogs.swift` — row folds (scrub AT the fold), batch body, ack fold, LiveQueue, LiveRing, canonical bytes, self-contained sync sha256, seal, verdicts, prose extraction (TS) | TS 11/11 (`livelogs-conformance.test.ts`, in the conformance keystone) · Kotlin in `:core` (full suite 2973/0) · Swift 57/57 COMPILED AND RUN on a swift.org 6.2.3 Linux toolchain via `swift_conformance_run_test.rb` |
 | `dev.stream` | `Core/DevSettings/Modules/LiveStream/` — manifest (4 actions, errors zoo, static tests), `swift/DevStream.swift`, `kotlin/DevStream.kt`, `kotlin/desktop/DevStreamDesktop.kt` (a REAL Compose-Desktop implementation, so the parity `missing` pins never move), `web/index.js` (a `dsx preview` session streams too); drawer wiring: Panel row, `Components/Stream.dsx`, the `dev://stream` deep link + QR scan through the parent (child owns the ONE consent confirm), the badge's second reason (LIVE) | `lint_dsx --strict` 0/0 · `check_module_rules` 0/0 · `verify_module_tests` · the registries below |
-| `@despia/live` | `OpenSource/Web/packages/live/` — worker + `LiveSession` Durable Object (the first DO in the tree): idempotent batch ingest, SSE cursor feed with `Last-Event-ID` + self-close, viewer-count acks with sliding ttl + hard max age, report uploads judged by the kernel verifier, attestation storage, opt-in R2 archive fold; `/pair` admin-gated with probing parity; write-through restart discipline | 17/17 unit + 15/15 end-to-end under REAL workerd (miniflare), incl. a two-instance restart-persistence proof · `wrangler deploy --dry-run` green |
+| `@despia-native/live` | `OpenSource/Web/packages/live/` — worker + `LiveSession` Durable Object (the first DO in the tree): idempotent batch ingest, SSE cursor feed with `Last-Event-ID` + self-close, viewer-count acks with sliding ttl + hard max age, report uploads judged by the kernel verifier, attestation storage, opt-in R2 archive fold; `/pair` admin-gated with probing parity; write-through restart discipline | 17/17 unit + 15/15 end-to-end under REAL workerd (miniflare), incl. a two-instance restart-persistence proof · `wrangler deploy --dry-run` green |
 | CLI legs | `despia report verify` (exit codes ARE the verdicts: 0 genuine · 2 modified · 3 not-report · 1 usage) + the dev server's `/__dsx_dev_logs` door (terminal tail + the relay's poll shape — local live logs with no Cloudflare anywhere) | `packages/cli/test/livelogs-cli.test.ts` 6/6 · `lint_dsx_cli_test.rb` |
 | Dashboard | `ClosedSource/StudioApps/LiveLogs/Components/LiveLogs.dsx` under Observe in the ActivityPane — the Console feed grammar over the relay's rows door (R1 poll posture, A6; SSE is the A6b upgrade on the same rows), plus the Verify-report paste box against `/verify` | `despia build` 26 components · `despia lint --strict` 0/0 |
 | The Android channel fill | `despia.channel` manifest meta-data (per-build-variant), accepted ONLY for `testflight`/`adhoc`, in `DespiaApp.kt` + `WearApp.kt`; the `AppManifest.kt` open item records the fill; guide §1 documents it | code + the android-app lane |

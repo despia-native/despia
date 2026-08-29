@@ -73,8 +73,8 @@
         dsx.action.check({ label: 'the entry component exists', ok: found.data === true, detail: 'dsx.config.json names ' + entry })
       }
 
-      const kernel = await dsx.module.fs.exists({ root: 'project', path: 'node_modules/@despia/kernel' })
-      dsx.action.check({ label: '@despia/kernel is installed', ok: kernel.data === true, detail: 'run `npm install`' })
+      const kernel = await dsx.module.fs.exists({ root: 'project', path: 'node_modules/@despia-native/kernel' })
+      dsx.action.check({ label: '@despia-native/kernel is installed', ok: kernel.data === true, detail: 'run `npm install`' })
 
       dsx.module.out.print({ text: '' })
       if (dsx.variable.problems > 0) {

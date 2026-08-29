@@ -3,7 +3,7 @@
 //
 //  The ONE file that knows the spec's spellings. Everything it decides - which rows
 //  project, under what name, with what schema, shaped into what result - is the pure fold
-//  in @despia/kernel/mcp, corpus-pinned on three renderers. That split is deliberate: the
+//  in @despia-native/kernel/mcp, corpus-pinned on three renderers. That split is deliberate: the
 //  CG draft has already moved its entry point once (navigator.modelContext ->
 //  document.modelContext) and its declarative half is still TBD, so a rename upstream is a
 //  diff in this file rather than a change to a grammar apps are written against.
@@ -12,7 +12,7 @@
 //  browser outside the Chrome 149 / Edge 150 origin trials and ChatGPT Desktop has the API;
 //  a page in any other browser registers nothing and behaves exactly as it did before.
 //
-import { projectTools, webMcpResult, webMcpErrorResult, type ToolRow } from "@despia/kernel/mcp";
+import { projectTools, webMcpResult, webMcpErrorResult, type ToolRow } from "@despia-native/kernel/mcp";
 
 /** The slice of the spec's ModelContext this adapter touches. */
 type ModelContextLike = {

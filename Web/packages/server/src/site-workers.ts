@@ -11,7 +11,7 @@
 //  which is the W1 parity claim this file exists to keep small enough to believe.
 //
 
-import type { Registry } from "@despia/compiler/resolve";
+import type { Registry } from "@despia-native/compiler/resolve";
 import { createPageHandler, type PageHandlerOptions } from "./live.ts";
 
 /** The Workers Static Assets binding, structurally — this workspace carries no platform types. */

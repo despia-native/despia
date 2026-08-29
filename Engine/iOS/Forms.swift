@@ -9,7 +9,7 @@
 //
 //  The law is the corpus: OpenSource/Conformance/forms/{mask,countries,phone,daterange,
 //  validation,composites}.json (parity/U08-forms.md). The twin of :core Forms.kt and of the web
-//  @despia/kernel forms.ts; this leg runs in the record lane through FormsConformance.swift.
+//  @despia-native/kernel forms.ts; this leg runs in the record lane through FormsConformance.swift.
 //
 //  WHY THESE PARTS AND NOT THE WIDGETS. Drawing a country sheet is platform work and belongs in
 //  the element. What cannot live there is the ARITHMETIC: where the caret sits after an edit in

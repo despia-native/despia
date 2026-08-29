@@ -305,7 +305,7 @@ test("tokenizer: typescript call positions, decorators, template interpolation",
 });
 
 test("tokenizer: bash command position, flags, variables", () => {
-  const src = '# install\nexport DSX_HOME="$HOME/dsx"\nnpm install -g @despia/cli && echo $HOME';
+  const src = '# install\nexport DSX_HOME="$HOME/dsx"\nnpm install -g @despia-native/cli && echo $HOME';
   const tokens = tokenizeCode("bash", src);
   assert.equal(concat(tokens), src);
   assert.deepEqual(kindsOf(tokens, "com"), ["# install"]);

@@ -16,7 +16,7 @@ in, and one capability of the framework, not its definition.
 
 - iOS: real SwiftUI (Engine/iOS)
 - Android: real Jetpack Compose (Engine/Android)
-- Web: real DOM with SSR (Web, @despia/* on npm)
+- Web: real DOM with SSR (Web, @despia-native/* on npm)
 - Server: the backend authored in DSX in a <server> document: entities with row-level
   security, actions, API routes, workers, MCP tools; typed rejections; per-request
   budgets; table-driven deploy targets
@@ -50,8 +50,8 @@ in, and one capability of the framework, not its definition.
 - Engine/: the native kernel (Swift + Kotlin + shared runtime files); mirrored standalone
   to github.com/despia-native/despia-kernel
 - Web/: the TypeScript kernel, compiler, DOM renderer, SSR server, CLI and scaffolder;
-  ships to npm as @despia/kernel, @despia/compiler, @despia/dom, @despia/element,
-  @despia/server, @despia/cli, @despia/vite-plugin and create-dsx
+  ships to npm as @despia-native/kernel, @despia-native/compiler, @despia-native/dom, @despia-native/element,
+  @despia-native/server, @despia-native/cli, @despia-native/vite-plugin and create-dsx
 - AI/: on-device inference (completions, embeddings, speech, vision, tools); standalone at
   github.com/despia-native/despia-ai
 - Base/: Despia Local, the on-device data plane (SQLite with vectors, snapshots); standalone

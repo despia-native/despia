@@ -130,10 +130,10 @@ test("playback media imports/registers per tag and carries one shared weak sheet
   const combined = embedEntrySource({ registry: combinedRegistry, tag: "t-combined", component: "t.Combined", features: noFeatures() });
   const plain = embedEntrySource({ registry: plainRegistry, tag: "t-plain", component: "t.Plain", features: noFeatures() });
 
-  assert.match(audio, /import \{ registerAudioSurface, MEDIA_PLAYBACK_CSS \} from "@despia\/dom\/media-surfaces"/);
+  assert.match(audio, /import \{ registerAudioSurface, MEDIA_PLAYBACK_CSS \} from "@despia-native\/dom\/media-surfaces"/);
   assert.match(audio, /registerAudioSurface\(\);/);
   assert.doesNotMatch(audio, /registerVideoSurface/);
-  assert.match(video, /import \{ registerVideoSurface, MEDIA_PLAYBACK_CSS \} from "@despia\/dom\/media-surfaces"/);
+  assert.match(video, /import \{ registerVideoSurface, MEDIA_PLAYBACK_CSS \} from "@despia-native\/dom\/media-surfaces"/);
   assert.match(video, /registerVideoSurface\(\);/);
   assert.doesNotMatch(video, /registerAudioSurface/);
   assert.match(combined, /registerAudioSurface, registerVideoSurface, MEDIA_PLAYBACK_CSS/);

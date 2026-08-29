@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "license": "Apache-2.0",
   "type": "module",
-  "description": "Scaffold a DSX project: a real DSX package (dsx.json + Components/**.dsx) plus the app config @despia/cli reads. The generated project compiles with `dsx build` as generated.",
+  "description": "Scaffold a DSX project: a real DSX package (dsx.json + Components/**.dsx) plus the app config @despia-native/cli reads. The generated project compiles with `dsx build` as generated.",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
   "exports": {

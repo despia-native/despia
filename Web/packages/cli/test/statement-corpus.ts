@@ -21,7 +21,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseDsx, type XmlNode } from "@despia/compiler/xml";
+import { parseDsx, type XmlNode } from "@despia-native/compiler/xml";
 import { bodyLegibility, distribution } from "../src/flowcost.ts";
 
 /** The repo root, from this file's own location - no environment variable, no cwd. */

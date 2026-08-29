@@ -1,4 +1,4 @@
-// The @despia/live relay manifest — deployed by the DEVELOPER into their own Cloudflare
+// The @despia-native/live relay manifest — deployed by the DEVELOPER into their own Cloudflare
 // account (proposals/live-logs.md 3.2); Despia operates nothing and is never in the byte
 // path. Deploy:
 //   npx wrangler deploy --config wrangler.jsonc

@@ -32,7 +32,7 @@
   "use strict";
 
   /* ══ §1 · JSE runtime — the bounded expression language, interpreted like the
-     native engine. Ported from @despia/canvas-editor (src/canvas-editor.js, MIT,
+     native engine. Ported from @despia-native/canvas-editor (src/canvas-editor.js, MIT,
      same product family) so the two editors NEVER disagree; the vendored
      conformance corpus (test/run-jse-conformance.mjs) is the contract that
      keeps this port device-exact. No eval(). ══════════════════════════════════ */

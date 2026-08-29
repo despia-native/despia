@@ -2,7 +2,7 @@
 //  StackTooltip.kt - the shared tooltip= / tooltipSide= grammar (:core, pure JVM): the
 //  attribute fold + the show/dismiss lifecycle. The law is the corpus:
 //  OpenSource/Conformance/input/tooltip.json (design-system.md Wave 3 (c)1). The twin of
-//  Swift StackTooltip/StackTooltipLifecycle and the web @despia/dom resolveTooltip/
+//  Swift StackTooltip/StackTooltipLifecycle and the web @despia-native/dom resolveTooltip/
 //  TooltipLifecycle. A resolved tooltip always doubles as the element's accessibility
 //  description (the platform hint slot - TooltipCompat/tooltipText on Android renderers);
 //  the visual reveal shows ONLY from a hover-capable fine-pointer source, so a touch

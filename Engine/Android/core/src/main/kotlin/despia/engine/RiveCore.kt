@@ -3,7 +3,7 @@
 //  artboard/machine/animation selection, the fit and alignment fold, the playback and
 //  residency lifecycle, the event payloads and the accessibility verdict. The law is the
 //  corpus, OpenSource/Conformance/rive/ (parity/U12-rive.md). The twin of the web
-//  @despia/kernel rive-core.ts and of Swift RiveCore.
+//  @despia-native/kernel rive-core.ts and of Swift RiveCore.
 //
 //  WHY A SHARED CORE WHEN THE RENDERER IS ONE VENDOR LIBRARY. Rive's own runtime draws the
 //  same picture on all three platforms, so pixels are the one thing that cannot diverge and

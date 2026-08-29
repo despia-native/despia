@@ -12,7 +12,7 @@ import test from "node:test";
 
 import {
   CONFIG_VALIDATION_LIMITS, checkConfigRules, validateConfigValue,
-} from "../src/config-validate.ts";  // subpath export: @despia/kernel/config-validate
+} from "../src/config-validate.ts";  // subpath export: @despia-native/kernel/config-validate
 
 const corpusPath = join(import.meta.dirname, "..", "..", "..", "..", "Conformance", "config", "validation.json");
 

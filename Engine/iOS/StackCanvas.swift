@@ -1,7 +1,7 @@
 //
 //  StackCanvas.swift - the iOS `<canvas>` element (parity/U04-canvas.md): the 2-D drawing
 //  surface. Every NUMBER lives in the platform-neutral kernel (CanvasCore.swift - corpus
-//  OpenSource/Conformance/canvas/, twins @despia/kernel canvas-core.ts and :core
+//  OpenSource/Conformance/canvas/, twins @despia-native/kernel canvas-core.ts and :core
 //  CanvasCore.kt); this file only owns the SwiftUI adapter: a `Canvas` whose GraphicsContext
 //  replays the kernel display list, the tier-2 command replay, the CADisplayLink loop under
 //  the kernel's 60/s budget, and the declared accessibility overlay. No Skia dependency:

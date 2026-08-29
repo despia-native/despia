@@ -3,7 +3,7 @@
 //  per-platform physical base each token maps to, path normalisation, and the containment
 //  check that IS the sandbox. The law is the corpus,
 //  OpenSource/Conformance/files/{paths,errors}.json (parity/F03-files.md). The twin of Swift
-//  DSXFilePaths and the web @despia/kernel parseFilePath / filePathContains.
+//  DSXFilePaths and the web @despia-native/kernel parseFilePath / filePathContains.
 //
 //  This is a SECURITY boundary, not a convenience. Markup never names an absolute path: it
 //  names `root:relative`, and everything a facet may touch follows from what this file

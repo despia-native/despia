@@ -4,7 +4,7 @@
 //  transition), the TRIGGER RESOLVER, the Android channel-importance fold, the
 //  foreground-presentation resolution and the tap-payload normalisation. The law is the corpus,
 //  OpenSource/Conformance/notify/*.json (parity/F02-notifications.md); the web twin is
-//  @despia/kernel notify.ts and the Swift twin is Engine/iOS NotifyCore.swift.
+//  @despia-native/kernel notify.ts and the Swift twin is Engine/iOS NotifyCore.swift.
 //
 //  Everything platform-shaped lives OUTSIDE this file: NotificationManagerCompat,
 //  UNUserNotificationCenter and the browser Notification API all ask this core WHAT to do and

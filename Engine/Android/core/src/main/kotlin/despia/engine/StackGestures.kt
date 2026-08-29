@@ -4,7 +4,7 @@
 //  classification, the pinch/rotate transform tracker, the gestureAxis claim, and the
 //  COMPOSITION resolver behind gesture= / gestureAxis=. The law is the corpus:
 //  OpenSource/Conformance/input/gestures.json (parity/U02-gestures.md). The twin of the
-//  web @despia/dom gestures.ts and Swift StackGestures.swift.
+//  web @despia-native/dom gestures.ts and Swift StackGestures.swift.
 //
 //  The split is the tooltip one: the Compose adapter owns raw pointer delivery, pointer
 //  identity, hover capability and PointerEventPass ordering, then reports normalized

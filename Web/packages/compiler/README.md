@@ -1,13 +1,13 @@
-# @despia/compiler
+# @despia-native/compiler
 
 The DSX build-time compiler for parsing `.dsx`, compiling component IR, resolving registries, and emitting scoped CSS.
 
 ```sh
-npm install @despia/compiler
+npm install @despia-native/compiler
 ```
 
 ```ts
-import { compileComponent } from "@despia/compiler";
+import { compileComponent } from "@despia-native/compiler";
 
 const component = compileComponent(
   "Greeting",

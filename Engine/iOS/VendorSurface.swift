@@ -1,5 +1,5 @@
 //
-//  VendorSurface.swift — Swift twin of @despia/kernel vendor-surface.ts and
+//  VendorSurface.swift — Swift twin of @despia-native/kernel vendor-surface.ts and
 //  :core VendorSurface.kt: THE INLINE-VENDOR-SURFACE FAMILY FOLDS (V02..V06,
 //  architecture/proposals/inline-native-surfaces.md).
 //

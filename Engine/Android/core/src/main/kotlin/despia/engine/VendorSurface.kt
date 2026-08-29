@@ -4,7 +4,7 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 /*
- * VendorSurface.kt - Kotlin twin of @despia/kernel vendor-surface.ts and
+ * VendorSurface.kt - Kotlin twin of @despia-native/kernel vendor-surface.ts and
  * Engine/iOS/VendorSurface.swift: THE INLINE-VENDOR-SURFACE FAMILY FOLDS (V02..V06,
  * architecture/proposals/inline-native-surfaces.md).
  *

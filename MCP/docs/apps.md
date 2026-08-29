@@ -26,7 +26,7 @@ only place the answer existed". Everything in this package's shaping exists to m
 impossible:
 
 ```ts
-import { mcpToolResult, hostSupportsUi, uiResourceUri } from "@despia/kernel/mcp";
+import { mcpToolResult, hostSupportsUi, uiResourceUri } from "@despia-native/kernel/mcp";
 
 const result = mcpToolResult(value, {
   resourceUri: uiResourceUri("catalogue", "search"),
@@ -104,7 +104,7 @@ not advisory:
 4. Only then does tool data flow: `ui/notifications/tool-input`, then
    `ui/notifications/tool-result`.
 
-`@despia/kernel/mcp` handles all of it - `createAppBridge` emits the initialize request on
+`@despia-native/kernel/mcp` handles all of it - `createAppBridge` emits the initialize request on
 construction, so there is no start step to forget. It also holds the parts that are easy to
 get wrong: a call issued before the handshake is queued rather than reordered ahead of it,
 data that arrives early is buffered rather than dropped, `tool-input-partial` never settles

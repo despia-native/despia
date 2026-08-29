@@ -146,7 +146,7 @@ step is checked against the one before it:
    every hardcoded number, every semantic colour token, each with a `_src` line, plus the
    laws in `notes` (the value shape, the commit law, the ink law, the a11y position).
 2. **The shared law** — the pure part goes in the kernel, once per language, never in a
-   renderer: `@despia/kernel` `signature-core.ts` · `:core SignatureCore.kt` · the Swift
+   renderer: `@despia-native/kernel` `signature-core.ts` · `:core SignatureCore.kt` · the Swift
    `SignatureInk` enum inside the component. Decode, capture folds, the curve. Both Compose
    renderers and both web planes (DOM + SSR) then share one implementation of the maths, and
    the unit tests read the SAME fixture.

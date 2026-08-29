@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ModuleRegistry, defineModule } from "@despia/kernel";
+import { ModuleRegistry, defineModule } from "@despia-native/kernel";
 
 import { routeModule } from "../src/route-module.ts";
 import type { FrameRouter } from "../src/router.ts";

@@ -11,7 +11,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { RunnerFetchSeam, ApiBlock, ReactiveStore, type ApiSpec, type Dict } from "@despia/kernel";
+import { RunnerFetchSeam, ApiBlock, ReactiveStore, type ApiSpec, type Dict } from "@despia-native/kernel";
 import { compileComponent } from "../../compiler/src/component.ts";
 import type { Registry } from "../../compiler/src/resolve.ts";
 import { renderPageStream, STREAM_ERROR_MARKER } from "../src/stream.ts";

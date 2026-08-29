@@ -284,7 +284,7 @@ test("ota build: the publisher refuses exactly what the device would refuse", ()
 });
 
 test("ota build: the device gate reads back exactly what the publisher wrote", async () => {
-  const { evaluateGeneration } = await import("@despia/kernel");
+  const { evaluateGeneration } = await import("@despia-native/kernel");
   const fx = contentFixture(FILES);
   try {
     otaBuild(join(fx.root, "content"), join(fx.root, "out"), { runtimeVersion: "1.4.0", rolloutFraction: 0.5, rolloutSalt: "fixed" });

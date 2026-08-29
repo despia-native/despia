@@ -3,7 +3,7 @@
 //  given the surfaces the router just published and the ledger of what the router has already
 //  claimed, which release/claim calls bring the shared OrientationClaimStack in line. The law is
 //  the corpus: OpenSource/Conformance/input/orientation-binding.json (parity/F07-orientation.md
-//  section 3a). Twin of the TS @despia/kernel orientation-binding.ts and the Swift
+//  section 3a). Twin of the TS @despia-native/kernel orientation-binding.ts and the Swift
 //  Engine/iOS/StackOrientationBinding.swift.
 //
 //  WHY A RECONCILE AND NOT A PAIR OF CALLBACKS. `lockOrientation` leaks precisely where a screen

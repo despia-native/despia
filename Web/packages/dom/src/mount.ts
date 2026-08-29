@@ -14,11 +14,11 @@ import {
   ReactiveStore, ActionRunner, makeRunEnv, writeBound, JSE, JSESeams, ApiBlock, ApiGraph, ModuleRegistry,
   string, truthy, number, isDict, watchKey, noteSurfaceRead, type Dict, type RunEnv, type ApiSpec, type ApiSeed,
   RefRegistry, refKey, attributeBinding, DSXStrings, overrideAttrName,
-} from "@despia/kernel";
-import { legacyAttrToDecls, mapStyleValue, parseStyleAttr, BRIDGE_ATTRS, BRIDGE_CONTEXT_ATTRS } from "@despia/compiler/cssmap";
-import { resolveComponent, type Registry } from "@despia/compiler/resolve";
-import type { XmlNode } from "@despia/compiler/xml";
-import { stampNodeIds, type ComponentIR, type IRNode } from "@despia/compiler/component";
+} from "@despia-native/kernel";
+import { legacyAttrToDecls, mapStyleValue, parseStyleAttr, BRIDGE_ATTRS, BRIDGE_CONTEXT_ATTRS } from "@despia-native/compiler/cssmap";
+import { resolveComponent, type Registry } from "@despia-native/compiler/resolve";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import { stampNodeIds, type ComponentIR, type IRNode } from "@despia-native/compiler/component";
 import {
   ELEMENTS, GLOBAL_ELEMENTS, UNSUPPORTED, BUTTON_ROLES, booleanWord, createMarquee, iconSvg,
   type ElementApi, type ElementFactory,
@@ -77,7 +77,7 @@ function adoptDisposers(parent: MountCtx, child: MountCtx): void {
   parent.disposers.push(() => child.disposers.forEach((d) => d()));
 }
 
-/** cookie write seam — the bootloader wires document.cookie here (@despia/dom owns it) */
+/** cookie write seam — the bootloader wires document.cookie here (@despia-native/dom owns it) */
 let cookieWriter: ((name: string, value: unknown) => void) | null = null;
 export function setCookieWriter(fn: (name: string, value: unknown) => void): void {
   cookieWriter = fn;

@@ -39,7 +39,7 @@ import { enqueueMessage, QueueSeam, type QueueEnqueueRequest, type QueueTranspor
 import { buildQueueEnqueueStatement, buildSpendAddStatement, buildSpendReadStatement } from "../src/postgres.ts";
 import { installEntities, RepoSeam } from "../src/repo.ts";
 import { createMcpFace } from "../src/mcp-face.ts";
-import { RunnerFetchSeam } from "@despia/kernel";
+import { RunnerFetchSeam } from "@despia-native/kernel";
 
 // ── the corpus ──────────────────────────────────────────────────────────────────────────
 

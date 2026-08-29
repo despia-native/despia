@@ -1,5 +1,5 @@
 {
-  "name": "@despia/logic-editor",
+  "name": "@despia-native/logic-editor",
   "version": "0.1.0",
   "description": "Zero-dependency visual logic editor SDK for Despia DSX. Node-based formula graphs that compile to JSE text (the language all three Despia runtimes execute), with live per-node evaluation verified against the shared JSE conformance corpus.",
   "license": "Apache-2.0",

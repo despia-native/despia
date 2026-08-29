@@ -13,7 +13,7 @@
 //  The store lives on `globalThis` under `Symbol.for("dsx.scene-surfaces.v1")` — the
 //  Dom facet's `dsx.web-surfaces.v1` precedent — because the module's web facet is
 //  bundled INDEPENDENTLY (build-demo esbuild) and must not import (and duplicate)
-//  @despia/kernel. Both sides speak the one Symbol.for name; this file is the typed owner.
+//  @despia-native/kernel. Both sides speak the one Symbol.for name; this file is the typed owner.
 //
 //  Events ride the seam too: the element emits `ready` / `collide` through
 //  sceneBusEmit, and whoever subscribed (the Core/Scene facet, in boot) re-fires them

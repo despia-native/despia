@@ -35,7 +35,7 @@ Apple's XMLParser does not, so author the valued form). Everything else is pinne
 Runners:
   · TS: OpenSource/Web/packages/kernel/test/function-conformance.test.ts (per-PR, web-kernel lane).
     The compiler/mount routing (`<functions global="true">` → `head.globalScripts` →
-    registerGlobalFunctions in @despia/dom instantiate + @despia/server renderInstance) is pinned by the
+    registerGlobalFunctions in @despia-native/dom instantiate + @despia-native/server renderInstance) is pinned by the
     compiler/dom/server suites beside it.
   · Kotlin: Engine/Android :core FunctionConformanceTest (per-PR, android-kernel lane), mounting
     blocks through the :core head seam `StackStore.registerHeadFunctions(attrs, body)` — the same

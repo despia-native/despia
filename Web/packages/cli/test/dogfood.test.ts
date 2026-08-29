@@ -34,7 +34,7 @@ const healthy = {
   "dsx.json": JSON.stringify({ name: "app", scheme: "app", version: "0.1.0" }),
   "dsx.config.json": JSON.stringify({ name: "app", entry: "App", outDir: "dist" }),
   "Components/App.dsx": "<stack><text value=\"hi\"/></stack>\n",
-  "node_modules/@despia/kernel/package.json": "{}",
+  "node_modules/@despia-native/kernel/package.json": "{}",
 };
 
 test("the command table comes from the document, not from this host", () => {
@@ -105,7 +105,7 @@ test("`despia doctor` fails a broken project, names each problem, and exits non-
   assert.match(problems, /FAIL {2}dsx\.json declares a scheme/);
   assert.match(problems, /FAIL {2}Components\/ holds at least one \.dsx/);
   assert.match(problems, /FAIL {2}the entry component exists/);
-  assert.match(problems, /FAIL {2}@despia\/kernel is installed/);
+  assert.match(problems, /FAIL {2}@despia-native\/kernel is installed/);
   assert.match(problems, /4 check\(s\) failed/);
   // Diagnostics go to stderr; a piped stdout stays clean.
   assert.ok(!io.lines.join("\n").includes("FAIL"));

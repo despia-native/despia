@@ -1,7 +1,7 @@
 //
 //  TelemetryPolicy.kt - the shared telemetry core (:core, pure JVM): the SCRUBBER and the QUEUE
 //  POLICY. The law is the corpus: OpenSource/Conformance/telemetry/{scrub,queue}.json
-//  (parity/F10-telemetry.md). The twin of Swift TelemetryPolicy and the web @despia/kernel
+//  (parity/F10-telemetry.md). The twin of Swift TelemetryPolicy and the web @despia-native/kernel
 //  scrubText / TelemetryQueue.
 //
 //  Everything platform-shaped lives OUTSIDE this file - crash handlers, the ANR watchdog, the

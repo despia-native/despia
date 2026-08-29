@@ -17,7 +17,7 @@ import { existsSync, readFileSync, statSync, watch, type FSWatcher } from "node:
 import { dirname, extname, join, normalize, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { LiveRing, LIVE_RING_CAP, LIVE_BATCH_MAX_ROWS, liveReportVerdict } from "@despia/kernel";
+import { LiveRing, LIVE_RING_CAP, LIVE_BATCH_MAX_ROWS, liveReportVerdict } from "@despia-native/kernel";
 
 import { buildProject, findRepoRoot, type BuildResult } from "./build.ts";
 import type { ProjectConfig } from "./config.ts";
@@ -93,7 +93,7 @@ export function formatLiveRow(row: {
   return `[live ${time}]${level} ${scheme}: ${message}`;
 }
 
-/** Body reader with the wire's per-leaf byte caps (@despia/live LIVE_HTTP_*_MAX_BYTES). */
+/** Body reader with the wire's per-leaf byte caps (@despia-native/live LIVE_HTTP_*_MAX_BYTES). */
 function readBody(req: IncomingMessage, cap: number, done: (text: string | null) => void): void {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -1064,7 +1064,7 @@ h1{font-size:1rem;color:#ff6b6b;margin:0 0 1rem}pre{white-space:pre-wrap;margin:
 // ── repo demo mode ─────────────────────────────────────────────────────────────────────
 
 /** `despia dev --demo`: hand off to packages/compiler/bin/serve.ts. The specifier is computed at
- *  runtime on purpose — that file lives in the repository, never in an installed @despia/cli. */
+ *  runtime on purpose — that file lives in the repository, never in an installed @despia-native/cli. */
 export async function startDemoServer(from: string, port: number): Promise<{ port: number; close: () => Promise<void> }> {
   const repo = findRepoRoot(from);
   if (repo === null) {

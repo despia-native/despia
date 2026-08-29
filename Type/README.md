@@ -52,14 +52,14 @@ static files. Nothing else is required: `--dsx-font` already names `"InterVariab
 the face lands the moment the browser can load it and the surface renders in the previous system
 stack when it cannot.
 
-Do not add it to `@despia/dom`'s `TOKENS_CSS`. The reason is written at the top of `inter.css`.
+Do not add it to `@despia-native/dom`'s `TOKENS_CSS`. The reason is written at the top of `inter.css`.
 
 ## Why it is not under `OpenSource/Web/`
 
 `check_opensource_purity.rb` check 2: the core - `Engine`, `Web`, `Conformance` - carries no
 vendored third-party source, because every vendored tree in the core is another upstream licence
 riding into every app that links the kernel. That rule is doing real work here and not getting in
-the way: an app that links `@despia/dom` and never links this stylesheet ships no OFL bytes and
+the way: an app that links `@despia-native/dom` and never links this stylesheet ships no OFL bytes and
 takes on no OFL obligation. Putting the face in the core would have handed the obligation to
 everyone. It lives beside `AI`, `Local` and `MCP` instead, which is the shape the drop already
 has for a satellite that vendors bytes.

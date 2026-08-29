@@ -25,7 +25,7 @@ my-app/
   dsx.json            package identity - the `scheme` that namespaces every component
   dsx.config.json     app configuration - entry component, output directory (+ routes)
   Components/App.dsx  the entry screen
-  package.json        @despia/* dependencies + build / dev / lint scripts
+  package.json        @despia-native/* dependencies + build / dev / lint scripts
   README.md
   .gitignore
 ```
@@ -40,7 +40,7 @@ renderers too. Markup is never platform-forked.
 | `--template routed` | adds `Components/About.dsx` and the route table that reaches it, so `dsx build` exports `/about/index.html` |
 | `--name <name>` | package + app name (default: the directory's basename, npm-sanitized) |
 | `--scheme <scheme>` | the DSX scheme (default: derived from the name) |
-| `--link <workspace>` | rewrite the `@despia/*` dependencies to `file:` paths in a local `OpenSource/Web` checkout |
+| `--link <workspace>` | rewrite the `@despia-native/*` dependencies to `file:` paths in a local `OpenSource/Web` checkout |
 | `--force` | scaffold into a non-empty directory |
 
 ## The contract
@@ -58,9 +58,9 @@ really contains the rendered screen and its import map.
   testable.
 - **No framework variants.** There is no Vite, TypeScript, Tailwind or test-runner template -
   a DSX app's authoring surface is `.dsx`. For a Vite-hosted app, add
-  [`@despia/vite-plugin`](../vite-plugin/) yourself.
+  [`@despia-native/vite-plugin`](../vite-plugin/) yourself.
 - **No native project scaffolding.** It does not generate the iOS/Android host apps.
-- The default (non-`--link`) dependency versions point at `@despia/*@0.1.0` on the public
+- The default (non-`--link`) dependency versions point at `@despia-native/*@0.1.0` on the public
   registry. Until the first tagged release publishes them, use `--link`.
 
 ## Release status

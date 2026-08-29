@@ -18,7 +18,7 @@
     "packages/vite-plugin"
   ],
   "scripts": {
-    "build": "npm run build -w @despia/kernel && npm run build -w @despia/compiler && npm run build -w @despia/dom && npm run build -w @despia/element && npm run build -w @despia/server && npm run build -w @despia/cli && npm run build -w create-despia && npm run build -w @despia/vite-plugin",
+    "build": "npm run build -w @despia-native/kernel && npm run build -w @despia-native/compiler && npm run build -w @despia-native/dom && npm run build -w @despia-native/element && npm run build -w @despia-native/server && npm run build -w @despia-native/cli && npm run build -w create-despia && npm run build -w @despia-native/vite-plugin",
     "pack:check": "node scripts/verify-packages.ts",
     "cold-start": "node scripts/verify-cold-start.ts",
     "combinations": "node scripts/verify-combinations.ts",

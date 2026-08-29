@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { charCount } from "@despia/kernel";
+import { charCount } from "@despia-native/kernel";
 import { ELEMENTS } from "../src/elements.ts";
 import {
   FORM_ELEMENTS,

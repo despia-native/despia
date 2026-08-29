@@ -8,7 +8,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeOfflineManifest, deriveState, generationName, navigationFallbackCandidates, matchRoutePattern } from "@despia/dom/offline";
+import { normalizeOfflineManifest, deriveState, generationName, navigationFallbackCandidates, matchRoutePattern } from "@despia-native/dom/offline";
 
 test("offline manifest: the native seed dialect normalizes 1:1", () => {
   const m = normalizeOfflineManifest({

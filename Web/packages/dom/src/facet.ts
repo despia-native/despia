@@ -10,7 +10,7 @@
 //  store (the /web/12 bridge rule, unchanged).
 //
 
-import type { Dict } from "@despia/kernel";
+import type { Dict } from "@despia-native/kernel";
 
 /** the live context a facet instance holds for its lifetime */
 export type FacetCtx = {
@@ -19,7 +19,7 @@ export type FacetCtx = {
   /** the style-override plane (`override:<name>` at the usage site, raw values) — the
    *  dsx.override twin, refreshed IN PLACE before update(). The facet owns coercion the
    *  way it owns its attrs; the declared schema lives in the manifest
-   *  (`web.components[].overrides`), and @despia/kernel's resolveOverride is the shared
+   *  (`web.components[].overrides`), and @despia-native/kernel's resolveOverride is the shared
    *  coercion law when the facet wants it. */
   overrides: Dict;
   /** dispatch a declared component event → the consumer's on:<name> (payload rides dsx.this) */

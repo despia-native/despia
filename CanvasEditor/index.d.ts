@@ -1,5 +1,5 @@
 /**
- * @despia/canvas-editor: a headless, zero-dependency canvas SDK for DSX trees (the StackCanvas class).
+ * @despia-native/canvas-editor: a headless, zero-dependency canvas SDK for DSX trees (the StackCanvas class).
  *
  * Hand-written declarations for the UMD in `src/canvas-editor.js` (the SDK is
  * deliberately plain JS with no build step; these types are the contract the

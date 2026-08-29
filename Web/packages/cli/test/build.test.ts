@@ -74,11 +74,11 @@ test("a project compiles into an SSR'd document, a registry, a bootloader and ve
     assert.equal(registry.shell?.mainSrc, "./main.js");
     assert.equal(registry.shell?.manifestHref, "/manifest.webmanifest");
     assert.ok(registry.shell?.importMapJson !== undefined
-      && registry.shell.importMapJson.includes("@despia/dom/boot"));
+      && registry.shell.importMapJson.includes("@despia-native/dom/boot"));
 
     // the bootloader boots the configured entry and nothing else
     const main = readFileSync(join(result.outDir, "main.js"), "utf8");
-    assert.match(main, /import \{ bootDsx \} from "@despia\/dom\/boot";/);
+    assert.match(main, /import \{ bootDsx \} from "@despia-native\/dom\/boot";/);
     assert.match(main, /entry: "fix\.App"/);
 
     assert.ok(existsSync(join(result.outDir, "vendor/kernel/index.js")));
@@ -98,11 +98,11 @@ test("a project compiles into an SSR'd document, a registry, a bootloader and ve
   }
 });
 
-test("the import map covers every bare @despia/* specifier the vendored graph imports", () => {
+test("the import map covers every bare @despia-native/* specifier the vendored graph imports", () => {
   const project = minimalProject();
   try {
     const result = buildProject(loadConfig(project.root));
-    const needed = new Set<string>(["@despia/dom/boot"]);
+    const needed = new Set<string>(["@despia-native/dom/boot"]);
     for (const pkg of ["kernel", "compiler", "dom"]) {
       for (const specifier of scanDsxSpecifiers(join(result.outDir, "vendor", pkg))) needed.add(specifier);
     }
@@ -260,11 +260,11 @@ test("config errors name the file and the missing key", () => {
   }
 });
 
-test("the runtime packages this build vendors are resolvable from @despia/cli", () => {
-  for (const pkg of ["@despia/kernel", "@despia/compiler", "@despia/dom", "@despia/server"]) {
+test("the runtime packages this build vendors are resolvable from @despia-native/cli", () => {
+  for (const pkg of ["@despia-native/kernel", "@despia-native/compiler", "@despia-native/dom", "@despia-native/server"]) {
     assert.ok(runtimeDistDir(pkg) !== null, `${pkg} did not resolve`);
   }
-  assert.equal(runtimeDistDir("@despia/definitely-not-a-package"), null);
+  assert.equal(runtimeDistDir("@despia-native/definitely-not-a-package"), null);
 });
 
 test("the generated bootloader owns zero behavior", () => {
@@ -299,7 +299,7 @@ test("every build ships the offline floor: dsx-sw.js, the manifest, and the boot
   try {
     const result = buildProject(loadConfig(project.root));
 
-    // the worker script sits beside the entry, byte-identical to the one @despia/dom ships
+    // the worker script sits beside the entry, byte-identical to the one @despia-native/dom ships
     assert.ok(result.written.includes("dsx-sw.js"));
     assert.match(readFileSync(join(result.outDir, "dsx-sw.js"), "utf8"), /dsx-sw\.js|service worker|precache/i);
 
@@ -321,9 +321,9 @@ test("every build ships the offline floor: dsx-sw.js, the manifest, and the boot
 
     // the bootloader registers the floor, anchored to itself (deep-link first visits)
     const main = readFileSync(join(result.outDir, "main.js"), "utf8");
-    assert.match(main, /import \{ registerOfflineFloor \} from "@despia\/dom\/offline";/);
+    assert.match(main, /import \{ registerOfflineFloor \} from "@despia-native\/dom\/offline";/);
     assert.match(main, /registerOfflineFloor\(\{ swUrl: new URL\("\.\/dsx-sw\.js", import\.meta\.url\)\.href \}\)/);
-    assert.equal(result.importMap.imports["@despia/dom/offline"], "./vendor/dom/offline.js");
+    assert.equal(result.importMap.imports["@despia-native/dom/offline"], "./vendor/dom/offline.js");
     assert.ok(existsSync(join(result.outDir, "vendor/dom/offline.js")));
   } finally {
     project.cleanup();
@@ -335,7 +335,7 @@ test("every build ships the offline floor: dsx-sw.js, the manifest, and the boot
 test("a package's web.entry becomes its own lazy chunk, with npm dependencies bundled IN", () => {
   // A dependency installed the way npm installs one, inside the project's own node_modules.
   // Bundling it IN is the whole point: a browser has no node_modules, so an external bare
-  // specifier would be a blank screen at runtime — the failure the @despia/* import map
+  // specifier would be a blank screen at runtime — the failure the @despia-native/* import map
   // already exists to prevent.
   const project = fixture({
     "dsx.json": JSON.stringify({
@@ -402,32 +402,32 @@ test("a web.entry pointing at a missing file fails the build rather than shippin
 // The vendoring queue is driven by scanDsxSpecifiers, so a false edge there is not a cosmetic
 // bug: it makes `despia build` demand a package the project never imports and refuse an app that
 // is entirely correct. The compiler's MCP view builder EMITS import statements as string data,
-// and an unanchored scan read that as the compiler importing @despia/element — caught by the
+// and an unanchored scan read that as the compiler importing @despia-native/element — caught by the
 // cold-start gate, which builds a scaffolded project from tarballs alone.
 test("scanDsxSpecifiers reads import statements, not import statements inside emitted strings", () => {
   const dir = mkdtempSync(join(tmpdir(), "dsx-scan-"));
   try {
     writeFileSync(join(dir, "real.js"), [
-      `import { a } from "@despia/kernel";`,
-      `import "@despia/dom/boot";`,
-      `export { b } from "@despia/compiler/resolve";`,
-      `const lazy = await import("@despia/server/actions");`,
+      `import { a } from "@despia-native/kernel";`,
+      `import "@despia-native/dom/boot";`,
+      `export { b } from "@despia-native/compiler/resolve";`,
+      `const lazy = await import("@despia-native/server/actions");`,
     ].join("\n"));
     writeFileSync(join(dir, "codegen.js"), [
       `function emitEntry() {`,
       `  writeFileSync(entryPath, [`,
-      `    \`import { defineDsxElement } from "@despia/element";\`,`,
-      `    \`import { mountMcpApp } from "@despia/dom/mcp-app";\`,`,
+      `    \`import { defineDsxElement } from "@despia-native/element";\`,`,
+      `    \`import { mountMcpApp } from "@despia-native/dom/mcp-app";\`,`,
       `  ].join("\\n"));`,
       `}`,
     ].join("\n"));
 
     assert.deepEqual([...scanDsxSpecifiers(dir)].sort(), [
-      "@despia/compiler/resolve",
-      "@despia/dom/boot",
-      "@despia/kernel",
-      "@despia/server/actions",
-    ], "the emitted @despia/element and @despia/dom/mcp-app are data, not edges");
+      "@despia-native/compiler/resolve",
+      "@despia-native/dom/boot",
+      "@despia-native/kernel",
+      "@despia-native/server/actions",
+    ], "the emitted @despia-native/element and @despia-native/dom/mcp-app are data, not edges");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -445,8 +445,8 @@ test("a package's web.boot registers its entry at boot — and the lazy default 
     "dsx.config.json": JSON.stringify({ name: "Fixture App", entry: "App" }),
     "Components/App.dsx": APP,
     // a boot module is a bus module: it imports the kernel, so the chunk-specifier scan
-    // must vendor + map @despia/kernel or the page is a clean-session blank screen.
-    "web/host.js": `import { ModuleCallError } from "@despia/kernel";\nexport default { scheme: "fix", actions: {}, components: { Probe: { mount() { void ModuleCallError; } } } };\n`,
+    // must vendor + map @despia-native/kernel or the page is a clean-session blank screen.
+    "web/host.js": `import { ModuleCallError } from "@despia-native/kernel";\nexport default { scheme: "fix", actions: {}, components: { Probe: { mount() { void ModuleCallError; } } } };\n`,
   });
   try {
     const result = buildProject(loadConfig(project.root));
@@ -454,10 +454,10 @@ test("a package's web.boot registers its entry at boot — and the lazy default 
     // the bootloader imports the chunk and hands it to bootDsx — one translation line
     assert.match(main, /import bootModule0 from "dsx:package\/fix";/);
     assert.match(main, /modules: \[bootModule0\]/);
-    // the chunk's surviving @despia/* external is mapped, fail-closed
+    // the chunk's surviving @despia-native/* external is mapped, fail-closed
     assert.equal(result.importMap.imports["dsx:package/fix"], "./vendor/packages/fix.js");
-    assert.ok(result.importMap.imports["@despia/kernel"] !== undefined
-      || Object.keys(result.importMap.imports).some((s) => s.startsWith("@despia/kernel")),
+    assert.ok(result.importMap.imports["@despia-native/kernel"] !== undefined
+      || Object.keys(result.importMap.imports).some((s) => s.startsWith("@despia-native/kernel")),
       `the chunk's kernel import must be represented (got: ${Object.keys(result.importMap.imports).join(", ")})`);
   } finally {
     project.cleanup();

@@ -1,7 +1,7 @@
 //
 //  input.ts — G4 UNIFIED INPUT, the WEB wiring (dsx-game.md §2 G4).
 //
-//  The DECISIONS all live in the shared kernel (@despia/kernel input.ts, corpus
+//  The DECISIONS all live in the shared kernel (@despia-native/kernel input.ts, corpus
 //  OpenSource/Conformance/input/{mappings,axis}.json): the declaration → binding table, the
 //  axis folds, the edge law. This file is the plumbing that no corpus can judge — real
 //  keydown/keyup, the Gamepad API, and pointer-gesture recognition — plus the two consumer
@@ -27,7 +27,7 @@
 import {
   DSXState, resolveInputDeclarations, InputMachine,
   type InputBinding, type InputDeclaration, type InputEvent,
-} from "@despia/kernel";
+} from "@despia-native/kernel";
 
 /** How long an external frame driver keeps ownership before the gated rAF takes back over. */
 const EXTERNAL_DRIVE_TTL_MS = 250;

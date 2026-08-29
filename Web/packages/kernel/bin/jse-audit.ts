@@ -26,7 +26,7 @@ import { join, resolve, relative, dirname } from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { parseDsx, type XmlNode } from "@despia/compiler/xml";
+import { parseDsx, type XmlNode } from "@despia-native/compiler/xml";
 import { tokenize, stripComments, type Token } from "../src/jse/tokens.ts";
 import { Parser, StackStore } from "../src/jse/jse.ts";
 

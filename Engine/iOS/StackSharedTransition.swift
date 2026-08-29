@@ -3,7 +3,7 @@
 //  matching algorithm, the interpolation schedule and the interruption/reversal state machine.
 //  The law is the corpus, OpenSource/Conformance/router/shared.json
 //  (parity/U03-shared-transitions.md); the Kotlin twin is :core StackSharedTransition.kt and
-//  the web twin is @despia/kernel's shared-transition.ts.
+//  the web twin is @despia-native/kernel's shared-transition.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file. iOS flies the pairs under
 //  `UIViewControllerAnimatedTransitioning` with a snapshot layer driven by a

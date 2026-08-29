@@ -3,7 +3,7 @@
 //  declaration fold, the constraint translation, the budget countdown, the run-record fold
 //  and the release gate on `run`. The law is the corpus,
 //  OpenSource/Conformance/background/*.json (parity/F08-background.md). The twin of the web
-//  @despia/kernel background.ts and Swift Engine/iOS BackgroundPlan.swift.
+//  @despia-native/kernel background.ts and Swift Engine/iOS BackgroundPlan.swift.
 //
 //  Everything platform-shaped lives OUTSIDE this file: the Background module enqueues
 //  WorkManager work here, submits BGTaskScheduler requests on iOS, and registers a service

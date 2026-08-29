@@ -3,7 +3,7 @@
 //  base each token maps to, path normalisation, and the containment check that IS the sandbox.
 //  The law is the corpus, `OpenSource/Conformance/files/{paths,errors}.json`
 //  (parity/F03-files.md); the Kotlin twin is `:core` DSXFilePaths.kt and the web twin is
-//  @despia/kernel's parseFilePath / filePathContains.
+//  @despia-native/kernel's parseFilePath / filePathContains.
 //
 //  This is a SECURITY boundary, not a convenience. Markup never names an absolute path: it
 //  names `root:relative`, and everything a facet is allowed to touch follows from what this

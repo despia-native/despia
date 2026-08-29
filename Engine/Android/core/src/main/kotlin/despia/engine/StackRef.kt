@@ -1,7 +1,7 @@
 //
 //  StackRef.kt - the `ref="name"` universal attribute's shared core (:core, pure JVM). The law
 //  is the corpus: OpenSource/Conformance/input/ref.json. The twin of Swift StackRef and the web
-//  @despia/kernel ref.ts.
+//  @despia-native/kernel ref.ts.
 //
 //  WHAT REF IS FOR: publishing an element's backing platform view into the shared-handle
 //  registry so a MODULE can reach it - Core/Capture's element and pdf actions, <scroll>'s

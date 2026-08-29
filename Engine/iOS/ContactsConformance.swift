@@ -3,7 +3,7 @@
 //
 //  Runs OpenSource/Conformance/contacts/{crud,pick}.json through the REAL Swift pure core
 //  (ContactsCore) and throws on the first disagreement, so the reference renderer executes the
-//  same files as the TS runner (@despia/kernel contacts-conformance.test.ts) and the Kotlin twin
+//  same files as the TS runner (@despia-native/kernel contacts-conformance.test.ts) and the Kotlin twin
 //  (:core ContactsConformanceTest). Paging arithmetic, the limited-access grant, the write
 //  refusal and the picker fold therefore cannot drift between renderers.
 //

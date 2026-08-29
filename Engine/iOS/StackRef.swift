@@ -1,7 +1,7 @@
 //
 //  StackRef.swift — the `ref="name"` universal attribute's shared core plus its SwiftUI
 //  adapter. The law is the corpus, `OpenSource/Conformance/input/ref.json`; the Kotlin twin is
-//  `:core` StackRef.kt and the web twin is @despia/kernel's ref.ts.
+//  `:core` StackRef.kt and the web twin is @despia-native/kernel's ref.ts.
 //
 //  WHAT REF IS FOR: publishing an element's backing platform view into the shared-handle
 //  registry so a MODULE can reach it — `Core/Capture`'s `element` and `pdf`, `<scroll>`'s

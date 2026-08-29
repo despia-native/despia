@@ -4,7 +4,7 @@
 //
 //  The law and the reasoning live in `OpenSource/Conformance/scroll/README.md`; the cases live in
 //  that folder's seven .json files and run against the web twin
-//  (@despia/kernel scroll.ts, packages/kernel/test/scroll-conformance.test.ts) and the Kotlin twin
+//  (@despia-native/kernel scroll.ts, packages/kernel/test/scroll-conformance.test.ts) and the Kotlin twin
 //  (:core ScrollLinked.kt, ScrollLinkedConformanceTest).
 //
 //  Everything here is pure: geometry in, values out. The surface work — observing the scroll

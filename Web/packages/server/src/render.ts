@@ -1,11 +1,11 @@
 //
-//  render.ts - the string renderer (@despia/server v0, /web/02). Renders a component's IR
-//  to HTML with the SAME resolution rules as @despia/dom — components, slots (caller
+//  render.ts - the string renderer (@despia-native/server v0, /web/02). Renders a component's IR
+//  to HTML with the SAME resolution rules as @despia-native/dom — components, slots (caller
 //  scope), visible-if, lists, interpolations, the css handle stamps — evaluated ONCE
 //  against the initial store. The output is the SEO/first-paint document; with
 //  `hydrate` on (renderPage) every element also carries `data-dsx-n` — its IR node
 //  identity (stampNodeIds) — and the client boot ADOPTS the server DOM in place
-//  (@despia/dom adopt.ts; mismatch = diagnostic + per-subtree replace, fail-open).
+//  (@despia-native/dom adopt.ts; mismatch = diagnostic + per-subtree replace, fail-open).
 //  The compiler's per-node reactive stamps remain the islands input (later W6 slice).
 //
 //  DOM-free: runs in Node/edge. SSR-aware <api> execution (W6, doc 05/02) lives in
@@ -21,9 +21,9 @@ import {
   string, truthy, number, isDict, overrideAttrName,
   INK_STROKE_WIDTH, decodeInk, inkPathData,
   type Dict, type ApiSpec, type ApiSeed, type InkStroke,
-} from "@despia/kernel";
-import { legacyAttrToDecls, mapStyleValue, parseStyleAttr, BRIDGE_ATTRS, BRIDGE_CONTEXT_ATTRS } from "@despia/compiler/cssmap";
-import { segmentOptions } from "@despia/compiler/options";
+} from "@despia-native/kernel";
+import { legacyAttrToDecls, mapStyleValue, parseStyleAttr, BRIDGE_ATTRS, BRIDGE_CONTEXT_ATTRS } from "@despia-native/compiler/cssmap";
+import { segmentOptions } from "@despia-native/compiler/options";
 import {
   BUTTON_ROLES, isoDatePickerValue, normalizeDatePickerMode, normalizeFormInput, normalizeFormOptions,
   normalizeSpinnerScale,
@@ -40,10 +40,10 @@ import {
   normalizeLightboxColor, boundedMediaText, MEDIA_SURFACE_LIMITS,
   OVERLAY_LIMITS, STRUCTURAL_CHILD_LIMIT, BOUND_COLLECTION_LIMIT, DATA_CONTROL_LIMITS,
   type FormFieldType, type NativeControlOption, type OverlayItem, type DataControlOption, type CalendarDate,
-} from "@despia/dom";
-import { resolveComponent, type Registry } from "@despia/compiler/resolve";
-import type { XmlNode } from "@despia/compiler/xml";
-import { stampNodeIds, type ComponentIR, type IRNode } from "@despia/compiler/component";
+} from "@despia-native/dom";
+import { resolveComponent, type Registry } from "@despia-native/compiler/resolve";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import { stampNodeIds, type ComponentIR, type IRNode } from "@despia-native/compiler/component";
 
 /** The `<searchbar>` chrome glyphs, emitted with the same geometry the DOM factory
  *  builds (elements.ts controlGlyph) so first paint and hydration agree exactly. */
@@ -825,7 +825,7 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
   if (vif !== undefined && vif.startsWith("has:")) {
     // `visible-if="has:scheme"` — the capability-check special form: stripped BEFORE
     // JSE, answered by the availability plane through JSESeams.moduleAvailable (the
-    // @despia/dom mountNode twin; natives: Stack.swift/StackNodeView.kt `env.has`, scheme
+    // @despia-native/dom mountNode twin; natives: Stack.swift/StackNodeView.kt `env.has`, scheme
     // trimmed). SSR answers with whatever the rendering process registered — an
     // unregistered scheme renders nothing, exactly the client's remove-from-tree.
     if (!JSESeams.moduleAvailable(vif.slice(4).trim())) return "";
@@ -2266,7 +2266,7 @@ function setupHeadScope(store: ReactiveStore, ir: ComponentIR, attrs: Dict): voi
   // the style contract — declared knobs register so dsx.override.* resolves (the raw
   // values ride attrs.__overrides, the same item-scope door the client reads)
   for (const o of ir.head.overrides ?? []) store.jse.overrideDecls.set(o.as, o);
-  // `<functions global="true">` — the app-wide function library (the @despia/dom
+  // `<functions global="true">` — the app-wide function library (the @despia-native/dom
   // instantiate twin): global registration first, then the per-surface blocks.
   for (const s of ir.head.globalScripts) JSE.registerGlobalFunctions(s);
   for (const s of ir.head.scripts) JSE.registerFunctions(s, store.jse);
@@ -2617,7 +2617,7 @@ function assembleEmbedFragment(
   );
   // the embed's api-seed payload rides INSIDE the shadow root so the upgrade adopts the
   // server-resolved data and skips the initial fetch (the page path's window.__DSX__ twin,
-  // scoped per custom-element instance — @despia/element readEmbedSeeds). Absent when nothing
+  // scoped per custom-element instance — @despia-native/element readEmbedSeeds). Absent when nothing
   // resolved, so a no-api / CSR-only embed stays byte-identical to v0 output.
   const seedScript = seeded
     ? `<script type="application/json" data-dsx-ssr>${serializeEmbedSeeds(apiSeeds)}</script>`

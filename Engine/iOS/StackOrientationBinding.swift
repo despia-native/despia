@@ -4,7 +4,7 @@
 //  which release/claim calls bring the shared `OrientationClaimStack` in line. The law is the
 //  corpus, OpenSource/Conformance/input/orientation-binding.json (parity/F07-orientation.md
 //  §3a); the Kotlin twin is :core StackOrientationBinding.kt and the web twin is
-//  @despia/kernel's orientation-binding.ts.
+//  @despia-native/kernel's orientation-binding.ts.
 //
 //  WHY A RECONCILE AND NOT A PAIR OF CALLBACKS. `lockOrientation` leaks precisely where a screen
 //  is dismissed by a gesture instead of a button, and an appear/disappear pair has to be correct

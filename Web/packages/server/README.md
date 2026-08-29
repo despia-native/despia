@@ -1,13 +1,13 @@
-# @despia/server
+# @despia-native/server
 
 The DSX v0 server renderer for HTML strings, full documents, redirects, static route export, and offline manifests.
 
 ```sh
-npm install @despia/server @despia/dom @despia/compiler @despia/kernel
+npm install @despia-native/server @despia-native/dom @despia-native/compiler @despia-native/kernel
 ```
 
 ```ts
-import { renderPage } from "@despia/server";
+import { renderPage } from "@despia-native/server";
 
 const html = renderPage(registry, "demo.Launcher", {}, { title: "DSX app" });
 ```

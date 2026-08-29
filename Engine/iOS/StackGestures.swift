@@ -6,7 +6,7 @@
 //  resolver behind `gesture=` / `gestureAxis=`. The law is the corpus:
 //  OpenSource/Conformance/input/gestures.json (parity/U02-gestures.md), executed here by
 //  GesturesConformance in the record lane and by the Kotlin (StackGestures.kt) and web
-//  (@despia/dom gestures.ts) twins.
+//  (@despia-native/dom gestures.ts) twins.
 //
 //  The split is the tooltip one: the SwiftUI/UIKit adapter owns raw touch delivery,
 //  pointer identity, hover capability and recognizer arbitration

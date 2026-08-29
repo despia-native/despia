@@ -2,7 +2,7 @@
 
 You keep your React/Vite/Next/anything front end. Despia supplies the BACKEND beside it:
 typed routes, queue workers, MCP tools, one deploy command — and touches nothing of yours.
-`@despia/server` is standalone by construction; nothing in it assumes a DSX front end.
+`@despia-native/server` is standalone by construction; nothing in it assumes a DSX front end.
 
 ## The two shapes
 
@@ -19,7 +19,7 @@ it wherever you already host things. This is the whole program:
 ```js
 // server.mjs — beside your existing app, changing none of it
 import { createServer } from "node:http";
-import { createEdgeHandler } from "@despia/server/bootloader-deno";
+import { createEdgeHandler } from "@despia-native/server/bootloader-deno";
 
 const handler = createEdgeHandler({
   routes: [{ key: "health", chain: "app", action: "health", method: "GET", path: "/health" }],
@@ -36,7 +36,7 @@ createServer((req, res) => {
 ```
 
 The same handler shape runs unchanged on Deno/Supabase Edge and (as
-`@despia/server/bootloader-workers`) on Cloudflare Workers — web-standard `Request` in,
+`@despia-native/server/bootloader-workers`) on Cloudflare Workers — web-standard `Request` in,
 `Response` out is the universality claim, and it is corpus-gated on all three.
 
 ## How it serves next to your app
@@ -57,6 +57,6 @@ what your CI can print for a human before it publishes.
 ## What CI proves, from tarballs
 
 The matrix gate builds the standalone shape on every pull request: a plain existing app
-(one `index.html`), `@despia/server` installed from its packed tarball, the ten-line server
+(one `index.html`), `@despia-native/server` installed from its packed tarball, the ten-line server
 booted, `/health` answered by the Despia handler, and the existing app's files verified
 byte-untouched afterward.

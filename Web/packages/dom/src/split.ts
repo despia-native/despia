@@ -10,7 +10,7 @@
 //  breakpoints are author-configurable attributes, never a pinned media query.
 //
 
-import { string } from "@despia/kernel";
+import { string } from "@despia-native/kernel";
 import { iconSvg, type ElementFactory } from "./elements.ts";
 
 export type SplitRole = "sidebar" | "content" | "detail";
@@ -125,7 +125,7 @@ export function splitSelectionActive(value: unknown): boolean {
 const SVG_NS = "http://www.w3.org/2000/svg";
 const PANE_LABELS: Record<SplitRole, string> = { sidebar: "Sidebar", content: "Content", detail: "Detail" };
 /** The sidebar-toggle glyph (SF `sidebar.leading` shape) - not in the icon corpus, so
- * the path lives here, byte-identical to the @despia/server twin. */
+ * the path lives here, byte-identical to the @despia-native/server twin. */
 export const SPLIT_TOGGLE_PATH = "M4 5h16v14H4zM9 5v14";
 
 function strokeIcon(d: string, size: number): SVGSVGElement {

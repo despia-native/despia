@@ -8,12 +8,12 @@
  */
 // THE PACKAGE, NOT THE SOURCE PATH. These four used to be imported by deep relative
 // path into packages/kernel/src, which resolves to a DIFFERENT module than the
-// `@despia/kernel` entry every other consumer takes. Inside the standalone IIFE that
+// `@despia-native/kernel` entry every other consumer takes. Inside the standalone IIFE that
 // costs nothing - it is the only thing in the bundle - but the StackEditor element
 // links the kernel too, so the deep path put TWO copies of the interpreter in one
 // artifact: ~82 KB of duplicate, and two evaluators that could in principle disagree
 // about the same expression. The package specifier dedupes against everything else.
-import { JSE, JSESeams, StackStore, NSNull } from "@despia/kernel";
+import { JSE, JSESeams, StackStore, NSNull } from "@despia-native/kernel";
 
 type Dict = Record<string, unknown>;
 type CanvasScope = {

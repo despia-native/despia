@@ -4,7 +4,7 @@
 //  TRIGGER RESOLVER, the Android channel-importance fold, the foreground-presentation
 //  resolution and the tap-payload normalisation. The law is the corpus,
 //  `OpenSource/Conformance/notify/*.json` (parity/F02-notifications.md); the Kotlin twin is
-//  `:core` NotifyCore.kt and the web twin is @despia/kernel's notify.ts.
+//  `:core` NotifyCore.kt and the web twin is @despia-native/kernel's notify.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file: UNUserNotificationCenter,
 //  NotificationManagerCompat and the browser Notification API all ask this core WHAT to do and

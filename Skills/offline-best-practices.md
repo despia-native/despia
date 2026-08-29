@@ -30,7 +30,7 @@ a generation zero. Provenance = reading the slice, never guessing.
 | show offline/floor/update UI states | `dsx.source.*` reads (reactive) | polling, reachability pings, hand-tracked flags |
 | know if content is the shipped sample vs synced | `folder.servedFrom` / `source.content.serving` | comparing paths or timestamps |
 | survive a cache purge for critical content | `pinned: true` on the declaration (or `prepare(pinned:)`) | copying files somewhere "safe" yourself |
-| offline on the OPEN WEB | `registerOfflineFloor()` (`@despia/dom/offline`) | a hand-rolled service worker |
+| offline on the OPEN WEB | `registerOfflineFloor()` (`@despia-native/dom/offline`) | a hand-rolled service worker |
 
 ## DSXView (native screens)
 
@@ -97,7 +97,7 @@ fights the first. (On the OPEN web, the SW *is* the store — next section.)
 One call in the bootloader ships the whole floor:
 
 ```js
-import { registerOfflineFloor } from "@despia/dom/offline";
+import { registerOfflineFloor } from "@despia-native/dom/offline";
 void registerOfflineFloor();   // SW + manifest precache + dsx.source publishing; fail-open
 ```
 

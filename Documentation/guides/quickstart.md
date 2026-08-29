@@ -4,7 +4,7 @@ Ten minutes, one command, no monorepo checkout. At the end you have a real DSX
 application: a `.dsx` document that the Swift, Kotlin, and TypeScript kernels all render,
 running in your browser and ready to build for a store.
 
-> **Registry status.** The commands below resolve `@despia/*` and `create-dsx` from npm at
+> **Registry status.** The commands below resolve `@despia-native/*` and `create-dsx` from npm at
 > **0.0.1**. Until that version is published, run the same flow from a checkout — see
 > [From this repository](#from-this-repository) at the end. Every command on this page was
 > executed against the actual package tarballs, not written from memory; the gate that
@@ -30,7 +30,7 @@ my-app/
   dsx.json            package identity — the `scheme` that namespaces every component
   dsx.config.json     app config — entry component, output directory
   Components/App.dsx  the entry screen
-  package.json        @despia/* dependencies + build / dev / lint scripts
+  package.json        @despia-native/* dependencies + build / dev / lint scripts
 ```
 
 Pass `--template routed` instead for a two-screen project with navigation.

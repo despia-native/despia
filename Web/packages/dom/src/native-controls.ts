@@ -5,9 +5,9 @@
 //  authored .dsx class/style/theme can replace the look without replacing behavior.
 //
 
-import { number, string, truthy } from "@despia/kernel";
-import type { Dict } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
+import { number, string, truthy } from "@despia-native/kernel";
+import type { Dict } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import { ELEMENTS, SEARCHBAR_GLYPHS, type ElementApi, type ElementFactory } from "./elements.ts";
 
 export type NativeControlOption = { value: string; label: string };

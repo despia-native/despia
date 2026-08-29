@@ -1,5 +1,5 @@
 //
-//  render.test.ts - @despia/server v0 against the REAL Demo sources: the string renderer
+//  render.test.ts - @despia-native/server v0 against the REAL Demo sources: the string renderer
 //  resolves components/slots/lists/interpolations exactly like the DOM leg; pages emit
 //  title/meta; redirects emit meta-refresh; the exporter writes static routes.
 //
@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { join, dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
-import { ModuleRegistry, JSE } from "@despia/kernel";
+import { ModuleRegistry, JSE } from "@despia-native/kernel";
 import { buildRegistry } from "../../compiler/src/registry.ts";
 import { compileComponent, type IRNode } from "../../compiler/src/component.ts";
 import { CssCollector, extractComponentCss } from "../../compiler/src/css.ts";
@@ -1067,7 +1067,7 @@ test("ssr: exportStatic rebases ./-relative shell references by route depth", (t
     const shell = {
       appName: "DSX demo",
       mainSrc: "./main.js",
-      importMapJson: JSON.stringify({ imports: { "@despia/kernel": "./vendor/kernel/index.js" } }),
+      importMapJson: JSON.stringify({ imports: { "@despia-native/kernel": "./vendor/kernel/index.js" } }),
       manifestHref: "/manifest.webmanifest",
     };
     exportStatic(registry, out, shell);

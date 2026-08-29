@@ -1,6 +1,6 @@
 //
 //  keyboard-subpath.test.ts: keyboard.ts is a kernel SUBPATH, not a barrel export.
-//  A leftover `from "@despia/kernel"` of parseKeyboardMode / resolveKeyboardViewport
+//  A leftover `from "@despia-native/kernel"` of parseKeyboardMode / resolveKeyboardViewport
 //  boots the Demo as a blank page (the requested export is missing).
 //
 
@@ -26,7 +26,7 @@ const KEYBOARD_SYMBOLS = [
   "supportsViewportModes",
 ];
 
-const BARREL = /from\s+["']@despia\/kernel["']/;
+const BARREL = /from\s+["']@despia-native\/kernel["']/;
 
 function walk(dir: string, acc: string[]): void {
   let names: Dirent[];
@@ -62,7 +62,7 @@ test("no production importer reads keyboard symbols off the kernel barrel", () =
     if (!BARREL.test(text)) continue;
     for (const symbol of KEYBOARD_SYMBOLS) {
       if (text.includes(symbol)) {
-        hits.push(`${relative(root, path)} still imports ${symbol} from @despia/kernel`);
+        hits.push(`${relative(root, path)} still imports ${symbol} from @despia-native/kernel`);
       }
     }
   }
@@ -72,5 +72,5 @@ test("no production importer reads keyboard symbols off the kernel barrel", () =
 test("the kernel barrel does not re-export keyboard.ts", () => {
   const barrel = readFileSync(join(repoRoot(), "OpenSource/Web/packages/kernel/src/index.ts"), "utf8");
   assert.doesNotMatch(barrel, /from\s+["']\.\/keyboard\.ts["']/);
-  assert.match(barrel, /@despia\/kernel\/keyboard/);
+  assert.match(barrel, /@despia-native\/kernel\/keyboard/);
 });

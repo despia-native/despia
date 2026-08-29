@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 /**
  * The contacts conformance runner - executes
  * OpenSource/Conformance/contacts/{crud,pick}.json through THIS runtime's ContactsCore folds
- * (parity F12). The TS twin (@despia/kernel contacts-core.ts, contacts-conformance.test.ts) and
+ * (parity F12). The TS twin (@despia-native/kernel contacts-core.ts, contacts-conformance.test.ts) and
  * the Swift reference (ContactsConformance) run the SAME files, so an ungranted bulk read, iOS
  * 17 limited access and the paging arithmetic cannot mean one thing on one renderer and
  * something else on another.

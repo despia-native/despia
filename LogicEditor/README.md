@@ -121,7 +121,7 @@ two are deliberately different tools - one recompiles, one splices.
   beyond-subset is a lint error on device, and the editor shouldn't pretend
   otherwise.
 - The standalone conversion library (no editor, plus DSX markup support and
-  line/column diagnostics) is **`@despia/dsx-lens`** - same fixture contract,
+  line/column diagnostics) is **`@despia-native/dsx-lens`** - same fixture contract,
   so the two can never drift.
 
 ## Depth of inspection

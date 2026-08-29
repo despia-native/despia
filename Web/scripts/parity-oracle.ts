@@ -35,9 +35,9 @@ import { inflateSync } from "node:zlib";
 
 import { buildSync } from "esbuild";
 
-import { compileComponent } from "@despia/compiler/component";
-import { CssCollector, extractComponentCss, LAYER_STATEMENT } from "@despia/compiler";
-import { TOKENS_CSS } from "@despia/dom/theme";
+import { compileComponent } from "@despia-native/compiler/component";
+import { CssCollector, extractComponentCss, LAYER_STATEMENT } from "@despia-native/compiler";
+import { TOKENS_CSS } from "@despia-native/dom/theme";
 import { DEV_FONT_FILES, interFontFaceCss } from "../packages/cli/src/dev.ts";
 import { browserEngine, launchBrowser } from "../packages/dom/oracle/browser-engine.ts";
 
@@ -132,7 +132,7 @@ if (fixtureFiles.length === 0) throw new Error(`no fixtures in ${fixturesDir}`);
 // One bundle for every fixture: the boot + measure harness over the BUILT packages
 // (the same dist a shipped application resolves).
 const harnessSource = String.raw`
-  import { bootDsx } from "@despia/dom/boot";
+  import { bootDsx } from "@despia-native/dom/boot";
   (window as unknown as { __dsxParityBoot: (registry: unknown, entry: string) => void }).__dsxParityBoot =
     (registry, entry) => {
       bootDsx({

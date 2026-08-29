@@ -1,6 +1,6 @@
 //
 //  image.ts — the `<image>` WEB ADAPTER (U05). Every decision lives in the shared core
-//  (@despia/kernel image-core.ts, corpus OpenSource/Conformance/image/resolution.json); this
+//  (@despia-native/kernel image-core.ts, corpus OpenSource/Conformance/image/resolution.json); this
 //  file is only the browser plumbing: the CSS mappings, the fetch hints, the transition gate,
 //  the placeholder paint, and the recycling clear.
 //
@@ -39,7 +39,7 @@ import {
   imageMediaType,
   type CacheType,
   type DecodedPixels,
-} from "@despia/kernel";
+} from "@despia-native/kernel";
 
 /** The live handle the factory keeps, so a reactive `src=` write can run the recycling ladder
  *  in the same turn it changes the identity. */

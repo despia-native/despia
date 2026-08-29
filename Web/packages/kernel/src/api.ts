@@ -910,7 +910,7 @@ async function doFetch(
   }
 }
 
-// ── materialization + SSR prefetch (shared with @despia/server render) ──────────────────
+// ── materialization + SSR prefetch (shared with @despia-native/server render) ──────────────────
 
 /** Evaluate url/headers/body/auto in `store`'s scope — the ONE place the request is
  *  materialized (the block's dependency effect and the SSR prefetch below both use it,

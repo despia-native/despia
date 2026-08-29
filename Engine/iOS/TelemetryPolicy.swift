@@ -2,7 +2,7 @@
 //  TelemetryPolicy.swift — the shared telemetry core: the SCRUBBER and the QUEUE POLICY. The law
 //  is the corpus, `OpenSource/Conformance/telemetry/{scrub,queue}.json`
 //  (parity/F10-telemetry.md); the Kotlin twin is `:core` TelemetryPolicy.kt and the web twin is
-//  @despia/kernel's telemetry.ts.
+//  @despia-native/kernel's telemetry.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file — crash handlers, the ANR watchdog, the
 //  on-disk queue, the transports. What is here is the half that decides WHAT LEAVES THE DEVICE,

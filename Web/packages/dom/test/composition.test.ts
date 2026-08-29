@@ -21,10 +21,10 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 
-import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
-import type { Registry } from "@despia/compiler/resolve";
-import { compileComponent } from "@despia/compiler/component";
+import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import type { Registry } from "@despia-native/compiler/resolve";
+import { compileComponent } from "@despia-native/compiler/component";
 import { mountNode, COMPONENT_DEPTH_CAP, type MountCtx } from "../src/mount.ts";
 import { registerRichElements } from "../src/elements.ts";
 // imported for effect as well as for the class: it installs document/window/observers

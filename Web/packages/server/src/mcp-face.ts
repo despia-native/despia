@@ -9,7 +9,7 @@
 //  a `<route>` row is to HTTP: a second face over one action, never a second implementation.
 //
 //  WHAT THIS FILE DELIBERATELY REUSES. The CallToolResult shaping is the kernel's
-//  (@despia/kernel/mcp — corpus-pinned by Conformance/mcp-apps/server.json), so a tool served
+//  (@despia-native/kernel/mcp — corpus-pinned by Conformance/mcp-apps/server.json), so a tool served
 //  from a Worker and a tool served from the device loopback produce byte-identical envelopes:
 //  one grammar, two protocols, three hosts. The failure discipline is host.ts's: a handler
 //  exception NEVER reaches the wire (stack frames, SQL, secrets) — the caller gets a typed
@@ -26,7 +26,7 @@
 //  audience that can act on it.
 //
 
-import { mcpToolResult } from "@despia/kernel/mcp";
+import { mcpToolResult } from "@despia-native/kernel/mcp";
 
 import { chargeSpend, spendHeaders } from "./spend.ts";
 import type { HostConfig, HostContext } from "./host.ts";

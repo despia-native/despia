@@ -5,7 +5,7 @@
 //  The shared `recorder` module core: the metering curve and the state machine, including
 //  how an interruption moves through it. The law is the corpus,
 //  OpenSource/Conformance/recorder/ (parity/F14-recorder.md). The twin of :core
-//  RecorderCore.kt and of the web @despia/kernel recorder-core.ts.
+//  RecorderCore.kt and of the web @despia-native/kernel recorder-core.ts.
 //
 //  WHY THESE TWO PARTS AND NOT THE RECORDING. Capturing audio is entirely platform work
 //  (AVAudioRecorder, AVAudioSession) and belongs in the module facet. What cannot live

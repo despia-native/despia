@@ -1,7 +1,7 @@
 // Shared, DOM-free option normalization for choice primitives. Client rendering and
 // SSR must resolve CSV/object option rows identically so first paint and live mount agree.
 
-import { string } from "@despia/kernel";
+import { string } from "@despia-native/kernel";
 
 export type SegmentOption = { value: unknown; label: string };
 

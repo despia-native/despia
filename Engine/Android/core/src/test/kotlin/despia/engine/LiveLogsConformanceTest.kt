@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 /**
  * The live-logs conformance runner - executes OpenSource/Conformance/livelogs/{wire,report}.json
  * through THIS runtime's LiveLogs / AckState / LiveQueue / LiveRing (proposals/live-logs.md). The
- * TS twin (@despia/kernel livelogs.ts, livelogs-conformance.test.ts) and the Swift reference
+ * TS twin (@despia-native/kernel livelogs.ts, livelogs-conformance.test.ts) and the Swift reference
  * (LiveLogs.swift) run the SAME files, so what leaves a device, how the relay paces it, and what
  * a `.dsxreport` seal verifies as cannot drift between renderers - a scrubber that fires on one
  * platform and not another is a privacy incident with a platform column, and two ends of one wire

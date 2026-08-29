@@ -1,5 +1,5 @@
 //
-//  @despia/server - SSR v0: IR → HTML strings, static export, redirects (/web/02).
+//  @despia-native/server - SSR v0: IR → HTML strings, static export, redirects (/web/02).
 //  The browser-safe surface is `renderToString`; the node-side exporter lives in
 //  ./static (imported directly by build scripts).
 //

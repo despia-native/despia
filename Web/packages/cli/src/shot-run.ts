@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateSync } from "node:zlib";
 
-import { shotDevice, shotPixelSize } from "@despia/kernel";
+import { shotDevice, shotPixelSize } from "@despia-native/kernel";
 import { launchShotBrowser } from "./shot-browser.ts";
 import { loadConfig, type ProjectConfig } from "./config.ts";
 import {

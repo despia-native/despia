@@ -283,7 +283,7 @@ does not fork a copy.
 
 **Dependency-free by construction:** the CLI imports only kernel src (relative) and node
 builtins, so `node bin/build-expressions.ts` works on a fresh clone with **no npm
-install** — deliberately unlike `jse-audit.ts`, which pulls in `@despia/compiler`. The one
+install** — deliberately unlike `jse-audit.ts`, which pulls in `@despia-native/compiler`. The one
 table both tools need (`KNOWN_OPS`) is mirrored, and a kernel test pins the two sets
 identical so grammar growth updates both or fails loudly.
 

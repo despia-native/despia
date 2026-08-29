@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 /**
  * The U02 gesture conformance runner - executes OpenSource/Conformance/input/gestures.json
  * through THIS runtime's StackGestures pure core (parity/U02-gestures.md). The TS twin
- * (@despia/dom gestures.ts, gestures.test.ts) and the Swift reference (StackGestures.swift,
+ * (@despia-native/dom gestures.ts, gestures.test.ts) and the Swift reference (StackGestures.swift,
  * the record lane) run the SAME file, so recognition thresholds, velocity derivation, swipe
  * classification, transform accumulation, the gestureAxis claim and the composition
  * resolver cannot drift between renderers.

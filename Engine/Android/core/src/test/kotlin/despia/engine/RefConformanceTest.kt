@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 
 /**
  * The `ref=` conformance runner - executes OpenSource/Conformance/input/ref.json through THIS
- * runtime's StackRef + RefRegistry. The TS twin (@despia/kernel ref.ts) and the Swift twin run
+ * runtime's StackRef + RefRegistry. The TS twin (@despia-native/kernel ref.ts) and the Swift twin run
  * the SAME file, so a recycled list row cannot keep a ref alive on one renderer and drop it on
  * another.
  */

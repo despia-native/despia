@@ -222,7 +222,7 @@ function escapeMarkdownHtml(value: string): string {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-/** The SSR twin: the SAME parse, emitted as escaped HTML. Used by @despia/server so a
+/** The SSR twin: the SAME parse, emitted as escaped HTML. Used by @despia-native/server so a
  *  `markdown=` text paints on first render and the adopt walk sees identical DOM. */
 export function markdownHtml(source: string): string {
   const out: string[] = [];

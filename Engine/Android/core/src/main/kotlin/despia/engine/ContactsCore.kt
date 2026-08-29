@@ -2,7 +2,7 @@
 //  ContactsCore.kt - the shared Core/Contacts core (:core, pure JVM): the permission surface,
 //  the paging arithmetic, the read/write access decisions, the label vocabulary and the picker
 //  fold. The law is the corpus, OpenSource/Conformance/contacts/{crud,pick}.json (parity F12).
-//  The twin of Swift ContactsCore and the web @despia/kernel contacts-core.ts.
+//  The twin of Swift ContactsCore and the web @despia-native/kernel contacts-core.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file: CNContactStore, ContactsContract and
 //  navigator.contacts are per-renderer plumbing. What is pinned here is the part that must be

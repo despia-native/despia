@@ -5,7 +5,7 @@
 //  The shared `crypto` module core: the digest-name fold, the UUID bit layouts and the
 //  uniform-integer rejection bound. The law is the corpus, OpenSource/Conformance/crypto/
 //  (parity/F15-crypto.md). The twin of :core CryptoCore.kt and of the web
-//  @despia/kernel crypto-core.ts.
+//  @despia-native/kernel crypto-core.ts.
 //
 //  NOTHING here computes a hash, a MAC or a signature. Those are CryptoKit's job and the
 //  module facet calls straight into them. What lives here is the part that has no platform

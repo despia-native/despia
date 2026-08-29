@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { cloudflareDeploy, DeployPlanError } from "@despia/server/deploy";
+import { cloudflareDeploy, DeployPlanError } from "@despia-native/server/deploy";
 
 import { buildProject } from "../src/build.ts";
 import { loadConfig } from "../src/config.ts";
@@ -78,7 +78,7 @@ test("deploy: a project build emits deploy/ with a worker entry and a wrangler m
     assert.equal(doc.triggers, undefined);
 
     const worker = readFileSync(join(fx.root, "deploy", "cloudflare", "worker", "index.ts"), "utf8");
-    assert.match(worker, /from "@despia\/server\/bootloader-workers"/);
+    assert.match(worker, /from "@despia-native\/server\/bootloader-workers"/);
     assert.match(worker, /from "\.\.\/\.\.\/\.\.\/server\/generated\/index\.ts"/);
     assert.match(worker, /siteRegistry/, "the worker must serve the built site");
     assert.ok(existsSync(join(fx.root, "dist", "registry.json")));

@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 /**
  * The dataviz conformance runner - executes OpenSource/Conformance/dataviz/ (all SIX files:
  * scales, marks, interaction, a11y, camera, cluster) through THIS runtime's Dataviz core
- * (parity/U09-dataviz.md). The TS twin (@despia/kernel dataviz.ts,
+ * (parity/U09-dataviz.md). The TS twin (@despia-native/kernel dataviz.ts,
  * dataviz-conformance.test.ts) and the Swift reference (DatavizConformance, the record lane)
  * run the SAME files, so a chart cannot put a datum in one place on one renderer and
  * somewhere else on another, five hundred pins cannot group two ways at the same zoom, and

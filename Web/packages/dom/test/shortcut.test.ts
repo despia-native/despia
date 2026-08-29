@@ -13,9 +13,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { ReactiveStore, ActionRunner, makeRunEnv } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
-import type { Registry } from "@despia/compiler/resolve";
+import { ReactiveStore, ActionRunner, makeRunEnv } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import type { Registry } from "@despia-native/compiler/resolve";
 import { mountNode, type MountCtx } from "../src/mount.ts";
 
 class FakeClassList {

@@ -3,7 +3,7 @@
 //
 //  TWO modes, and neither reimplements the compiler:
 //
-//   1. PROJECT (the default): the compile path of @despia/compiler + @despia/server, exactly as
+//   1. PROJECT (the default): the compile path of @despia-native/compiler + @despia-native/server, exactly as
 //      packages/compiler/bin/build-demo.ts drives it — buildRegistry over the package roots,
 //      renderPage/exportStatic for the documents, an import map over the vendored runtime
 //      ESM, and a bootloader that owns zero behavior (constitution: hosts are bootloaders).
@@ -19,13 +19,13 @@ import { createRequire } from "node:module";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildRegistry } from "@despia/compiler";
+import { buildRegistry } from "@despia-native/compiler";
 // ONE scanner, shared with build-demo: two copies drifted the moment a package started
 // generating code, and the drift refused a correct app (see specifiers.ts).
-import { scanDsxSpecifiers } from "@despia/compiler/specifiers";
+import { scanDsxSpecifiers } from "@despia-native/compiler/specifiers";
 import {
   exportStatic, offlineManifestText, rebaseShellForDepth, renderPage, resolveRouteOutput,
-} from "@despia/server";
+} from "@despia-native/server";
 
 import { componentFiles, packageRoots, type ProjectConfig } from "./config.ts";
 import { emitServerArtifacts, type ServerEmitResult } from "./server-document.ts";
@@ -103,10 +103,10 @@ export function buildProject(config: ProjectConfig, opts: { clean?: boolean } = 
   const vendorQueue = [...BASE_RUNTIME_PACKAGES] as string[];
   const vendorPackage = (name: string): void => {
     if (vendored.has(name)) return;
-    const dist = runtimeDistDir(`@despia/${name}`);
+    const dist = runtimeDistDir(`@despia-native/${name}`);
     if (dist === null) {
       throw new BuildError(
-        `@despia/${name} is required by this build but is not installed — add it to the project's dependencies`,
+        `@despia-native/${name} is required by this build but is not installed — add it to the project's dependencies`,
       );
     }
     cpSync(dist, join(vendorRoot, name), {
@@ -127,7 +127,7 @@ export function buildProject(config: ProjectConfig, opts: { clean?: boolean } = 
   // A package that declares `web.entry` ships real browser code, and `web.dependencies` are
   // the npm coordinates that code may import. They are BUNDLED IN rather than externalised:
   // a browser has no node_modules, so an external bare specifier would be a runtime blank
-  // screen — the exact failure the import map below exists to prevent for @despia/*.
+  // screen — the exact failure the import map below exists to prevent for @despia-native/*.
   //
   // One chunk PER PACKAGE, never a shared megabundle: exclusion is the on/off switch, so a
   // build without the package must not carry its bytes. The chunk is not loaded by the
@@ -156,7 +156,7 @@ export function buildProject(config: ProjectConfig, opts: { clean?: boolean } = 
     bundleBrowserEntry(source, outfile, config.root);
     if (pkg.boot === true) bootModules.push(pkg.scheme);
   }
-  // a chunk's own surviving @despia/* externals ride the same vendoring law — without this,
+  // a chunk's own surviving @despia-native/* externals ride the same vendoring law — without this,
   // a boot module importing the renderer is a clean-session blank screen the gates pass.
   if (existsSync(chunksDir)) {
     for (const specifier of scanDsxSpecifiers(chunksDir)) vendorQueue.push(packageOf(specifier));
@@ -164,17 +164,17 @@ export function buildProject(config: ProjectConfig, opts: { clean?: boolean } = 
   }
 
   // ── the import map, derived mechanically from what the vendored graph imports ──
-  // Every bare @despia/* specifier that survives into the browser must be represented, or the
+  // Every bare @despia-native/* specifier that survives into the browser must be represented, or the
   // page is a clean-session blank screen that passes every other gate (build-demo.ts learned
   // this the hard way). Fail closed here instead.
-  const bootSpecifiers = ["@despia/dom/boot", "@despia/dom/offline"];
+  const bootSpecifiers = ["@despia-native/dom/boot", "@despia-native/dom/offline"];
   const specifiers = new Set<string>([...bootSpecifiers]);
   for (const name of vendored) for (const s of scanDsxSpecifiers(join(vendorRoot, name))) specifiers.add(s);
   if (existsSync(chunksDir)) for (const s of scanDsxSpecifiers(chunksDir)) specifiers.add(s);
   const imports: { [specifier: string]: string } = {};
   for (const specifier of [...specifiers].sort()) {
     const pkg = packageOf(specifier);
-    const sub = specifier.substring(`@despia/${pkg}`.length);
+    const sub = specifier.substring(`@despia-native/${pkg}`.length);
     const target = `./vendor/${pkg}${sub.length > 0 ? sub : "/index"}.js`;
     if (!existsSync(join(config.outDir, target))) {
       throw new BuildError(`import map target missing: ${specifier} → ${target} (vendored: ${[...vendored].sort().join(", ")})`);
@@ -279,13 +279,13 @@ export function buildProject(config: ProjectConfig, opts: { clean?: boolean } = 
   };
 }
 
-/** The web renderer's service worker, shipped as a static file by @despia/dom (sw/dsx-sw.js). */
+/** The web renderer's service worker, shipped as a static file by @despia-native/dom (sw/dsx-sw.js). */
 function serviceWorkerSource(): string {
   try {
-    return fileURLToPath(import.meta.resolve("@despia/dom/sw/dsx-sw.js"));
+    return fileURLToPath(import.meta.resolve("@despia-native/dom/sw/dsx-sw.js"));
   } catch {
     throw new BuildError(
-      "@despia/dom does not ship sw/dsx-sw.js — the offline floor needs the worker; update @despia/dom",
+      "@despia-native/dom does not ship sw/dsx-sw.js — the offline floor needs the worker; update @despia-native/dom",
     );
   }
 }
@@ -301,9 +301,9 @@ export function bootloader(config: ProjectConfig, bootModules: readonly string[]
   const modulesLine = bootModules.length > 0
     ? `\n  modules: [${bootModules.map((_, i) => `bootModule${i}`).join(", ")}],`
     : "";
-  return `// Generated by @despia/cli — a bootloader owns zero behavior (constitution: hosts are bootloaders).
-import { bootDsx } from "@despia/dom/boot";
-import { registerOfflineFloor } from "@despia/dom/offline";
+  return `// Generated by @despia-native/cli — a bootloader owns zero behavior (constitution: hosts are bootloaders).
+import { bootDsx } from "@despia-native/dom/boot";
+import { registerOfflineFloor } from "@despia-native/dom/offline";
 ${bootImports.length > 0 ? `${bootImports}\n` : ""}
 // Anchored to THIS script, not the document: an exported nested route page loads the same
 // bootloader, and a document-relative "./registry.json" would resolve into its subdirectory.
@@ -366,9 +366,9 @@ function bundleBrowserEntry(entry: string, outfile: string, projectRoot: string)
       format: "esm",
       platform: "browser",
       target: "es2022",
-      // @despia/* stay external: the import map already points them at the vendored copies,
+      // @despia-native/* stay external: the import map already points them at the vendored copies,
       // so bundling them here would ship a second kernel inside every package chunk.
-      external: ["@despia/*"],
+      external: ["@despia-native/*"],
       outfile,
       absWorkingDir: projectRoot,
       logLevel: "silent",
@@ -379,9 +379,9 @@ function bundleBrowserEntry(entry: string, outfile: string, projectRoot: string)
   }
 }
 
-/** `@despia/dom/boot` → "dom" */
+/** `@despia-native/dom/boot` → "dom" */
 function packageOf(specifier: string): string {
-  const rest = specifier.substring("@despia/".length);
+  const rest = specifier.substring("@despia-native/".length);
   const slash = rest.indexOf("/");
   return slash < 0 ? rest : rest.substring(0, slash);
 }

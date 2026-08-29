@@ -1,7 +1,7 @@
 //
 //  LiveLogs.swift — the LIVE LOGS wire core: the pure half of dev.stream (proposals/live-logs.md).
 //  The law is the corpus, `OpenSource/Conformance/livelogs/{wire,report}.json`; the Kotlin twin is
-//  `:core` LiveLogs.kt and the web twin is @despia/kernel's livelogs.ts.
+//  `:core` LiveLogs.kt and the web twin is @despia-native/kernel's livelogs.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file — the flush timer, dsx.fetch, the drawer
 //  consent UI, the relay's storage. What is here is the half both ends of the wire must agree on:

@@ -24,20 +24,20 @@ import {
   offlineManifestText,
   renderPage,
   renderRedirect,
-} from "@despia/server";
-import type { RouteOutput } from "@despia/server";
+} from "@despia-native/server";
+import type { RouteOutput } from "@despia-native/server";
 import { universalLinkFiles } from "../src/universal-links.ts";
-import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS, FORM_ELEMENTS_CSS, RICH_ELEMENTS_CSS } from "@despia/dom/theme";
-import { UNIVERSAL_GLOBAL_TAGS, GLOBAL_ELEMENTS_CSS } from "@despia/dom/globals";
-import { RICH_ELEMENT_TAGS } from "@despia/dom/elements";
-import { FORM_ELEMENT_TAGS } from "@despia/dom/forms";
-import { NATIVE_CONTROL_TAGS, NATIVE_CONTROLS_CSS } from "@despia/dom/native-controls";
+import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS, FORM_ELEMENTS_CSS, RICH_ELEMENTS_CSS } from "@despia-native/dom/theme";
+import { UNIVERSAL_GLOBAL_TAGS, GLOBAL_ELEMENTS_CSS } from "@despia-native/dom/globals";
+import { RICH_ELEMENT_TAGS } from "@despia-native/dom/elements";
+import { FORM_ELEMENT_TAGS } from "@despia-native/dom/forms";
+import { NATIVE_CONTROL_TAGS, NATIVE_CONTROLS_CSS } from "@despia-native/dom/native-controls";
 import {
   STRUCTURAL_CONTROL_TAGS, STRUCTURAL_CONTROLS_CSS,
-} from "@despia/dom/structural-controls";
-import { OVERLAY_CONTROL_TAGS, OVERLAY_CONTROLS_CSS } from "@despia/dom/overlay-controls";
-import { DATA_CONTROL_TAGS, DATA_CONTROLS_CSS } from "@despia/dom/data-controls";
-import { MEDIA_PLAYBACK_CSS } from "@despia/dom/media-surfaces";
+} from "@despia-native/dom/structural-controls";
+import { OVERLAY_CONTROL_TAGS, OVERLAY_CONTROLS_CSS } from "@despia-native/dom/overlay-controls";
+import { DATA_CONTROL_TAGS, DATA_CONTROLS_CSS } from "@despia-native/dom/data-controls";
+import { MEDIA_PLAYBACK_CSS } from "@despia-native/dom/media-surfaces";
 
 import { buildRegistry } from "../src/registry.ts";
 import { scanDsxSpecifiers } from "../src/specifiers.ts";
@@ -351,7 +351,7 @@ for (const rootRel of FACET_ROOTS) {
 FACETS.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
 
 /** What a facet chunk never inlines.
- *  · `@despia/kernel` — the page's import map resolves it, so every facet shares the ONE kernel
+ *  · `@despia-native/kernel` — the page's import map resolves it, so every facet shares the ONE kernel
  *    instance. Bundling it per-facet would both fail resolution (a ClosedSource facet path has no
  *    node_modules above it) and split kernel state per chunk.
  *  · `./vendor/*` — a module's binary/vendored player is FETCHED at build time from the coordinate
@@ -360,14 +360,14 @@ FACETS.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
  *    runtime guard produce its declared "this build carries no player" message, which is what the
  *    facet already does. Inlining it would make a missing optional artifact a build failure. */
 const FACET_EXTERNALS = [
-  "@despia/kernel", "@despia/kernel/keyboard",
+  "@despia-native/kernel", "@despia-native/kernel/keyboard",
   //  The MOUNT-HOST specifiers, for the same reason and by the same mechanism: a facet that
   //  instantiates components (Core/Apps mounts a Despia app into a shadow root) reaches the
   //  renderer and the compiler's resolver, and both are entries in the page's import map
   //  below. Bundling them into the facet's chunk would fail resolution from a ClosedSource
   //  path AND give that chunk its own renderer instance, which is the split-state failure
   //  the kernel entry already exists to prevent.
-  "@despia/dom", "@despia/dom/theme", "@despia/compiler/cssmap", "@despia/compiler/resolve",
+  "@despia-native/dom", "@despia-native/dom/theme", "@despia-native/compiler/cssmap", "@despia-native/compiler/resolve",
   "./vendor/*",
 ];
 
@@ -378,7 +378,7 @@ const facetSrcByScheme = new Map<string, string>();
 for (const [name, rel] of FACETS) {
   const src = join(root, rel);
   if (!existsSync(src)) continue; // excluded module: not bundled at all
-  // @despia/kernel stays EXTERNAL: the page's import map resolves it, so every facet shares
+  // @despia-native/kernel stays EXTERNAL: the page's import map resolves it, so every facet shares
   // the ONE kernel instance. Bundling it per-facet would both fail resolution (a ClosedSource
   // facet path has no node_modules above it) and split kernel state per chunk.
   buildSync({ entryPoints: [src], bundle: true, minify: true, format: "esm", target: "es2022", outfile: join(site, "modules", `${name}.js`), absWorkingDir: web, logLevel: "silent", external: FACET_EXTERNALS });
@@ -407,30 +407,30 @@ if (existsSync(demoMedia)) {
 // ── 4. the bootloader (a bootloader owns ZERO behavior — constitution) ──────────────
 const importMap = {
   imports: {
-    "@despia/kernel": "./dist/kernel/src/index.js",
+    "@despia-native/kernel": "./dist/kernel/src/index.js",
     // dom/mcp-app.js is copied into the demo's dist and imports this; without the entry the
     // demo boots blank in a clean session. The check below is what found it — the same check
     // was passing over a false positive before scanDsxSpecifiers learned to ignore emitted
     // import statements, so this gap existed unnoticed on main.
-    "@despia/kernel/mcp": "./dist/kernel/src/mcp.js",
-    "@despia/kernel/keyboard": "./dist/kernel/src/keyboard.js",
-    "@despia/compiler/cssmap": "./dist/compiler/src/cssmap.js",
-    "@despia/compiler/options": "./dist/compiler/src/options.js",
-    "@despia/compiler/resolve": "./dist/compiler/src/resolve.js",
-    "@despia/compiler/component": "./dist/compiler/src/component.js",
-    "@despia/dom": "./dist/dom/src/index.js",
-    "@despia/dom/theme": "./dist/dom/src/theme.js",
-    "@despia/dom/boot": "./dist/dom/src/boot.js",
-    "@despia/dom/offline": "./dist/dom/src/offline.js",
+    "@despia-native/kernel/mcp": "./dist/kernel/src/mcp.js",
+    "@despia-native/kernel/keyboard": "./dist/kernel/src/keyboard.js",
+    "@despia-native/compiler/cssmap": "./dist/compiler/src/cssmap.js",
+    "@despia-native/compiler/options": "./dist/compiler/src/options.js",
+    "@despia-native/compiler/resolve": "./dist/compiler/src/resolve.js",
+    "@despia-native/compiler/component": "./dist/compiler/src/component.js",
+    "@despia-native/dom": "./dist/dom/src/index.js",
+    "@despia-native/dom/theme": "./dist/dom/src/theme.js",
+    "@despia-native/dom/boot": "./dist/dom/src/boot.js",
+    "@despia-native/dom/offline": "./dist/dom/src/offline.js",
   },
 };
 
 // Keep the exported site honest: TypeScript preserves package aliases in the browser
-// ESM emit, so every bare @despia/* dependency must be represented in the import map. A
+// ESM emit, so every bare @despia-native/* dependency must be represented in the import map. A
 // missing entry otherwise survives all type/unit gates and becomes a clean-session
 // blank page. Validate the complete copied browser graph before writing any shell.
 {
-  // The facet chunks keep @despia/kernel as a bare (external) specifier, so they are part of
+  // The facet chunks keep @despia-native/kernel as a bare (external) specifier, so they are part of
   // the browser graph the import map must cover — scan them with the same check.
   const imported = new Set([
     ...scanDsxSpecifiers(join(site, "dist")),
@@ -461,9 +461,9 @@ writeFileSync(join(site, "index.html"), `<!doctype html>
 `);
 
 writeFileSync(join(site, "main.js"), `// Demo bootloader — mounts the kernel, registers the module chunks, hands off.
-import { bootDsx } from "@despia/dom/boot";
-import { registerOfflineFloor } from "@despia/dom/offline";
-import { ModuleRegistry } from "@despia/kernel";
+import { bootDsx } from "@despia-native/dom/boot";
+import { registerOfflineFloor } from "@despia-native/dom/offline";
+import { ModuleRegistry } from "@despia-native/kernel";
 ${present.map((p) => facetBootImport(p.name)).join("\n")}
 
 // Anchored to THIS script's location, not the document: SSR-exported nested pages
@@ -515,7 +515,7 @@ void registerOfflineFloor({ swUrl: new URL("./dsx-sw.js", import.meta.url).href 
 `);
 
 // ── 5. web-component embeds (/web/13 W10): web.expose → /embed artifacts ─────────────
-// Each exposed component becomes a self-contained ESM (kernel + @despia/element + its
+// Each exposed component becomes a self-contained ESM (kernel + @despia-native/element + its
 // registry slice + css + customElements.define), a hash-pinned copy, and a DSD
 // fragment — plus the plain-HTML host pages gate G10 drives (CSR + DSD variants).
 const exposed = mergeExposed(MODULE_DIRS.map(({ dir, scheme }) => {

@@ -183,7 +183,7 @@ audience.**
   takes it back; an expired grant deletes itself on read.
 - **Local surfaces** (Chrome/Edge/Firefox where the site is the app end): the
   signed-in SITE grants the same way — `ext.auth.grant(...)` from
-  `@despia/webext` — into extension-private storage.
+  `@despia-native/webext` — into extension-private storage.
 - **Standalone** (no signed-in app end anywhere): the hub runs
   `identity.launchWebAuthFlow` + PKCE (public client, S256, state-checked)
   against the customer's OAuth, configured per app via `oauth_*` config keys
@@ -255,7 +255,7 @@ D2 host) earns canonical fixtures on its own merits.
 ## How the extension talks to each consumer
 
 - **A normal web app** (any matched site): the page envelope above, both
-  directions — wrapped for real-world use by **`@despia/webext`**
+  directions — wrapped for real-world use by **`@despia-native/webext`**
   (`OpenSource/Web/packages/webext`, npm-publishable): one typed import, total
   across all four contexts (in-app → delegates to the real module; native →
   read/send; local → app-end verbs; absent → `null`), never throwing, never
@@ -298,7 +298,7 @@ D2 host) earns canonical fixtures on its own merits.
 | Safari appex as a DECLARED target (unknown-kind + `nsExtension` door, zero script edits) | **landed** |
 | App-Group message plane (vars / queue / heartbeat) + `screen.ready` web buffering | **landed** |
 | The COMPLETE page envelope: request/response with reply + timeout detect, the six-verb grammar total on every surface, the one-owner law (`native_owns_state`), the extension-local floor (`browser.storage`) for every no-native browser, sender-stamped origins | **landed** |
-| `@despia/webext` — the page SDK (npm package, `OpenSource/Web/packages/webext`): one typed import total across in-app / native / local / absent, in-app delegation to the real module, no `dsx` global minted | **landed** (repo + gates; the npm PUBLISH itself needs the org/token — a release-lane row) |
+| `@despia-native/webext` — the page SDK (npm package, `OpenSource/Web/packages/webext`): one typed import total across in-app / native / local / absent, in-app delegation to the real module, no `dsx` global minted | **landed** (repo + gates; the npm PUBLISH itself needs the org/token — a release-lane row) |
 | The AUTH plane: borrowed sessions (app grants → shared keychain via the app-group access group; site grants → extension storage), the closed token audience (hub + handler refusals), `launchWebAuthFlow` + PKCE standalone rung with packager-stamped `oauth.json`, `grant`/`revoke`/`authStatus` module actions, SDK `auth` namespace | **landed** |
 | Protocol v2 hardening (the review's ladder: versioned wire spec + shared fixtures · status state machine + owner epochs · leased/acked durable delivery + journal store · `{install, profile, account}` ownership scope + revisions · per-key visibility policy · compiled per-target manifests + store metadata · native CI gates · the relay SPI · bus command-vs-broadcast + SDK lifecycle) | staged — the section above, in order |
 | `build_webextension.rb` — the Chrome zip with package-time identity stamping | **landed** |

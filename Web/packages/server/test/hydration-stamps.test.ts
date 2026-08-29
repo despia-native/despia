@@ -1,7 +1,7 @@
 //
 //  hydration-stamps.test.ts - the adopt-hydration stamp contract (W6 slice 1):
 //  renderPage/renderToString({hydrate}) emit `data-dsx-n` — each element's IR node
-//  identity (stampNodeIds preorder) — which the @despia/dom adopt walk verifies while
+//  identity (stampNodeIds preorder) — which the @despia-native/dom adopt walk verifies while
 //  claiming server DOM. Off by default: bare renders and embed fragments must stay
 //  byte-identical to v0 output (embeds replace-mount on upgrade, /web/13).
 //

@@ -23,7 +23,7 @@
 //
 //  THE CURVE NUMBERS ARE NOT LOCAL. Since the UI MOTION ENGINE landed
 //  (architecture/proposals/ui-motion.md), `anim`/`animDuration` parse through the SHARED
-//  kernel (@despia/kernel `parseMotion`), corpus-pinned in OpenSource/Conformance/motion/ and
+//  kernel (@despia-native/kernel `parseMotion`), corpus-pinned in OpenSource/Conformance/motion/ and
 //  executed by all three renderers — this module only maps a MotionSpec onto CSS. That
 //  ended a real divergence: the web used to carry its own table (0.25s eased / 0.4s
 //  spring, and `cubic-bezier(0.34, 1.28, 0.64, 1)` standing in for a spring) while iOS
@@ -45,8 +45,8 @@
 //
 
 import { ElementMotionSeam, mountNode, motionSubCtx, motionEffect, type MountCtx } from "./mount.ts";
-import { truthy, parseMotion, motionProgress, MOTION_PRESET_KEEP, type MotionSpec } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
+import { truthy, parseMotion, motionProgress, MOTION_PRESET_KEEP, type MotionSpec } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
 
 /** The motion attributes this module implements — the enforcement anchor the
  *  attribute-support ledger test pins (a ledger row may claim web support for a motion

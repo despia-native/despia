@@ -3,7 +3,7 @@
 //  date grammar, the iOS 17 access split, the calendar-target refusals, the reminders absence,
 //  the editor result-fidelity ladder and RFC 5545 recurrence. The law is the corpus,
 //  `OpenSource/Conformance/calendar/{crud,present,recurrence}.json` (parity F12); the Kotlin twin
-//  is `:core` CalendarCore.kt and the web twin is @despia/kernel's calendar-core.ts.
+//  is `:core` CalendarCore.kt and the web twin is @despia-native/kernel's calendar-core.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file: EventKit, CalendarContract and the .ics
 //  handoff are per-renderer plumbing. Three different mechanisms have to agree on the same

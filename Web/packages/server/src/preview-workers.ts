@@ -30,7 +30,7 @@
 //  the joined key. Deliberately the same policy, not a second, different one.
 //
 
-import type { Registry } from "@despia/compiler/resolve";
+import type { Registry } from "@despia-native/compiler/resolve";
 import { createPageHandler, type PageHandlerOptions } from "./live.ts";
 import { contentTypeFor } from "./content-type.ts";
 import { secretEquals } from "./secrets.ts";

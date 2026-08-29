@@ -1,5 +1,5 @@
 {
-  "name": "@despia/local",
+  "name": "@despia-native/local",
   "version": "0.0.1",
   "private": true,
   "description": "Despia Local: the on-device data plane, over SQLite.",

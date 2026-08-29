@@ -17,7 +17,7 @@ payments it survives anything, so payments is the exemplar rather than the last 
 | `cardField` | **The field-validity fold.** The vendor's per-part verdicts folded into ONE `<form>` field, so a vendor input joins validity through the same aggregation `<field>` uses. The folded value is a sentinel (`complete` / `""`) and never card data. |
 | `retain` | **Keyed identity.** The `SceneBind` law applied to an expensive, stateful vendor view: same key = same live view across reorder and unrelated re-render. The key derives from the session's REFERENCE, never its value, because keys land in diff logs. |
 
-Three runners, one file: `@despia/kernel` `vendor-session.ts`
+Three runners, one file: `@despia-native/kernel` `vendor-session.ts`
 (`packages/kernel/test/vendor-session-conformance.test.ts`), `:core` `VendorSession.kt`
 (`VendorSessionConformanceTest`), and the Swift reference `Engine/iOS/VendorSession.swift`.
 

@@ -12,11 +12,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
-import type { Registry } from "@despia/compiler/resolve";
-import { compileComponent } from "@despia/compiler/component";
-import { CssCollector, extractComponentCss } from "@despia/compiler";
+import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import type { Registry } from "@despia-native/compiler/resolve";
+import { compileComponent } from "@despia-native/compiler/component";
+import { CssCollector, extractComponentCss } from "@despia-native/compiler";
 import { mountNode, instantiate, type MountCtx } from "../src/mount.ts";
 import { registerRichElements } from "../src/elements.ts";
 // imported for effect as well as for the class: it installs document/window/observers

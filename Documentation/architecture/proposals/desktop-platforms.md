@@ -57,7 +57,7 @@ Desktop adds **three targets and zero lanes**:
 | **macOS** | Swift (`ios/`) | SwiftUI (the Stack renderer is already SwiftUI — `Stack.swift:3951 StackRootView: View`); Catalyst hosts the UIKit shell in phase M1 | SwiftUI is native on macOS; WKWebView exists → the Dom module works day one; the watch already proved the lane stretches across OSes |
 | **Windows** | Kotlin (`android/`) | Compose Multiplatform (the `:render` module is already Jetpack Compose — `render/build.gradle.kts:7-11`, 134 `@Composable`s) | `:core` is **enforced pure-JVM** (`checkPureJvm`, `core/build.gradle.kts:24-32`) — the desktop kernel already runs and passes 767 tests on these OSes today |
 | **Linux** | Kotlin (`android/`) | same Compose Multiplatform build | same |
-| (desktop **browsers**) | TS (`web/`) | `@despia/dom` | already covered — Despia Web IS the desktop-browser story; it owes nothing new |
+| (desktop **browsers**) | TS (`web/`) | `@despia-native/dom` | already covered — Despia Web IS the desktop-browser story; it owes nothing new |
 
 `PLATFORM_FACETS` stays frozen at three. Swift-on-Windows/Linux is **not pursued** (no
 SwiftUI there); the Kotlin lane owns the open desktops, exactly as it owns Wear.

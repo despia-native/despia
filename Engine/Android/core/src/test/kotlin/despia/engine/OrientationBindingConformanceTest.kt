@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 /**
  * The `lockOrientation=` router-binding conformance runner - executes
  * OpenSource/Conformance/input/orientation-binding.json through THIS runtime's
- * StackOrientationBinding (parity/F07-orientation.md section 3a). The TS twin (@despia/kernel
+ * StackOrientationBinding (parity/F07-orientation.md section 3a). The TS twin (@despia-native/kernel
  * orientation-binding.ts) and the Swift reference (OrientationBindingConformance, record lane)
  * run the SAME file.
  *

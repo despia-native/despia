@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 /**
  * The <image> resolution conformance runner - executes
  * OpenSource/Conformance/image/resolution.json through THIS runtime's ImageCore
- * (parity/U05-image.md). The TS twin (@despia/kernel image-core.ts, image-core.test.ts) and
+ * (parity/U05-image.md). The TS twin (@despia-native/kernel image-core.ts, image-core.test.ts) and
  * the Swift reference (Engine/iOS/ImageCore.swift) run the SAME file, so `contentFit="cover"`
  * cannot crop one way on one renderer and another way on the next, a memory-cache hit cannot
  * fade on one platform and appear instantly on another, and a blurhash placeholder cannot

@@ -1,5 +1,5 @@
 /* ═════════════════════════════════════════════════════════════════════════════
-   @despia/logic-editor — type definitions for the host contract.
+   @despia-native/logic-editor — type definitions for the host contract.
 
    StackLogic is the visual FORMULA editor: a node-based dataflow graph
    (left → right, one output) that COMPILES to JSE text — the expression

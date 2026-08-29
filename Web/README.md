@@ -19,14 +19,14 @@ signals over the DSX store, compiled JSE, direct DOM writes, **no virtual DOM**.
 
 | Package | Role | iOS analogue | Status |
 |---|---|---|---|
-| [`packages/kernel`](packages/kernel/) (`@despia/kernel`) | path-keyed signal store, JSE (interpreter + compiled-JS, ONE semantic helper table), action runner, module bus, `dsx.platform` | `OpenSource/Engine/` | **live** — corpus green on BOTH TS paths |
-| [`packages/compiler`](packages/compiler/) (`@despia/compiler`) | .dsx → node-tree IR (per-node reactivity stamps), platform-suffix folding, CSS emission (`@layer` cascade + owner scoping), module registry | `prepare_config.rb` + `compile_dsx_css.rb` + StackXML | **live** — compiles Demo + Foundation unchanged |
-| [`packages/dom`](packages/dom/) (`@despia/dom`) | element library (`.dsx-*` class contract), binding engine, keyed lists, slots (caller scope), frame router, theme layers | StackNodeView + Basics components | **live** — Demo acceptance runs in Playwright Chromium, Firefox, and WebKit |
-| [`packages/element`](packages/element/) (`@despia/element`) | standards-based custom-element wrapper for exposed DSX components | native component embedding | **live** — export smoke-checked (`verify-packages`) and exercised as the embed import path; the attribute/property/event/slot contract SUITE is not written yet (diligence row, ClosedSource/Documentation/diligence.md) |
-| [`packages/server`](packages/server/) (`@despia/server`) | string renderer (IR → HTML, same resolution rules), full-document pages (title/meta/og), per-node hydration stamps (`data-dsx-n`), SSR `<api>` prefetch + `window.__DSX__` seeding (`renderPageAsync`, nested instances too), islands (inert-subtree skip), embed-fragment SSR (`renderEmbedFragmentAsync`), static route export, redirect pages | — (new surface) | **v0 + adopt-hydration + SSR `<api>` (page/nested/embed) + islands live** — true streaming + the full-page live adapter = the open W6 gate |
-| [`packages/cli`](packages/cli/) (`@despia/cli`) | `dsx build` (compile path → static site) · `dsx dev` (build · serve · watch · SSE reload) · `dsx lint` (the TS twin of `lint_dsx.rb`) · `dsx doctor` (project checks, authored in DSX — the CLI node's dogfood, `cli-authoring.md`) | `lint_dsx.rb` + `prepare_config.rb` | **live** — tooling face of the release set |
+| [`packages/kernel`](packages/kernel/) (`@despia-native/kernel`) | path-keyed signal store, JSE (interpreter + compiled-JS, ONE semantic helper table), action runner, module bus, `dsx.platform` | `OpenSource/Engine/` | **live** — corpus green on BOTH TS paths |
+| [`packages/compiler`](packages/compiler/) (`@despia-native/compiler`) | .dsx → node-tree IR (per-node reactivity stamps), platform-suffix folding, CSS emission (`@layer` cascade + owner scoping), module registry | `prepare_config.rb` + `compile_dsx_css.rb` + StackXML | **live** — compiles Demo + Foundation unchanged |
+| [`packages/dom`](packages/dom/) (`@despia-native/dom`) | element library (`.dsx-*` class contract), binding engine, keyed lists, slots (caller scope), frame router, theme layers | StackNodeView + Basics components | **live** — Demo acceptance runs in Playwright Chromium, Firefox, and WebKit |
+| [`packages/element`](packages/element/) (`@despia-native/element`) | standards-based custom-element wrapper for exposed DSX components | native component embedding | **live** — export smoke-checked (`verify-packages`) and exercised as the embed import path; the attribute/property/event/slot contract SUITE is not written yet (diligence row, ClosedSource/Documentation/diligence.md) |
+| [`packages/server`](packages/server/) (`@despia-native/server`) | string renderer (IR → HTML, same resolution rules), full-document pages (title/meta/og), per-node hydration stamps (`data-dsx-n`), SSR `<api>` prefetch + `window.__DSX__` seeding (`renderPageAsync`, nested instances too), islands (inert-subtree skip), embed-fragment SSR (`renderEmbedFragmentAsync`), static route export, redirect pages | — (new surface) | **v0 + adopt-hydration + SSR `<api>` (page/nested/embed) + islands live** — true streaming + the full-page live adapter = the open W6 gate |
+| [`packages/cli`](packages/cli/) (`@despia-native/cli`) | `dsx build` (compile path → static site) · `dsx dev` (build · serve · watch · SSE reload) · `dsx lint` (the TS twin of `lint_dsx.rb`) · `dsx doctor` (project checks, authored in DSX — the CLI node's dogfood, `cli-authoring.md`) | `lint_dsx.rb` + `prepare_config.rb` | **live** — tooling face of the release set |
 | [`packages/create-dsx`](packages/create-dsx/) (`create-dsx`) | project scaffolder — a real DSX package that `dsx build` compiles as generated | — | **live** — tooling face of the release set |
-| [`packages/vite-plugin`](packages/vite-plugin/) (`@despia/vite-plugin`) | compile `.dsx` on import + `virtual:dsx-registry`; v0.1 HMR = full page reload | — | **v0.1** — tooling face of the release set |
+| [`packages/vite-plugin`](packages/vite-plugin/) (`@despia-native/vite-plugin`) | compile `.dsx` on import + `virtual:dsx-registry`; v0.1 HMR = full page reload | — | **v0.1** — tooling face of the release set |
 
 All workspace packages are **open source** (`/web/01`: *"a framework competing with React
 must be open"*); releases cut from the closed CI on tag (`/web/09`), single `0.x` train.
@@ -146,7 +146,7 @@ clean-consumer import, type, repack, and browser-bundle resolution gate (`pack:c
 the tarballs-only first-run walk (`cold-start`).
 Conflict-copy filenames are excluded at compile time and rejected from release
 tarballs. The demo compiled 26 route-table entries into 30 SSR route
-pages (verified by rebuilding, 2026-08-23); its EmbedCard slice is 40,890 bytes gzip (that figure is the fixed-feature slice
+pages (verified by rebuilding, 2026-08-23); its EmbedCard slice is 40,894 bytes gzip (that figure is the fixed-feature slice
 built by `packages/compiler/test/embed-structural-slicing.test.ts`, which pins this
 sentence; `npm run build:demo` emits the same bytes because both now build with ONE fold
 map, `embedDefines` in `packages/compiler/bin/embed-entry.ts`). The G10 widget law is 40,960 bytes, so **70
@@ -329,7 +329,7 @@ package publication.
   (`OpenSource/Documentation/reference/stack-elements.json`) — that file is emitted by
   `ClosedSource/scripts/generate_editor_catalog.rb`, so the catalog half is a Ruby-lane change,
   and the web-side column above is its source of truth.
-- **W3 packages/npm** — package-distribution floor green: all five `@despia/*` workspaces
+- **W3 packages/npm** — package-distribution floor green: all five `@despia-native/*` workspaces
   build to compiled ESM + declarations and pass exact-tarball clean-consumer gates. Module
   `web/` facets ship for route, toast, haptic,
   spinner, darkmode, clipboard, share, browser, metadata (file presence = the gate;
@@ -341,7 +341,7 @@ package publication.
   `styles` (folded into the compiled sheet), `assets`, `base`, and `links` (the native
   universal-links declaration). `buildRegistry` reads every package manifest during the walk
   it already does, so the block costs no extra IO, and the resolved contributions land on
-  `registry.packageWeb` for any consumer. `@despia/vite-plugin` consumes the same reader
+  `registry.packageWeb` for any consumer. `@despia-native/vite-plugin` consumes the same reader
   (`collectPackageWeb` + the new `virtual:dsx-routes` module), so a Vite app and `dsx build`
   see one implementation. Remaining product breadth: application-level bundling and
   code-splitting; neither is claimed by the 0.1 package line.
@@ -407,7 +407,7 @@ package publication.
   the value-presence gate is live but the `needs=`/expression edges are not; the
   three doc-11 lint rules are specified, not implemented; and the `via="server"`
   credential provider + `native="direct"` escape are [S-BOUNDARY] Track-S work.
-- **W6 SSR** — v0 + ADOPT-HYDRATION live: `@despia/server` renders IR → HTML
+- **W6 SSR** — v0 + ADOPT-HYDRATION live: `@despia-native/server` renders IR → HTML
   (components/slots/lists), full-document pages with title/meta/og, static route
   export, redirect pages — and `renderPage` stamps per-node identity
   (`data-dsx-n` via the compiler's `stampNodeIds` + the host's `data-dsx-hydrate`),
@@ -452,7 +452,7 @@ package publication.
   child's data paints on first render, and the client adopts it (payload is `as`-keyed,
   first mounter wins). The EMBED-FRAGMENT SSR path landed: `renderEmbedFragmentAsync`
   runs the exposed component's ssr apis, paints data into the DSD body AND embeds a
-  per-instance seed payload; `@despia/element` reads it and skips the upgrade fetch — the
+  per-instance seed payload; `@despia-native/element` reads it and skips the upgrade fetch — the
   whole seed reader folds out of a no-api embed (`__DSX_OPTIONAL_APIS__`, byte budget
   intact), and the live per-request fragment endpoint (`serve.ts`) calls the async path.
   `defer` now has correct non-streaming SSR semantics: a `defer`red block is excluded
@@ -464,9 +464,9 @@ package publication.
   static export stays sync/no-fetch, the embed fragment endpoint is the one live
   adapter proven locally).
   **W7 DevX** — the three toolchain packages ship:
-  [`@despia/cli`](packages/cli/) (`dsx build` · `dsx dev` · `dsx lint` · `dsx doctor`),
+  [`@despia-native/cli`](packages/cli/) (`dsx build` · `dsx dev` · `dsx lint` · `dsx doctor`),
   [`create-dsx`](packages/create-dsx/) (project scaffolder) and
-  [`@despia/vite-plugin`](packages/vite-plugin/) (v0.1). They WRAP the existing entry points
+  [`@despia-native/vite-plugin`](packages/vite-plugin/) (v0.1). They WRAP the existing entry points
   rather than reimplementing them: `dsx build` drives `buildRegistry` + `renderPage`/
   `exportStatic` and vendors the runtime ESM behind a derived import map (`--demo` spawns
   `packages/compiler/bin/build-demo.ts` itself); `dsx dev --demo` hands off to
@@ -480,13 +480,13 @@ package publication.
   [packages/cli/README.md](packages/cli/README.md), and `lint_dsx.rb` remains the in-repo
   authority and CI gate. `create-dsx` scaffolds a project that compiles with `dsx build` and
   passes `dsx lint --strict` as generated — asserted end to end for both templates.
-  **`@despia/vite-plugin` v0.1 has NO hot module replacement**: a `.dsx` change is a full page
+  **`@despia-native/vite-plugin` v0.1 has NO hot module replacement**: a `.dsx` change is a full page
   reload, stated plainly in its README. These three are TOOLING and deliberately sit outside
   the five-package npm workspace set, so the release contract below still proves exactly
   `kernel · compiler · dom · element · server`; publishing them means adding them to
   `scripts/release-packages.ts` first. Open W7: component-level HMR, a bundler/asset pipeline
   in `dsx build`. **The dsx.json `web` block consumption LANDED** (see W3/W4): the plugin
-  reads every package root's block through the shared `@despia/compiler` reader, folds declared
+  reads every package root's block through the shared `@despia-native/compiler` reader, folds declared
   stylesheets into the compiled sheet, merges package routes under the application table
   (throwing on a collision), and exposes the merged table as `virtual:dsx-routes`.
   **W8 ship gate** — artifact/build/consumer/audit gates landed;
@@ -497,7 +497,7 @@ package publication.
 ## Constitution mapping (`/web/01`)
 
 `demo/site/index.html` + `main.js` are bootloaders (mount kernel, register chunks, hand
-off); **direct DOM access lives only in `@despia/dom`** — module web facets create their
+off); **direct DOM access lives only in `@despia-native/dom`** — module web facets create their
 own overlays and talk to browser APIs, they never reach into the app render tree (the
 no-`querySelector` law; `check_module_rules` gains a web twin later); an excluded
 package's facet is simply not copied into the build — `dsx.has()` false, never a crash.

@@ -1,6 +1,6 @@
 // <split> - the shared planning corpus (OpenSource/Conformance/split/split.json, the
 // Kotlin SplitPlan / Swift SplitPlan twins run the same file), planner invariants, the
-// DOM factory's stack/columns/overlay behavior, and the @despia/server SSR twin.
+// DOM factory's stack/columns/overlay behavior, and the @despia-native/server SSR twin.
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -8,9 +8,9 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import type { XmlNode } from "@despia/compiler/xml";
-import { compileComponent } from "@despia/compiler/component";
-import type { Registry } from "@despia/compiler/resolve";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import { compileComponent } from "@despia-native/compiler/component";
+import type { Registry } from "@despia-native/compiler/resolve";
 import type { MountCtx } from "../src/mount.ts";
 import type { ElementApi } from "../src/elements.ts";
 import {
@@ -406,7 +406,7 @@ test("explicit paneRole routes children and authored breakpoints move the steps"
   assert.equal(root.getAttribute("data-dsx-presentation"), "stack");
 });
 
-// ── the @despia/server twin (attr-for-attr with the width-zero client mount) ──────
+// ── the @despia-native/server twin (attr-for-attr with the width-zero client mount) ──────
 
 test("SSR renders the same width-zero split the client mounts", () => {
   const screen = (name: string, selected: string): [string, ReturnType<typeof compileComponent>] => [

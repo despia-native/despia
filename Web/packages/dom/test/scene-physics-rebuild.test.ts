@@ -6,7 +6,7 @@ import {
   stepScenePhysicsWorld,
   type SceneNode,
   type ScenePhysicsBodySpec,
-} from "@despia/kernel";
+} from "@despia-native/kernel";
 import { carryScenePhysicsState } from "../src/scene.ts";
 
 const separator = String.fromCharCode(0);

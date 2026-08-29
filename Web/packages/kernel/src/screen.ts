@@ -28,7 +28,7 @@
 //  exist (the machine is one machine, corpus-gated identically on all three renderers) and
 //  simply never fire. Same reason `<DSXWebView/>` is `unsupported` in element-support.json.
 //
-//  DOM-free by law (this package renders nothing) — @despia/dom owns the wiring.
+//  DOM-free by law (this package renders nothing) — @despia-native/dom owns the wiring.
 //
 
 import { ModuleRegistry } from "./bus.ts";

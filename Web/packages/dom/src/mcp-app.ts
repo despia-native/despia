@@ -10,7 +10,7 @@
 //  SSR shape, not a limitation — the work happens outside the box and the box renders it.
 //
 
-import { createAppBridge, type AppBridge, type AppFrame, type AppHostContext } from "@despia/kernel/mcp";
+import { createAppBridge, type AppBridge, type AppFrame, type AppHostContext } from "@despia-native/kernel/mcp";
 
 export type MountedApp = {
   bridge: AppBridge;

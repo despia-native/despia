@@ -2,12 +2,12 @@
   "schema": 1,
   "packages": [
     {
-      "name": "@despia/kernel",
+      "name": "@despia-native/kernel",
       "version": "0.0.1",
       "entrypoints": {
         ".": {
           "types": "./dist/index.d.ts",
-          "fingerprint": "bc688f45860a6447eac89b4dbaea0ed47cbf72f0802cb7c31bfaa6230dc934b4",
+          "fingerprint": "5cc9dec453b9eb3e2db5754f4b67a9f76e5502d7aebb4ed383e5d9bde3fc25e6",
           "files": 80
         },
         "./config-validate": {
@@ -17,12 +17,12 @@
         },
         "./film": {
           "types": "./dist/film.d.ts",
-          "fingerprint": "739311840b3ea93834e0aba13cbb2fe6b5dacf407c02c65db05132199bf0edcc",
+          "fingerprint": "00c95fb7896ee034e50829b91550a34e5a323e82afd2326fd6109a7488b48c40",
           "files": 5
         },
         "./keyboard": {
           "types": "./dist/keyboard.d.ts",
-          "fingerprint": "c85368959e1e6a8c735c6cdbfa8826745b0ee8236595c536eef6b4be9de3c748",
+          "fingerprint": "59b4fc51dfac5f4802653b7e700659deed85c712c014e59d43c7b4b5727dfc91",
           "files": 1
         },
         "./mcp": {
@@ -34,17 +34,17 @@
       "untypedExports": []
     },
     {
-      "name": "@despia/compiler",
+      "name": "@despia-native/compiler",
       "version": "0.0.1",
       "entrypoints": {
         ".": {
           "types": "./dist/index.d.ts",
-          "fingerprint": "0d22981f83d75fc1ee313c8edaec49c9e2d87e3aff9d40cad7202876d8d92f64",
+          "fingerprint": "1ab39dc4c37b6eabea1c58ebb7e08e5324d9c0f8b1003d67310b1e74b69bb815",
           "files": 10
         },
         "./component": {
           "types": "./dist/component.d.ts",
-          "fingerprint": "8486eb0d44b92d92500bb49d83621b31a5c01641515526fcae8cf1cff5a18388",
+          "fingerprint": "4ed35f73feee2d747812b8305d6e9a32f28afdc459aaf5d1ff65541da47028e9",
           "files": 2
         },
         "./cssmap": {
@@ -54,7 +54,7 @@
         },
         "./expose": {
           "types": "./dist/expose.d.ts",
-          "fingerprint": "8065e5c39262de8f3ec5d91ca9b92881e81714c670a1e1f89e6159c697c9ad98",
+          "fingerprint": "65b16eaaed642033ce923e2b2a029ebe7081b251c40487df46c13d5242b64c1e",
           "files": 4
         },
         "./options": {
@@ -64,7 +64,7 @@
         },
         "./resolve": {
           "types": "./dist/resolve.d.ts",
-          "fingerprint": "b56297112bd80bb12e6459dac7ad1c8d313830e8227df498cc3597a3a0d67ac2",
+          "fingerprint": "eb086fe85c789824a6d5d27fa01103133465618b1d3d97779bac73a3e5ba9247",
           "files": 3
         },
         "./screengraph": {
@@ -79,7 +79,7 @@
         },
         "./specifiers": {
           "types": "./dist/specifiers.d.ts",
-          "fingerprint": "5ab57802dfe3b41c1ff94507ec337b82b53c8d874c4bfab1e884cbb8e5deab55",
+          "fingerprint": "f02159146e4ec8abf6de6a800f429f492ee88802c90c4efa387c18c91308ee6a",
           "files": 1
         },
         "./surgery": {
@@ -94,7 +94,7 @@
         },
         "./web-manifest": {
           "types": "./dist/web-manifest.d.ts",
-          "fingerprint": "e488f52a6c22b90931627c70226c3dff15f30060d344133151e5f5a12c54258b",
+          "fingerprint": "4809ad864432a46ffb0a24186107bc481856bcaeab15680e54d59f239abed107",
           "files": 5
         },
         "./xml": {
@@ -106,67 +106,67 @@
       "untypedExports": []
     },
     {
-      "name": "@despia/dom",
+      "name": "@despia-native/dom",
       "version": "0.0.1",
       "entrypoints": {
         ".": {
           "types": "./dist/index.d.ts",
-          "fingerprint": "38406edf4ece0f3ab0b1f31f16082a96c79530bbd571b159972877394e0068bc",
+          "fingerprint": "54401547c90cad65c3162536509741721f13b75bc7cfa631ebf6181300555b8b",
           "files": 28
         },
         "./application-controls": {
           "types": "./dist/application-controls.d.ts",
-          "fingerprint": "e40d85a847173cc62bee8449c696968837202c0aa60678d146796e76f7c4c3ff",
+          "fingerprint": "c672ac43ccd5bdf070eb8bef882307a3e8504823b4dfc5c0a58687bef1837cea",
           "files": 4
         },
         "./boot": {
           "types": "./dist/boot.d.ts",
-          "fingerprint": "902bb91c1248353b3bdc83cffad676034d6c52f80b594c56887d6bb1789a5f5c",
+          "fingerprint": "af0a6a20ccd0bc4b058ab6356429705888c0be45ec06ad11284c957fcaa6105f",
           "files": 4
         },
         "./data-controls": {
           "types": "./dist/data-controls.d.ts",
-          "fingerprint": "543aa8a4e747589071bb17790346408d740458273eeeb37d36b19bb27ca84de0",
+          "fingerprint": "94d8e823d2c4d58481679189acac2e97475dff32c15ea80875e7d106d9c6d69d",
           "files": 3
         },
         "./element-motion": {
           "types": "./dist/element-motion.d.ts",
-          "fingerprint": "dd4aee66887e9650fb275962903f67b463c3df2fb7c112eec0c01e09755f6d46",
+          "fingerprint": "8ca47ac4095eedcec8da87dd3513e63150f84994bb963f02e0b02f53a0b03419",
           "files": 1
         },
         "./elements": {
           "types": "./dist/elements.d.ts",
-          "fingerprint": "eac7c08d9c230a0c66691a41e9e4bcd8de1d02648718338e1295945ebaa21142",
+          "fingerprint": "ca4c4f1b8c68ea7520ba3ba956b3a3764e2c38699fde1fb53223712ae3b215f7",
           "files": 2
         },
         "./forms": {
           "types": "./dist/forms.d.ts",
-          "fingerprint": "9020d8ad4e453af5caea564460b41acb7bba18f7c2a75d88f1773aacc330cbb0",
+          "fingerprint": "3ac423ca74f9717d2b762bc13a3955000f76db49832e2343316536a9139f0525",
           "files": 3
         },
         "./globals": {
           "types": "./dist/globals.d.ts",
-          "fingerprint": "656d5c70fe23e7870907c80f394b0bf608e2f0ea190f55470906e129fa6a0a1f",
+          "fingerprint": "2a2ca10cb40ba8a082b4f516734c8b79d6f5d97c507a490206268bf3f3df692a",
           "files": 3
         },
         "./mcp-app": {
           "types": "./dist/mcp-app.d.ts",
-          "fingerprint": "990001ea78cd2fc58dfc2cd014176b99529c192f733fa1e6c47ec906556a5a3d",
+          "fingerprint": "83004f43a07c8c8ad1f25d1599085db15ea129bed0b1eac7403396eaefacd6ca",
           "files": 1
         },
         "./media-surfaces": {
           "types": "./dist/media-surfaces.d.ts",
-          "fingerprint": "c29adf252f9373c9299922503284bb2683c7aee19bd0e4f8b36b48ca8fc27394",
+          "fingerprint": "eb5778ea990c3da1282261c5e93b56ffbdd6f375c3c33a401268561b1cad0763",
           "files": 3
         },
         "./mount": {
           "types": "./dist/mount.d.ts",
-          "fingerprint": "eac7c08d9c230a0c66691a41e9e4bcd8de1d02648718338e1295945ebaa21142",
+          "fingerprint": "ca4c4f1b8c68ea7520ba3ba956b3a3764e2c38699fde1fb53223712ae3b215f7",
           "files": 2
         },
         "./native-controls": {
           "types": "./dist/native-controls.d.ts",
-          "fingerprint": "ef434473aaeec18e2e15c11b78fe27b5ccfc8c004bbc206940a854ad9c49f89e",
+          "fingerprint": "0a7a117f884b3f5859b9aeaa08d89e95ddf0cb5ea700c64583f8024ab4a7f5c1",
           "files": 3
         },
         "./offline": {
@@ -176,7 +176,7 @@
         },
         "./overlay-controls": {
           "types": "./dist/overlay-controls.d.ts",
-          "fingerprint": "318d1f15a2b31696d36fa0de68b8be414da07ec2f961c5193287a4448ea9708e",
+          "fingerprint": "82b6f635b4569df8e1a42bd440e9f6e1e210ea4b9d4163fad7be0ebe1056c7bb",
           "files": 3
         },
         "./prose": {
@@ -186,17 +186,17 @@
         },
         "./scene": {
           "types": "./dist/scene.d.ts",
-          "fingerprint": "88b7ce1596789aa48a4afc44fa4e38ea38e38daedc37ea158482966ecd305984",
+          "fingerprint": "7ac6b5422fc2aaba788128f43152ebf5a9e0618e8e1d73000bfdb0d0a0c055f7",
           "files": 3
         },
         "./structural-controls": {
           "types": "./dist/structural-controls.d.ts",
-          "fingerprint": "1ad354db36f918ada28540824acc1cb3ed34a1e90344ec5cc2c0d15e285f572f",
+          "fingerprint": "ca953959394f0c50b1a0735ec0be762e96ee8d01d0fbc81302b6c042905cdd31",
           "files": 3
         },
         "./theme": {
           "types": "./dist/theme.d.ts",
-          "fingerprint": "b7edc50abed08d591555198ad3f7bb71e57040a80db775241c2f72f59127e370",
+          "fingerprint": "2146f2c00afa8351872ea21372c356c5121739cc7b8e665d6120b6cf411f89c1",
           "files": 8
         }
       },
@@ -205,24 +205,24 @@
       ]
     },
     {
-      "name": "@despia/element",
+      "name": "@despia-native/element",
       "version": "0.0.1",
       "entrypoints": {
         ".": {
           "types": "./dist/index.d.ts",
-          "fingerprint": "b9f4dd6e0ede2b2ca99fcc187dea04330553ac8b34463ec72d4f4aa0607b47cd",
+          "fingerprint": "389bb5246c2bfad66cd89a4907add82937ae0d454da3841afb8d99ab2a84f3f3",
           "files": 1
         }
       },
       "untypedExports": []
     },
     {
-      "name": "@despia/server",
+      "name": "@despia-native/server",
       "version": "0.0.1",
       "entrypoints": {
         ".": {
           "types": "./dist/index.d.ts",
-          "fingerprint": "a46620d37b53485ae99ae61b6de0ca7a2e23f43afb93e20e6419d8f6b9495828",
+          "fingerprint": "3fc12c0ac494da67f42381278c14d970188db1ea7388fa5cc84b6abc9ae56df4",
           "files": 17
         },
         "./actions": {
@@ -242,7 +242,7 @@
         },
         "./bootloader-workers": {
           "types": "./dist/bootloader-workers.d.ts",
-          "fingerprint": "0d9384630c8ef191c4bb444614a93a78cfab8e9d3463507995781ebdc4156e00",
+          "fingerprint": "fb590c39ec56f402c89823c40bb2d1433ddb6c313ed66aedeaec7c738c026d0b",
           "files": 13
         },
         "./deploy": {
@@ -267,7 +267,7 @@
         },
         "./preview-workers": {
           "types": "./dist/preview-workers.d.ts",
-          "fingerprint": "094875d5bc3e256de580c1634af48eac8632d24c6b2209ec95103e499c7543c6",
+          "fingerprint": "64e45c19822e6db11d4581aeb5768f4dbff59d123d8830cbfc3e8252e4a4226f",
           "files": 3
         }
       },

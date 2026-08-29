@@ -13,7 +13,7 @@ body:
     attributes:
       label: Version
       description: Output of `dsx doctor`, or the package version(s) involved
-      placeholder: "@despia/kernel 0.0.1"
+      placeholder: "@despia-native/kernel 0.0.1"
     validations:
       required: true
   - type: dropdown

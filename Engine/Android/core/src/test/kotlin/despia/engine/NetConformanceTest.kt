@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 /**
  * The connectivity conformance runner - executes
  * OpenSource/Conformance/net/{status,transitions}.json through THIS runtime's NetCore fold and
- * NetDebounce machine (parity/F05-net.md). The TS twin (@despia/kernel net-core.ts,
+ * NetDebounce machine (parity/F05-net.md). The TS twin (@despia-native/kernel net-core.ts,
  * net-conformance.test.ts) and the Swift reference (NetConformance) run the SAME files, so a
  * captive portal, a personal hotspot and a flapping interface cannot mean one thing on one
  * renderer and something else on another.

@@ -11,7 +11,7 @@ as a product.
 my-app/
   dsx.json            # identity: name, scheme, version
   dsx.config.json     # web build: entry component, outDir
-  package.json        # @despia/* from the registry — never file: paths
+  package.json        # @despia-native/* from the registry — never file: paths
   Components/
     App.dsx           # the entry screen
     …                 # every other screen and component
@@ -28,7 +28,7 @@ Reserved names: see [the contract](../reserved-directories.md). Everything else 
 npm create dsx my-app && cd my-app
 npm install
 dsx dev              # build + serve + live reload
-dsx build            # the deployable static site (PWA-ready; SSR via @despia/server's site face)
+dsx build            # the deployable static site (PWA-ready; SSR via @despia-native/server's site face)
 dsx lint --strict    # the same gate CI runs
 dsx ota build        # your screens as a content-root folder any static host can serve
 dsx export all       # a real Xcode + Android Studio project from this same folder

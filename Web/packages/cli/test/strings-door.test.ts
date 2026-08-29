@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { buildRegistry } from "@despia/compiler";
+import { buildRegistry } from "@despia-native/compiler";
 import { loadConfig } from "../src/config.ts";
 import { startEditServer as bootEditServer } from "../src/edit.ts";
 

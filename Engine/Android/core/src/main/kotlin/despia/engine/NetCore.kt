@@ -2,7 +2,7 @@
 //  NetCore.kt - the shared Core/Net core (:core, pure JVM): the classification fold, the online
 //  split, the radio-family map, the probe verdict and the transition debounce. The law is the
 //  corpus, OpenSource/Conformance/net/{status,transitions}.json (parity/F05-net.md). The twin of
-//  Swift NetCore and the web @despia/kernel net-core.ts.
+//  Swift NetCore and the web @despia-native/kernel net-core.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file. NWPathMonitor (iOS),
 //  ConnectivityManager.registerDefaultNetworkCallback (Android) and navigator.connection (web)

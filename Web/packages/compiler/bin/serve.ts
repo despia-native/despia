@@ -149,7 +149,7 @@ async function dynamicFragment(root: string, path: string, params: URLSearchPara
   if (m === null) return null;
   try {
     const [{ renderEmbedFragmentAsync }, { sliceRegistry }, theme, cssmap] = await Promise.all([
-      import("@despia/server"), import("../src/expose.ts"), import("@despia/dom/theme"), import("../src/cssmap.ts"),
+      import("@despia-native/server"), import("../src/expose.ts"), import("@despia-native/dom/theme"), import("../src/cssmap.ts"),
     ]);
     const site = join(root, "demo/site");
     const registry = JSON.parse(await readFile(join(site, "registry.json"), "utf8"));
@@ -168,8 +168,8 @@ async function dynamicFragment(root: string, path: string, params: URLSearchPara
     const qualified = `${m[1]}.${m[2]}`;
     const slice = sliceRegistry(registry, qualified);
     const [globals, nativeControls, overlayControls, dataControls] = await Promise.all([
-      import("@despia/dom/globals"), import("@despia/dom/native-controls"),
-      import("@despia/dom/overlay-controls"), import("@despia/dom/data-controls"),
+      import("@despia-native/dom/globals"), import("@despia-native/dom/native-controls"),
+      import("@despia-native/dom/overlay-controls"), import("@despia-native/dom/data-controls"),
     ]);
     const css = [
       cssmap.LAYER_STATEMENT, theme.TOKENS_CSS, theme.APPLICATION_ELEMENTS_CSS, theme.ELEMENTS_CSS,

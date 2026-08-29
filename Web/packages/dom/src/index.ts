@@ -1,5 +1,5 @@
 //
-//  @despia/dom - the DSX web renderer. Direct DOM access lives ONLY here
+//  @despia-native/dom - the DSX web renderer. Direct DOM access lives ONLY here
 //  (constitution rule 6, inverted for the web — /web/01).
 //
 

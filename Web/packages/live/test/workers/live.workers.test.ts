@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { Miniflare } from "miniflare";
 
-import { liveReportSeal } from "@despia/kernel";
+import { liveReportSeal } from "@despia-native/kernel";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const workspace = join(here, "..", "..", "..", "..");

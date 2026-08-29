@@ -23,7 +23,7 @@ pointers, and balance the pair on leave, cancellation, or unmount. Touch never e
 
 `shortcut.json` is the renderer-neutral `shortcut=` accelerator-matching contract, and
 `focusOrder.json` is the `focusOrder=` traversal-resolution contract. Web
-(`@despia/dom` `matchShortcut` / `resolveFocusOrder`), Kotlin (`StackDesktopInput`), and Swift
+(`@despia-native/dom` `matchShortcut` / `resolveFocusOrder`), Kotlin (`StackDesktopInput`), and Swift
 (`StackDesktopInput`, executed by the record lane) run the same cases. `cmd` is the primary
 modifier (matches meta OR ctrl); an unmodified shortcut never fires while an editable target
 holds focus; a disabled control is always out of traversal (index -1). The web renderer binds
@@ -38,7 +38,7 @@ hover), and `lifecycle[]` pins the show/dismiss machine over intent-qualified ev
 (hover intent and keyboard focus reveal ONLY from a hover-capable fine-pointer source;
 touch is never tracked; pointer-out, blur, and Escape dismiss, with Escape suppressing
 re-show until hover and focus have both cleared; no authored events). Web
-(`@despia/dom` `resolveTooltip` / `TooltipLifecycle`, wired in `mount.ts` to a
+(`@despia-native/dom` `resolveTooltip` / `TooltipLifecycle`, wired in `mount.ts` to a
 `role="tooltip"` node + `aria-describedby` + the floating solver), Kotlin
 (`StackTooltip` / `StackTooltipLifecycle`, :core), and Swift (`StackTooltip` /
 `StackTooltipLifecycle`, the record lane) run the same file; the native RENDER adapters

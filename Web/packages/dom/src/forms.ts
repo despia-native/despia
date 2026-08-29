@@ -6,8 +6,8 @@
 
 import {
   charCount, graphemes, isDict, number, reDoSProne, string, truthy, type Dict,
-} from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
+} from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import type { ElementApi, ElementFactory } from "./elements.ts";
 import type { MountCtx } from "./mount.ts";
 

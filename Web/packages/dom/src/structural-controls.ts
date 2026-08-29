@@ -5,8 +5,8 @@
 //  authored .dsx class or sheet remains the final visual authority.
 //
 
-import { number } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
+import { number } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import type { MountCtx } from "./mount.ts";
 import { ELEMENTS, createMarquee, iconSvg, type ElementApi, type ElementFactory } from "./elements.ts";
 import { split, SPLIT_CSS } from "./split.ts";

@@ -31,7 +31,7 @@ import { stat } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 
-import type { Registry } from "@despia/compiler/resolve";
+import type { Registry } from "@despia-native/compiler/resolve";
 import { createPageHandler, type PageHandlerOptions } from "./live.ts";
 import { cacheControlFor, contentTypeFor } from "./content-type.ts";
 

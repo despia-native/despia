@@ -28,7 +28,7 @@ import {
   type ProvisionOutcome,
   type SqlClient,
   type SystemTableStatus,
-} from "@despia/server/postgres";
+} from "@despia-native/server/postgres";
 
 import type { ProjectConfig } from "./config.ts";
 import { readServerDocument } from "./server-document.ts";

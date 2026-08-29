@@ -5,7 +5,7 @@
 //
 //  The law is the corpus: OpenSource/Conformance/controls/{gradients,gauge,colorpicker,masked}.json
 //  (parity/U07-controls.md). The twin of Swift Engine/iOS/ControlsCore.swift and the web
-//  @despia/kernel controls-core.ts.
+//  @despia-native/kernel controls-core.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file - Brush/LinearGradient/CSS, the system
 //  colour sheet, BlendMode/.mask()/mask-image.

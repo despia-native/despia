@@ -406,7 +406,9 @@ await browser.close();
  *  What is left needs DECISIONS rather than implementations: alignY and ignoreSafeArea both need
  *  a page semantic settled first. Guessing would have made this list shorter and the renderer
  *  less honest. */
-const PINNED_INERT = ["alignY", "ignoreSafeArea"];
+// alignY reached the DOM on 2026-08-30 (cssmap: justify-content in a column,
+// align-items in a row) and left this list; PINNED_INERT only shrinks.
+const PINNED_INERT = ["ignoreSafeArea"];
 
 const inert = verdicts.filter((v) => !v.reaches);
 if (process.argv.includes("--json")) {

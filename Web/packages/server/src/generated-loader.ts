@@ -45,7 +45,7 @@ function readJson(path: string): unknown {
   try {
     return JSON.parse(readFileSync(path, "utf-8"));
   } catch (e) {
-    throw new Error(`@despia/server: cannot parse ${path}: ${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(`@despia-native/server: cannot parse ${path}: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
@@ -58,13 +58,13 @@ function readRoutes(path: string): ServerRoute[] {
     : typeof parsed === "object" && parsed !== null && Array.isArray((parsed as { routes?: unknown }).routes)
       ? (parsed as { routes: unknown[] }).routes
       : null;
-  if (rows === null) throw new Error(`@despia/server: ${path} must be a route array (or { "routes": [...] }) — ${EMIT}.`);
+  if (rows === null) throw new Error(`@despia-native/server: ${path} must be a route array (or { "routes": [...] }) — ${EMIT}.`);
   rows.forEach((row, i) => {
-    if (typeof row !== "object" || row === null) throw new Error(`@despia/server: ${path} row ${i} is not an object — ${EMIT}.`);
+    if (typeof row !== "object" || row === null) throw new Error(`@despia-native/server: ${path} row ${i} is not an object — ${EMIT}.`);
     for (const field of ROUTE_FIELDS) {
       const value = (row as Record<string, unknown>)[field];
       if (typeof value !== "string" || value === "") {
-        throw new Error(`@despia/server: ${path} row ${i} is missing string "${field}" — ${EMIT}.`);
+        throw new Error(`@despia-native/server: ${path} row ${i} is missing string "${field}" — ${EMIT}.`);
       }
     }
   });
@@ -76,7 +76,7 @@ export async function loadGenerated(dir?: string): Promise<GeneratedArtifacts> {
   const here = import.meta.dirname ?? dirname(fileURLToPath(import.meta.url));
   const base = dir !== undefined ? resolve(dir) : join(here, "..", "generated");
   if (!existsSync(base)) {
-    throw new Error(`@despia/server: no generated/ folder at ${base} — ${EMIT}.`);
+    throw new Error(`@despia-native/server: no generated/ folder at ${base} — ${EMIT}.`);
   }
   const paths = {
     routes: join(base, "routes.json"),
@@ -84,7 +84,7 @@ export async function loadGenerated(dir?: string): Promise<GeneratedArtifacts> {
     handlers: join(base, "handlers.ts"),
   };
   for (const p of Object.values(paths)) {
-    if (!existsSync(p)) throw new Error(`@despia/server: generated artifact missing at ${p} — ${EMIT}.`);
+    if (!existsSync(p)) throw new Error(`@despia-native/server: generated artifact missing at ${p} — ${EMIT}.`);
   }
   const routes = readRoutes(paths.routes);
   // The SCHEMA table, installed into the repository so declared-CRUD handlers can enforce the
@@ -96,7 +96,7 @@ export async function loadGenerated(dir?: string): Promise<GeneratedArtifacts> {
     const doc = readJson(entitiesPath) as { entities?: unknown };
     const list = Array.isArray(doc) ? doc : doc?.entities;
     if (!Array.isArray(list)) {
-      throw new Error(`@despia/server: ${entitiesPath} must be an entity array (or { "entities": [...] }) — ${EMIT}.`);
+      throw new Error(`@despia-native/server: ${entitiesPath} must be an entity array (or { "entities": [...] }) — ${EMIT}.`);
     }
     installEntities(list as EntitySpec[]);
   }
@@ -107,11 +107,11 @@ export async function loadGenerated(dir?: string): Promise<GeneratedArtifacts> {
   const config = existsSync(configPath) ? readServerConfig(readJson(configPath)) : NO_CONFIG;
   const buildInfo = readJson(paths.buildInfo);
   if (typeof buildInfo !== "object" || buildInfo === null || Array.isArray(buildInfo)) {
-    throw new Error(`@despia/server: ${paths.buildInfo} must be a JSON object — ${EMIT}.`);
+    throw new Error(`@despia-native/server: ${paths.buildInfo} must be a JSON object — ${EMIT}.`);
   }
   const barrel = (await import(pathToFileURL(paths.handlers).href)) as { handlers?: unknown };
   if (typeof barrel.handlers !== "object" || barrel.handlers === null) {
-    throw new Error(`@despia/server: ${paths.handlers} must export \`handlers\` (chain → action → function) — ${EMIT}.`);
+    throw new Error(`@despia-native/server: ${paths.handlers} must export \`handlers\` (chain → action → function) — ${EMIT}.`);
   }
   // The DATA-PROVIDER barrel (plan B5). Optional like entities/config: a tree with no provider
   // modules emits none, and the bootloader then installs nothing — the repository's own
@@ -123,7 +123,7 @@ export async function loadGenerated(dir?: string): Promise<GeneratedArtifacts> {
   if (existsSync(providersPath)) {
     const doc = (await import(pathToFileURL(providersPath).href)) as { backendSetting?: unknown; dataProviders?: unknown };
     if (!Array.isArray(doc.dataProviders)) {
-      throw new Error(`@despia/server: ${providersPath} must export \`dataProviders\` — ${EMIT}.`);
+      throw new Error(`@despia-native/server: ${providersPath} must export \`dataProviders\` — ${EMIT}.`);
     }
     backendSetting = typeof doc.backendSetting === "string" ? doc.backendSetting : null;
     dataProviders = doc.dataProviders as DataProvider[];
@@ -136,7 +136,7 @@ export async function loadGenerated(dir?: string): Promise<GeneratedArtifacts> {
   if (existsSync(packagesPath)) {
     const doc = (await import(pathToFileURL(packagesPath).href)) as { packageModules?: unknown };
     if (!Array.isArray(doc.packageModules)) {
-      throw new Error(`@despia/server: ${packagesPath} must export \`packageModules\` — ${EMIT}.`);
+      throw new Error(`@despia-native/server: ${packagesPath} must export \`packageModules\` — ${EMIT}.`);
     }
     installPackages(doc.packageModules as PackageModule[]);
   }
@@ -147,7 +147,7 @@ export async function loadGenerated(dir?: string): Promise<GeneratedArtifacts> {
   if (existsSync(mcpPath)) {
     const doc = readJson(mcpPath) as { tools?: unknown };
     if (!Array.isArray(doc?.tools)) {
-      throw new Error(`@despia/server: ${mcpPath} must carry a tools array — ${EMIT}.`);
+      throw new Error(`@despia-native/server: ${mcpPath} must carry a tools array — ${EMIT}.`);
     }
     mcpTools = doc.tools as McpToolRow[];
   }

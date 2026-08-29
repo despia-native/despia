@@ -25,8 +25,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync,
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildRegistry } from "@despia/compiler";
-import type { Registry } from "@despia/compiler/resolve";
+import { buildRegistry } from "@despia-native/compiler";
+import type { Registry } from "@despia-native/compiler/resolve";
 
 import { globSync } from "./glob.ts";
 import { readAppManifest, manifestGrants, STUDIO_API, APP_BUDGETS, type AppManifestInfo, type AppContribution } from "./manifest.ts";
@@ -86,7 +86,7 @@ export function resolveModuleTree(): string | null {
 }
 
 /** The preinstalled first-party Despia apps (studio-apps.md §12): every package under
- *  ClosedSource/StudioApps (or a published @despia/app-* twin in the project) is a builtin
+ *  ClosedSource/StudioApps (or a published @despia-native/app-* twin in the project) is a builtin
  *  app — its manifest rides the same fold an installed app's does, and EditorApps shows it
  *  with the built-in badge. Absence is fine: a toolchain without them has fewer apps. */
 export function resolveFirstPartyApps(projectRoot: string): string[] {

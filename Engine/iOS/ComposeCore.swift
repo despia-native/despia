@@ -3,7 +3,7 @@
 //  fidelity ladder, the (empty) permission surface, the capability disclosure, the recipient cap
 //  and the attachment rule. The law is the corpus,
 //  `OpenSource/Conformance/compose/result.json` (parity F13); the Kotlin twin is `:core`
-//  ComposeCore.kt and the web twin is @despia/kernel's compose-core.ts.
+//  ComposeCore.kt and the web twin is @despia-native/kernel's compose-core.ts.
 //
 //  `dsx.module.compose.{sms,mail}` PRESENT the system composer prefilled and NEVER SEND: the
 //  user reads the message in their own messaging or mail app and taps send there. That is why no

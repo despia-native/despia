@@ -6,13 +6,13 @@
 //  globals.ts so embeds that do not use them do not pay for them.
 //
 
-import { string, number, truthy, DSXEvents, ModuleRegistry, type Dict } from "@despia/kernel";
-import { segmentOptions, type SegmentOption } from "@despia/compiler/options";
-import { mapStyleValue } from "@despia/compiler/cssmap";
-import { resolveComponent } from "@despia/compiler/resolve";
+import { string, number, truthy, DSXEvents, ModuleRegistry, type Dict } from "@despia-native/kernel";
+import { segmentOptions, type SegmentOption } from "@despia-native/compiler/options";
+import { mapStyleValue } from "@despia-native/compiler/cssmap";
+import { resolveComponent } from "@despia-native/compiler/resolve";
 import { admitSrc } from "./src-gate.ts";
 import { multilineReturn, type MountCtx } from "./mount.ts";
-import type { XmlNode } from "@despia/compiler/xml";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import { qrMatrix, type QrCorrection } from "./qr.ts";
 import { resolveAdaptiveShell } from "./adaptive-shell.ts";
 import { ICON_FALLBACKS, ICON_VECTORS } from "./icons.generated.ts";
@@ -298,7 +298,7 @@ export const LINE_CLAMP_MAX = 1_000;
 /** A bare BOOLEAN attribute word (`markdown="true"`). Deliberately NOT `truthy()`:
  *  every non-empty string is JSE-truthy, so `markdown="false"` would turn markdown ON.
  *  The native reference compares the string (`dsx.string("markdown") == "true"`), and
- *  @despia/server's `booleanAttribute` is the same predicate. */
+ *  @despia-native/server's `booleanAttribute` is the same predicate. */
 export function booleanWord(value: string | undefined): boolean {
   if (value === undefined) return false;
   const normalized = value.trim().toLowerCase();
@@ -832,7 +832,7 @@ export const CONTENT_TYPE_AUTOCOMPLETE: { readonly [token: string]: string } = {
 /** Resolve the two keyboard-hint attributes to their DOM spelling. Own-property lookup
  *  only, so an authored token can never reach `Object.prototype`; an unknown token
  *  leaves the platform default in place, exactly as an unknown UITextContentType does
- *  on iOS. DOM-free on purpose — @despia/server emits the SAME answer during SSR. */
+ *  on iOS. DOM-free on purpose — @despia-native/server emits the SAME answer during SSR. */
 export function applyKeyboardHintAttributes(
   attrs: { readonly [k: string]: string },
   secure: boolean,
@@ -1206,7 +1206,7 @@ const stepper: ElementFactory = (node, _ctx, api) => {
 
 // ── richer native primitives ───────────────────────────────────────────────────────
 
-export { segmentOptions } from "@despia/compiler/options";
+export { segmentOptions } from "@despia-native/compiler/options";
 
 const segmented: ElementFactory = (node, ctx, api) => {
   const group = el("div", "dsx-segmented");

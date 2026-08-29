@@ -1,6 +1,6 @@
 //
 //  canvas.ts - the web `<canvas>` element (parity/U04-canvas.md): the 2-D drawing surface.
-//  Every NUMBER lives in the platform-neutral kernel (@despia/kernel canvas-core.ts - corpus
+//  Every NUMBER lives in the platform-neutral kernel (@despia-native/kernel canvas-core.ts - corpus
 //  OpenSource/Conformance/canvas/); this module only owns the browser adapter: a real
 //  `<canvas>` 2D context, the retained tier-1 repaint, the tier-2 command replay, the
 //  display-linked `on:frame` loop under the kernel's 60/s budget, and the declared
@@ -30,8 +30,8 @@ import {
   inkOps, inkPoint, type InkPoint,
   type CanvasMarkupNode, type CanvasOp, type CanvasSegment, type CanvasPaint,
   type CanvasMatrix, type CanvasGradient, type CanvasEffect, type CanvasCommand,
-} from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
+} from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import { ELEMENTS, type ElementApi } from "./elements.ts";
 
 /* Surfaces waiting to hear that an ancestor's transform moved. ONE window listener for the

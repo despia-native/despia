@@ -10,7 +10,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { offlineManifest, offlineManifestText } from "@despia/server";
+import { offlineManifest, offlineManifestText } from "@despia-native/server";
 
 function fixture(): string {
   const dir = mkdtempSync(join(tmpdir(), "dsx-offline-"));

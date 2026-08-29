@@ -307,7 +307,7 @@ export class ActionRunner {
 
   /**
    * Read and CLEAR a pending throw — the server's half of an action call
-   * (backend-authoring.md; `@despia/server` shapes the outcome, this only hands over the signal).
+   * (backend-authoring.md; `@despia-native/server` shapes the outcome, this only hands over the signal).
    *
    * A surface entry is fire-and-forget: a tap has no caller waiting, so `run()` reports an
    * uncaught throw to the ledger and swallows it. A request has a caller, and the throw IS the
@@ -1443,7 +1443,7 @@ export class ActionRunner {
 }
 
 /** Two-way `bind=` writes from input elements — the SAME routing as action
- *  assignments (global./route./cookie./surface), exported for @despia/dom. */
+ *  assignments (global./route./cookie./surface), exported for @despia-native/dom. */
 export function writeBound(env: RunEnv, path: string, value: unknown): void {
   writePath(env, env.item ?? {}, path, value);
 }

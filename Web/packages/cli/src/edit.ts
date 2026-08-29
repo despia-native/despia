@@ -1,7 +1,7 @@
 //
 //  edit.ts — `despia edit` (v0-live-plan W8): the OSS canvas editor, served LOCALLY against the
 //  developer's own project. No account, no hosted anything: `npm create despia` then `despia edit`
-//  is the whole loop — the same @despia/canvas-editor package the hosted dashboard consumes,
+//  is the whole loop — the same @despia-native/canvas-editor package the hosted dashboard consumes,
 //  mounted by the CLI over the developer's files.
 //
 //  WHAT THE LOOP IS, precisely. The edit server wraps the dev server (build · serve · watch ·
@@ -31,18 +31,18 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildRegistry, compileComponent } from "@despia/compiler";
-import { HEAD_INPUT_SKIP } from "@despia/compiler/component";
-import { renderToString } from "@despia/server";
+import { buildRegistry, compileComponent } from "@despia-native/compiler";
+import { HEAD_INPUT_SKIP } from "@despia-native/compiler/component";
+import { renderToString } from "@despia-native/server";
 import {
   ELEMENTS_CSS, APPLICATION_ELEMENTS_CSS, CONTROL_ELEMENTS_CSS, FORM_ELEMENTS_CSS,
   RICH_ELEMENTS_CSS, NATIVE_CONTROLS_CSS, GLOBAL_ELEMENTS_CSS, TOKENS_CSS, tokenizeCode,
-} from "@despia/dom";
-import { applyEdits, flattenTree, projectTree, SurgeryError, type Edit, type NodePath, type TreeNode } from "@despia/compiler/surgery";
-import { buildScreenGraph, type GraphDocument, type GraphRoute } from "@despia/compiler/screengraph";
-import { edgeGeometry, edgeMidpoint, layoutScreenGraph } from "@despia/compiler/screenlayout";
-import { parseDsx, type XmlNode } from "@despia/compiler/xml";
-import { projectTools, type ToolRow } from "@despia/kernel/mcp";
+} from "@despia-native/dom";
+import { applyEdits, flattenTree, projectTree, SurgeryError, type Edit, type NodePath, type TreeNode } from "@despia-native/compiler/surgery";
+import { buildScreenGraph, type GraphDocument, type GraphRoute } from "@despia-native/compiler/screengraph";
+import { edgeGeometry, edgeMidpoint, layoutScreenGraph } from "@despia-native/compiler/screenlayout";
+import { parseDsx, type XmlNode } from "@despia-native/compiler/xml";
+import { projectTools, type ToolRow } from "@despia-native/kernel/mcp";
 
 import { projectCfg, reconstruct } from "./cfg.ts";
 import {
@@ -63,7 +63,7 @@ import {
   type Flow, type FlowEditOp, type ScopeName,
 } from "./nodeflow.ts";
 import { projectExpr, exprCatalog } from "./exprflow.ts";
-import { resolveShotScope, type Dict, type ShotHead, type ShotHydrate, type ShotScopeResult } from "@despia/kernel";
+import { resolveShotScope, type Dict, type ShotHead, type ShotHydrate, type ShotScopeResult } from "@despia-native/kernel";
 import { loadShotConfig, SHOT_CONFIG_FILENAME, type ShotConfig, type ShotProfile } from "./shot.ts";
 import { loadFilmDocument, FilmDocumentError } from "./film-document.ts";
 import { renderFilm, ffmpegAvailable } from "./film-render.ts";
@@ -83,7 +83,7 @@ export interface EditorAssets {
   sdk: string;
   element: string;
   packageDir: string;
-  /** @despia/logic-editor (W8.3) — the visual formula editor, same surface, optional */
+  /** @despia-native/logic-editor (W8.3) — the visual formula editor, same surface, optional */
   logicSdk?: string;
   logicElement?: string;
   /**
@@ -158,7 +158,7 @@ function resolveAppsPackage(projectRoot: string): string | null {
   return resolveRepoPackage(projectRoot, "apps", "ClosedSource/DSX/Modules/Core/Apps");
 }
 
-/** Published shape first (`node_modules/@despia/<npm>`), then the repo walk-up — the
+/** Published shape first (`node_modules/@despia-native/<npm>`), then the repo walk-up — the
  *  two-step every editor-build package takes. */
 function resolveRepoPackage(projectRoot: string, npm: string, repoRel: string): string | null {
   const candidates = [join(projectRoot, "node_modules", "@despia", npm)];
@@ -182,13 +182,13 @@ export function buildDsxEditor(moduleDir: string, outDir: string): ProjectConfig
   // The throw is caught by resolveEditor, which falls back to the source pane and says why.
   const flow = resolveFlowPackage(moduleDir);
   if (flow === null) {
-    throw new Error("the Flow package (OpenSource/Flow or @despia/flow) is required by the Studio's canvases and was not found");
+    throw new Error("the Flow package (OpenSource/Flow or @despia-native/flow) is required by the Studio's canvases and was not found");
   }
   // Same law for the Apps package: without it every rail destination an app contributes
   // would render blank while the panel still lists it — a mount that lies.
   const apps = resolveAppsPackage(moduleDir);
   if (apps === null) {
-    throw new Error("the Apps package (ClosedSource/DSX/Modules/Core/Apps or @despia/apps) is required by the Studio's app mounts and was not found");
+    throw new Error("the Apps package (ClosedSource/DSX/Modules/Core/Apps or @despia-native/apps) is required by the Studio's app mounts and was not found");
   }
   // BOOT-RESIDENT first-party apps (studio-apps.md §12): the Marketing Studio's pane
   // compiles into the editor bundle — a build fact the page learns through the bootApps
@@ -835,7 +835,7 @@ function documentNames(source: string): ScopeName[] {
 
 //
 //  THE PANEL CATALOGS - resolved the same two-step way the Flow package is: a published
-//  @despia/references package first, then the repo walk-up to Documentation/reference.
+//  @despia-native/references package first, then the repo walk-up to Documentation/reference.
 //
 
 /** The web workspace root, for bundling the film harness. */
@@ -4348,7 +4348,7 @@ export async function startEditServer(
   const editor = resolveEditor(config.root);
   if (editor === null) {
     throw new EditError(
-      "the editor package is not installed — run `npm install --save-dev @despia/canvas-editor` " +
+      "the editor package is not installed — run `npm install --save-dev @despia-native/canvas-editor` " +
       "in the project (the same package the hosted dashboard runs).",
     );
   }

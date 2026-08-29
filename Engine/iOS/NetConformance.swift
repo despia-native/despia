@@ -3,7 +3,7 @@
 //
 //  Runs OpenSource/Conformance/net/{status,transitions}.json through the REAL Swift pure core
 //  (NetCore + NetDebounce) and throws on the first disagreement, so the reference renderer
-//  executes the same files as the TS runner (@despia/kernel net-conformance.test.ts) and the
+//  executes the same files as the TS runner (@despia-native/kernel net-conformance.test.ts) and the
 //  Kotlin twin (:core NetConformanceTest). The classification fold, the online split, the radio
 //  family map, the captive-portal probe verdict and the debounce therefore cannot drift.
 //

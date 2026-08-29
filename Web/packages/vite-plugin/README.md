@@ -1,11 +1,11 @@
-# @despia/vite-plugin
+# @despia-native/vite-plugin
 
 Compile `.dsx` on import in a Vite app. **Version 0.1.**
 
 ```ts
 // vite.config.ts
 import { defineConfig } from "vite";
-import { dsx } from "@despia/vite-plugin";
+import { dsx } from "@despia-native/vite-plugin";
 
 export default defineConfig({ plugins: [dsx()] });
 ```
@@ -13,15 +13,15 @@ export default defineConfig({ plugins: [dsx()] });
 ```ts
 // two import shapes
 import App from "./Components/App.dsx";     // the compiled component IR (+ its CSS, injected)
-import registry from "virtual:dsx-registry"; // the whole compiled registry - boot with @despia/dom
+import registry from "virtual:dsx-registry"; // the whole compiled registry - boot with @despia-native/dom
 
-import { bootDsx } from "@despia/dom/boot";
+import { bootDsx } from "@despia-native/dom/boot";
 bootDsx({ registry, host: document.getElementById("app")!, entry: App.scheme + "." + App.name });
 ```
 
 ESM only. Node ≥ 22.18. **Vite is a peer dependency and is never imported by this package** -
 the plugin is a plain object with the hook shape Vite calls, which is why its entire contract
-is unit-tested without a bundler installed. The only runtime dependency is `@despia/compiler`.
+is unit-tested without a bundler installed. The only runtime dependency is `@despia-native/compiler`.
 
 ## What it does
 
@@ -49,15 +49,15 @@ dsx({
 - **There is no hot module replacement in v0.1.** A `.dsx` edit is a **full page reload**.
   Nothing is hot-swapped, component state is not preserved, and CSS changes are not applied
   in isolation. Component-level hot swap needs the runtime to re-instantiate a mounted
-  surface against a new IR while keeping its store; that is a `@despia/dom` capability this
+  surface against a new IR while keeping its store; that is a `@despia-native/dom` capability this
   plugin does not have yet, and pretending otherwise would be the worst kind of lie in a dev
   loop. When it lands, this section changes and the version moves.
 - **No SSR integration.** `vite-plugin-ssr` / `ssrLoadModule` flows are untested; use
-  `@despia/server` directly, or `dsx build` for static export.
+  `@despia-native/server` directly, or `dsx build` for static export.
 - **No sidecar `.css` handling.** `buildRegistry` (behind `virtual:dsx-registry`) scopes a
   component's sibling `Foo.css`; a direct `import "./Foo.dsx"` carries only the component's
   own *inline/attribute* CSS. Import the sheet yourself if you need it in that path.
-- **No route generation.** The route table is `dsx.config.json`'s (`@despia/cli`) or your app's.
+- **No route generation.** The route table is `dsx.config.json`'s (`@despia-native/cli`) or your app's.
 - **No module web facets, no `web.expose` embed artifacts.**
 - **No source maps.** `transform` returns `map: null`; the emitted module is generated code
   and does not map back to the `.dsx` document.
@@ -67,6 +67,6 @@ dsx({
 
 ## Release status
 
-`@despia/vite-plugin` is part of the tagged release set - the **tooling face** of the
+`@despia-native/vite-plugin` is part of the tagged release set - the **tooling face** of the
 eight-package release (`RELEASE_DIRS` in `scripts/release-packages.ts`). It is packed and
 consumed from its tarball per PR by `npm run pack:check` alongside the other seven.

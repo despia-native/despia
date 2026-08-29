@@ -326,6 +326,23 @@ test("css: legacy attribute bridge", () => {
   assert.deepEqual(legacyAttrToDecls("background", "fill"), [["background", "var(--dsx-fill)"]]);
   // grow is axis-aware: no declarations — it rides data-dsx-grow + parent-axis rules
   assert.deepEqual(legacyAttrToDecls("grow", "width"), []);
+  // alignY anchors the vertical axis, axis-aware like the native flexFrame test:
+  // a column's vertical is the MAIN axis (justify-content), a row's the CROSS
+  // axis (align-items). Unknown words stay inert; align defers its own vertical
+  // contribution whenever alignY is authored (vRaw = alignY ?? spillover).
+  assert.deepEqual(legacyAttrToDecls("alignY", "center"), [["justify-content", "center"]]);
+  assert.deepEqual(legacyAttrToDecls("alignY", "top"), [["justify-content", "start"]]);
+  assert.deepEqual(legacyAttrToDecls("alignY", "bottom"), [["justify-content", "end"]]);
+  assert.deepEqual(legacyAttrToDecls("alignY", "center", { flexDirection: "row" }), [["align-items", "center"]]);
+  assert.deepEqual(legacyAttrToDecls("alignY", "sideways"), []);
+  assert.deepEqual(
+    legacyAttrToDecls("align", "center", { alignY: "top" }),
+    [["align-items", "center"], ["justify-items", "center"]],
+  );
+  assert.deepEqual(
+    legacyAttrToDecls("align", "center", { alignY: "top", flexDirection: "row" }),
+    [["justify-items", "center"], ["justify-content", "center"]],
+  );
   assert.deepEqual(legacyAttrToDecls("flexDirection", "row"), [["flex-direction", "row"]]);
   assert.deepEqual(legacyAttrToDecls("alignItems", "flex-end"), [["align-items", "flex-end"]]);
   assert.deepEqual(legacyAttrToDecls("display", "grid"), [["display", "grid"]]);

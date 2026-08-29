@@ -4,8 +4,8 @@
 //  stays in the weak dsx-elements layer so component and application CSS wins.
 //
 
-import { isDict, string, truthy, rubberBand, type Dict } from "@despia/kernel";
-import type { XmlNode } from "@despia/compiler/xml";
+import { isDict, string, truthy, rubberBand, type Dict } from "@despia-native/kernel";
+import type { XmlNode } from "@despia-native/compiler/xml";
 import type { MountCtx } from "./mount.ts";
 import {
   ELEMENTS, GLOBAL_ELEMENTS, iconSvg, type ElementApi, type ElementFactory,

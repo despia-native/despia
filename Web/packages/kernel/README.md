@@ -1,13 +1,13 @@
-# @despia/kernel
+# @despia-native/kernel
 
 The platform-neutral DSX web kernel: reactive state, JSE evaluation, actions, declarative API blocks, logging, and the module bus.
 
 ```sh
-npm install @despia/kernel
+npm install @despia-native/kernel
 ```
 
 ```ts
-import { DSXState } from "@despia/kernel";
+import { DSXState } from "@despia-native/kernel";
 
 DSXState.set("cart.count", 2);
 console.log(DSXState.get("cart.count"));

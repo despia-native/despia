@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 /**
  * The geo conformance runner - executes OpenSource/Conformance/geo/{permission,geofence,
  * watch}.json through THIS runtime's GeoPolicy (parity/F09-geo.md). The TS twin
- * (@despia/kernel geo.ts, geo-conformance.test.ts) and the Swift reference (Engine/iOS
+ * (@despia-native/kernel geo.ts, geo-conformance.test.ts) and the Swift reference (Engine/iOS
  * GeoPolicy) run the SAME files, so the permission ladder, the region cap and the battery
  * filter cannot mean one thing on one renderer and something else on another: a cold `always`
  * is refused everywhere, the twenty-first region is a typed error everywhere, and a

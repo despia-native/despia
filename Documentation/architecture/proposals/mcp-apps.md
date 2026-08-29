@@ -88,7 +88,7 @@ We emit self-contained views already, as a first-class build output:
 - `CanvasEditor.html` — the generated page: template + deck + SDK inlined, "double-click the HTML,
   no server, no node_modules".
 - `dist/despia-editor.js` — 453.8KB / 138.5KB gz, `<despia-editor>` self-contained, budget-gated.
-- `@despia/element` wraps any exposed DSX component as a real Web Component.
+- `@despia-native/element` wraps any exposed DSX component as a real Web Component.
 - The DOM renderer carries no runtime dependency to inline in the first place.
 
 So the format MCP Apps demands is the format `build:editor-dist` already produces. This is the

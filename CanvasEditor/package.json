@@ -1,5 +1,5 @@
 {
-  "name": "@despia/canvas-editor",
+  "name": "@despia-native/canvas-editor",
   "version": "0.0.1",
   "description": "Zero-dependency canvas editor SDK for DSX documents. Renders, edits, and simulates .dsx decks with the same semantics as the native DSX runtime, verified against the shared JSE conformance corpus.",
   "license": "Apache-2.0",

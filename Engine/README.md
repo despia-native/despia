@@ -66,7 +66,7 @@ local-server flag (`dsx.flags()`).
 The published mirror carries `conformance/`, the platform-neutral fixture corpus this
 repository holds all three kernels to. It is not a sample of the test suite; it is the
 definition of correct behaviour, and the Swift kernel here, the Kotlin kernel in
-`Android/`, and the TypeScript kernel (`@despia/kernel` on npm) each run the same files.
+`Android/`, and the TypeScript kernel (`@despia-native/kernel` on npm) each run the same files.
 A behaviour change that does not land on every runtime that ships it fails a gate.
 
 So "one application model, every renderer" is a falsifiable claim, and this folder is

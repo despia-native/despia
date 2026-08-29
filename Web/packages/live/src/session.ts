@@ -17,7 +17,7 @@
 //  means nothing was ever evicted and no filler is needed at all.
 //
 
-import { LIVE_RING_CAP, LiveRing, liveReportVerdict, type LiveRow } from "@despia/kernel";
+import { LIVE_RING_CAP, LiveRing, liveReportVerdict, type LiveRow } from "@despia-native/kernel";
 import {
   LIVE_FEED_HEARTBEAT_MS,
   LIVE_HTTP_ATTEST_MAX_BYTES,

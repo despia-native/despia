@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 /**
  * The orientation grammar conformance runner - executes
  * OpenSource/Conformance/input/orientation.json through THIS runtime's StackOrientation fold
- * and OrientationClaimStack (parity/F07-orientation.md). The TS twin (@despia/kernel
+ * and OrientationClaimStack (parity/F07-orientation.md). The TS twin (@despia-native/kernel
  * resolveOrientation/OrientationClaimStack, orientation.test.ts) and the Swift reference
  * (StackOrientation) run the SAME file, so a lock cannot mean one thing on one renderer and
  * something else on another: an unrecognized word and an undeclared orientation are both

@@ -8,7 +8,7 @@
 //  and every inbound body is size-capped while it streams, never after it is buffered.
 //
 
-import { LIVE_BATCH_MAX_ROWS, LIVE_MESSAGE_CAP, LIVE_WIRE_VERSION, type LiveRow } from "@despia/kernel";
+import { LIVE_BATCH_MAX_ROWS, LIVE_MESSAGE_CAP, LIVE_WIRE_VERSION, type LiveRow } from "@despia-native/kernel";
 
 /** the /pair admission header — the preview worker's key-header precedent, its own name so the
  *  two secrets can rotate independently */
@@ -48,7 +48,7 @@ const META_FIELD_CAP = 128;
 
 /**
  * Compare two secrets WITHOUT leaking their contents through timing — the secrets.ts law,
- * restated here because this package is dependency-free below @despia/kernel: `===` returns at
+ * restated here because this package is dependency-free below @despia-native/kernel: `===` returns at
  * the first differing byte, which turns a probe-tolerant endpoint into a byte-at-a-time oracle.
  * The length check leaks only the length, which is not the secret.
  */

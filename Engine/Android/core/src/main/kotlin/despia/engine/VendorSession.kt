@@ -1,6 +1,6 @@
 //
 //  VendorSession.kt - the inline-vendor-surface pure core (:core, pure JVM), Kotlin twin of
-//  the web @despia/kernel vendor-session.ts and the Swift Engine/iOS/VendorSession.swift.
+//  the web @despia-native/kernel vendor-session.ts and the Swift Engine/iOS/VendorSession.swift.
 //  The law is the corpus: OpenSource/Conformance/inline-surfaces/stripe.json
 //  (architecture/proposals/inline-native-surfaces.md, parity/V01-stripe-inline.md).
 //

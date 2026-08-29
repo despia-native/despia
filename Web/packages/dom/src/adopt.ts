@@ -1,6 +1,6 @@
 //
 //  adopt.ts - adopt-hydration (W6 slice 1, /web/02): the client BINDS the server-
-//  rendered DOM instead of throwing it away. The server emitter (@despia/server
+//  rendered DOM instead of throwing it away. The server emitter (@despia-native/server
 //  renderPage) stamps every element with `data-dsx-n` — its IR node identity
 //  (stampNodeIds, per-component preorder) — plus the existing `data-dsx-owner` on
 //  component roots. This walk runs the SAME traversal the mount layer runs, claims
@@ -36,11 +36,11 @@
 //  mount.ts reaches it only through AdoptSeam (registered at module load below).
 //
 
-import { truthy, string, isDict, JSESeams, DSXStrings, type Dict, type ApiSeed } from "@despia/kernel";
-import { mapStyleValue } from "@despia/compiler/cssmap";
-import { resolveComponent } from "@despia/compiler/resolve";
-import type { XmlNode } from "@despia/compiler/xml";
-import { stampNodeIds, type ComponentIR, type IRNode } from "@despia/compiler/component";
+import { truthy, string, isDict, JSESeams, DSXStrings, type Dict, type ApiSeed } from "@despia-native/kernel";
+import { mapStyleValue } from "@despia-native/compiler/cssmap";
+import { resolveComponent } from "@despia-native/compiler/resolve";
+import type { XmlNode } from "@despia-native/compiler/xml";
+import { stampNodeIds, type ComponentIR, type IRNode } from "@despia-native/compiler/component";
 import { AdoptSeam, ApiSeedSeam, ElementMotionSeam, StreamSeedSeam, adoptInternals, mountNode, type MountCtx } from "./mount.ts";
 import { applyLineClamp, iconSvg, type ElementApi } from "./elements.ts";
 

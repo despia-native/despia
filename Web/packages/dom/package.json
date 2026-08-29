@@ -1,5 +1,5 @@
 {
-  "name": "@despia/dom",
+  "name": "@despia-native/dom",
   "version": "0.0.1",
   "license": "Apache-2.0",
   "type": "module",
@@ -128,7 +128,7 @@
     "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\""
   },
   "dependencies": {
-    "@despia/kernel": "0.0.1",
-    "@despia/compiler": "0.0.1"
+    "@despia-native/kernel": "0.0.1",
+    "@despia-native/compiler": "0.0.1"
   }
 }

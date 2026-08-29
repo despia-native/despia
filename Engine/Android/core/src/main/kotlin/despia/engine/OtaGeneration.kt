@@ -3,7 +3,7 @@
 //  applies one (:core, pure JVM): is this device inside the staged rollout, and can the
 //  installed binary actually run what the generation references. The law is the corpus,
 //  OpenSource/Conformance/ota/rollout.json (parity/P05-ota.md 4b + 4c). The twin of Swift
-//  OtaGeneration and the web @despia/kernel packages/kernel/src/ota.ts.
+//  OtaGeneration and the web @despia-native/kernel packages/kernel/src/ota.ts.
 //
 //  Everything platform-shaped lives OUTSIDE this file. Fetching, signing, the content store
 //  and the anti-rollback high-water mark are RemoteBundleGate's business; this file is pure

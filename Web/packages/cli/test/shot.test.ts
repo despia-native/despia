@@ -139,8 +139,8 @@ test("shot: the shot skin changes no shipping web build", async () => {
   // The skin exists so an image can DEPICT the native build (09 §3). It must never leak into
   // a page that merely runs on the web - system-defaults.md's never-fake-Cupertino law governs
   // running surfaces, and this is how the scope stays honest rather than becoming an exception.
-  const theme = await import("@despia/dom/theme");
-  const skin = await import("@despia/dom");
+  const theme = await import("@despia-native/dom/theme");
+  const skin = await import("@despia-native/dom");
   const elements = (theme as { ELEMENTS_CSS: string }).ELEMENTS_CSS;
   // The AUTHORED surface material (.dsx-surface-glass/-ultraThin) is a real cross-renderer
   // material - iOS renders those tokens as a material, so the browser frosting them is

@@ -75,7 +75,7 @@ export function registryUsesAttribute(registry: Registry, attribute: string): bo
 
 /** G4 unified input (dsx-game.md §2) — a SLICEABLE feature: an embed that declares no head
  *  `<input>` and authors no `on:input.<name>` handler strips the whole input runtime
- *  (@despia/dom input.ts + the kernel's resolver/machine) out of its bundle. Both halves count:
+ *  (@despia-native/dom input.ts + the kernel's resolver/machine) out of its bundle. Both halves count:
  *  the DECLARATION lives in the head, the CONSUMER is an `on:input.` prefixed attribute. */
 export function registryUsesDeclaredInput(registry: Registry): boolean {
   const visit = (node: XmlNode): boolean => (
@@ -325,35 +325,35 @@ export function embedEntrySource(options: EmbedEntryOptions): string {
   }
   const payload = { ...options.registry, components };
   return [
-    `import { defineDsxElement } from "@despia/element";`,
+    `import { defineDsxElement } from "@despia-native/element";`,
     ...(f.universalGlobals ? [
-      `import { registerGlobalElements } from "@despia/dom/elements";`,
-      `import { UNIVERSAL_GLOBAL_ELEMENTS, GLOBAL_ELEMENTS_CSS } from "@despia/dom/globals";`,
+      `import { registerGlobalElements } from "@despia-native/dom/elements";`,
+      `import { UNIVERSAL_GLOBAL_ELEMENTS, GLOBAL_ELEMENTS_CSS } from "@despia-native/dom/globals";`,
     ] : []),
-    ...(f.controlElements ? [`import { CONTROL_ELEMENTS_CSS } from "@despia/dom/theme";`] : []),
+    ...(f.controlElements ? [`import { CONTROL_ELEMENTS_CSS } from "@despia-native/dom/theme";`] : []),
     ...(f.formElements ? [
-      `import { ELEMENTS } from "@despia/dom/elements";`,
-      `import { FORM_ELEMENTS } from "@despia/dom/forms";`,
-      `import { FORM_ELEMENTS_CSS } from "@despia/dom/theme";`,
+      `import { ELEMENTS } from "@despia-native/dom/elements";`,
+      `import { FORM_ELEMENTS } from "@despia-native/dom/forms";`,
+      `import { FORM_ELEMENTS_CSS } from "@despia-native/dom/theme";`,
     ] : []),
     ...(f.richElements ? [
-      `import { registerRichElements } from "@despia/dom/elements";`,
-      `import { RICH_ELEMENTS_CSS } from "@despia/dom/theme";`,
+      `import { registerRichElements } from "@despia-native/dom/elements";`,
+      `import { RICH_ELEMENTS_CSS } from "@despia-native/dom/theme";`,
     ] : []),
     ...(f.nativeControls
-      ? [`import { registerNativeControls, NATIVE_CONTROLS_CSS } from "@despia/dom/native-controls";`] : []),
-    ...(motion ? [`import { registerElementMotion } from "@despia/dom/element-motion";`] : []),
+      ? [`import { registerNativeControls, NATIVE_CONTROLS_CSS } from "@despia-native/dom/native-controls";`] : []),
+    ...(motion ? [`import { registerElementMotion } from "@despia-native/dom/element-motion";`] : []),
     ...(f.structuralControls
-      ? [`import { registerStructuralControls, STRUCTURAL_CONTROLS_CSS } from "@despia/dom/structural-controls";`] : []),
+      ? [`import { registerStructuralControls, STRUCTURAL_CONTROLS_CSS } from "@despia-native/dom/structural-controls";`] : []),
     ...(f.overlayControls
-      ? [`import { registerOverlayControls, OVERLAY_CONTROLS_CSS } from "@despia/dom/overlay-controls";`] : []),
+      ? [`import { registerOverlayControls, OVERLAY_CONTROLS_CSS } from "@despia-native/dom/overlay-controls";`] : []),
     ...(f.dataControls
-      ? [`import { registerDataControls, DATA_CONTROLS_CSS } from "@despia/dom/data-controls";`] : []),
+      ? [`import { registerDataControls, DATA_CONTROLS_CSS } from "@despia-native/dom/data-controls";`] : []),
     ...(playback ? [`import { ${[
       ...(audioSurface ? ["registerAudioSurface"] : []),
       ...(videoSurface ? ["registerVideoSurface"] : []),
       "MEDIA_PLAYBACK_CSS",
-    ].join(", ")} } from "@despia/dom/media-surfaces";`] : []),
+    ].join(", ")} } from "@despia-native/dom/media-surfaces";`] : []),
     ...(options.facetSrc !== undefined ? [`import facet from ${JSON.stringify(options.facetSrc)};`] : []),
     `const registry = JSON.parse(${JSON.stringify(JSON.stringify(payload))});`,
     ...(withOptionalCss ? [`registry.css = [${[

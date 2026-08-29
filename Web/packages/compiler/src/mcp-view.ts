@@ -27,7 +27,7 @@ export type McpViewInput = {
   moduleDir: string;
   /** The component's qualified name in the built registry, e.g. "catalogue.SearchResults". */
   component: string;
-  /** Absolute path of the web workspace root — esbuild resolves @despia/* by walking up from it. */
+  /** Absolute path of the web workspace root — esbuild resolves @despia-native/* by walking up from it. */
   webRoot: string;
   /** Document title. Hosts mostly ignore it; a human opening the file in a browser does not. */
   title?: string;
@@ -110,7 +110,7 @@ export function buildMcpView(input: McpViewInput): McpViewOutput {
 
   const tag = "dsx-mcp-view";
   const stage = mkdtempSync(join(tmpdir(), "dsx-mcp-view-"));
-  // The entry must live INSIDE the workspace: esbuild resolves bare @despia/* specifiers by
+  // The entry must live INSIDE the workspace: esbuild resolves bare @despia-native/* specifiers by
   // walking up from the importing file, and a temp dir has no node_modules above it.
   const entryPath = join(input.webRoot, `.mcp-view.${process.pid}.entry.ts`);
   const outfile = join(stage, "view.js");
@@ -118,8 +118,8 @@ export function buildMcpView(input: McpViewInput): McpViewOutput {
   writeFileSync(
     entryPath,
     [
-      `import { defineDsxElement } from "@despia/element";`,
-      `import { mountMcpApp } from "@despia/dom/mcp-app";`,
+      `import { defineDsxElement } from "@despia-native/element";`,
+      `import { mountMcpApp } from "@despia-native/dom/mcp-app";`,
       ``,
       `const registry = JSON.parse(${JSON.stringify(JSON.stringify(registry))});`,
       `const el = document.createElement(${JSON.stringify(tag)});`,

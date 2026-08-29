@@ -150,7 +150,7 @@ What landed, where, and the decisions made in the landing:
   picking v0 (kernel `pickRay`/`raySphere` vs world bounding spheres, handlers
   through the normal runner path). Registered from `boot.ts` only, so sliced
   embeds pay zero bytes (the embed byte-budget ledger stayed green unchanged).
-  SSR (`@despia/server` render.ts) emits the sized `.dsx-scene` box — scene nodes
+  SSR (`@despia-native/server` render.ts) emits the sized `.dsx-scene` box — scene nodes
   never degrade to DOM placeholders. `mode="ar"`, `<model>`, `<text3d>`,
   `<anchor>` render the labelled scheduled-placeholder inside the scene box.
 - **Demo** — the `/scene-element` route (`packages/scene-demo`, a
@@ -440,7 +440,7 @@ camera, capture frame evidence, and read the ledgers.
   `Engine/Android core scene/SceneRegistry.kt` ·
   `Web packages/kernel/src/scene/registry.ts` (backed by
   `Symbol.for("dsx.scene-surfaces.v1")` so the independently bundled web facet
-  never imports @despia/kernel — the Dom facet precedent). Elements register on
+  never imports @despia-native/kernel — the Dom facet precedent). Elements register on
   mount keyed by their `id` attr (auto key `scene#N`), unregister on unmount;
   actions target `{scene}` (default: the FIRST mounted scene). The kernel
   names no module; Core/Scene excluded leaves the seam unread and scenes

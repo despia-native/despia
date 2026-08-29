@@ -2,7 +2,7 @@
 //  GeoPolicy.kt - the shared Core/Geo pure core (:core, pure JVM): the two-step permission
 //  ladder, the escalation route, the precise-location decision, the region-limit accounting,
 //  the accuracy vocabulary and the battery filter. The law is the corpus:
-//  OpenSource/Conformance/geo/*.json (parity/F09-geo.md). The twin of the web @despia/kernel
+//  OpenSource/Conformance/geo/*.json (parity/F09-geo.md). The twin of the web @despia-native/kernel
 //  geo.ts and Swift Engine/iOS GeoPolicy.swift.
 //
 //  Everything platform-shaped lives OUTSIDE this file: FusedLocationProviderClient,

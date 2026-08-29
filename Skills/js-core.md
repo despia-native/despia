@@ -391,7 +391,7 @@ JSE.clearGlobalFunctions()          // drop them all (tests; a full reload)
   canonical: the strict-XML native parsers reject a bare `global`; the web parser
   accepts both). Re-registration replaces (last write wins). Wired on all three
   renderers — web: compiler `head.globalScripts` → `registerGlobalFunctions` in
-  @despia/dom `instantiate` + @despia/server `renderInstance` · iOS: `StackHead.register`
+  @despia-native/dom `instantiate` + @despia-native/server `renderInstance` · iOS: `StackHead.register`
   + the render-path `"script", "functions"` case (Stack.swift, compile-pending) ·
   Android: the :core head seam `StackStore.registerHeadFunctions(attrs, body)`
   (JseRunner.kt; the :render head dispatch still calls `registerFunctions` directly —

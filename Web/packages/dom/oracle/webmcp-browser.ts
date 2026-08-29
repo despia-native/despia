@@ -42,12 +42,12 @@ const MARKUP = `<stack>
 const source = `
 import { compileComponent } from "./packages/compiler/src/component.ts";
 import { CssCollector, extractComponentCss } from "./packages/compiler/src/css.ts";
-import { instantiate } from "@despia/dom/mount";
+import { instantiate } from "@despia-native/dom/mount";
 // THE REAL BOOT. Nothing here fills the WebMCP seam by hand: bootDsx does it, or the tools
 // never register and every assertion below fails - which is the point, because the seam was
 // briefly wired by a side-effect import that a sideEffects:false bundler is entitled to
 // drop, and did.
-import { bootDsx } from "@despia/dom/boot";
+import { bootDsx } from "@despia-native/dom/boot";
 
 // A minimal ModelContext with the spec's shape: registerTool validates and stores, the
 // AbortSignal unregisters, and executeTool serializes the result the way the draft says

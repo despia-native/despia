@@ -1,5 +1,5 @@
 //
-//  specifiers.ts — which `@despia/*` packages a built browser graph actually imports.
+//  specifiers.ts — which `@despia-native/*` packages a built browser graph actually imports.
 //
 //  ONE implementation, because there are two consumers and they must agree: `dsx build`
 //  drives its vendoring queue and its import map from this, and `build-demo` validates the
@@ -8,10 +8,10 @@
 //  — a missing import-map entry survives every type and unit gate and becomes a blank page
 //  in a clean session.
 //
-//  ANCHORED AT STATEMENT POSITION, not anywhere the characters `from "@despia/x"` appear. A
+//  ANCHORED AT STATEMENT POSITION, not anywhere the characters `from "@despia-native/x"` appear. A
 //  module that generates code carries import statements as string data: the MCP view builder
-//  emits `import { defineDsxElement } from "@despia/element";` into a temp entry it hands to
-//  esbuild. An unanchored scan reads that as the compiler importing @despia/element, and the
+//  emits `import { defineDsxElement } from "@despia-native/element";` into a temp entry it hands to
+//  esbuild. An unanchored scan reads that as the compiler importing @despia-native/element, and the
 //  consequence is not cosmetic — the vendoring queue then demands a package the project never
 //  imports and `dsx build` refuses a scaffolded app that is entirely correct.
 //
@@ -25,11 +25,11 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const STATIC_EDGE = /^[ \t]*(?:import|export)\b[^;'"`]*?from[ \t]*["'](@despia\/[^"']+)["']/gm;
-const SIDE_EFFECT_EDGE = /^[ \t]*import[ \t]*["'](@despia\/[^"']+)["']/gm;
-const DYNAMIC_EDGE = /\bimport\s*\(\s*["'](@despia\/[^"']+)["']/g;
+const STATIC_EDGE = /^[ \t]*(?:import|export)\b[^;'"`]*?from[ \t]*["'](@despia-native\/[^"']+)["']/gm;
+const SIDE_EFFECT_EDGE = /^[ \t]*import[ \t]*["'](@despia-native\/[^"']+)["']/gm;
+const DYNAMIC_EDGE = /\bimport\s*\(\s*["'](@despia-native\/[^"']+)["']/g;
 
-/** Every bare `@despia/*` specifier the .js files under `dir` import, recursively. */
+/** Every bare `@despia-native/*` specifier the .js files under `dir` import, recursively. */
 export function scanDsxSpecifiers(dir: string): Set<string> {
   const found = new Set<string>();
   for (const file of jsFiles(dir)) {

@@ -109,10 +109,10 @@ for (const dir of packageDirs) {
 }
 
 const smoke = `
-import * as kernel from "@despia/kernel";
-import * as compiler from "@despia/compiler";
-import * as server from "@despia/server";
-import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
+import * as kernel from "@despia-native/kernel";
+import * as compiler from "@despia-native/compiler";
+import * as server from "@despia-native/server";
+import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
 if (typeof kernel.DSXState?.set !== "function") throw new Error("kernel export missing");
 if (typeof compiler.parseDsx !== "function") throw new Error("compiler export missing");
 if (typeof server.renderPage !== "function") throw new Error("server export missing");
@@ -123,9 +123,9 @@ writeFileSync(join(consumer, "smoke.mjs"), smoke);
 run(process.execPath, ["smoke.mjs"], consumer);
 
 const typeSmoke = `
-import { DSXState, type Dict } from "@despia/kernel";
-import { parseDsx, type XmlNode } from "@despia/compiler";
-import { renderPage } from "@despia/server";
+import { DSXState, type Dict } from "@despia-native/kernel";
+import { parseDsx, type XmlNode } from "@despia-native/compiler";
+import { renderPage } from "@despia-native/server";
 const data: Dict = { ok: true };
 DSXState.set("pack.check", data);
 const node: XmlNode = parseDsx("<stack/>");
@@ -140,10 +140,10 @@ run(tsc, ["--noEmit", "--strict", "--target", "ES2022", "--module", "NodeNext", 
 // tarballs. Execution is covered by the browser gate; this catches export/dependency
 // resolution without relying on workspace links.
 const browserEntry = `
-import * as kernel from "@despia/kernel";
-import * as xml from "@despia/compiler/xml";
-import * as dom from "@despia/dom";
-import * as element from "@despia/element";
+import * as kernel from "@despia-native/kernel";
+import * as xml from "@despia-native/compiler/xml";
+import * as dom from "@despia-native/dom";
+import * as element from "@despia-native/element";
 globalThis.__DSX_PACKAGES__ = { kernel, xml, dom, element };
 `;
 writeFileSync(join(consumer, "browser.ts"), browserEntry);

@@ -9,7 +9,7 @@
 //   C1  pure DSX app — scaffold from tarballs, `dsx build`, the web surface exists
 //   C7  self-hosted OTA — the SAME app's screens through `dsx ota build`, manifest verified
 //       (C7 rides C1 on purpose: OTA is a property of any app's content, not a special app)
-//   C3  existing web app + Despia backend ONLY — a plain index.html untouched, @despia/server
+//   C3  existing web app + Despia backend ONLY — a plain index.html untouched, @despia-native/server
 //       installed from its tarball, a hand-registered route table served over node:http
 //       through the platform-free edge handler; /health answers, their page still serves
 //   C5  DSX front end + a vendor backend directly — an <api> block against an external URL
@@ -86,7 +86,7 @@ for (const entry of manifest.files) {
 console.log(`[combinations] C7 ok — generation ${manifest.generation.slice(0, 12)}, ${manifest.files.length} file(s) verified.`);
 
 // ── C3: an existing web app + the Despia backend ONLY ───────────────────────────────────
-console.log("[combinations] C3 — existing app + @despia/server …");
+console.log("[combinations] C3 — existing app + @despia-native/server …");
 const c3 = join(work, "c3");
 mkdirSync(join(c3, "public"), { recursive: true });
 writeFileSync(join(c3, "public", "index.html"), "<!doctype html><title>their app</title><h1>untouched</h1>\n");
@@ -96,7 +96,7 @@ writeFileSync(join(c3, "package.json"), `${JSON.stringify({ name: "c3-existing-a
 // no emitter, no scaffold. Their app stays exactly as it was.
 writeFileSync(join(c3, "server.mjs"), `
 import { createServer } from "node:http";
-import { createEdgeHandler } from "@despia/server/bootloader-deno";
+import { createEdgeHandler } from "@despia-native/server/bootloader-deno";
 
 const handler = createEdgeHandler({
   routes: [{ key: "health", chain: "app", action: "health", method: "GET", path: "/health" }],
@@ -114,7 +114,7 @@ createServer((req, res) => {
   console.log("LISTENING " + this.address().port);
 });
 `);
-run(npm, ["install", "--no-audit", "--no-fund", tarball.get("@despia/server")!, tarball.get("@despia/kernel")!, tarball.get("@despia/compiler")!, tarball.get("@despia/dom")!], c3);
+run(npm, ["install", "--no-audit", "--no-fund", tarball.get("@despia-native/server")!, tarball.get("@despia-native/kernel")!, tarball.get("@despia-native/compiler")!, tarball.get("@despia-native/dom")!], c3);
 const server = spawn(process.execPath, ["server.mjs"], { cwd: c3, stdio: ["ignore", "pipe", "inherit"] });
 try {
   const port = await new Promise<number>((done, failed) => {

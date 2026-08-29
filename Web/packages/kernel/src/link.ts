@@ -87,7 +87,7 @@ function resolveUrl(baseUrl: string, path: string): URL {
 export function createHttpLink(options: HttpLinkOptions): (route: LinkRoute, args: Dict) => Promise<unknown> {
   const doFetch = options.fetchImpl ?? globalThis.fetch;
   if (typeof doFetch !== "function") {
-    throw new Error("@despia/kernel: createHttpLink needs a fetch implementation on this platform");
+    throw new Error("@despia-native/kernel: createHttpLink needs a fetch implementation on this platform");
   }
 
   return async (route: LinkRoute, args: Dict): Promise<unknown> => {

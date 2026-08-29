@@ -26,11 +26,11 @@ const markup = String.raw`<vstack class="native-harness">
 </vstack>`;
 
 const source = String.raw`
-  import { compileComponent } from "@despia/compiler/component";
-  import { LAYER_STATEMENT } from "@despia/compiler/cssmap";
-  import { instantiate } from "@despia/dom/mount";
-  import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS } from "@despia/dom/theme";
-  import { NATIVE_CONTROLS_CSS, registerNativeControls } from "@despia/dom/native-controls";
+  import { compileComponent } from "@despia-native/compiler/component";
+  import { LAYER_STATEMENT } from "@despia-native/compiler/cssmap";
+  import { instantiate } from "@despia-native/dom/mount";
+  import { TOKENS_CSS, ELEMENTS_CSS, CONTROL_ELEMENTS_CSS } from "@despia-native/dom/theme";
+  import { NATIVE_CONTROLS_CSS, registerNativeControls } from "@despia-native/dom/native-controls";
 
   registerNativeControls();
   const ir = compileComponent("NativeBrowser", "test", ${JSON.stringify(markup)});

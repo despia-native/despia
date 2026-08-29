@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { CssCollector } from "@despia/compiler";
+import { CssCollector } from "@despia-native/compiler";
 
 import { dsx, compileDsx, emitModule, isDsxFile, schemeFor, collectPackageWeb, readPackageWebBlock, REGISTRY_ID, ROUTES_ID, type HotContext } from "../src/index.ts";
 

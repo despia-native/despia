@@ -53,7 +53,7 @@ truth on every platform.
 |---|---|---|
 | iOS | SwiftUI | [`Engine/iOS`](Engine/iOS) |
 | Android | Jetpack Compose | [`Engine/Android`](Engine/Android) |
-| Web | DOM, with SSR and hydration | [`Web`](Web) (`@despia/*` on npm) |
+| Web | DOM, with SSR and hydration | [`Web`](Web) (`@despia-native/*` on npm) |
 | Server | Backend routes, workers, and MCP tools authored in DSX | [`Web/packages/server`](Web/packages/server) |
 | CLI | Command-line programs as `.dsx` documents | [`Web/packages/cli`](Web/packages/cli) |
 
@@ -209,7 +209,7 @@ need instead of hoping they guess:
 | [`despia`](https://github.com/despia-native/despia) | This repository: the framework, the docs, the issue tracker |
 | [`despia-kernel`](https://github.com/despia-native/despia-kernel) | The portable execution contract: the native kernel, standalone |
 | [`despia-ai`](https://github.com/despia-native/despia-ai) | Local intelligence: on-device inference, standalone package |
-| [`despia-local`](https://github.com/despia-native/despia-local) | Local data: the on-device database, standalone package (not the backend; that is `@despia/server`) |
+| [`despia-local`](https://github.com/despia-native/despia-local) | Local data: the on-device database, standalone package (not the backend; that is `@despia-native/server`) |
 | [`despia-mcp`](https://github.com/despia-native/despia-mcp) | Apps that speak agent: MCP client and server, standalone package |
 | [`despia-docs`](https://github.com/despia-native/despia-docs) | The documentation site, itself a Despia app |
 | [`despia-example`](https://github.com/despia-native/despia-example) | One app on four surfaces, from published packages |

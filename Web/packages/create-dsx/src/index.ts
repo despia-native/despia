@@ -2,7 +2,7 @@
 //  create-despia — scaffold a minimal, working DSX project.
 //
 //  The generated project is a real DSX package (dsx.json + Components/**.dsx) plus the app
-//  configuration `@despia/cli` reads, and it compiles with `despia build` as generated — that is
+//  configuration `@despia-native/cli` reads, and it compiles with `despia build` as generated — that is
 //  the contract this package is judged by, and the end-to-end test in test/scaffold.test.ts
 //  runs exactly that loop.
 //
@@ -14,7 +14,7 @@ import { renderTemplate, TEMPLATES, type TemplateName, type TemplateOptions } fr
 
 export { TEMPLATES, renderTemplate, type TemplateName, type TemplateOptions } from "./templates.ts";
 
-/** The @despia/* version a fresh project pins. Bumped with the workspace train. */
+/** The @despia-native/* version a fresh project pins. Bumped with the workspace train. */
 export const DEFAULT_VERSION = "0.1.0";
 
 export class ScaffoldError extends Error {}
@@ -28,7 +28,7 @@ export type ScaffoldOptions = {
   scheme?: string;
   template?: TemplateName;
   version?: string;
-  /** rewrite the @despia/* dependencies to `file:` paths pointing at a local workspace —
+  /** rewrite the @despia-native/* dependencies to `file:` paths pointing at a local workspace —
    *  what you want inside this repository, where nothing is published yet */
   linkWorkspace?: string;
   /** allow scaffolding into a directory that already has files */
@@ -85,7 +85,7 @@ export function scaffold(opts: ScaffoldOptions): ScaffoldResult {
   return { root, name, scheme, template, files: Object.keys(files).sort() };
 }
 
-/** `file:` specifiers for every @despia/* package in a workspace's `packages/` folder. */
+/** `file:` specifiers for every @despia-native/* package in a workspace's `packages/` folder. */
 export function workspaceLinks(workspace: string): { [pkg: string]: string } {
   const packagesDir = resolve(workspace, "packages");
   const links: { [pkg: string]: string } = {};
@@ -94,7 +94,7 @@ export function workspaceLinks(workspace: string): { [pkg: string]: string } {
     const manifest = join(packagesDir, dir, "package.json");
     if (!existsSync(manifest)) continue;
     // the folder is packages/create-dsx but the published name is create-despia
-    links[dir === "create-dsx" ? "create-despia" : `@despia/${dir}`] = `file:${join(packagesDir, dir)}`;
+    links[dir === "create-dsx" ? "create-despia" : `@despia-native/${dir}`] = `file:${join(packagesDir, dir)}`;
   }
   return links;
 }

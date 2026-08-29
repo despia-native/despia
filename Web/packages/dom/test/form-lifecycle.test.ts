@@ -13,9 +13,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects } from "@despia/kernel";
-import { compileComponent } from "@despia/compiler/component";
-import type { Registry } from "@despia/compiler/resolve";
+import { ReactiveStore, ActionRunner, makeRunEnv, flushEffects } from "@despia-native/kernel";
+import { compileComponent } from "@despia-native/compiler/component";
+import type { Registry } from "@despia-native/compiler/resolve";
 
 // ── the DOM stand-in ─────────────────────────────────────────────────────────────────
 

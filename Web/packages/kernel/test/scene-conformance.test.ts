@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 
-import { parseDsx } from "@despia/compiler/xml";
+import { parseDsx } from "@despia-native/compiler/xml";
 import {
   parseScene, interpolateSceneHoles, resolvedProps, worldMatrices, findSceneNode,
   sceneCamera, projectToNdc, parseGlb, text3dQuad, sceneFrameSchedule,

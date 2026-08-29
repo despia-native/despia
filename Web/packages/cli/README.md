@@ -1,4 +1,4 @@
-# @despia/cli
+# @despia-native/cli
 
 The DSX web toolchain, and the **CLI node** it runs on.
 
@@ -39,7 +39,7 @@ kernel vendored, nothing withheld) is documented in the framework guide `native-
 The node is exported, because a node nobody else can use is a demo.
 
 ```ts
-import { readCliDocument, dispatch, runDeclaredCommand, usage } from "@despia/cli";
+import { readCliDocument, dispatch, runDeclaredCommand, usage } from "@despia-native/cli";
 import { readFileSync } from "node:fs";
 
 const doc = readCliDocument(readFileSync("my.cli.dsx", "utf8"), "my.cli.dsx");
@@ -110,15 +110,15 @@ Wraps the existing compile path - it does not reimplement it:
 
 | Step | Who does it |
 |---|---|
-| `.dsx` → component IR + owner-scoped CSS | `@despia/compiler` `buildRegistry` |
-| IR → a full SSR'd document (title/meta/og, the inlined cascade, hydration stamps) | `@despia/server` `renderPage` |
-| one document per static route | `@despia/server` `exportStatic` |
-| runtime ESM | the installed `@despia/{kernel,compiler,dom}` `dist/`, copied into `dist/vendor/` |
+| `.dsx` → component IR + owner-scoped CSS | `@despia-native/compiler` `buildRegistry` |
+| IR → a full SSR'd document (title/meta/og, the inlined cascade, hydration stamps) | `@despia-native/server` `renderPage` |
+| one document per static route | `@despia-native/server` `exportStatic` |
+| runtime ESM | the installed `@despia-native/{kernel,compiler,dom}` `dist/`, copied into `dist/vendor/` |
 
 Output: `index.html` (plus `<route>/index.html` per static route), `registry.json`,
 `main.js` (a bootloader that owns zero behavior), `vendor/**`, and anything in `public/`.
 
-The import map is **derived** from the vendored graph - every bare `@despia/*` specifier the
+The import map is **derived** from the vendored graph - every bare `@despia-native/*` specifier the
 copied `.js` files import must resolve to a file that was actually vendored, or the build
 fails. A missing entry otherwise survives every other gate and becomes a blank page.
 
@@ -130,7 +130,7 @@ exists.
 ### What `dsx build` does NOT do
 
 - **No bundler, no minifier, no code splitting.** The runtime ships as the packages' own ESM
-  behind an import map. Application-level bundling is [`@despia/vite-plugin`](../vite-plugin/)'s job.
+  behind an import map. Application-level bundling is [`@despia-native/vite-plugin`](../vite-plugin/)'s job.
 - **No `<api>` prefetch at build time.** It uses the sync `renderPage`; `renderPageAsync`
   (SSR data seeding) is the open W6 live-adapter seam, not a static-export behavior.
 - **No dynamic routes.** `exportStatic` skips `:param` / `{param}` / `*` paths, which need a
@@ -154,7 +154,7 @@ repository's own dev/CI server, with its embed CORS and DSD fragment endpoint in
 ### What `dsx dev` does NOT do
 
 - **No hot module replacement.** A change is a full rebuild and a full page reload; component
-  state is lost. (Neither does `@despia/vite-plugin` v0.1.)
+  state is lost. (Neither does `@despia-native/vite-plugin` v0.1.)
 - **No HTTPS, no proxy, no middleware.** It serves files and one SSE endpoint.
 - **No `<api>` mocking.** Requests go wherever the markup points them.
 - Note: the open SSE stream means a browser automation tool will never observe
@@ -182,7 +182,7 @@ Implemented, ported rule for rule:
 
 | | |
 |---|---|
-| well-formedness | one root, tag balance, unterminated tags - through `@despia/compiler`'s `parseDsx`, the TS twin of the runtime's own parser |
+| well-formedness | one root, tag balance, unterminated tags - through `@despia-native/compiler`'s `parseDsx`, the TS twin of the runtime's own parser |
 | comments | `--` inside a comment (fatal in XML); a code-tag name written in comment prose |
 | document anatomy | `<head>` is the first child, once, never the root; declarations live in the head; canonical head order and same-kind contiguity; `<watch>` inside a list/grid/pager row is legal |
 | identifiers | `as=` required on every declaration; the removed `name=` alias; `<expects variable=>`; `<api as>` identifier shape |
@@ -232,7 +232,7 @@ what an application outside the monorepo gets.
 Every command is also a function:
 
 ```ts
-import { buildProject, loadConfig, startDevServer, lintSource, runCli } from "@despia/cli";
+import { buildProject, loadConfig, startDevServer, lintSource, runCli } from "@despia-native/cli";
 
 const config = loadConfig("/path/to/app");
 const result = buildProject(config);          // { outDir, components, written, importMap }
@@ -242,9 +242,9 @@ const exitCode = await runCli(["lint", "--strict"]);
 
 ## Release status
 
-`@despia/cli` is part of the tagged release set - the **tooling face** of the eight-package
+`@despia-native/cli` is part of the tagged release set - the **tooling face** of the eight-package
 release (`RELEASE_DIRS` in `scripts/release-packages.ts`): five runtime packages an
-application imports, plus `@despia/cli`, `create-dsx` and `@despia/vite-plugin`, which a
+application imports, plus `@despia-native/cli`, `create-dsx` and `@despia-native/vite-plugin`, which a
 developer runs before an application exists. All eight are packed, consumed from their
 tarballs, and driven end to end per PR by `npm run pack:check` and `npm run cold-start` -
 the latter installs this package from its tarball into an empty directory, scaffolds, builds,

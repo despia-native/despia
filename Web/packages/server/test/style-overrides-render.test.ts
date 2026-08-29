@@ -11,9 +11,9 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { compileComponent } from "@despia/compiler/component";
-import { CssCollector, extractComponentCss, buildRegistry } from "@despia/compiler";
-import type { Registry } from "@despia/compiler/resolve";
+import { compileComponent } from "@despia-native/compiler/component";
+import { CssCollector, extractComponentCss, buildRegistry } from "@despia-native/compiler";
+import type { Registry } from "@despia-native/compiler/resolve";
 import { renderToString } from "../src/render.ts";
 
 function repoRoot(): string {
