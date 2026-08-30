@@ -323,7 +323,10 @@ function assembleDocument(
     head.push(`<meta name="description" content="${escapeHtml(meta.description)}">`);
     head.push(`<meta property="og:description" content="${escapeHtml(meta.description)}">`);
   }
-  head.push(`<link rel="icon" href="data:,">`);
+  // The build ALWAYS writes /icon.svg (a project icon in public/ wins by name; the
+  // generated initial is the floor), and the manifest already points at it — a blanked
+  // tab icon beside an installable manifest icon was the same app wearing two faces.
+  head.push(`<link rel="icon" href="/icon.svg" type="image/svg+xml">`);
   if (opts.manifestHref !== undefined) head.push(`<link rel="manifest" href="${escapeHtml(opts.manifestHref)}">`);
   head.push(`<style>${escapeStyleText(LAYER_STATEMENT)}</style>`);
   head.push(`<style>${escapeStyleText(TOKENS_CSS)}</style>`);
