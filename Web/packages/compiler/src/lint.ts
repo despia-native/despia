@@ -45,6 +45,7 @@ type Facts = {
   valuelessInputTags?: string[];
   harnessAttrs?: string[];
   cssHabitAttrs?: { [attr: string]: string };
+  cssHabitPxProps?: string[];
 };
 
 /** Locate the SHARED facts file by walking up from this module (works from src and
@@ -84,6 +85,8 @@ type AttributeCensus = {
   styleLength: Set<string>;
   styleEnums: Map<string, Set<string>>;
   styleEnumsByElement: Map<string, Map<string, Set<string>>>;
+  /** an element's OWN declaration owns its value space (see the CLI twin) */
+  attrMeta: Map<string, Map<string, { type?: string; enum?: string[] }>>;
 };
 
 function loadCensus(): AttributeCensus | null {
@@ -111,8 +114,13 @@ function loadCensus(): AttributeCensus | null {
         };
         const attrs = new Map<string, Set<string>>();
         const structural = new Set<string>();
+        const attrMeta = new Map<string, Map<string, { type?: string; enum?: string[] }>>();
         for (const [tag, el] of Object.entries(elements.elements)) {
           attrs.set(tag, new Set(Object.keys(el.attributes ?? {})));
+          attrMeta.set(tag, new Map(Object.entries(el.attributes ?? {}).map(([name, meta]) => {
+            const m = (meta ?? {}) as { type?: string; enum?: string[] };
+            return [name, { type: m.type, enum: m.enum }];
+          })));
           if (el.category === "structural") structural.add(tag);
         }
         const properties = style.groups.flatMap((g) => g.properties);
@@ -146,7 +154,7 @@ function loadCensus(): AttributeCensus | null {
           // alias spellings (paddingX, offset, fullBleed, ...) are documented vocabulary too
           styleKeys: new Set([...properties.map((pr) => pr.key), ...styleAlias.keys()]),
           harness: new Set(FACTS.harnessAttrs ?? []),
-          styleAlias, styleNumber, styleLength, styleEnums, styleEnumsByElement,
+          styleAlias, styleNumber, styleLength, styleEnums, styleEnumsByElement, attrMeta,
         };
       } catch {
         return null;
@@ -170,6 +178,18 @@ function styleValueError(
   if (rawValue.includes("{{")) return null;
   const value = rawValue.trim();
   if (value === "") return null;
+  // an element's OWN declaration owns the value space (twinned with the CLI's rationale)
+  const own = census.attrMeta.get(catalogTag)?.get(base);
+  if (own !== undefined) {
+    if (own.type === "number") {
+      if (STYLE_NUMBER_RE.test(value)) return null;
+      return { rule: "style-value-number", message: `<${tag}> ${key}="${value}": ${key}= takes a plain number on <${catalogTag}> — the value does not parse and is dropped silently, so the element renders as if you never wrote it.` };
+    }
+    if (own.type === "enum" && (own.enum?.length ?? 0) >= 2 && !own.enum!.includes(value)) {
+      return { rule: "style-value-enum", message: `<${tag}> ${key}="${value}": ${key}= is one of ${own.enum!.join(" | ")} on <${catalogTag}> — an unknown word is dropped silently and the element renders with the default (stack-elements.json owns the vocabulary).` };
+    }
+    return null;
+  }
   const canonical = census.styleAlias.get(base) ?? base;
   const sizeHint = /^(width|height|minWidth|maxWidth|minHeight|maxHeight)$/.test(canonical)
     ? ` grow="width" fills the parent; percents live on the CSS plane (style="width: 100%").`
@@ -185,6 +205,11 @@ function styleValueError(
   if (census.styleLength.has(canonical)) {
     if (STYLE_NUMBER_RE.test(value) || value === "fit" || value === "fit-content") return null;
     return { rule: "style-value-number", message: percent ?? `<${tag}> ${key}="${value}": ${key}= takes a number in points or fit — the value does not parse and is dropped silently, so the element renders as if you never wrote it.` };
+  }
+  // a bare numeric weight is deliberate iOS behavior (DSXFontBook.cssWeight), so 1..1000 is lawful
+  if (canonical === "fontWeight" && STYLE_NUMBER_RE.test(value)) {
+    const n = Number(value);
+    return n >= 1 && n <= 1000 ? null : { rule: "style-value-enum", message: `<${tag}> ${key}="${value}": ${key}= takes one of the weight words or a number 1..1000 — the value is dropped silently.` };
   }
   const byElement = census.styleEnumsByElement.get(canonical);
   const allowed = byElement !== undefined ? byElement.get(catalogTag) : census.styleEnums.get(canonical);
@@ -221,12 +246,14 @@ const FACTS = loadFacts();
 const CENSUS = loadCensus();
 
 const CSS_HABITS = new Map<string, string>(Object.entries(FACTS.cssHabitAttrs ?? {}));
-const CSS_HABIT_PX = new Set(["margin", "margin-top", "margin-bottom", "margin-left", "margin-right", "row-gap", "column-gap", "border-radius"]);
+const CSS_HABIT_VALUES = new Set(CSS_HABITS.values());
+const CSS_HABIT_PX = new Set(FACTS.cssHabitPxProps ?? []);
 
-/** A CSS property written as an ATTRIBUTE: real vocabulary in exactly one place, the style
- *  plane — the message hands back the style= spelling (facts.json cssHabitAttrs). */
+/** A CSS property written as an ATTRIBUTE, in either spelling (marginTop= or margin-top=):
+ *  real vocabulary in exactly one place, the style plane — the message hands back the
+ *  style= form (facts.json cssHabitAttrs). */
 function cssHabitError(tag: string, key: string, base: string, rawValue: string): string | null {
-  const css = CSS_HABITS.get(base);
+  const css = CSS_HABITS.get(base) ?? (CSS_HABIT_VALUES.has(base) ? base : undefined);
   if (css === undefined) return null;
   const v = rawValue.trim();
   const spelled = /^-?\d+(\.\d+)?$/.test(v) && CSS_HABIT_PX.has(css) ? `${v}px` : v;
@@ -561,15 +588,10 @@ export function lintSource(source: string, opts: LintOptions = {}): LintDiagnost
           if (base.startsWith("on:") || base.startsWith("__")) continue;
           const styleError = styleValueError(CENSUS, catalogTag, tag, key, base, value);
           if (styleError !== null) report(line, "error", styleError.rule, styleError.message);
-          const habit = cssHabitError(tag, key, base, value);
-          if (habit !== null
-              && !known.has(base) && !CENSUS.universal.has(base) && !CENSUS.childMarkers.has(base)
-              && !CENSUS.harness.has(base) && !CENSUS.styleKeys.has(base)) {
-            report(line, "error", "attr-unknown", habit);
-            continue;
-          }
           if (known.has(base) || CENSUS.universal.has(base) || CENSUS.childMarkers.has(base)) continue;
           if (CENSUS.harness.has(base) || CENSUS.styleKeys.has(base)) continue;
+          const habit = cssHabitError(tag, key, base, value);
+          if (habit !== null) { report(line, "error", "attr-unknown", habit); continue; }
           const confusion = ATTR_CONFUSIONS.get(`${catalogTag} ${base}`);
           const candidates = [...known, ...CENSUS.universal, ...CENSUS.harness, ...CENSUS.styleKeys];
           let nearest = confusion ?? candidates[0] ?? "";

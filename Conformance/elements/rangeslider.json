@@ -1,9 +1,7 @@
 {
   "_schema": "despia-element-parity-v1",
   "tag": "rangeslider",
-  "aliases": [
-
-  ],
+  "aliases": [],
   "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift",
   "attributes": {
     "bindLow": {
@@ -39,12 +37,17 @@
     "disabled": {
       "type": "bool",
       "default": false,
-      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:63 (the W9 disabled-grammar pair \u2014 `disabled` OR `disabled-if` truthy disables; all three renderers)"
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:63 (the W9 disabled-grammar pair — `disabled` OR `disabled-if` truthy disables; all three renderers)"
     },
     "disabled-if": {
       "type": "expr",
       "default": null,
       "_src": "the conditional half of the W9 disabled-grammar pair, ratified with `disabled` and implemented on all three renderers - see the `disabled` row above"
+    },
+    "on:change": {
+      "type": "action",
+      "default": null,
+      "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:69-70 (via the setBound seam, one thumb per write) — the contract is `behavior.changeEvent`"
     }
   },
   "geometry": {
@@ -71,5 +74,63 @@
       "_src": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift:51"
     }
   },
-  "notes": ""
+  "notes": "",
+  "behavior": {
+    "_note": "The two-thumb interaction law, identical on all three renderers. Landed on web (OpenSource/Web/packages/dom/src/native-controls.ts, pinned by packages/dom/test/native-controls.test.ts + packages/dom/oracle/native-controls-browser.ts). The Kotlin and Swift owners implement the same rows.",
+    "gestureLatch": {
+      "rule": "A gesture selects ONE thumb at its start (nearest by value; a report that names the exact midpoint of two DISTINCT values goes to low) and stays latched to that thumb AND to the pointer/touch identity that opened it until that same pointer ends. Hit testing is never re-evaluated on a move, so the latched thumb keeps tracking after the pointer travels past its sibling. An EXACTLY EQUAL pair is not a nearest-by-value tie and has no low preference: it is `equalThumbTieBreak`, the one case where the thumb is unset at the start and resolved once, before any value has been written.",
+      "concurrentPointer": "ignored: a second pointer arriving during a live gesture changes no value and does not open a second gesture",
+      "interrupted": "a cancelled, stolen or lost pointer releases the latch unconditionally and re-derives the pair from the bound values; a control can never stay latched after its pointer is gone"
+    },
+    "equalThumbTieBreak": {
+      "rule": "When the DISPLAYED pair is EXACTLY equal the two capsules occupy one position, containment names no winner, and the winner is the DIRECTION OF INTENT: a gesture that opens the pair upward takes the HIGH thumb, one that opens it downward takes the LOW thumb. Without it one direction is a dead gesture, and an author or a user who collapses a range to a point can only ever reopen it the one way.",
+      "directionIsValueSpace": "Direction is the sign of (named value - the pair's value), read in VALUE space and never in pixels, so a right-to-left or otherwise inverted track needs no second sentence. It is read from the value a report NAMES, before that value is snapped to `step`, so a movement shorter than one step still resolves an intent; snapping then decides where the resolved thumb lands, never which thumb resolved.",
+      "whyNotAtHitTest": "Routing happens BEFORE any translation exists, so at the instant containment is evaluated there is no direction to read. The tie is therefore not decided there. A gesture that opens on an exactly equal pair opens PENDING: latched to its pointer and to NO thumb, writing nothing at all. Which capsule carries a pending pointer is an implementation detail with no observable consequence, precisely because nothing is written until the latch resolves.",
+      "resolution": "1. POSITIONAL, when the opening report names a value the pair does not hold AND lands OFF the stacked capsule: that value's side wins, above the pair HIGH and below it LOW. A press ON the stack carries no direction, because the whole capsule is one target, and a press off it is a track press, which the web and Compose Desktop renderers accept and the iOS renderer refuses outright. 2. Otherwise DIRECTIONAL, on the first later report of the same pointer that names a value different from the pair: above HIGH, below LOW. 3. A gesture that never resolves one - a zero-length move, a pure vertical drag, a press and release in place - latches no thumb, writes no value, announces no `on:change`, and leaves the pair exactly as it was.",
+      "relatch": "The resolution SETS an unset latch and never changes a set one, which is the only reason it does not contradict `gestureLatch`. It is permitted exactly once per gesture, only out of pending, only while the displayed pair is exactly equal, and only where no value can yet have been written - a pending gesture writes nothing, so no write can be re-attributed to a second thumb. Once a thumb is latched it is that pointer's for life: the latch does not move when the finger reverses, when it travels past its sibling, or when the pair becomes exactly equal again.",
+      "bounds": "No special case, because direction names the thumb and the shared `clampOrder` decides where it lands. An equal pair pinned at max resolves HIGH for an upward gesture, HIGH is already at max, so nothing is written and that gesture is inert: the pair opens downward only, through a downward gesture latching LOW. Mirrored at min. A latched thumb with nowhere to go stays latched and inert for the rest of its pointer rather than handing the gesture to its sibling.",
+      "keyboard": "There is no tie to break: the winner is the FOCUSED thumb, so an equal pair always has a defined winner and no direction is consulted. The shared clamp then decides the landing, and because `siblingIsReadOnly` forbids pushing, an increment on the focused LOW thumb of an equal pair does not rise above its sibling - it lands on the `clampOrder` ceiling below it. An assistive-technology write is the same: the thumb is named by the write, not by a direction.",
+      "reachability": "It is stated on the DISPLAYED pair because that is the pair a hit test compares. A renderer that opens a stacked pair for display (`separation.degrade`, which the web, Android and Compose Desktop renderers do) therefore reaches an exactly equal displayed pair only on a degenerate range, where no thumb can move either; the iOS renderer draws the authored pair as it stands, so a stacked pair is coincident there and the tie is live. The rule is the same sentence on all four regardless: which renderer can reach a state is not what decides the state."
+    },
+    "siblingIsReadOnly": {
+      "rule": "Only the gesture's own thumb is written. The stationary thumb's value is an INPUT to the clamp and is never an output, so a drag can neither push nor drag its sibling."
+    },
+    "clampOrder": {
+      "rule": "The dragged value is snapped to step, then clamped into [min, max] AND against the stationary sibling at the separation boundary. Ordering and the bounds are absolute; the separation is honoured only where it leaves the thumb somewhere to be, so a pair already tighter than the separation degrades to touching rather than flinging the dragged thumb to a wall.",
+      "lowThumb": "ceiling = (high - separation >= min) ? high - separation : high; clamp(min(value, ceiling), min, ceiling)",
+      "highThumb": "floor = (low + separation <= max) ? low + separation : low; clamp(max(value, floor), floor, max)"
+    },
+    "separation": {
+      "rule": "The two capsules may not overlap, and nothing beyond that is enforced. The minimum gap is ONE thumb width measured CENTRE TO CENTRE, which is exactly zero clear space between the capsule edges: both thumbs have the same width and are positioned by their left edges, so a left-edge distance (identically, a centre-to-centre distance) of one thumb width puts the low capsule's right edge on the high capsule's left edge. It is expressed in value units and rounded UP to a whole step when `step` is set, never below one step.",
+      "formula": "travel = max(measuredTrackWidth - thumbWidth, 1); separation = clampToSpan(ceilToStep(span * thumbWidth / travel))",
+      "denominator": "TRAVEL, never the measured track width. `positionIsPureFunctionOfValue` maps the whole span onto `measuredTrackWidth - thumbWidth` of left-edge travel, so that is the only pixel length one span of value converts through, and every renderer must pass it. Dividing by the measured width instead under-converts the gap by the factor travel/measuredTrackWidth (a 20dp handle on a 220dp track: 9 percent tighter than the law), and the error is largest on exactly the narrow tracks the gap exists to protect.",
+      "thumbWidth": "EACH RENDERER'S OWN DRAWN THUMB, in that renderer's own pixels: the web glass pill at 10, the Android M3 handle at 20dp, the Compose Desktop capsule at 24dp, the iOS UISlider lens at about 37pt. `geometry.thumbWidth` (10) is the iOS/web capsule as a PARITY constant for the geometry differ and is NOT the separation basis. What this row forbids is an overlap between the capsules a renderer actually paints, which is a pixel fact of that renderer; a single shared number would be wrong on three of the four, small enough to let the wider handles overlap while the arithmetic still read as satisfied.",
+      "whyOneAndNotTwo": "One thumb width is a FLOOR, not a comfort margin. Two thumb widths of centre gap (a full thumb width of clear air) is a cosmetic preference, and on a chunky thumb it makes legitimate authored windows unrepresentable: a 37pt iOS lens on a 361pt track over a 0..100 range would put the smallest displayable window at 22.8 units, so an authored 21-unit window could not be shown. At one thumb width the same control forbids nothing above 11.4 units, and the widest-thumbed renderer stays the binding case on every span.",
+      "degrade": "A pair ALREADY tighter than the gap is never opened by force. `clampOrder` honours the separation only where it leaves the dragged thumb somewhere to be, so a pair pinned against a bound degrades to TOUCHING (the dragged thumb settles on its sibling's value) instead of being flung to the far wall, and `separatedRange` opens a stacked pair away from its anchor, the anchor giving way only at a wall.",
+      "plane": "PRESENTATION: it is derived from the measured pixel track, so it is applied to the DISPLAYED pair only and is never written into the author's bound values. Writing it back would burn a layout measurement into the author's data, and being width-dependent it would never converge."
+    },
+    "programmaticRepair": {
+      "rule": "A bound pair that is out of bounds or crossed is repaired and the repair is written BACK to the bound paths, so the rendering is never an interpretation only the control can read. The repair is width-independent and low-anchored, identical to the SSR twin: low = clamp(low, min, max); high = max(clamp(high, min, max), low).",
+      "emitsChange": false
+    },
+    "changeEvent": {
+      "rule": "A USER-DRIVEN write is OBSERVABLE from markup: it fires the element's `on:change` off the same bound-write seam every two-way control fires it from (`<slider>`, `<toggle>`, `<textfield>`: the bound write IS the event, never a hand-rolled second channel). A drag, a keyboard key and an assistive-technology write are all user-driven and all announce.",
+      "granularity": "ONE event per COMMITTED THUMB WRITE. A report that resolves to no write announces nothing, and a report that resolves to the value the thumb already holds announces nothing, so a single report can never announce twice: `siblingIsReadOnly` already guarantees at most one thumb is written.",
+      "continuity": "CONTINUOUS, matching `<slider>` rather than a settle-only control: every committed write during a gesture announces, and the gesture end announces nothing extra. Continuity is bounded by the VALUE and not by the frame, so an animation frame or an intermediate clamp step that moves no value announces nothing.",
+      "repairIsSilent": "A programmatic repair never announces (`programmaticRepair.emitsChange: false`), and the separation is presentation-only, so NEITHER plane of the store-to-view step is observable. This is also what makes the handler loop-free: a handler that writes a pair the control must repair sees the repair applied and not announced, so no repair-announce-write-repair cycle exists. A renderer whose repair routes through the announcing write seam has this bug by construction.",
+      "reentry": "A write the handler itself makes does not re-enter that handler, so an `on:change` that writes its own bound path settles in one pass."
+    },
+    "positionIsPureFunctionOfValue": {
+      "rule": "There is no position state. A thumb's left edge is thumbX(value) = clamp((value - min)/span, 0, 1) * (trackWidth - thumbWidth) at every moment, including mid-gesture and immediately after a programmatic write, so a thumb and the fill can never unlink.",
+      "fill": "drawn ONLY between the capsules: start = lowX + thumbWidth (the low thumb's inner edge), end = max(highX, start) (the high thumb's inner edge). No stub before low, no tail after high, never past the track."
+    },
+    "keyboard": {
+      "rule": "Arrow/Page/Home/End move ONLY the focused thumb, through the same clamp as a drag, and are inert while a pointer gesture is live.",
+      "step": "one authored step, or 1/100 of the span when step is unset; PageUp/PageDown move ten of those",
+      "homeEnd": "Home asks for min and End asks for max; the shared clamp decides where the focused thumb actually lands"
+    },
+    "accessibility": {
+      "rule": "Each thumb is its own slider: role=slider with aria-valuemin/aria-valuemax from the authored bounds and aria-valuenow tracking the DISPLAYED value. The pair is wrapped in a labelled group."
+    }
+  }
 }

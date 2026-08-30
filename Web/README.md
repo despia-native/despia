@@ -146,10 +146,10 @@ clean-consumer import, type, repack, and browser-bundle resolution gate (`pack:c
 the tarballs-only first-run walk (`cold-start`).
 Conflict-copy filenames are excluded at compile time and rejected from release
 tarballs. The demo compiled 26 route-table entries into 30 SSR route
-pages (verified by rebuilding, 2026-08-23); its EmbedCard slice is 40,927 bytes gzip (that figure is the fixed-feature slice
+pages (verified by rebuilding, 2026-08-23); its EmbedCard slice is 40,939 bytes gzip (that figure is the fixed-feature slice
 built by `packages/compiler/test/embed-structural-slicing.test.ts`, which pins this
 sentence; `npm run build:demo` emits the same bytes because both now build with ONE fold
-map, `embedDefines` in `packages/compiler/bin/embed-entry.ts`). The G10 widget law is 40,960 bytes, so **33
+map, `embedDefines` in `packages/compiler/bin/embed-entry.ts`). The G10 widget law is 40,960 bytes, so **21
 bytes of headroom remain** (the moved row: `__DSX_OPTIONAL_CONTROL_METRICS__` - the density
 plane's toggle, slider, field and textarea metrics are read by the control sheets and by
 nothing else, so a widget that imports none of them stopped shipping 28 token declarations

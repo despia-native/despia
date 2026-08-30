@@ -1346,3 +1346,24 @@ capture rig suppresses transitions on the pieces it toggles, so an application t
 test now proves the behaviour rather than only its determinism: one scene, no film track, one
 `<set>`, and the frame hashes must DIFFER across the transition and then settle - the assertion
 the old suppression would fail.
+
+### R34 · Range chrome hid the glass container and missed the short min-track (2026-08-28)
+
+**Symptom.** `<rangeslider>` on iOS 26 had two live `UISlider` donors but did not
+look like `<slider>`: thumbs went flat, and a blue stub sat to the left of the
+low lens. XCUI stayed green.
+
+**Behind it.** `silenceTracks` treated any view named Track as disposable, so it
+hid the glass visual element that parents `_UILiquidLensView`. The 45% width
+gate then missed the low donor's min-track (78pt on a 338pt rail at value 20),
+which UISlider materializes after the first layout.
+
+**Where we limited too much.** `RangeSlider.swift` `silenceTracks` and the
+host-drawn 4pt bar. The thumbs are the system part; so is the public iOS 26
+thumbless slider style. A named Track that still has children is the lens
+host, not the rail.
+
+**The opening.** Leaf-only silence, using the painted box, on every fill and on
+the next turn. Inactive rail and selected span are thumbless `UISlider`s
+clipped so the native min-track ends at each live lens centre. Pins:
+`ios_foundation_interaction_guards_test.rb`, the iPhone range XCUI cases.

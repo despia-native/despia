@@ -3017,6 +3017,155 @@
     "toFixed"
   ]);
 
+  // packages/kernel/dist/style-overrides.js
+  var NUMERIC = /^[+-]?(\d+\.?\d*|\.\d+)$/;
+  var HEX_COLOR = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/;
+  var FUNCTIONAL_COLOR = /^(rgb|rgba|hsl|hsla)\(/;
+  var COLOR_TOKEN = /^[A-Za-z]+$/;
+  function strictNumber(value) {
+    if (typeof value === "number")
+      return Number.isFinite(value) ? value : null;
+    if (typeof value === "string" && NUMERIC.test(value))
+      return parseFloat(value);
+    return null;
+  }
+  function clamp(value, decl) {
+    const min = strictNumber(decl.min ?? null);
+    const max = strictNumber(decl.max ?? null);
+    let out = value;
+    if (min !== null && out < min)
+      out = min;
+    if (max !== null && out > max)
+      out = max;
+    return out;
+  }
+  function scalarText(raw) {
+    if (typeof raw === "string")
+      return raw.trim();
+    if (typeof raw === "number")
+      return Number.isFinite(raw) ? String(raw) : null;
+    if (typeof raw === "boolean")
+      return raw ? "true" : "false";
+    return null;
+  }
+  function balancedFunctional(value) {
+    if (!value.endsWith(")"))
+      return false;
+    let depth = 0;
+    for (const ch of value) {
+      if (ch === "(")
+        depth += 1;
+      else if (ch === ")") {
+        depth -= 1;
+        if (depth < 0)
+          return false;
+      }
+    }
+    return depth === 0;
+  }
+  function coerce(decl, raw) {
+    if (raw === null || raw === void 0)
+      return null;
+    switch (decl.type ?? "text") {
+      case "number": {
+        if (typeof raw === "boolean")
+          return null;
+        const n = strictNumber(typeof raw === "string" ? raw.trim() : raw);
+        return n === null ? null : clamp(n, decl);
+      }
+      case "length": {
+        if (typeof raw === "boolean")
+          return null;
+        const text = scalarText(raw);
+        if (text === null || text.length === 0)
+          return null;
+        const n = strictNumber(text);
+        if (n !== null)
+          return clamp(n, decl);
+        if (text.includes(";") || text.includes("{") || text.includes("}"))
+          return null;
+        return text;
+      }
+      case "boolean": {
+        if (typeof raw === "boolean")
+          return raw;
+        if (raw === "true")
+          return true;
+        if (raw === "false")
+          return false;
+        return null;
+      }
+      case "enum": {
+        const text = scalarText(raw);
+        if (text === null || text.length === 0)
+          return null;
+        const options = (decl.options ?? "").split(/\s+/).filter((o) => o.length > 0);
+        return options.includes(text) ? text : null;
+      }
+      case "multiEnum": {
+        const text = scalarText(raw);
+        if (text === null || text.length === 0)
+          return null;
+        const options = (decl.options ?? "").split(/\s+/).filter((o) => o.length > 0);
+        const tokens = text.split(/\s+/).filter((t) => t.length > 0);
+        if (tokens.length === 0)
+          return null;
+        for (const token of tokens)
+          if (!options.includes(token))
+            return null;
+        return tokens.join(" ");
+      }
+      case "color": {
+        const text = scalarText(raw);
+        if (text === null || text.length === 0)
+          return null;
+        if (text.startsWith("#"))
+          return HEX_COLOR.test(text) ? text : null;
+        if (FUNCTIONAL_COLOR.test(text))
+          return balancedFunctional(text) ? text : null;
+        return COLOR_TOKEN.test(text) ? text : null;
+      }
+      case "gradient":
+      case "ratio": {
+        const text = scalarText(raw);
+        if (text === null || text.length === 0)
+          return null;
+        if (text.includes(";") || text.includes("{") || text.includes("}"))
+          return null;
+        return text;
+      }
+      case "css": {
+        const text = scalarText(raw);
+        if (text === null || text.length === 0)
+          return null;
+        if (text.includes("{") || text.includes("}"))
+          return null;
+        return text;
+      }
+      default: {
+        const text = scalarText(raw);
+        return text === null || text.length === 0 ? null : text;
+      }
+    }
+  }
+  function resolveOverride(decl, raw) {
+    const value = coerce(decl, raw);
+    if (value !== null)
+      return value;
+    if (decl.default !== void 0)
+      return coerce(decl, decl.default);
+    return null;
+  }
+  function resolveOverridePlane(decls, itemOverrides, storeOverrides) {
+    const out = {};
+    for (const decl of decls) {
+      const fromItem = itemOverrides?.[decl.as];
+      const raw = fromItem !== void 0 && fromItem !== null ? fromItem : storeOverrides?.[decl.as];
+      out[decl.as] = resolveOverride(decl, raw);
+    }
+    return out;
+  }
+
   // packages/kernel/dist/jse/jse.js
   var StackStore = class {
     vars = /* @__PURE__ */ new Map();
@@ -3037,6 +3186,8 @@
     // guards expression-evaluator recursion (capped at 64)
     attrDefaults = /* @__PURE__ */ new Map();
     // declared prop defaults: <attribute as="x" default="…"/>
+    overrideDecls = /* @__PURE__ */ new Map();
+    // declared style knobs: <override as="x" type="…" default="…"/>
     /** signal read hook — store.ts wires this so `lookup` reads track dependencies. */
     onVarRead = null;
   };
@@ -3945,13 +4096,13 @@
         }
         case "substring": {
           const chars = graphemes(string(base));
-          const clamp = (v) => {
+          const clamp2 = (v) => {
             if (v === null || Number.isNaN(v))
               return 0;
             return Math.min(Math.max(safeInt(v), 0), chars.length);
           };
-          let lo = clamp(number(a[0]));
-          let hi = a.length > 1 ? clamp(number(a[1])) : chars.length;
+          let lo = clamp2(number(a[0]));
+          let hi = a.length > 1 ? clamp2(number(a[1])) : chars.length;
           if (lo > hi) {
             const tmp = lo;
             lo = hi;
@@ -4222,6 +4373,8 @@
       const head = dot >= 0 ? body.substring(0, dot) : body;
       const rest = dot >= 0 ? body.substring(dot + 1) : "";
       const join = (base) => rest.length === 0 ? base : `${base}.${rest}`;
+      if (globalThis.__DSX_OPTIONAL_STYLE_OVERRIDES__ !== false && head === "override")
+        return join("override");
       switch (head) {
         case "variable":
         case "formula":
@@ -4297,10 +4450,31 @@
         JSESeams.onGlobalRead?.("route");
         return walk(parts, JSESeams.stateVars());
       }
+      if (first === "nav") {
+        JSESeams.onGlobalRead?.("nav");
+        return walk(parts, JSESeams.stateVars());
+      }
       if (first === "cookie") {
         JSESeams.onGlobalRead?.("cookie");
         const jar = JSESeams.cookieJar();
         return parts.length === 1 ? jar : walk(parts.slice(1), jar);
+      }
+      if (globalThis.__DSX_OPTIONAL_STYLE_OVERRIDES__ !== false && first === "override") {
+        store.onVarRead?.("dsx.override");
+        const itemRaw = item ? item["__overrides"] : void 0;
+        const itemOv = isDict(itemRaw) ? itemRaw : null;
+        const storeRaw = store.vars.get("dsx.override");
+        const storeOv = isDict(storeRaw) ? storeRaw : null;
+        if (parts.length === 1)
+          return resolveOverridePlane(store.overrideDecls.values(), itemOv, storeOv);
+        const name = parts[1];
+        const decl = store.overrideDecls.get(name);
+        if (decl === void 0)
+          return null;
+        const fromItem = itemOv?.[name];
+        const raw = fromItem !== void 0 && fromItem !== null ? fromItem : storeOv?.[name];
+        const v = resolveOverride(decl, raw);
+        return parts.length === 2 ? v : walk(parts.slice(2), v);
       }
       if (first === "item" || first === "attribute") {
         store.onVarRead?.("dsx.attribute");
@@ -4316,7 +4490,7 @@
         if (v === null && first === "attribute" && parts.length === 2) {
           const def = store.attrDefaults.get(parts[1]);
           if (def !== void 0)
-            return JSE.eval(def, store, item);
+            return def.trim() === "" ? "" : JSE.eval(def, store, item);
         }
         return v;
       }

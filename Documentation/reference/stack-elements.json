@@ -3248,13 +3248,17 @@
           "type": "number",
           "default": 0
         },
+        "on:change": {
+          "type": "action",
+          "default": null
+        },
         "step": {
           "type": "number",
           "default": null
         }
       },
       "events": [
-
+        "change"
       ],
       "example": "<rangeslider bindLow=\"dsx.variable.min\" bindHigh=\"dsx.variable.max\" min=\"0\" max=\"100\"/>",
       "source": "ClosedSource/DSX/Modules/Mandatory/Foundation/Components/Basics/RangeSlider/swift/RangeSlider.swift",

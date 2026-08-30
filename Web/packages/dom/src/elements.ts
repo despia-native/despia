@@ -514,7 +514,11 @@ const buttonEl: ElementFactory = (node, _ctx, api) => {
   if (node.attrs["variant"] !== undefined) {
     api.bindText(node.attrs["variant"], (v) => {
       const t = v.trim();
-      if (t.length > 0) e.setAttribute("data-dsx-variant", t);
+      // only the two variant WORDS stamp — an unknown word keeps the base rendering,
+      // which is what the other renderers already do (StackButtons.kt: "Unknown words
+      // keep the base rendering"); the bare [data-dsx-variant] rules (min-height,
+      // hover exclusions) must never fire for a word the grammar does not have
+      if (t === "bordered" || t === "prominent") e.setAttribute("data-dsx-variant", t);
       else e.removeAttribute("data-dsx-variant");
     });
   }
@@ -1584,7 +1588,9 @@ export function chartLinePath(
     }
     return path;
   }
-  const smooth = interpolation === "smooth" || interpolation === "monotone";
+  // "monotone" is the corpus word (Conformance/dataviz); a web-only "smooth" alias was the
+  // one-renderer divergence class this file no longer carries
+  const smooth = interpolation === "monotone";
   if (!smooth || points.length < 3) {
     return points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
   }

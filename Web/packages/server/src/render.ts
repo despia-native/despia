@@ -1368,13 +1368,14 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
     else if (value === "mixed") attrs.push('aria-pressed="mixed"');
   }
   // the system-space button words (system-defaults.md) — the SSR twin of elements.ts:
-  // variant stamps verbatim; role stamps ONLY the button-role words (data-dsx-role,
-  // never the DOM ARIA `role` attribute)
+  // variant stamps ONLY the two grammar words (an unknown word keeps the base
+  // rendering, like every other renderer); role stamps ONLY the button-role words
+  // (data-dsx-role, never the DOM ARIA `role` attribute)
   if (BUTTON_FAMILY_TAGS.has(node.tag)) {
     const variant = node.attrs["variant"];
     if (variant !== undefined) {
       const v = interp(ctx, variant).trim();
-      if (v.length > 0) attrs.push(`data-dsx-variant="${escapeHtml(v)}"`);
+      if (v === "bordered" || v === "prominent") attrs.push(`data-dsx-variant="${escapeHtml(v)}"`);
     }
     const roleWord = node.attrs["role"];
     if (roleWord !== undefined) {

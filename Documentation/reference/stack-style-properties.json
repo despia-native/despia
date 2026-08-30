@@ -248,10 +248,6 @@
                 "label": "Baseline (rows)"
               },
               {
-                "value": "stretch",
-                "label": "Stretch (fill cross axis)"
-              },
-              {
                 "value": "leading",
                 "label": "Leading (legacy word)"
               },
@@ -297,10 +293,6 @@
               {
                 "value": "trailing",
                 "label": "Trailing"
-              },
-              {
-                "value": "stretch",
-                "label": "Stretch (fill cross axis)"
               }
             ],
             "hstack": [
@@ -316,10 +308,6 @@
               {
                 "value": "bottom",
                 "label": "Bottom"
-              },
-              {
-                "value": "stretch",
-                "label": "Stretch (fill cross axis)"
               }
             ],
             "zstack": [

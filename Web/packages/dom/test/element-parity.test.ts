@@ -105,12 +105,14 @@ test("chartPalette maps semantic color tokens the same way color= does", () => {
   assert.equal(chartPalette(undefined, "currentColor")[0], "currentColor");
 });
 
-test("chartLinePath supports linear, smooth and step interpolation", () => {
+test("chartLinePath supports the corpus interpolation words; an unknown word keeps linear", () => {
   const pts = [{ x: 0, y: 10 }, { x: 10, y: 20 }, { x: 20, y: 10 }];
   assert.equal(chartLinePath(pts, "linear"), "M0.00 10.00 L10.00 20.00 L20.00 10.00");
   assert.equal(chartLinePath(pts, "step"), "M0.00 10.00 L10.00 10.00 L10.00 20.00 L20.00 20.00 L20.00 10.00");
-  assert.match(chartLinePath(pts, "smooth"), /^M0\.00 10\.00 C/);
   assert.match(chartLinePath(pts, "monotone"), /^M0\.00 10\.00 C/);
+  // "smooth" was a web-only alias no corpus, census or other renderer carried — retired;
+  // an unknown word renders the linear default, same as the natives
+  assert.equal(chartLinePath(pts, "smooth"), chartLinePath(pts, "linear"));
 });
 
 test("chart bounds 200k-point renders while preserving order, endpoints and extrema", () => {

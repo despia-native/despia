@@ -247,7 +247,7 @@
     "tooltipSide"
   ],
   "_harnessAttrsNote": "Attributes the MOUNT CONTRACT consumes on any element (layout words, row/binding words, icon/tooltip affordances) - allowed everywhere by the R9 attribute-vocabulary rule even where an element's own census does not list them. A word here is a harness seam, not an element attribute.",
-  "_cssHabitAttrsNote": "CSS property names written as ATTRIBUTES - the habit every ex-web author and every AI brings. Each maps to real style-plane vocabulary (dsx-css-properties.json), so the linters answer with the style= spelling instead of a census notice. Names that ARE element vocabulary (gap, position, inset, display) must stay out of this table; the runners skip any entry the census already admits.",
+  "_cssHabitAttrsNote": "CSS property names written as ATTRIBUTES - the habit every ex-web author and every AI brings. Each maps to real style-plane vocabulary (dsx-css-properties.json), so the linters answer with the style= spelling instead of a census notice; the kebab-case spelling of any mapped property (margin-top=) is the same habit and gets the same error. Names that ARE element vocabulary (gap, position, inset, display) must stay out of this table; the runners skip any entry the census already admits. cssHabitPxProps names the properties whose bare-number example value gets a px suffix in the message.",
   "cssHabitAttrs": {
     "margin": "margin",
     "marginTop": "margin-top",
@@ -279,5 +279,15 @@
     "fontStyle": "font-style",
     "textDecoration": "text-decoration",
     "transform": "transform"
-  }
+  },
+  "cssHabitPxProps": [
+    "margin",
+    "margin-top",
+    "margin-bottom",
+    "margin-left",
+    "margin-right",
+    "row-gap",
+    "column-gap",
+    "border-radius"
+  ]
 }

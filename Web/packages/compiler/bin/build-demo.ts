@@ -279,6 +279,16 @@ writeFileSync(join(site, "registry.json"), JSON.stringify(registry));
 // (the browser logs that as a console error, which the walk's error gate rightly refuses).
 writeFileSync(join(site, "DSXFontRegistry.json"), JSON.stringify({ families: {} }));
 
+// Every SSR page links /icon.svg (page-render.ts: "the build ALWAYS writes /icon.svg").
+// `despia build` does (cli build.ts appIconSvg — this is its demo twin); this builder did
+// not, so every demo page 404'd its favicon and the appearance walk's zero-page-error
+// gate went red the moment the favicon stopped being a data: URL.
+writeFileSync(join(site, "icon.svg"), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="96" fill="#111111"/>
+<text x="256" y="256" dy="0.36em" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="280" font-weight="700" fill="#ffffff">D</text>
+</svg>
+`);
+
 // ── 3. module web facets (file presence = the gate; missing facet = dsx.has false) ──
 // DISCOVERED, not listed. The comment above has always said file presence is the gate, and
 // until now a hand-maintained array was the real gate: 31 of the 57 facets on disk reached
@@ -799,6 +809,11 @@ const dynamicRoutePages: { pattern: string; page: string }[] = [];
       appName: "DSX demo",
       importMapJson: JSON.stringify(rebasedMap),
       mainSrc: `${up}main.js`,
+      // the demo mounts under /demo/site/, so the icon href carries that prefix,
+      // ABSOLUTE: Chromium re-resolves the favicon link against the URL after every
+      // pushState, so a depth-relative href breaks the moment the router navigates
+      // (absolute /icon.svg 404'd on every exported page before that)
+      iconHref: "/demo/site/icon.svg",
     }));
   };
   for (const route of routes) {

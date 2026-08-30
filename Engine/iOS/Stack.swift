@@ -656,13 +656,26 @@ public struct StackComponentContext {
         // re-enter `on:change`, so a handler that touches its own bound state can't ping-pong.
         let fireChange = attrs["on:change"] != nil && store.changeDepth == 0
         let before: Any? = fireChange ? boundValue(key) : nil
-        let k = Self.rowKey(key)
-        if k.hasPrefix("item."), let rw = rowWrite { rw(String(k.dropFirst(5)), value) }
-        else { store.writeBound(k, value) }
+        writeBack(key, value)
         guard fireChange, !JSE.equals(before, value) else { return }
         store.changeDepth += 1
         run("change")
         store.changeDepth -= 1
+    }
+
+    /// Write a bound value back where it came from WITHOUT firing `on:change` — the same routing
+    /// as `setBound`, minus the announcement. This is for a control NORMALIZING the author's own
+    /// value (a crossed or out-of-bounds pair repaired into the one lawful reading): a repair is
+    /// not an interaction, so it must not reach the author's handler
+    /// (`Conformance/elements/rangeslider.json` `behavior.programmaticRepair.emitsChange: false`
+    /// and `behavior.changeEvent.repairIsSilent`). Announcing a repair also LOOPS: a handler that
+    /// answers by writing a value the control must repair again is announced again, across render
+    /// passes that `changeDepth` cannot see. Twin of Kotlin `BoundControl.writeBack` and the web
+    /// `api.writeBack`, which both keep the repair off the announcing seam for this reason.
+    public func writeBack(_ key: String, _ value: Any) {
+        let k = Self.rowKey(key)
+        if k.hasPrefix("item."), let rw = rowWrite { rw(String(k.dropFirst(5)), value) }
+        else { store.writeBound(k, value) }
     }
 
     /// Normalize a bind key for ROW routing: `dsx.this.x` / `dsx.item.x` → `item.x` (the current

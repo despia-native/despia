@@ -35,6 +35,9 @@ export type ShellOptions = {
   lang?: string;
   /** web app manifest href — presence emits the `<link rel="manifest">` (the PWA face) */
   manifestHref?: string;
+  /** favicon href — the build always writes /icon.svg at ITS root, but a site mounted
+   *  under a prefix (the repo demo at /demo/site/) must say where that root is */
+  iconHref?: string;
 };
 
 /** `./`-relative shell references (mainSrc, import-map targets) are authored against the
@@ -326,7 +329,7 @@ function assembleDocument(
   // The build ALWAYS writes /icon.svg (a project icon in public/ wins by name; the
   // generated initial is the floor), and the manifest already points at it — a blanked
   // tab icon beside an installable manifest icon was the same app wearing two faces.
-  head.push(`<link rel="icon" href="/icon.svg" type="image/svg+xml">`);
+  head.push(`<link rel="icon" href="${escapeHtml(opts.iconHref ?? "/icon.svg")}" type="image/svg+xml">`);
   if (opts.manifestHref !== undefined) head.push(`<link rel="manifest" href="${escapeHtml(opts.manifestHref)}">`);
   head.push(`<style>${escapeStyleText(LAYER_STATEMENT)}</style>`);
   head.push(`<style>${escapeStyleText(TOKENS_CSS)}</style>`);

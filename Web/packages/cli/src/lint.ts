@@ -34,59 +34,31 @@ export type AttributeCensus = {
   harness: Set<string>;
   /** The style-plane VALUE grammar (R9v), from the same catalog: alias spelling → canonical
    *  key, then the typed grammars. The runtimes drop an unparseable value as silently as an
-   *  unknown attribute, so `width="100%"` and `fontWeight="800"` have to die here. */
+   *  unknown attribute, so `width="100%"` and `spacing="0.5rem"` have to die here. */
   styleAlias: Map<string, string>;
   styleNumber: Map<string, string>;
   styleLength: Set<string>;
   styleEnums: Map<string, Set<string>>;
   styleEnumsByElement: Map<string, Map<string, Set<string>>>;
+  /** An element's OWN declaration owns its value space: <canvas scale="device"/> is the
+   *  element's string contract, not the style plane's number — so per-element metadata
+   *  (type + enum) rides along and wins over the style tables. */
+  attrMeta: Map<string, Map<string, { type?: string; enum?: string[] }>>;
+  /** facts.json cssHabitAttrs (+ cssHabitPxProps): CSS properties written as attributes. */
+  cssHabits: Map<string, string>;
+  cssHabitValues: Set<string>;
+  cssHabitPx: Set<string>;
 };
 
-/** CSS property names written as ATTRIBUTES — the habit every ex-web author (and every AI)
- *  brings. Each is real vocabulary in exactly one place, the style plane
- *  (dsx-css-properties.json), so the fix is a spelling move, not a rejection: the message
- *  hands back the style= form verbatim. Names that ARE element vocabulary (gap, position,
- *  inset, display) stay out of this map by construction. */
-export const CSS_HABIT_ATTRS = new Map<string, string>([
-  ["margin", "margin"],
-  ["marginTop", "margin-top"],
-  ["marginBottom", "margin-bottom"],
-  ["marginLeft", "margin-left"],
-  ["marginRight", "margin-right"],
-  ["flex", "flex"],
-  ["flexGrow", "flex-grow"],
-  ["flexShrink", "flex-shrink"],
-  ["flexBasis", "flex-basis"],
-  ["flexWrap", "flex-wrap"],
-  ["order", "order"],
-  ["justifyContent", "justify-content"],
-  ["justifySelf", "justify-self"],
-  ["alignSelf", "align-self"],
-  ["alignContent", "align-content"],
-  ["rowGap", "row-gap"],
-  ["columnGap", "column-gap"],
-  ["lineHeight", "line-height"],
-  ["textTransform", "text-transform"],
-  ["whiteSpace", "white-space"],
-  ["overflow", "overflow"],
-  ["overflowX", "overflow-x"],
-  ["overflowY", "overflow-y"],
-  ["borderRadius", "border-radius"],
-  ["border", "border"],
-  ["boxShadow", "box-shadow"],
-  ["backgroundColor", "background"],
-  ["fontStyle", "font-style"],
-  ["textDecoration", "text-decoration"],
-  ["transform", "transform"],
-]);
-
-const CSS_HABIT_PX = new Set(["margin", "margin-top", "margin-bottom", "margin-left", "margin-right", "row-gap", "column-gap", "border-radius"]);
-
-export function cssHabitError(tag: string, key: string, base: string, rawValue: string): string | null {
-  const css = CSS_HABIT_ATTRS.get(base);
+/** A CSS property written as an ATTRIBUTE — the habit every ex-web author (and every AI)
+ *  brings, in either spelling (marginTop= or margin-top=). Real vocabulary in exactly one
+ *  place, the style plane, so the message hands back the style= form (facts.json
+ *  cssHabitAttrs, shipped with the census). */
+export function cssHabitError(census: AttributeCensus, tag: string, key: string, base: string, rawValue: string): string | null {
+  const css = census.cssHabits.get(base) ?? (census.cssHabitValues.has(base) ? base : undefined);
   if (css === undefined) return null;
   const v = rawValue.trim();
-  const spelled = /^-?\d+(\.\d+)?$/.test(v) && CSS_HABIT_PX.has(css) ? `${v}px` : v;
+  const spelled = /^-?\d+(\.\d+)?$/.test(v) && census.cssHabitPx.has(css) ? `${v}px` : v;
   return `<${tag}> ${key}=: not an attribute this element honours - ${css} is CSS and lives on the style plane: `
     + `style="${css}: ${spelled === "" ? "…" : spelled}". The runtime drops unknown attributes silently, `
     + `so the element renders as if you never wrote it.`;
@@ -763,15 +735,10 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
           if (base.startsWith("on:") || base.startsWith("__")) continue;
           const styleError = styleValueError(ctx.census, catalogTag, t.tag, key, base, value);
           if (styleError !== null) report("error", t.line, styleError);
-          const habit = cssHabitError(t.tag, key, base, value);
-          if (habit !== null
-              && !known.has(base) && !ctx.census.universal.has(base) && !ctx.census.childMarkers.has(base)
-              && !ctx.census.harness.has(base) && !ctx.census.styleKeys.has(base)) {
-            report("error", t.line, habit);
-            continue;
-          }
           if (known.has(base) || ctx.census.universal.has(base) || ctx.census.childMarkers.has(base)) continue;
           if (ctx.census.harness.has(base) || ctx.census.styleKeys.has(base)) continue;
+          const habit = cssHabitError(ctx.census, t.tag, key, base, value);
+          if (habit !== null) { report("error", t.line, habit); continue; }
           const confusion = ATTR_CONFUSIONS.get(`${catalogTag}\u0000${base}`);
           const candidates = [...known, ...ctx.census.universal, ...ctx.census.harness, ...ctx.census.styleKeys];
           let nearest = confusion ?? candidates[0] ?? "";
@@ -1006,13 +973,23 @@ export function readAttributeCensus(elementsPath: string, stylePath: string, fac
     const style = JSON.parse(readFileSync(stylePath, "utf8")) as {
       groups: Array<{ properties: Array<StyleCatalogProperty> }>;
     };
-    const facts = JSON.parse(readFileSync(factsPath, "utf8")) as { harnessAttrs?: string[] };
+    const facts = JSON.parse(readFileSync(factsPath, "utf8")) as {
+      harnessAttrs?: string[]; cssHabitAttrs?: { [attr: string]: string }; cssHabitPxProps?: string[];
+    };
     const attrs = new Map<string, Set<string>>();
     const structural = new Set<string>();
+    const attrMeta = new Map<string, Map<string, { type?: string; enum?: string[] }>>();
     for (const [tag, el] of Object.entries(elements.elements)) {
       attrs.set(tag, new Set(Object.keys(el.attributes ?? {})));
+      attrMeta.set(tag, new Map(Object.entries(el.attributes ?? {}).map(([name, meta]) => {
+        const m = (meta ?? {}) as { type?: string; enum?: string[] };
+        return [name, { type: m.type, enum: m.enum }];
+      })));
       if (el.category === "structural") structural.add(tag);
     }
+    const cssHabits = new Map(Object.entries(facts.cssHabitAttrs ?? {}));
+    const cssHabitValues = new Set(cssHabits.values());
+    const cssHabitPx = new Set(facts.cssHabitPxProps ?? []);
     const properties = style.groups.flatMap((g) => g.properties);
     const styleAlias = new Map<string, string>();
     const styleNumber = new Map<string, string>();
@@ -1046,6 +1023,7 @@ export function readAttributeCensus(elementsPath: string, stylePath: string, fac
       styleKeys: new Set([...properties.map((pr) => pr.key), ...styleAlias.keys()]),
       harness: new Set(facts.harnessAttrs ?? []),
       styleAlias, styleNumber, styleLength, styleEnums, styleEnumsByElement,
+      attrMeta, cssHabits, cssHabitValues, cssHabitPx,
     };
   } catch {
     return null;
@@ -1071,6 +1049,19 @@ export function styleValueError(
   if (rawValue.includes("{{")) return null;
   const value = rawValue.trim();
   if (value === "") return null;
+  // An element's OWN declaration owns the value space: <canvas scale="device"/> is the
+  // element's string, not the style plane's number. Number/enum metadata still validates.
+  const own = census.attrMeta.get(catalogTag)?.get(base);
+  if (own !== undefined) {
+    if (own.type === "number") {
+      if (STYLE_NUMBER_RE.test(value)) return null;
+      return `<${tag}> ${key}="${value}": ${key}= takes a plain number on <${catalogTag}> — the value does not parse and is dropped silently, so the element renders as if you never wrote it.`;
+    }
+    if (own.type === "enum" && (own.enum?.length ?? 0) >= 2 && !own.enum!.includes(value)) {
+      return `<${tag}> ${key}="${value}": ${key}= is one of ${own.enum!.join(" | ")} on <${catalogTag}> — an unknown word is dropped silently and the element renders with the default (stack-elements.json owns the vocabulary).`;
+    }
+    return null;
+  }
   const canonical = census.styleAlias.get(base) ?? base;
   const sizeHint = /^(width|height|minWidth|maxWidth|minHeight|maxHeight)$/.test(canonical)
     ? ` grow="width" fills the parent; percents live on the CSS plane (style="width: 100%").`
@@ -1086,6 +1077,12 @@ export function styleValueError(
   if (census.styleLength.has(canonical)) {
     if (STYLE_NUMBER_RE.test(value) || value === "fit" || value === "fit-content") return null;
     return percent ?? `<${tag}> ${key}="${value}": ${key}= takes a number in points or fit — the value does not parse and is dropped silently, so the element renders as if you never wrote it.`;
+  }
+  // A bare numeric weight is deliberate iOS behavior (DSXFontBook.cssWeight: "a designer
+  // handed a 350 does not want it rounded to a word first"), so 1..1000 is lawful.
+  if (canonical === "fontWeight" && STYLE_NUMBER_RE.test(value)) {
+    const n = Number(value);
+    return n >= 1 && n <= 1000 ? null : `<${tag}> ${key}="${value}": ${key}= takes one of the weight words or a number 1..1000 — the value is dropped silently.`;
   }
   const byElement = census.styleEnumsByElement.get(canonical);
   const allowed = byElement !== undefined ? byElement.get(catalogTag) : census.styleEnums.get(canonical);

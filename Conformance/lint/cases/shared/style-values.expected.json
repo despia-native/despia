@@ -43,5 +43,10 @@
     "line": 11,
     "level": "error",
     "rule": "attr-unknown"
+  },
+  {
+    "line": 12,
+    "level": "error",
+    "rule": "attr-unknown"
   }
 ]
