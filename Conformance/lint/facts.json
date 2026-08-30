@@ -1,5 +1,5 @@
 {
-  "_note": "The SHARED lint rule FACTS (doc 09 'Linter strategy — one rule source, two runners', step 1): the ground-truth tables both runners load — ClosedSource/scripts/lint_dsx.rb (the authoritative repo gate, unchanged rules) and the TS linter (OpenSource/Web/packages/compiler/src/lint.ts, the dev-loop twin). Rule FACTS live here so they cannot drift; rule LOGIC lives in each runner and is anti-drifted by the fixture corpus beside this file (cases/ + expected diagnostics, both runners in CI). Editing a table here changes BOTH linters at once — run both gates.",
+  "_note": "The SHARED lint rule FACTS (doc 09 'Linter strategy \u2014 one rule source, two runners', step 1): the ground-truth tables both runners load \u2014 ClosedSource/scripts/lint_dsx.rb (the authoritative repo gate, unchanged rules) and the TS linter (OpenSource/Web/packages/compiler/src/lint.ts, the dev-loop twin). Rule FACTS live here so they cannot drift; rule LOGIC lives in each runner and is anti-drifted by the fixture corpus beside this file (cases/ + expected diagnostics, both runners in CI). Editing a table here changes BOTH linters at once \u2014 run both gates.",
   "builtinTags": [
     "stack",
     "vstack",
@@ -194,7 +194,7 @@
     "component": 11
   },
   "headComputedRank": 5,
-  "headOrderHint": "attribute → override → expects → event/input/tool → api/variable (plain → computed) → formula → action → script → watch → style → component",
+  "headOrderHint": "attribute \u2192 override \u2192 expects \u2192 event/input/tool \u2192 api/variable (plain \u2192 computed) \u2192 formula \u2192 action \u2192 script \u2192 watch \u2192 style \u2192 component",
   "handlerMaxStatements": 2,
   "handlerMaxChars": 120,
   "identifierTags": [
@@ -246,5 +246,38 @@
     "tooltip",
     "tooltipSide"
   ],
-  "_harnessAttrsNote": "Attributes the MOUNT CONTRACT consumes on any element (layout words, row/binding words, icon/tooltip affordances) - allowed everywhere by the R9 attribute-vocabulary rule even where an element's own census does not list them. A word here is a harness seam, not an element attribute."
+  "_harnessAttrsNote": "Attributes the MOUNT CONTRACT consumes on any element (layout words, row/binding words, icon/tooltip affordances) - allowed everywhere by the R9 attribute-vocabulary rule even where an element's own census does not list them. A word here is a harness seam, not an element attribute.",
+  "_cssHabitAttrsNote": "CSS property names written as ATTRIBUTES - the habit every ex-web author and every AI brings. Each maps to real style-plane vocabulary (dsx-css-properties.json), so the linters answer with the style= spelling instead of a census notice. Names that ARE element vocabulary (gap, position, inset, display) must stay out of this table; the runners skip any entry the census already admits.",
+  "cssHabitAttrs": {
+    "margin": "margin",
+    "marginTop": "margin-top",
+    "marginBottom": "margin-bottom",
+    "marginLeft": "margin-left",
+    "marginRight": "margin-right",
+    "flex": "flex",
+    "flexGrow": "flex-grow",
+    "flexShrink": "flex-shrink",
+    "flexBasis": "flex-basis",
+    "flexWrap": "flex-wrap",
+    "order": "order",
+    "justifyContent": "justify-content",
+    "justifySelf": "justify-self",
+    "alignSelf": "align-self",
+    "alignContent": "align-content",
+    "rowGap": "row-gap",
+    "columnGap": "column-gap",
+    "lineHeight": "line-height",
+    "textTransform": "text-transform",
+    "whiteSpace": "white-space",
+    "overflow": "overflow",
+    "overflowX": "overflow-x",
+    "overflowY": "overflow-y",
+    "borderRadius": "border-radius",
+    "border": "border",
+    "boxShadow": "box-shadow",
+    "backgroundColor": "background",
+    "fontStyle": "font-style",
+    "textDecoration": "text-decoration",
+    "transform": "transform"
+  }
 }

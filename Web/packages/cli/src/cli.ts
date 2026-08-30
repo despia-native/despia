@@ -685,14 +685,22 @@ export function lintContext(
     seen.add(packageRoot);
     foldPackage(packageRoot, pool, schemes, componentFiles(packageRoot));
   }
-  const repo = findRepoRoot(anchor);
-  const styleEjects = repo === null
-    ? new Set<string>()
-    : readStyleEjects(join(repo, "OpenSource/Documentation/reference/stack-style-properties.json"));
-  const census = repo === null ? null : readAttributeCensus(
-    join(repo, "OpenSource/Documentation/reference/stack-elements.json"),
-    join(repo, "OpenSource/Documentation/reference/stack-style-properties.json"),
-    join(repo, "OpenSource/Conformance/lint/facts.json"),
+  // The reference catalogs: a despia-framework checkout wins (dev-loop freshness); outside
+  // one, the copies the package ships (dist/src/reference, prepack's copy:document) serve —
+  // WITHOUT them `dsx lint` silently stood down on the whole attribute census exactly where
+  // most users run it, which is where an AI author needs the census most.
+  // Anchor first (an in-repo project), then the toolchain's own location (the monorepo's
+  // dev bin pointed at an outside project); a shipped install resolves neither.
+  const repo = findRepoRoot(anchor) ?? findRepoRoot(fileURLToPath(import.meta.url));
+  const shipped = join(dirname(fileURLToPath(import.meta.url)), "reference");
+  const reference = (name: string): string => repo === null
+    ? join(shipped, name)
+    : join(repo, "OpenSource/Documentation/reference", name);
+  const styleEjects = readStyleEjects(reference("stack-style-properties.json"));
+  const census = readAttributeCensus(
+    reference("stack-elements.json"),
+    reference("stack-style-properties.json"),
+    repo === null ? join(shipped, "lint-facts.json") : join(repo, "OpenSource/Conformance/lint/facts.json"),
   );
   return {
     pool,

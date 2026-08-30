@@ -1,0 +1,12 @@
+<vstack padding="12">
+  <head>
+    <variable as="n">return 1</variable>
+  </head>
+  <text value="ok" paddingX="8" fullBleed="top"/>
+  <vstack width="100%" grow="stretch"/>
+  <hstack spacing="0.5rem" align="space-between"/>
+  <text value="w" fontWeight="800" width="fit"/>
+  <text value="b" fontSize="{{ n }}" radius="50%"/>
+  <text value="m" marginTop="12"/>
+  <hstack justifyContent="space-between" flexGrow="1"/>
+</vstack>

@@ -2164,12 +2164,15 @@ const qrcode: ElementFactory = (node, _ctx, api) => {
   return wrap;
 };
 
-/** honest placeholder for native-only elements (X-tier, /web/08) — never a crash */
+/** honest placeholder for anything no factory renders (X-tier, /web/08) — never a crash.
+ *  The label covers BOTH ways a tag lands here: a catalogued element with no web twin, and
+ *  a tag that is not DSX at all. The old wording ("native-only on this platform") asserted
+ *  the first for every hallucinated <div>, which taught exactly the wrong lesson. */
 const unsupported: ElementFactory = (node, _ctx, api) => {
   const e = el("div", "dsx-unsupported");
   e.dataset["tag"] = node.tag;
   const label = el("span", "dsx-unsupported-label");
-  label.textContent = `<${node.tag}> — native-only on this platform`;
+  label.textContent = `<${node.tag}> — no web element for this tag (a typo, or native-only)`;
   e.appendChild(label);
   api.children(e);
   return e;

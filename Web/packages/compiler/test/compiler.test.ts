@@ -456,7 +456,9 @@ test("cssmap: reactive style values can't inject extra declarations (SSR/XSS)", 
   assert.ok(!/[;{}<>]/.test(mapStyleValue("color", evil)), "declaration separators stripped");
   assert.ok(!/[;{}<>]/.test(mapStyleValue("background", "x}html{display:none")), "braces stripped");
   assert.ok(!/[;{}<>]/.test(mapStyleValue("color", "a<script>")), "angle brackets stripped");
-  assert.ok(!/[;{}<>]/.test(legacyAttrToDecls("padding", "1;position:fixed")![0]![1]), "bridge attr neutralized");
+  // the pt-attribute plane is number-typed on every renderer now: a payload that is not a
+  // plain number contributes NOTHING, which retires this injection class outright
+  assert.deepEqual(legacyAttrToDecls("padding", "1;position:fixed"), [], "bridge attr: non-number maps to no declaration");
   // legit values pass through untouched
   assert.equal(mapStyleValue("color", "rgb(1, 2, 3)"), "rgb(1, 2, 3)");
   assert.equal(mapStyleValue("width", "calc(100% - 10px)"), "calc(100% - 10px)");

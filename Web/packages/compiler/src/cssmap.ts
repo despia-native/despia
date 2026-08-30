@@ -149,11 +149,27 @@ export function splitStyleAttr(style: string): { staticDecls: Decl[]; reactiveDe
   return { staticDecls, reactiveDecls };
 }
 
-/** a numeric attr value → px; anything else passes through (injection-neutralized, since a
- *  reactive bridge attr like `padding="{{ x }}"` reaches here with untrusted data) */
-function px(value: string): string {
+/** The pt-attribute plane is NUMBER-typed on every renderer: the native parsers read a
+ *  Double and drop anything else, while this twin used to pass the raw string through to
+ *  CSS — which is how `width="100%"` worked in exactly one renderer and taught authors a
+ *  contract the other three refuse. A non-number now contributes NOTHING, same as native;
+ *  the linter (style-value-number) is where the author hears about it. */
+function ptOrNull(value: string): string | null {
   const v = value.trim();
-  return /^-?\d+(\.\d+)?$/.test(v) ? `${v}px` : neutralizeCssValue(v);
+  return /^-?\d+(\.\d+)?$/.test(v) ? `${v}px` : null;
+}
+
+function ptDecl(property: string, value: string): Decl[] {
+  const v = ptOrNull(value);
+  return v === null ? [] : [[property, v]];
+}
+
+/** `width="fit"` / `"fit-content"` — the hug primitive (StackReference "Fit-content").
+ *  It reached the browser as `width: fit` (invalid, dropped), so the one thing fit exists
+ *  for — collapsing a greedy descendant to its content — never happened on this renderer. */
+function fitOrNull(value: string): string | null {
+  const v = value.trim();
+  return v === "fit" || v === "fit-content" ? "fit-content" : null;
 }
 
 const ALIGN_MAP: { [k: string]: Decl[] } = {
@@ -216,11 +232,11 @@ function legacyAttrToDeclsFull(
       return ALIGN_ITEMS.has(value) ? [["align-items", value]] : [];
     case "display":
       return DISPLAYS.has(value) ? [["display", value]] : [];
-    case "padding": return [["padding", px(value)]];
-    case "radius": return [["border-radius", px(value)]];
+    case "padding": return ptDecl("padding", value);
+    case "radius": return ptDecl("border-radius", value);
     case "background": return [["background", mapStyleValue("background", value)]];
     case "color": return [["color", mapStyleValue("color", value)]];
-    case "spacing": return [["gap", px(value)]];
+    case "spacing": return ptDecl("gap", value);
     case "aspectRatio": {
       // The native bridge runs CSS -> attr and normalizes "16 / 9" to "16:9" (CssBridge.kt /
       // CSSBridge.swift); the web runs attr -> CSS, so it normalizes back. A bare number is a
@@ -244,14 +260,19 @@ function legacyAttrToDeclsFull(
     // minimum to the declared size restores the contract; an authored minWidth/minHeight
     // still wins (it maps after, and the author said so).
     case "width": {
-      const w = px(value);
+      const w = ptOrNull(value) ?? fitOrNull(value);
+      if (w === null) return [];
       return attrs?.["minWidth"] === undefined ? [["width", w], ["min-width", w]] : [["width", w]];
     }
     case "height": {
-      const h = px(value);
+      const h = ptOrNull(value) ?? fitOrNull(value);
+      if (h === null) return [];
       return attrs?.["minHeight"] === undefined ? [["height", h], ["min-height", h]] : [["height", h]];
     }
-    case "opacity": return [["opacity", neutralizeCssValue(value.trim())]];
+    case "opacity": {
+      const o = value.trim();
+      return /^-?\d+(\.\d+)?$/.test(o) ? [["opacity", o]] : [];
+    }
     // ---- the type attributes (Article 10) -------------------------------------------------
     // `fontSize`, `fontWeight`, `italic` and `letterSpacing` are style-catalogue attributes that
     // apply to any element and work on both native renderers. They were INERT here: not mapped,
@@ -259,7 +280,7 @@ function legacyAttrToDeclsFull(
     // became the theme's default in a browser. That is the defect Article 10 names.
     case "fontSize": {
       const size = value.trim();
-      if (!/^-?\d+(\.\d+)?$/.test(size)) return [["font-size", neutralizeCssValue(size)]];
+      if (!/^-?\d+(\.\d+)?$/.test(size)) return [];
       if (attrs?.["dynamicType"] !== "true") return [["font-size", `${size}px`]];
       // DYNAMIC TYPE, polyfilled. Native scales a FIXED point size with the OS text-size ramp
       // (@ScaledMetric on iOS; .sp is scale-aware on Compose). A browser exposes no per-element
@@ -274,36 +295,45 @@ function legacyAttrToDeclsFull(
       return [["font-size", capped ? `min(${scaled}, ${cap}px)` : scaled]];
     }
     case "fontWeight": {
-      const w = neutralizeCssValue(value.trim());
-      return [["font-weight", FONT_WEIGHTS[w] ?? (/^\d+$/.test(w) ? w : "400")]];
+      const w = value.trim();
+      return [["font-weight", FONT_WEIGHTS[w] ?? "400"]];
     }
     // A boolean attribute contributes NOTHING when false rather than `font-style: normal`, so it
     // cannot outrank an italic inherited from a class - the native `italic` is additive too.
     case "italic": return value.trim() === "true" ? [["font-style", "italic"]] : [];
-    case "letterSpacing": return [["letter-spacing", px(value)]];
+    case "letterSpacing": return ptDecl("letter-spacing", value);
     // ---- the size, spacing and effect attributes (Article 10) --------------------------------
     // Every one of these is catalogued as applying to any element and works on both native
     // renderers; all of them were INERT here. The style-attribute oracle found 37 in one run,
     // which is what a catalogue with no per-renderer column costs.
-    case "minWidth": return [["min-width", px(value)]];
-    case "maxWidth": return [["max-width", px(value)]];
-    case "minHeight": return [["min-height", px(value)]];
-    case "maxHeight": return [["max-height", px(value)]];
-    case "paddingH": return [["padding-inline", px(value)]];
-    case "paddingV": return [["padding-block", px(value)]];
-    case "paddingTop": return [["padding-top", px(value)]];
-    case "paddingBottom": return [["padding-bottom", px(value)]];
+    case "minWidth": return ptDecl("min-width", value);
+    case "maxWidth": return ptDecl("max-width", value);
+    case "minHeight": return ptDecl("min-height", value);
+    case "maxHeight": return ptDecl("max-height", value);
+    case "paddingH": return ptDecl("padding-inline", value);
+    case "paddingV": return ptDecl("padding-block", value);
+    case "paddingTop": return ptDecl("padding-top", value);
+    case "paddingBottom": return ptDecl("padding-bottom", value);
     // LEADING/TRAILING are writing-direction words, not left/right: the logical property is the
     // only spelling that stays correct under RTL, which is what the native edges do too.
-    case "paddingLeading": return [["padding-inline-start", px(value)]];
-    case "paddingTrailing": return [["padding-inline-end", px(value)]];
+    case "paddingLeading": return ptDecl("padding-inline-start", value);
+    case "paddingTrailing": return ptDecl("padding-inline-end", value);
     case "zIndex": return [["z-index", neutralizeCssValue(value.trim())]];
-    case "blur": return [["filter", `blur(${px(value)})`]];
-    case "tracking": return [["letter-spacing", px(value)]];
+    case "blur": {
+      const b = ptOrNull(value);
+      return b === null ? [] : [["filter", `blur(${b})`]];
+    }
+    case "tracking": return ptDecl("letter-spacing", value);
     // `lineSpacing` is EXTRA space between lines on both native renderers; CSS line-height is the
     // TOTAL. Adding it to one em is the polyfill, and it is exact for single-size text.
-    case "lineSpacing": return [["line-height", `calc(1em + ${px(value)})`]];
-    case "textAlign": return [["text-align", TEXT_ALIGNS[value.trim()] ?? neutralizeCssValue(value.trim())]];
+    case "lineSpacing": {
+      const extra = ptOrNull(value);
+      return extra === null ? [] : [["line-height", `calc(1em + ${extra})`]];
+    }
+    case "textAlign": {
+      const mapped = TEXT_ALIGNS[value.trim()];
+      return mapped === undefined ? [] : [["text-align", mapped]];
+    }
     case "textCase": {
       const mapped = TEXT_CASES[value.trim()];
       return mapped === undefined ? [] : [["text-transform", mapped]];
@@ -423,7 +453,7 @@ const FONT_DESIGNS: { [k: string]: string } = {
   default: "var(--dsx-font)",
 };
 
-const TEXT_ALIGNS: { [k: string]: string } = { leading: "start", center: "center", trailing: "end" };
+const TEXT_ALIGNS: { [k: string]: string } = { leading: "start", center: "center", trailing: "end", right: "end" };
 const TEXT_CASES: { [k: string]: string } = { upper: "uppercase", lower: "lowercase" };
 
 function num(value: string | undefined, fallback: number): number {

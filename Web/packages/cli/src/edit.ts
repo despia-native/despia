@@ -107,7 +107,7 @@ export interface EditorAssets {
  * `despia edit` must never stop working because the editor package is not installed.
  */
 export function resolveDsxEditor(projectRoot: string): string | null {
-  const candidates = [join(projectRoot, "node_modules", "@despia", "editor")];
+  const candidates = [join(projectRoot, "node_modules", "@despia-native", "editor")];
   let dir = dirname(fileURLToPath(import.meta.url));
   for (;;) {
     candidates.push(join(dir, "ClosedSource", "DSX", "Modules", "Custom", "Editor"));
@@ -137,7 +137,7 @@ export function resolveDsxEditor(projectRoot: string): string | null {
  *  views consume. Published shape first (a project's own node_modules), then the repo walk-up,
  *  the same two-step resolvePackage takes for the SDKs. */
 function resolveFlowPackage(projectRoot: string): string | null {
-  const candidates = [join(projectRoot, "node_modules", "@despia", "flow")];
+  const candidates = [join(projectRoot, "node_modules", "@despia-native", "flow")];
   let dir = dirname(fileURLToPath(import.meta.url));
   for (;;) {
     candidates.push(join(dir, "OpenSource", "Flow"));
@@ -161,7 +161,7 @@ function resolveAppsPackage(projectRoot: string): string | null {
 /** Published shape first (`node_modules/@despia-native/<npm>`), then the repo walk-up — the
  *  two-step every editor-build package takes. */
 function resolveRepoPackage(projectRoot: string, npm: string, repoRel: string): string | null {
-  const candidates = [join(projectRoot, "node_modules", "@despia", npm)];
+  const candidates = [join(projectRoot, "node_modules", "@despia-native", npm)];
   let dir = dirname(fileURLToPath(import.meta.url));
   for (;;) {
     candidates.push(join(dir, ...repoRel.split("/")));
@@ -253,7 +253,7 @@ function copyStudioFace(outDir: string): void {
 }
 
 function resolvePackage(projectRoot: string, npmName: string, repoFolder: string, files: [string, string]): { sdk: string; element: string; dir: string } | null {
-  const candidates = [join(projectRoot, "node_modules", "@despia", npmName)];
+  const candidates = [join(projectRoot, "node_modules", "@despia-native", npmName)];
   // the repo walk-up, from where this module actually runs (src/ or dist/src/)
   let dir = dirname(fileURLToPath(import.meta.url));
   for (;;) {
@@ -857,6 +857,8 @@ function referenceJson(name: string): unknown | null {
     if (parent === dir) break;
     dir = parent;
   }
+  // outside a checkout, the copies the package ships (dist/src/reference) are the catalogs
+  candidates.push(join(dirname(fileURLToPath(import.meta.url)), "reference", name));
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;
     try {

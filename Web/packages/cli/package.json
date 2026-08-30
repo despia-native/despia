@@ -49,7 +49,7 @@
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:5,retryDelay:50})\"",
     "build": "npm run clean && tsc -p tsconfig.build.json && npm run copy:document && node -e \"require('node:fs').chmodSync('dist/bin/dsx.js', 0o755)\"",
-    "copy:document": "node -e \"const f=require('node:fs');f.mkdirSync('dist/src',{recursive:true});f.copyFileSync('src/dsx.cli.dsx','dist/src/dsx.cli.dsx');f.copyFileSync('src/first-party-index.json','dist/src/first-party-index.json')\"",
+    "copy:document": "node -e \"const f=require('node:fs');f.mkdirSync('dist/src/reference',{recursive:true});f.copyFileSync('src/dsx.cli.dsx','dist/src/dsx.cli.dsx');f.copyFileSync('src/first-party-index.json','dist/src/first-party-index.json');f.copyFileSync('../../../Documentation/reference/stack-elements.json','dist/src/reference/stack-elements.json');f.copyFileSync('../../../Documentation/reference/stack-style-properties.json','dist/src/reference/stack-style-properties.json');f.copyFileSync('../../../Conformance/lint/facts.json','dist/src/reference/lint-facts.json')\"",
     "prepack": "node -e \"const f=require('node:fs');if(f.existsSync('src'))require('node:child_process').execFileSync(process.platform==='win32'?'npm.cmd':'npm',['run','build'],{stdio:'inherit'})\"",
     "test": "node --test test/*.test.ts"
   }

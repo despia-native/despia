@@ -571,7 +571,8 @@ function applicationUniversalAttributes(
   const grow = node.attrs["grow"];
   if (grow !== undefined) {
     const value = interp(ctx, grow);
-    if (value === "true" || value === "width" || value === "height") attrs.push(`data-dsx-grow="${value}"`);
+    if (value === "true" || value === "both") attrs.push(`data-dsx-grow="true"`);
+    else if (value === "width" || value === "height") attrs.push(`data-dsx-grow="${value}"`);
   }
   const theme = node.attrs["theme"];
   if (theme !== undefined) {
@@ -931,7 +932,8 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
   const grow = node.attrs["grow"];
   if (grow !== undefined) {
     const g = interp(ctx, grow);
-    if (g === "true" || g === "width" || g === "height") attrs.push(`data-dsx-grow="${g}"`);
+    if (g === "true" || g === "both") attrs.push(`data-dsx-grow="true"`);
+    else if (g === "width" || g === "height") attrs.push(`data-dsx-grow="${g}"`);
   }
   if (node.tag === "stack" && node.attrs["display"] !== undefined
       && interp(ctx, node.attrs["display"]) === "grid") {
@@ -1994,7 +1996,7 @@ function renderNode(node: XmlNode, ctx: RenderCtx): string {
       + `${headerInner}</button><div class="dsx-accordion-body"${open ? "" : " hidden"}>${body}</div>`;
     appendChildren = false;
   } else if (unsupported) {
-    inner = `<span class="dsx-unsupported-label">&lt;${escapeHtml(node.tag)}&gt; — native-only on this platform</span>`;
+    inner = `<span class="dsx-unsupported-label">&lt;${escapeHtml(node.tag)}&gt; — no web element for this tag (a typo, or native-only)</span>`;
   }
   if (appendChildren) inner += node.children.map((c) => renderNode(c, ctx)).join("");
 

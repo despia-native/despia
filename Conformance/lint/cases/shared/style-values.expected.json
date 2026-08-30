@@ -1,0 +1,47 @@
+[
+  {
+    "line": 6,
+    "level": "error",
+    "rule": "style-value-number"
+  },
+  {
+    "line": 6,
+    "level": "error",
+    "rule": "style-value-enum"
+  },
+  {
+    "line": 7,
+    "level": "error",
+    "rule": "style-value-number"
+  },
+  {
+    "line": 7,
+    "level": "error",
+    "rule": "style-value-enum"
+  },
+  {
+    "line": 8,
+    "level": "error",
+    "rule": "style-value-enum"
+  },
+  {
+    "line": 9,
+    "level": "error",
+    "rule": "style-value-number"
+  },
+  {
+    "line": 10,
+    "level": "error",
+    "rule": "attr-unknown"
+  },
+  {
+    "line": 11,
+    "level": "error",
+    "rule": "attr-unknown"
+  },
+  {
+    "line": 11,
+    "level": "error",
+    "rule": "attr-unknown"
+  }
+]

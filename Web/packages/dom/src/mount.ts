@@ -991,7 +991,10 @@ function wireVisualStyles(el: HTMLElement, node: XmlNode, ctx: MountCtx, api: El
   const grow = node.attrs["grow"];
   if (grow !== undefined) {
     api.bindText(grow, (v) => {
-      if (v === "true" || v === "width" || v === "height") el.setAttribute("data-dsx-grow", v);
+      // "both" is the catalogue's spelling of the two-axis fill (`true` is its alias
+      // here: the stamped value drives the axis rules, and true already means both)
+      if (v === "true" || v === "both") el.setAttribute("data-dsx-grow", "true");
+      else if (v === "width" || v === "height") el.setAttribute("data-dsx-grow", v);
       else el.removeAttribute("data-dsx-grow");
     });
   }

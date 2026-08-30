@@ -27,7 +27,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { BUILTIN_TAGS, GLOBAL_ELEMENT_TAGS, VALUELESS_INPUT_TAGS, lintSource, readAttributeCensus, type Finding, type LintContext } from "../src/lint.ts";
+import { BUILTIN_TAGS, CSS_HABIT_ATTRS, GLOBAL_ELEMENT_TAGS, VALUELESS_INPUT_TAGS, lintSource, readAttributeCensus, type Finding, type LintContext } from "../src/lint.ts";
 
 const repoRoot = join(import.meta.dirname, "../../../../..");
 
@@ -36,6 +36,7 @@ const facts = JSON.parse(readFileSync(join(lintDir, "facts.json"), "utf8")) as {
   builtinTags: string[];
   globalElementTags: string[];
   valuelessInputTags: string[];
+  cssHabitAttrs: { [attr: string]: string };
 };
 
 // lint_conformance.rb's RULE_MAP, ported verbatim: message → corpus rule id, anchored on
@@ -69,6 +70,8 @@ const RULE_MAP: Array<[RegExp, string]> = [
   [/never a binding — \{\{ \}\} belongs at the usage site/, "override-default-bound"],
   [/an invalid default resolves null/, "override-default"],
   [/override: is the component style contract/, "override-on-element"],
+  [/takes points, never a percent|takes a plain number|takes a number in points or fit/, "style-value-number"],
+  [/= is one of /, "style-value-enum"],
 ];
 
 function ruleOf(message: string): string | null {
@@ -111,6 +114,14 @@ test("GLOBAL_ELEMENT_TAGS equals facts.json globalElementTags — same tether as
     shipped,
     truth,
     "src/lint.ts GLOBAL_ELEMENT_TAGS diverged from Conformance/lint/facts.json — edit facts.json first, then mirror it here",
+  );
+});
+
+test("CSS_HABIT_ATTRS equals facts.json cssHabitAttrs — same tether as BUILTIN_TAGS", () => {
+  assert.deepEqual(
+    Object.fromEntries([...CSS_HABIT_ATTRS.entries()].sort()),
+    Object.fromEntries(Object.entries(facts.cssHabitAttrs).sort()),
+    "src/lint.ts CSS_HABIT_ATTRS diverged from Conformance/lint/facts.json — edit facts.json first, then mirror it here",
   );
 });
 

@@ -4,7 +4,7 @@
   "_note": "Which corpus is run by which runtime. A corpus with an empty `runtimes` is law nothing enforces; a corpus that LOSES a runtime is a rename that broke a runner. Detection is the literal path a runner uses to locate its fixtures, so the `referencedBy` file list is the evidence for every row.",
   "summary": {
     "corpora": 82,
-    "files": 384,
+    "files": 385,
     "cases": 6224,
     "onThreeRenderers": 66,
     "unrun": 0
@@ -1422,7 +1422,7 @@
     },
     {
       "corpus": "lint",
-      "files": 13,
+      "files": 14,
       "cases": 0,
       "readme": true,
       "runtimes": [

@@ -32,7 +32,65 @@ export type AttributeCensus = {
   childMarkers: Set<string>;
   styleKeys: Set<string>;
   harness: Set<string>;
+  /** The style-plane VALUE grammar (R9v), from the same catalog: alias spelling → canonical
+   *  key, then the typed grammars. The runtimes drop an unparseable value as silently as an
+   *  unknown attribute, so `width="100%"` and `fontWeight="800"` have to die here. */
+  styleAlias: Map<string, string>;
+  styleNumber: Map<string, string>;
+  styleLength: Set<string>;
+  styleEnums: Map<string, Set<string>>;
+  styleEnumsByElement: Map<string, Map<string, Set<string>>>;
 };
+
+/** CSS property names written as ATTRIBUTES — the habit every ex-web author (and every AI)
+ *  brings. Each is real vocabulary in exactly one place, the style plane
+ *  (dsx-css-properties.json), so the fix is a spelling move, not a rejection: the message
+ *  hands back the style= form verbatim. Names that ARE element vocabulary (gap, position,
+ *  inset, display) stay out of this map by construction. */
+export const CSS_HABIT_ATTRS = new Map<string, string>([
+  ["margin", "margin"],
+  ["marginTop", "margin-top"],
+  ["marginBottom", "margin-bottom"],
+  ["marginLeft", "margin-left"],
+  ["marginRight", "margin-right"],
+  ["flex", "flex"],
+  ["flexGrow", "flex-grow"],
+  ["flexShrink", "flex-shrink"],
+  ["flexBasis", "flex-basis"],
+  ["flexWrap", "flex-wrap"],
+  ["order", "order"],
+  ["justifyContent", "justify-content"],
+  ["justifySelf", "justify-self"],
+  ["alignSelf", "align-self"],
+  ["alignContent", "align-content"],
+  ["rowGap", "row-gap"],
+  ["columnGap", "column-gap"],
+  ["lineHeight", "line-height"],
+  ["textTransform", "text-transform"],
+  ["whiteSpace", "white-space"],
+  ["overflow", "overflow"],
+  ["overflowX", "overflow-x"],
+  ["overflowY", "overflow-y"],
+  ["borderRadius", "border-radius"],
+  ["border", "border"],
+  ["boxShadow", "box-shadow"],
+  ["backgroundColor", "background"],
+  ["fontStyle", "font-style"],
+  ["textDecoration", "text-decoration"],
+  ["transform", "transform"],
+]);
+
+const CSS_HABIT_PX = new Set(["margin", "margin-top", "margin-bottom", "margin-left", "margin-right", "row-gap", "column-gap", "border-radius"]);
+
+export function cssHabitError(tag: string, key: string, base: string, rawValue: string): string | null {
+  const css = CSS_HABIT_ATTRS.get(base);
+  if (css === undefined) return null;
+  const v = rawValue.trim();
+  const spelled = /^-?\d+(\.\d+)?$/.test(v) && CSS_HABIT_PX.has(css) ? `${v}px` : v;
+  return `<${tag}> ${key}=: not an attribute this element honours - ${css} is CSS and lives on the style plane: `
+    + `style="${css}: ${spelled === "" ? "…" : spelled}". The runtime drops unknown attributes silently, `
+    + `so the element renders as if you never wrote it.`;
+}
 
 /** The confusions people actually type, mapped to the element's own spelling. */
 const ATTR_CONFUSIONS = new Map<string, string>([
@@ -692,7 +750,7 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
         ? undefined
         : ctx.census.attrs.get(catalogTag);
       if (known !== undefined) {
-        for (const { key } of attrPairs(t.attrs)) {
+        for (const { key, value } of attrPairs(t.attrs)) {
           if (key.startsWith("override:")) {
             // the style contract is COMPONENT grammar: an element's attributes ARE its
             // style surface, so an override: here can only be a misplaced habit
@@ -703,6 +761,15 @@ export function lintSource(file: string, raw: string, ctx: LintContext): Finding
           let base = key.replace(/:(ios|android|watch|web|desktop|macos|windows|linux)$/, "");
           base = base.replace(/-(web|ios|android|watch|desktop)$/, "");
           if (base.startsWith("on:") || base.startsWith("__")) continue;
+          const styleError = styleValueError(ctx.census, catalogTag, t.tag, key, base, value);
+          if (styleError !== null) report("error", t.line, styleError);
+          const habit = cssHabitError(t.tag, key, base, value);
+          if (habit !== null
+              && !known.has(base) && !ctx.census.universal.has(base) && !ctx.census.childMarkers.has(base)
+              && !ctx.census.harness.has(base) && !ctx.census.styleKeys.has(base)) {
+            report("error", t.line, habit);
+            continue;
+          }
           if (known.has(base) || ctx.census.universal.has(base) || ctx.census.childMarkers.has(base)) continue;
           if (ctx.census.harness.has(base) || ctx.census.styleKeys.has(base)) continue;
           const confusion = ATTR_CONFUSIONS.get(`${catalogTag}\u0000${base}`);
@@ -937,7 +1004,7 @@ export function readAttributeCensus(elementsPath: string, stylePath: string, fac
       childMarkers: Record<string, unknown>;
     };
     const style = JSON.parse(readFileSync(stylePath, "utf8")) as {
-      groups: Array<{ properties: Array<{ key: string }> }>;
+      groups: Array<{ properties: Array<StyleCatalogProperty> }>;
     };
     const facts = JSON.parse(readFileSync(factsPath, "utf8")) as { harnessAttrs?: string[] };
     const attrs = new Map<string, Set<string>>();
@@ -946,18 +1013,86 @@ export function readAttributeCensus(elementsPath: string, stylePath: string, fac
       attrs.set(tag, new Set(Object.keys(el.attributes ?? {})));
       if (el.category === "structural") structural.add(tag);
     }
+    const properties = style.groups.flatMap((g) => g.properties);
+    const styleAlias = new Map<string, string>();
+    const styleNumber = new Map<string, string>();
+    const styleLength = new Set<string>();
+    const styleEnums = new Map<string, Set<string>>();
+    const styleEnumsByElement = new Map<string, Map<string, Set<string>>>();
+    const words = (options: Array<{ value: string; aliases?: string[] }>): Set<string> =>
+      new Set(options.flatMap((o) => [o.value, ...(o.aliases ?? [])]));
+    for (const p of properties) {
+      for (const alias of p.aliases ?? []) styleAlias.set(alias, p.key);
+      if (p.control === "number") styleNumber.set(p.key, p.unit ?? "");
+      else if (p.control === "length") styleLength.add(p.key);
+      else if (p.control === "enum") {
+        // A single-option enum (fontFamily's "system") is an OPEN vocabulary wearing an
+        // editor control; only a set of 2+ is a closed grammar worth enforcing.
+        if (p.options !== undefined && p.options.length >= 2) styleEnums.set(p.key, words(p.options));
+        if (p.optionsByElement !== undefined) {
+          styleEnumsByElement.set(p.key, new Map(
+            Object.entries(p.optionsByElement).map(([tag, options]) => [tag, words(options)]),
+          ));
+        }
+      }
+    }
     return {
       attrs,
       aliases: new Map(Object.entries(elements.aliases)),
       structural,
       universal: new Set(Object.keys(elements.universalAttributes)),
       childMarkers: new Set(Object.keys(elements.childMarkers)),
-      styleKeys: new Set(style.groups.flatMap((g) => g.properties.map((pr) => pr.key))),
+      // alias spellings (paddingX, offset, fullBleed, ...) are documented vocabulary too
+      styleKeys: new Set([...properties.map((pr) => pr.key), ...styleAlias.keys()]),
       harness: new Set(facts.harnessAttrs ?? []),
+      styleAlias, styleNumber, styleLength, styleEnums, styleEnumsByElement,
     };
   } catch {
     return null;
   }
+}
+
+type StyleCatalogProperty = {
+  key: string; control?: string; unit?: string; aliases?: string[];
+  options?: Array<{ value: string; aliases?: string[] }>;
+  optionsByElement?: Record<string, Array<{ value: string; aliases?: string[] }>>;
+};
+
+const STYLE_NUMBER_RE = /^-?\d+(\.\d+)?$/;
+const STYLE_UNIT_WORD: { [unit: string]: string } = { pt: " in points", deg: " in degrees", s: " in seconds", lines: " of lines" };
+
+/** R9v — the style-plane VALUE check. Returns the error message, or null when the value is
+ *  lawful, bound (`{{ }}`), or the key carries no closed grammar. The runtimes drop a value
+ *  they cannot parse exactly as silently as an unknown attribute, which is how
+ *  `width="100%"` renders full-width on one renderer's habits and as nothing on the rest. */
+export function styleValueError(
+  census: AttributeCensus, catalogTag: string, tag: string, key: string, base: string, rawValue: string,
+): string | null {
+  if (rawValue.includes("{{")) return null;
+  const value = rawValue.trim();
+  if (value === "") return null;
+  const canonical = census.styleAlias.get(base) ?? base;
+  const sizeHint = /^(width|height|minWidth|maxWidth|minHeight|maxHeight)$/.test(canonical)
+    ? ` grow="width" fills the parent; percents live on the CSS plane (style="width: 100%").`
+    : "";
+  const percent = /%$/.test(value)
+    ? `<${tag}> ${key}="${value}": ${key}= takes points, never a percent — every renderer drops the value, so the element renders as if you never wrote it.${sizeHint}`
+    : null;
+  const unit = census.styleNumber.get(canonical);
+  if (unit !== undefined) {
+    if (STYLE_NUMBER_RE.test(value)) return null;
+    return percent ?? `<${tag}> ${key}="${value}": ${key}= takes a plain number${STYLE_UNIT_WORD[unit] ?? ""} — the value does not parse and is dropped silently, so the element renders as if you never wrote it.`;
+  }
+  if (census.styleLength.has(canonical)) {
+    if (STYLE_NUMBER_RE.test(value) || value === "fit" || value === "fit-content") return null;
+    return percent ?? `<${tag}> ${key}="${value}": ${key}= takes a number in points or fit — the value does not parse and is dropped silently, so the element renders as if you never wrote it.`;
+  }
+  const byElement = census.styleEnumsByElement.get(canonical);
+  const allowed = byElement !== undefined ? byElement.get(catalogTag) : census.styleEnums.get(canonical);
+  if (allowed !== undefined && !allowed.has(value)) {
+    return `<${tag}> ${key}="${value}": ${key}= is one of ${[...allowed].join(" | ")} — an unknown word is dropped silently and the element renders with the default (stack-style-properties.json owns the vocabulary).`;
+  }
+  return null;
 }
 
 export function readStyleEjects(catalogPath: string): Set<string> {

@@ -44,6 +44,7 @@ type Facts = {
   keyedCollections: string[];
   valuelessInputTags?: string[];
   harnessAttrs?: string[];
+  cssHabitAttrs?: { [attr: string]: string };
 };
 
 /** Locate the SHARED facts file by walking up from this module (works from src and
@@ -76,6 +77,13 @@ type AttributeCensus = {
   childMarkers: Set<string>;
   styleKeys: Set<string>;
   harness: Set<string>;
+  /** R9v — the style-plane VALUE grammar from the same catalog (alias spelling →
+   *  canonical key, then the typed grammars); see the CLI twin for the rule's rationale. */
+  styleAlias: Map<string, string>;
+  styleNumber: Map<string, string>;
+  styleLength: Set<string>;
+  styleEnums: Map<string, Set<string>>;
+  styleEnumsByElement: Map<string, Map<string, Set<string>>>;
 };
 
 function loadCensus(): AttributeCensus | null {
@@ -95,7 +103,11 @@ function loadCensus(): AttributeCensus | null {
           childMarkers: Record<string, unknown>;
         };
         const style = JSON.parse(readFileSync(join(ref, "stack-style-properties.json"), "utf8")) as {
-          groups: Array<{ properties: Array<{ key: string }> }>;
+          groups: Array<{ properties: Array<{
+            key: string; control?: string; unit?: string; aliases?: string[];
+            options?: Array<{ value: string; aliases?: string[] }>;
+            optionsByElement?: Record<string, Array<{ value: string; aliases?: string[] }>>;
+          }> }>;
         };
         const attrs = new Map<string, Set<string>>();
         const structural = new Set<string>();
@@ -103,14 +115,38 @@ function loadCensus(): AttributeCensus | null {
           attrs.set(tag, new Set(Object.keys(el.attributes ?? {})));
           if (el.category === "structural") structural.add(tag);
         }
+        const properties = style.groups.flatMap((g) => g.properties);
+        const styleAlias = new Map<string, string>();
+        const styleNumber = new Map<string, string>();
+        const styleLength = new Set<string>();
+        const styleEnums = new Map<string, Set<string>>();
+        const styleEnumsByElement = new Map<string, Map<string, Set<string>>>();
+        const words = (options: Array<{ value: string; aliases?: string[] }>): Set<string> =>
+          new Set(options.flatMap((o) => [o.value, ...(o.aliases ?? [])]));
+        for (const p of properties) {
+          for (const alias of p.aliases ?? []) styleAlias.set(alias, p.key);
+          if (p.control === "number") styleNumber.set(p.key, p.unit ?? "");
+          else if (p.control === "length") styleLength.add(p.key);
+          else if (p.control === "enum") {
+            // a single-option enum (fontFamily's "system") is an OPEN vocabulary
+            if (p.options !== undefined && p.options.length >= 2) styleEnums.set(p.key, words(p.options));
+            if (p.optionsByElement !== undefined) {
+              styleEnumsByElement.set(p.key, new Map(
+                Object.entries(p.optionsByElement).map(([tag, options]) => [tag, words(options)]),
+              ));
+            }
+          }
+        }
         return {
           attrs,
           aliases: new Map(Object.entries(elements.aliases)),
           structural,
           universal: new Set(Object.keys(elements.universalAttributes)),
           childMarkers: new Set(Object.keys(elements.childMarkers)),
-          styleKeys: new Set(style.groups.flatMap((g) => g.properties.map((pr) => pr.key))),
+          // alias spellings (paddingX, offset, fullBleed, ...) are documented vocabulary too
+          styleKeys: new Set([...properties.map((pr) => pr.key), ...styleAlias.keys()]),
           harness: new Set(FACTS.harnessAttrs ?? []),
+          styleAlias, styleNumber, styleLength, styleEnums, styleEnumsByElement,
         };
       } catch {
         return null;
@@ -124,6 +160,40 @@ function loadCensus(): AttributeCensus | null {
 }
 
 /** The confusions people actually type, mapped to the element's own spelling. */
+const STYLE_NUMBER_RE = /^-?\d+(\.\d+)?$/;
+const STYLE_UNIT_WORD: { [unit: string]: string } = { pt: " in points", deg: " in degrees", s: " in seconds", lines: " of lines" };
+
+/** R9v — the style-plane VALUE check (wording twinned with the CLI's styleValueError). */
+function styleValueError(
+  census: AttributeCensus, catalogTag: string, tag: string, key: string, base: string, rawValue: string,
+): { rule: string; message: string } | null {
+  if (rawValue.includes("{{")) return null;
+  const value = rawValue.trim();
+  if (value === "") return null;
+  const canonical = census.styleAlias.get(base) ?? base;
+  const sizeHint = /^(width|height|minWidth|maxWidth|minHeight|maxHeight)$/.test(canonical)
+    ? ` grow="width" fills the parent; percents live on the CSS plane (style="width: 100%").`
+    : "";
+  const percent = /%$/.test(value)
+    ? `<${tag}> ${key}="${value}": ${key}= takes points, never a percent — every renderer drops the value, so the element renders as if you never wrote it.${sizeHint}`
+    : null;
+  const unit = census.styleNumber.get(canonical);
+  if (unit !== undefined) {
+    if (STYLE_NUMBER_RE.test(value)) return null;
+    return { rule: "style-value-number", message: percent ?? `<${tag}> ${key}="${value}": ${key}= takes a plain number${STYLE_UNIT_WORD[unit] ?? ""} — the value does not parse and is dropped silently, so the element renders as if you never wrote it.` };
+  }
+  if (census.styleLength.has(canonical)) {
+    if (STYLE_NUMBER_RE.test(value) || value === "fit" || value === "fit-content") return null;
+    return { rule: "style-value-number", message: percent ?? `<${tag}> ${key}="${value}": ${key}= takes a number in points or fit — the value does not parse and is dropped silently, so the element renders as if you never wrote it.` };
+  }
+  const byElement = census.styleEnumsByElement.get(canonical);
+  const allowed = byElement !== undefined ? byElement.get(catalogTag) : census.styleEnums.get(canonical);
+  if (allowed !== undefined && !allowed.has(value)) {
+    return { rule: "style-value-enum", message: `<${tag}> ${key}="${value}": ${key}= is one of ${[...allowed].join(" | ")} — an unknown word is dropped silently and the element renders with the default (stack-style-properties.json owns the vocabulary).` };
+  }
+  return null;
+}
+
 const ATTR_CONFUSIONS = new Map<string, string>([
   ["button value", "label"],
   ["text label", "value"],
@@ -149,6 +219,21 @@ function editDistance(a: string, b: string): number {
 
 const FACTS = loadFacts();
 const CENSUS = loadCensus();
+
+const CSS_HABITS = new Map<string, string>(Object.entries(FACTS.cssHabitAttrs ?? {}));
+const CSS_HABIT_PX = new Set(["margin", "margin-top", "margin-bottom", "margin-left", "margin-right", "row-gap", "column-gap", "border-radius"]);
+
+/** A CSS property written as an ATTRIBUTE: real vocabulary in exactly one place, the style
+ *  plane — the message hands back the style= spelling (facts.json cssHabitAttrs). */
+function cssHabitError(tag: string, key: string, base: string, rawValue: string): string | null {
+  const css = CSS_HABITS.get(base);
+  if (css === undefined) return null;
+  const v = rawValue.trim();
+  const spelled = /^-?\d+(\.\d+)?$/.test(v) && CSS_HABIT_PX.has(css) ? `${v}px` : v;
+  return `<${tag}> ${key}=: not an attribute this element honours — ${css} is CSS and lives on the style plane: `
+    + `style="${css}: ${spelled === "" ? "…" : spelled}". The runtime drops unknown attributes silently, `
+    + `so the element renders as if you never wrote it.`;
+}
 
 // ── the style-override plane (Conformance/overrides — twins of lint_dsx.rb's block) ──
 const OVERRIDE_TYPES = ["number", "length", "enum", "multiEnum", "color", "gradient", "ratio", "boolean", "text", "css"];
@@ -461,8 +546,9 @@ export function lintSource(source: string, opts: LintOptions = {}): LintDiagnost
         ? undefined
         : CENSUS.attrs.get(catalogTag);
       if (known !== undefined) {
-        for (const am of attrs.matchAll(/([\w:.-]+)\s*=\s*(?:"[^"]*"|'[^']*')/g)) {
+        for (const am of attrs.matchAll(/([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
           const key = am[1]!;
+          const value = am[2] ?? am[3] ?? "";
           if (key.startsWith("override:")) {
             // the style contract is COMPONENT grammar: an element's attributes ARE its
             // style surface, so an override: here can only be a misplaced habit
@@ -473,6 +559,15 @@ export function lintSource(source: string, opts: LintOptions = {}): LintDiagnost
           let base = key.replace(/:(ios|android|watch|web|desktop|macos|windows|linux)$/, "");
           base = base.replace(/-(web|ios|android|watch|desktop)$/, "");
           if (base.startsWith("on:") || base.startsWith("__")) continue;
+          const styleError = styleValueError(CENSUS, catalogTag, tag, key, base, value);
+          if (styleError !== null) report(line, "error", styleError.rule, styleError.message);
+          const habit = cssHabitError(tag, key, base, value);
+          if (habit !== null
+              && !known.has(base) && !CENSUS.universal.has(base) && !CENSUS.childMarkers.has(base)
+              && !CENSUS.harness.has(base) && !CENSUS.styleKeys.has(base)) {
+            report(line, "error", "attr-unknown", habit);
+            continue;
+          }
           if (known.has(base) || CENSUS.universal.has(base) || CENSUS.childMarkers.has(base)) continue;
           if (CENSUS.harness.has(base) || CENSUS.styleKeys.has(base)) continue;
           const confusion = ATTR_CONFUSIONS.get(`${catalogTag} ${base}`);

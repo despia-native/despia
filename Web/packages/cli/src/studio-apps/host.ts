@@ -105,7 +105,7 @@ export function resolveFirstPartyApps(projectRoot: string): string[] {
     if (parent === dir) break;
     dir = parent;
   }
-  const published = join(projectRoot, "node_modules", "@despia");
+  const published = join(projectRoot, "node_modules", "@despia-native");
   if (existsSync(published)) {
     for (const name of readdirSync(published).sort()) {
       if (!name.startsWith("app-")) continue;
@@ -291,7 +291,7 @@ export function resolveStudioApps(
 
 /** OpenSource/StudioKit, resolved like every editor package (node_modules first, walk-up) */
 export function resolveStudioKit(projectRoot: string): string | null {
-  const candidates = [join(projectRoot, "node_modules", "@despia", "studiokit")];
+  const candidates = [join(projectRoot, "node_modules", "@despia-native", "studiokit")];
   let dir = dirname(fileURLToPath(import.meta.url));
   for (;;) {
     candidates.push(join(dir, "OpenSource", "StudioKit"));

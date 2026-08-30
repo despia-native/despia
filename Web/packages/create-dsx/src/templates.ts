@@ -193,6 +193,37 @@ Rules the linter enforces (violations fail \`npm run lint\`):
   \`dsx.variable.*\`; row scope in a list is \`item\`; conditional display is
   \`visible-if="expr"\`.
 
+## The layout law (where AI-written DSX goes wrong)
+
+- **Layout is real CSS, written on \`style=\`.** Flexbox (\`gap\`,
+  \`justify-content\`, \`align-items\`, \`flex\`), sizing (\`width\`/\`max-width\`
+  in %, px, rem, em), \`position\`, margins, transforms - the CSS you already
+  know, on \`<stack style="...">\`. The same geometry is fixture-pinned on every
+  renderer; percents live here. Prefer this plane for all layout and typography.
+- **A CSS property is never an attribute.** \`marginTop="12"\`,
+  \`flexGrow="1"\`, \`justifyContent="space-between"\` do not exist - lint errors
+  with the exact \`style=\` spelling to use instead.
+- **Attributes are never styling - the React-props rule.** Attributes carry
+  data in (\`value=\`, \`src=\`, \`bind=\`), events out (\`on:tap\`), flags
+  (\`density=\`, \`variant=\`), accessibility, and lifecycle words (\`transition=\`,
+  \`enter=\`). ALL appearance is CSS on \`style=\`, the platform look included:
+  \`-dsx-surface: glass\`, \`-dsx-glass-tint\`, \`line-clamp\`, \`color-scheme\`.
+  The style-attribute spellings you will meet in older markup
+  (\`padding="16"\`, \`grow="width"\`) are the native plane your CSS compiles
+  onto and the dialect of widget / Live Activity surfaces (which have no CSS
+  engine) - read them freely, do not write them in app markup.
+- **Boxes hug their content.** A stack does NOT fill its parent; it sizes to its
+  children. A card whose children are all texts silently shrinks to its widest
+  line. Fill explicitly: \`style="width: 100%"\` (or \`grow="width"\`) on the card
+  itself, never rely on what is inside it. Distribution needs fill too:
+  \`justify-content: space-between\` in a hugging row does nothing.
+- **Two grammars, different defaults.** \`<stack>\` + CSS is web-true (unset gap =
+  0); \`<vstack>\`/\`<hstack>\` are fixed-axis presets with platform spacing and
+  their own \`align\` words (vstack: leading/center/trailing). Do not mix CSS
+  habits into the preset grammar.
+- **Look at it.** \`npx despia shot\` renders real screenshots from your documents
+  with no device or simulator; layout mistakes are visible, not inferable.
+
 ## The design bar (not optional)
 
 - Colors are semantic tokens first: \`label\`, \`secondary\`, \`tertiary\`,

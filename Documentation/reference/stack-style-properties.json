@@ -246,6 +246,42 @@
               {
                 "value": "baseline",
                 "label": "Baseline (rows)"
+              },
+              {
+                "value": "stretch",
+                "label": "Stretch (fill cross axis)"
+              },
+              {
+                "value": "leading",
+                "label": "Leading (legacy word)"
+              },
+              {
+                "value": "trailing",
+                "label": "Trailing (legacy word)"
+              },
+              {
+                "value": "top",
+                "label": "Top (legacy word)"
+              },
+              {
+                "value": "bottom",
+                "label": "Bottom (legacy word)"
+              },
+              {
+                "value": "topLeading",
+                "label": "Top Leading (overlap)"
+              },
+              {
+                "value": "topTrailing",
+                "label": "Top Trailing (overlap)"
+              },
+              {
+                "value": "bottomLeading",
+                "label": "Bottom Leading (overlap)"
+              },
+              {
+                "value": "bottomTrailing",
+                "label": "Bottom Trailing (overlap)"
               }
             ],
             "vstack": [
@@ -261,6 +297,10 @@
               {
                 "value": "trailing",
                 "label": "Trailing"
+              },
+              {
+                "value": "stretch",
+                "label": "Stretch (fill cross axis)"
               }
             ],
             "hstack": [
@@ -276,6 +316,10 @@
               {
                 "value": "bottom",
                 "label": "Bottom"
+              },
+              {
+                "value": "stretch",
+                "label": "Stretch (fill cross axis)"
               }
             ],
             "zstack": [

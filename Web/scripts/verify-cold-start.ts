@@ -17,7 +17,7 @@
 // the difference between "the build emitted files" and "the app runs".
 
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -108,6 +108,22 @@ if (!planned.includes("wrangler deploy --config deploy/cloudflare/wrangler.jsonc
 }
 console.log("[cold-start] deploy: the published build emits deploy/, and `despia deploy --plan` names the real command.");
 run(npm, ["exec", "--no", "--", "dsx", "lint", "--strict"], app);
+
+// The attribute census must ride the tarball (dist/src/reference): with no monorepo on the
+// path, a shipped `dsx lint` still judges vocabulary AND style values. A silent stand-down
+// here is the pre-0.0.2 behavior this probe exists to keep dead.
+writeFileSync(join(app, "Components", "CensusProbe.dsx"),
+  `<vstack>\n  <head>\n    <variable as="n">return 1</variable>\n  </head>\n  <text value="x" width="100%" mysteryWord="y"/>\n</vstack>\n`);
+let censusOut = "";
+try {
+  censusOut = run(npm, ["exec", "--no", "--", "dsx", "lint", "Components/CensusProbe.dsx"], app);
+} catch (error) {
+  censusOut = String((error as { stdout?: string }).stdout ?? error);
+}
+if (!censusOut.includes("takes points, never a percent")) fail(`shipped lint carries no style-value grammar:\n${censusOut}`);
+if (!censusOut.includes("not in the census for this element")) fail(`shipped lint carries no attribute census:\n${censusOut}`);
+rmSync(join(app, "Components", "CensusProbe.dsx"));
+console.log("[cold-start] lint: the shipped census + style-value grammar answer with no monorepo on the path.");
 
 // ── W8: the editor, from its published form ────────────────────────────────────────────
 // Pack @despia-native/canvas-editor like everything else, install it into the scaffold, then:
