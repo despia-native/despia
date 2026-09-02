@@ -289,13 +289,22 @@ export function resolveEditor(projectRoot: string, opts: { dsxOutDir?: string } 
   if (moduleDir !== null) {
     // OUTSIDE the project, deliberately. This is the developer's repository; a tool that
     // writes a build directory into it uninvited is a tool that shows up in their next
-    // `git status` and, if they miss it, their next commit. Keyed by the module path so two
-    // checkouts served at once cannot share one directory.
+    // `git status` and, if they miss it, their next commit.
+    //
+    // PER PROCESS, not per module path. The chrome is rebuilt on every start anyway, so a
+    // path-keyed directory bought no reuse and cost a race: two `despia edit` runs over one
+    // checkout, the Studio self-hosted beside the app you are building, built into the same
+    // directory at once, and the loser died mid-copy and fell back to the source pane. That is
+    // exactly the silent downgrade the catch below exists to make loud, arriving for a reason
+    // that had nothing to do with the editor.
     const out = opts.dsxOutDir
-      ?? join(tmpdir(), `despia-editor-${createHash("sha256").update(moduleDir).digest("hex").slice(0, 16)}`);
+      ?? join(tmpdir(), `despia-editor-${createHash("sha256").update(moduleDir).digest("hex").slice(0, 12)}-${randomBytes(6).toString("hex")}`);
     try {
       buildDsxEditor(moduleDir, out);
       dsxDir = out;
+      if (opts.dsxOutDir === undefined) {
+        process.on("exit", () => { rmSync(out, { recursive: true, force: true }); });
+      }
     } catch (e) {
       console.warn(`[despia edit] the DSX editor did not compile, serving the source pane: ${e instanceof Error ? e.message : String(e)}`);
     }

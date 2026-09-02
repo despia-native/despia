@@ -191,6 +191,25 @@ test("edit: the write boundary refuses traversal, foreign extensions, and empty 
   }
 });
 
+test("edit: two runs over one checkout do not share a chrome build directory", () => {
+  // The chrome used to compile into a directory keyed by the MODULE path, so the Studio
+  // self-hosted beside the app you are building meant two builds into one directory at once.
+  // The loser died mid-copy and served the plain source pane, which reads as the DSX editor
+  // being broken for a reason that has nothing to do with the editor. The chrome is rebuilt
+  // on every start regardless, so the shared path bought no reuse and only cost that race.
+  const a = project();
+  const b = project();
+  try {
+    const first = resolveEditor(a.root);
+    const second = resolveEditor(b.root);
+    assert.ok(first?.dsxDir !== undefined && second?.dsxDir !== undefined, "the DSX chrome did not compile");
+    assert.notEqual(first.dsxDir, second.dsxDir, "two runs write the chrome into one directory");
+  } finally {
+    a.cleanup();
+    b.cleanup();
+  }
+});
+
 test("edit: the editor packages resolve from the repository when the project carries none", () => {
   const fx = project();
   try {
