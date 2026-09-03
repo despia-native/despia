@@ -6,6 +6,8 @@ actionsheet	ios,android,web,macos
 addpkpass	ios,android,web
 addtosiri	ios
 admob	ios,android,web
+age	ios,android,web
+ageassurance	ios,android,web
 airbridge	ios,android,web
 appclip	ios
 appearance	ios,android,web,macos
