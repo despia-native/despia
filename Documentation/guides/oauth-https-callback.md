@@ -131,6 +131,30 @@ navigation would match and close it before the provider is shown. Both runtimes 
 that, decline the https flow, log the fix — pass the provider's own authorize URL — and
 run the legacy flow.
 
+### 3.2 The `url` value is decoded exactly once, or not at all
+
+Which one depends on how the call arrives, and both runtimes answer the same way:
+
+| Call shape | What happens to `url` |
+|---|---|
+| `dsx.module.oauth({ url })` | Nothing. The argument arrives typed and untouched, so the string the page built IS the string the provider gets. |
+| `despia('oauth://?url=<encoded>&type=https')` | Decoded exactly **once**, off the raw query. |
+
+The v3 wire spelling therefore takes `encodeURIComponent(authUrl)` on the way in and one
+percent-decode on the way out. Never decode again on top of that: an authorize URL
+carries escapes of its own, and unwrapping them corrupts the request. A `state` of
+`xY%2Bz` becomes `xY+z`, which a form decoder at the provider reads back as `xY z`, so
+the echoed `state` no longer matches the one the page stored; a `%26` becomes a real `&`
+and splits one parameter into two.
+
+Both runtimes read the wire form off the **raw** query rather than the bridge's smart
+parser, which is a separate trap in the same place: that parser splits comma-containing
+values into arrays and folds `+` into a space, and an authorize URL routinely carries
+both (comma scope lists, base64url `state`).
+
+An unencoded URL does not work and never did: its own `&` separators end the `url`
+parameter, and everything after the first is read as a parameter of the `oauth://` call.
+
 ## 4. Intermediate hops and the universal-link race (iOS)
 
 The callback host is normally also an `applinks:` domain, so iOS can hand the
