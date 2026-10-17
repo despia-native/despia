@@ -12,8 +12,8 @@ behavior, fixture by fixture.
 [![Version](https://img.shields.io/badge/version-0.0.1-orange.svg)](Documentation/RELEASING.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-This is the first public release. The framework behind it has been shipping commercial apps
-since 2011; the language, the kernels, and everything in this repository are new, actively
+This is the first public release. The framework behind it has been used internally for
+years; the language, the kernels, and everything in this repository are new, actively
 developed by the full Despia team, and open to contributions from day one.
 
 ## The names, so nothing gets confused
@@ -128,21 +128,19 @@ review the same documents.
 
 ## Where Despia comes from
 
-Despia has been around longer than the name. The framework started in 2011 at Jocapps, a
-German software development studio, as the internal foundation for client work; more than
-7,500 commercial apps shipped on it before it was ever a product. It then went commercial
-as a hosted platform for turning web apps into native apps, and more than 20,000 developers
-use that flow through the cloud today. That capability lives on as **Convert**, and it is
-still the fastest door in for a team with an existing web product. But it is one door, not
-the house. Despia today is the full application framework in this repository: the language,
-the kernels, the backend, the tooling, independently operated by
-[Despia LLC-FZ](https://despia.com). The framework and the language are open source under
-Apache 2.0; the managed deployment infrastructure and selected production modules remain
-commercial, and that line is stated plainly wherever it runs. What that means practically:
-web apps, PWAs, backends, and command-line tools build and ship entirely from this
-repository; the native kernels are open source, embeddable, and portable; and the turnkey
-production iOS and Android app assembly, signing, and store delivery are
-[Despia Cloud](https://despia.com), the managed layer.
+Despia has been used internally for years, not only as a framework but as a mental model for
+how to structure successful applications, across our past client work. We took everything
+those years taught us and built a product that lets anybody, and their AI agents, work the
+same way: one powerful structural pattern that makes an application easy to build, maintain,
+own and operate. It is the result of years of scaffolding, research and development.
+
+Despia is developed, owned and operated by [Despia LLC-FZ](https://despia.com). The framework
+and the language are open source under Apache 2.0; the managed deployment infrastructure and
+selected production modules remain commercial, and that line is stated plainly wherever it
+runs. What that means practically: web apps, PWAs, backends, and command-line tools build and
+ship entirely from this repository; the native kernels are open source, embeddable, and
+portable; and the turnkey production iOS and Android app assembly, signing, and store delivery
+are [Despia Cloud](https://despia.com), the managed layer.
 
 ## Despia is built with Despia
 
